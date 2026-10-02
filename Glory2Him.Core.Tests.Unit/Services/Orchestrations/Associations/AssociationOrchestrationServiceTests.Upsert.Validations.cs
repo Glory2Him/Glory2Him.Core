@@ -38,7 +38,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
         [Theory]
         [MemberData(nameof(UnauthenticatedSecurityContexts))]
-        public async Task ShouldThrowValidationExceptionOnAddIfUserIsNotAuthenticatedAndLogItAsync(
+        public async Task ShouldThrowValidationExceptionOnUpsertIfUserIsNotAuthenticatedAndLogItAsync(
             SecurityContext? unauthenticatedSecurityContext)
         {
             // given
@@ -57,13 +57,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     innerException: unauthorizedAssociationOrchestrationException);
 
             // when
-            ValueTask<AssociationSuggestionResult> addTask =
-                this.associationOrchestrationService.AddAssociationAsync(
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     TestContext.Current.CancellationToken);
 
             AssociationOrchestrationValidationException actualException =
-                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(addTask.AsTask);
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(upsertTask.AsTask);
 
             // then: refused before any endpoint is read or any row looked up
             actualException.Should().BeEquivalentTo(expectedValidationException);
@@ -78,7 +78,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnAddIfCallerIsBlockedFromContributingAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnUpsertIfCallerIsBlockedFromContributingAndLogItAsync()
         {
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.ReadOnly);
@@ -96,13 +96,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     innerException: unauthorizedAssociationOrchestrationException);
 
             // when
-            ValueTask<AssociationSuggestionResult> addTask =
-                this.associationOrchestrationService.AddAssociationAsync(
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     TestContext.Current.CancellationToken);
 
             AssociationOrchestrationValidationException actualException =
-                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(addTask.AsTask);
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(upsertTask.AsTask);
 
             // then
             actualException.Should().BeEquivalentTo(expectedValidationException);
@@ -117,7 +117,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnAddIfAssociationIsNullAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnUpsertIfAssociationIsNullAndLogItAsync()
         {
             // given
             Association nullAssociation = null;
@@ -133,13 +133,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     innerException: nullAssociationOrchestrationException);
 
             // when
-            ValueTask<AssociationSuggestionResult> addTask =
-                this.associationOrchestrationService.AddAssociationAsync(
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
                     nullAssociation,
                     TestContext.Current.CancellationToken);
 
             AssociationOrchestrationValidationException actualException =
-                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(addTask.AsTask);
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(upsertTask.AsTask);
 
             // then: null is caught before the envelope is even created
             actualException.Should().BeEquivalentTo(expectedValidationException);
@@ -155,7 +155,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnAddIfAnEndpointKeyIsEmptyAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnUpsertIfAnEndpointKeyIsEmptyAndLogItAsync()
         {
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
@@ -178,13 +178,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     innerException: invalidAssociationOrchestrationException);
 
             // when
-            ValueTask<AssociationSuggestionResult> addTask =
-                this.associationOrchestrationService.AddAssociationAsync(
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     TestContext.Current.CancellationToken);
 
             AssociationOrchestrationValidationException actualException =
-                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(addTask.AsTask);
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(upsertTask.AsTask);
 
             // then: rejected before any endpoint is resolved
             actualException.Should().BeEquivalentTo(expectedValidationException);
@@ -199,7 +199,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnAddIfAnEndpointDoesNotExistAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnUpsertIfAnEndpointDoesNotExistAndLogItAsync()
         {
             // given: the endpoint's own service reports a missing/non-visible row as a validation
             // failure; the orchestration turns that into a not-found endpoint, never re-surfacing
@@ -230,13 +230,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                         .ThrowsAsync(contentItemValidationException);
 
             // when
-            ValueTask<AssociationSuggestionResult> addTask =
-                this.associationOrchestrationService.AddAssociationAsync(
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     TestContext.Current.CancellationToken);
 
             AssociationOrchestrationValidationException actualException =
-                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(addTask.AsTask);
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(upsertTask.AsTask);
 
             // then
             actualException.Should().BeEquivalentTo(expectedValidationException);
@@ -294,13 +294,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     innerException: notFoundAssociationOrchestrationException);
 
             // when
-            ValueTask<AssociationSuggestionResult> addTask =
-                this.associationOrchestrationService.AddAssociationAsync(
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     TestContext.Current.CancellationToken);
 
             AssociationOrchestrationValidationException actualException =
-                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(addTask.AsTask);
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(upsertTask.AsTask);
 
             // then
             actualException.Should().BeEquivalentTo(expectedValidationException);
@@ -319,7 +319,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnAddIfAnEndpointTypeIsUnsupportedAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnUpsertIfAnEndpointTypeIsUnsupportedAndLogItAsync()
         {
             // given: Attachment has no foundation service yet — it cannot be an endpoint
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
@@ -338,13 +338,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     innerException: invalidAssociationOrchestrationException);
 
             // when
-            ValueTask<AssociationSuggestionResult> addTask =
-                this.associationOrchestrationService.AddAssociationAsync(
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     TestContext.Current.CancellationToken);
 
             AssociationOrchestrationValidationException actualException =
-                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(addTask.AsTask);
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(upsertTask.AsTask);
 
             // then
             actualException.Should().BeEquivalentTo(expectedValidationException);

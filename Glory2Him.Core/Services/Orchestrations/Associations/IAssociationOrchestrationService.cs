@@ -48,7 +48,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         /// cannot be laundered by resubmitting. The result carries a status and the row id and
         /// NOTHING else — the row body would leak another user's authorship.</para>
         /// </summary>
-        ValueTask<AssociationSuggestionResult> AddAssociationAsync(
+        ValueTask<AssociationSuggestionResult> UpsertAssociationAsync(
             Association association,
             CancellationToken cancellationToken = default);
 

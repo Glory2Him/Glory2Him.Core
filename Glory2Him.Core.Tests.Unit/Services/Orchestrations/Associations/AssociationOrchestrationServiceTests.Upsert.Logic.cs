@@ -79,7 +79,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             // when
             AssociationSuggestionResult actualResult =
-                await this.associationOrchestrationService.AddAssociationAsync(
+                await this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     TestContext.Current.CancellationToken);
 
@@ -112,7 +112,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             // when
             AssociationSuggestionResult actualResult =
-                await this.associationOrchestrationService.AddAssociationAsync(
+                await this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     TestContext.Current.CancellationToken);
 
@@ -150,7 +150,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             // when
             AssociationSuggestionResult actualResult =
-                await this.associationOrchestrationService.AddAssociationAsync(
+                await this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     TestContext.Current.CancellationToken);
 
@@ -187,7 +187,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             // when
             AssociationSuggestionResult actualResult =
-                await this.associationOrchestrationService.AddAssociationAsync(
+                await this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     TestContext.Current.CancellationToken);
 
@@ -229,7 +229,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                         .ReturnsAsync(CreatePairMatch(ApprovalStatus.Approved, isDeleted: false));
 
             // when
-            await this.associationOrchestrationService.AddAssociationAsync(
+            await this.associationOrchestrationService.UpsertAssociationAsync(
                 rawRequest,
                 TestContext.Current.CancellationToken);
 
@@ -284,7 +284,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                         });
 
             // when
-            await this.associationOrchestrationService.AddAssociationAsync(
+            await this.associationOrchestrationService.UpsertAssociationAsync(
                 rawRequest,
                 TestContext.Current.CancellationToken);
 
@@ -342,7 +342,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                         .ReturnsAsync(CreatePairMatch(ApprovalStatus.Approved, isDeleted: false));
 
             // when
-            await this.associationOrchestrationService.AddAssociationAsync(
+            await this.associationOrchestrationService.UpsertAssociationAsync(
                 rawRequest,
                 TestContext.Current.CancellationToken);
 
@@ -388,7 +388,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                         });
 
             // when
-            await this.associationOrchestrationService.AddAssociationAsync(
+            await this.associationOrchestrationService.UpsertAssociationAsync(
                 rawRequest,
                 TestContext.Current.CancellationToken);
 
@@ -430,7 +430,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             // when
             AssociationSuggestionResult actualResult =
-                await this.associationOrchestrationService.AddAssociationAsync(
+                await this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     TestContext.Current.CancellationToken);
 
@@ -480,7 +480,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             // when
             AssociationSuggestionResult actualResult =
-                await this.associationOrchestrationService.AddAssociationAsync(
+                await this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     TestContext.Current.CancellationToken);
 
@@ -521,7 +521,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             // when
             AssociationSuggestionResult actualResult =
-                await this.associationOrchestrationService.AddAssociationAsync(
+                await this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     TestContext.Current.CancellationToken);
 

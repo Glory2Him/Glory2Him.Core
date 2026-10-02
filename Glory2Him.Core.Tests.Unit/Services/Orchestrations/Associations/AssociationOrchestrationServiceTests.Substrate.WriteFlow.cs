@@ -59,7 +59,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
         // ONE WRITE FLOW, BOTH DOORS (#631 criterion 4). The event handler carries no second copy
         // of endpoint resolution, of the UserId derivation, or of any rule the method path holds;
-        // it reaches them through the same flow AddAssociationAsync uses. Proven by driving each
+        // it reaches them through the same flow UpsertAssociationAsync uses. Proven by driving each
         // of that flow's refusals through BOTH entry points and requiring the SAME answer from
         // each — a rule present on one door and missing, or worded differently, on the other
         // fails here. The reaction-specific facet refusal that will ride this seam is #617's,
@@ -124,7 +124,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             // when
             ValueTask<AssociationSuggestionResult> methodPathTask =
-                this.associationOrchestrationService.AddAssociationAsync(
+                this.associationOrchestrationService.UpsertAssociationAsync(
                     methodRequest,
                     TestContext.Current.CancellationToken);
 
@@ -194,7 +194,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 .ToArray();
 
             MethodInfo methodPathEntry = serviceType.GetMethod(
-                nameof(AssociationOrchestrationService.AddAssociationAsync));
+                nameof(AssociationOrchestrationService.UpsertAssociationAsync));
 
             MethodInfo eventPathEntry = serviceType.GetMethod(
                 nameof(AssociationOrchestrationService.OnAddingAssociationAsync));
@@ -345,7 +345,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                         .ReturnsAsync(inputEnvelope);
 
             // when
-            await this.associationOrchestrationService.AddAssociationAsync(
+            await this.associationOrchestrationService.UpsertAssociationAsync(
                 methodRequest,
                 TestContext.Current.CancellationToken);
 
@@ -520,7 +520,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             // when
             AssociationSuggestionResult actualResult =
-                await this.associationOrchestrationService.AddAssociationAsync(
+                await this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     TestContext.Current.CancellationToken);
 

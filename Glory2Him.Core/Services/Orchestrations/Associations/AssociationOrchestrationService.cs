@@ -89,7 +89,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             this.loggingBroker = loggingBroker;
         }
 
-        public ValueTask<AssociationSuggestionResult> AddAssociationAsync(
+        public ValueTask<AssociationSuggestionResult> UpsertAssociationAsync(
             Association association,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
@@ -100,13 +100,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 EventEnvelope<Association> envelope =
                     await this.eventEnvelopeBroker.CreateAsync(content: association);
 
-                return await DoAddAssociationAsync(
+                return await DoUpsertAssociationAsync(
                     association: association,
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
             });
 
-        private async ValueTask<AssociationSuggestionResult> DoAddAssociationAsync(
+        private async ValueTask<AssociationSuggestionResult> DoUpsertAssociationAsync(
             Association association,
             EventEnvelope<Association> inboundEnvelope,
             CancellationToken cancellationToken)
@@ -230,7 +230,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         }
 
         // THE ADD'S WRITE FLOW — every rule that decides whether an add may happen and what the
-        // row derives to — written ONCE and run by BOTH entry paths: AddAssociationAsync on the
+        // row derives to — written ONCE and run by BOTH entry paths: UpsertAssociationAsync on the
         // way to the pair probe, and the Association-Adding handler on the way to the
         // foundation's own handler (#631). A rule added here is on both doors by construction and
         // cannot be added to one alone, which is what makes "a gate the event path walks past"
