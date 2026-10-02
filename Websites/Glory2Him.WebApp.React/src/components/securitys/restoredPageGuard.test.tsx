@@ -67,13 +67,16 @@ const isHidden = (): boolean => {
 
     return rootStyle.visibility === 'hidden'
         && rootStyle.getPropertyValue('opacity') === '0'
-        && rootStyle.getPropertyPriority('opacity') === 'important';
+        && rootStyle.getPropertyPriority('opacity') === 'important'
+        && document.body.hasAttribute('inert');
 };
 
 const isShown = (): boolean => {
     const rootStyle = document.documentElement.style;
 
-    return rootStyle.visibility === '' && rootStyle.getPropertyValue('opacity') === '';
+    return rootStyle.visibility === ''
+        && rootStyle.getPropertyValue('opacity') === ''
+        && !document.body.hasAttribute('inert');
 };
 
 describe('RestoredPageGuard', () => {
