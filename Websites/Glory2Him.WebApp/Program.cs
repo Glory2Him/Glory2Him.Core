@@ -108,7 +108,8 @@ app.UseStaticFiles();
 // again after its reader left, by Back or by a restore, must be answered by the server for
 // whoever is signed in then. So an /api answer that sets no cache policy of its own is sent
 // no-store, decided as the headers go out so that an endpoint's own policy — the contributor
-// read's — stands.
+// read's — stands. It sits above authentication and authorization because they answer a refused
+// /api request themselves, and a refusal is kept no more than any other answer.
 app.Use((httpContext, next) =>
 {
     if (httpContext.Request.Path.StartsWithSegments("/api"))
