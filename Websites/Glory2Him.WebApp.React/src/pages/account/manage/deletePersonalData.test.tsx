@@ -1,5 +1,5 @@
 import { AxiosError, AxiosHeaders } from 'axios';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DeletePersonalData } from './deletePersonalData';
@@ -9,7 +9,13 @@ interface DeletePersonalDataCallbacks {
     onError: (error: unknown) => void;
 }
 
-const mocks = vi.hoisted(() => ({ deletePersonalDataMutate: vi.fn(), replace: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+    deletePersonalDataMutate: vi.fn(),
+    replace: vi.fn(),
+    assign: vi.fn(),
+    reload: vi.fn(),
+    setHref: vi.fn()
+}));
 
 vi.mock('../../../services/foundations/manageAccountService', () => ({
     manageAccountService: {
@@ -18,10 +24,42 @@ vi.mock('../../../services/foundations/manageAccountService', () => ({
     }
 }));
 
+const deletePersonalDataPath = '/Account/Manage/DeletePersonalData';
+
+// Rendered beside the routes, so the test reads where the reader is from the router itself.
+const Landed = () => {
+    const { pathname } = useLocation();
+
+    return <output data-testid="landed">{pathname}</output>;
+};
+
 const renderDeletePersonalData = () => render(
-    <MemoryRouter initialEntries={['/Account/Manage/DeletePersonalData']}>
-        <DeletePersonalData />
+    <MemoryRouter initialEntries={[deletePersonalDataPath]}>
+        <Routes>
+            <Route path={deletePersonalDataPath} element={<DeletePersonalData />} />
+            <Route path="*" element={null} />
+        </Routes>
+        <Landed />
     </MemoryRouter>);
+
+const landedOn = () => screen.getByTestId('landed').textContent;
+
+// Records every way the page could load another document, so none of them goes unseen.
+const stubLocation = () => {
+    const location = {
+        ...window.location,
+        replace: mocks.replace,
+        assign: mocks.assign,
+        reload: mocks.reload
+    };
+
+    Object.defineProperty(location, 'href', {
+        get: () => window.location.href,
+        set: mocks.setHref
+    });
+
+    vi.stubGlobal('location', location);
+};
 
 const submitDeletion = () => {
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'P@ssw0rd!' } });
@@ -32,7 +70,10 @@ describe('DeletePersonalData', () => {
     beforeEach(() => {
         mocks.deletePersonalDataMutate.mockReset();
         mocks.replace.mockReset();
-        vi.stubGlobal('location', { ...window.location, replace: mocks.replace });
+        mocks.assign.mockReset();
+        mocks.reload.mockReset();
+        mocks.setHref.mockReset();
+        stubLocation();
     });
 
     afterEach(() => {
@@ -52,6 +93,7 @@ describe('DeletePersonalData', () => {
         // then
         expect(mocks.replace).toHaveBeenCalledOnce();
         expect(mocks.replace).toHaveBeenCalledWith('/');
+        expect(landedOn()).toBe(deletePersonalDataPath);
     });
 
     it('should stay on the page and show the message when the deletion fails', () => {
@@ -74,6 +116,10 @@ describe('DeletePersonalData', () => {
 
         // then
         expect(mocks.replace).not.toHaveBeenCalled();
+        expect(mocks.assign).not.toHaveBeenCalled();
+        expect(mocks.reload).not.toHaveBeenCalled();
+        expect(mocks.setHref).not.toHaveBeenCalled();
+        expect(landedOn()).toBe(deletePersonalDataPath);
         expect(screen.getByRole('heading', { name: 'Delete Personal Data' })).toBeTruthy();
         expect(screen.getByText('Error: Incorrect password.')).toBeTruthy();
     });
