@@ -138,7 +138,7 @@ export default function UserMenuComponent(): ReactElement {
 
                     <li><hr className="dropdown-divider" /></li>
                     <li>
-                        <button type="button" onClick={() => logout.mutate()}
+                        <button type="button" onClick={() => logout.mutate(undefined, { onSuccess: () => window.location.replace("/") })}
                             className="dropdown-item d-flex align-items-center text-danger">
                             <i className="bi bi-box-arrow-right fa-fw me-2"></i>Logout
                         </button>
