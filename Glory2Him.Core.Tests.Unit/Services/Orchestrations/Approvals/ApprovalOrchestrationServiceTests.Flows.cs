@@ -1988,6 +1988,67 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             flowSteps.Should().Equal("dismiss", "dismiss", "conditions-read", "ai-reset");
         }
 
+        [Fact]
+        public async Task ShouldDismissAndEvaluateAnOpenRoundWithoutReturningItAsync()
+        {
+            // given: the round is still OPEN — the tier wants a second approval — and was last
+            // written a day before the change. Only a DECIDED round goes back to Submitted, so an
+            // open one stays where it is, whenever it was last written; its old pair's review is
+            // still dismissed, and it is evaluated on what is left (§APR9.7.4). The read after
+            // the dismissal finds the threshold unmet, so nothing is written.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            var oldPairReviewId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Submitted,
+                updatedWhen: changedWhen.AddDays(-1),
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
+            SetupFlowSystemEnvelope<Association>();
+
+            List<Guid> dismissedReviewIds = SetupRepointedReviews(
+                approvalId,
+                flowSteps,
+                CreateRepointedReview(oldPairReviewId, createdWhen: changedWhen.AddHours(-2)),
+                CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen.AddMinutes(5)));
+
+            List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
+                SetupRepointedRoundWrites(storageApproval, flowSteps);
+
+            List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
+
+            SetupRepointedConditions(
+                CreateFlowConditions(
+                    blockReasons: new List<AccessDenialReason>
+                    {
+                        AccessDenialReason.ApprovalThresholdNotMet,
+                    },
+                    approvalCount: 1,
+                    requiredNumberOfApprovals: 2),
+                flowSteps);
+
+            // when
+            await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                envelope: CreateRepointedEnvelope(
+                    CreateRepointedAssociation(entityId, changedWhen)),
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then: it stayed Submitted — nothing written to the round, nothing sent to the
+            // association
+            roundWrites.Should().BeEmpty();
+            associationCommands.Should().BeEmpty();
+
+            // the old pair's review was dismissed, and the round evaluated after it
+            dismissedReviewIds.Should().Equal(new[] { oldPairReviewId });
+            flowSteps.Should().Equal("dismiss", "conditions-read");
+        }
+
         private static Approval CreateRepointedRound(
             Guid approvalId,
             Guid entityId,
