@@ -38,6 +38,11 @@ const readerB = new CurrentUser({
 
 const nobody = new CurrentUser({ isAuthenticated: false });
 
+// Each read of the current user builds a new CurrentUser, so the fresh read never answers with
+// the object the page noted as it went into the cache.
+const freshCopyOf = (currentUser: CurrentUser): CurrentUser =>
+    new CurrentUser({ ...currentUser });
+
 // The test environment treats a PageTransitionEvent as a plain Event and drops `persisted`
 // from its constructor, so it is set on the event itself.
 const dispatchPageTransition = (type: 'pagehide' | 'pageshow', persisted: boolean): void => {
@@ -83,7 +88,7 @@ describe('RestoredPageGuard', () => {
         mocks.currentUser = readerA;
         rerender(<RestoredPageGuard />);
         dispatchPageTransition('pagehide', true);
-        answerFreshRead(readerA);
+        answerFreshRead(freshCopyOf(readerA));
 
         // when
         dispatchPageTransition('pageshow', true);
@@ -117,7 +122,7 @@ describe('RestoredPageGuard', () => {
         mocks.currentUser = readerA;
         render(<RestoredPageGuard />);
         dispatchPageTransition('pagehide', true);
-        answerFreshRead(readerA);
+        answerFreshRead(freshCopyOf(readerA));
         const rootStyle = document.documentElement.style;
 
         // when
@@ -234,7 +239,7 @@ describe('RestoredPageGuard', () => {
         // given
         mocks.currentUser = readerA;
         render(<RestoredPageGuard />);
-        answerFreshRead(readerA);
+        answerFreshRead(freshCopyOf(readerA));
 
         // when
         dispatchPageTransition('pageshow', false);
