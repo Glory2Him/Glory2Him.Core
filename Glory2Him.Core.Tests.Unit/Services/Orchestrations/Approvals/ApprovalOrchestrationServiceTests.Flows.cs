@@ -2122,6 +2122,71 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             flowSteps.Should().Equal("conditions-read");
         }
 
+        [Fact]
+        public async Task ShouldReturnARoundRejectedBeforeTheChangeAndEvaluateItAsync()
+        {
+            // given: the workflow rejected the round on a standing rejection a day BEFORE the
+            // reader changed their reaction, so the round is the old reaction's, decided on the
+            // old pair's terms, and goes back like any round decided before the change
+            // (§APR9.7.4, the first case). The rejection that blocked it has since been withdrawn,
+            // so no review stands behind it: what returns it is when it was decided, not which
+            // reviews are left.
+            //
+            // The tier asks for an approval, so the round is evaluated and stays open.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Rejected,
+                updatedWhen: changedWhen.AddDays(-1),
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Rejected, approvalId));
+            SetupFlowSystemEnvelope<Association>();
+            SetupRepointedReviews(approvalId);
+
+            List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
+                SetupRepointedRoundWrites(storageApproval, flowSteps);
+
+            List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
+
+            SetupRepointedConditions(
+                CreateFlowConditions(
+                    blockReasons: new List<AccessDenialReason>
+                    {
+                        AccessDenialReason.ApprovalThresholdNotMet,
+                    },
+                    approvalCount: 0,
+                    requiredNumberOfApprovals: 1),
+                flowSteps);
+
+            // when
+            await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                envelope: CreateRepointedEnvelope(
+                    CreateRepointedAssociation(entityId, changedWhen)),
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then: returned as the workflow
+            roundWrites.Should().ContainSingle();
+            roundWrites[0].Approval.Id.Should().Be(approvalId);
+            roundWrites[0].Approval.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+            roundWrites[0].Attribution.Should().Be(WorkflowAttribution.System);
+
+            // the association followed it to Submitted and is unpublished
+            associationCommands.Should().ContainSingle();
+            associationCommands[0].Id.Should().Be(entityId);
+            associationCommands[0].ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+            associationCommands[0].IsPublished.Should().BeFalse();
+            associationCommands[0].PublishDate.Should().BeNull();
+
+            // and the round was evaluated once it was back
+            flowSteps.Should().Equal("write:Submitted", "command:Submitted", "conditions-read");
+        }
+
         private static Approval CreateRepointedRound(
             Guid approvalId,
             Guid entityId,
