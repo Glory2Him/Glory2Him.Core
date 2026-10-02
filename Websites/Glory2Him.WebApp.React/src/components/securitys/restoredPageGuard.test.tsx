@@ -222,4 +222,26 @@ describe('RestoredPageGuard', () => {
         expect(mocks.refetch).not.toHaveBeenCalled();
         expect(reload).not.toHaveBeenCalled();
     });
+
+    it('should reload a restored page when the current user cannot be read', async () => {
+        // given
+        mocks.currentUser = readerA;
+        render(<RestoredPageGuard />);
+        dispatchPageTransition('pagehide', true);
+
+        // React Query keeps the last answer beside the error of a failed read.
+        mocks.refetch.mockResolvedValue({
+            data: readerA,
+            isError: true,
+            error: new Error('The current user could not be read.')
+        });
+
+        // when
+        dispatchPageTransition('pageshow', true);
+        await settle();
+
+        // then
+        expect(reload).toHaveBeenCalledTimes(1);
+        expect(isHidden()).toBe(true);
+    });
 });
