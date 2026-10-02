@@ -64,4 +64,17 @@ describe('HeaderComponent', () => {
         expect(replace).toHaveBeenCalledTimes(1);
         expect(replace).toHaveBeenCalledWith('/');
     });
+
+    it("should stay on the page when the header's logout fails", async () => {
+        // given
+        logoutOutcome = 'failure';
+        const { container } = renderHeader();
+
+        // when
+        await pressHeaderLogout(container);
+
+        // then
+        expect(mutate).toHaveBeenCalledTimes(1);
+        expect(replace).not.toHaveBeenCalled();
+    });
 });
