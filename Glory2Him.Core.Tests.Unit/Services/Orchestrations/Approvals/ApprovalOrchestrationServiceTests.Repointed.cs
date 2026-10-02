@@ -23,6 +23,7 @@ using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
+using Xeptions;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 {
@@ -284,6 +285,161 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ApprovalDependencyExceptions))]
+        public async Task ShouldRethrowAFailureOfTheFlowOnRepointedAndLogItAsync(
+            Xeption foundationException)
+        {
+            // given: the round was decided before the change, so the flow's first write is its
+            // return to Submitted, and the Approval foundation fails it. A failure beneath an ear
+            // is mapped by the flow's own chain, logged, and rethrown OUT of the ear, as every
+            // ear's is: the substrate then records the delivery as failed and redelivers it. An
+            // ear that swallowed it would leave the change unprocessed, with nothing to retry it.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Approved,
+                updatedWhen: changedWhen.AddDays(-1),
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Approved, approvalId));
+            SetupSubstrateApprovalRow(storageApproval);
+
+            SetupRepointedReviews(
+                approvalId,
+                CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen.AddDays(-1)));
+
+            this.approvalServiceMock.Setup(service =>
+                service.ModifyApprovalAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(foundationException);
+
+            var expectedDependencyException =
+                new ApprovalOrchestrationDependencyException(
+                    message: ExpectedDependencyMessage,
+                    innerException: (foundationException.InnerException as Xeption)!);
+
+            // when
+            ValueTask<EventEnvelope<Association>> repointedTask =
+                this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                    envelope: CreateRepointedEnvelope(
+                        CreateRepointedAssociation(entityId, changedWhen)),
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ApprovalOrchestrationDependencyException actualException =
+                await Assert.ThrowsAsync<ApprovalOrchestrationDependencyException>(
+                    repointedTask.AsTask);
+
+            // then: mapped to this service's dependency category, logged once, and rethrown
+            actualException.Should().BeEquivalentTo(expectedDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyException))),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.IsAny<Exception>()),
+                Times.Never);
+
+            // and the flow stopped where it failed: the association was not told, and no review
+            // was dismissed
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.approvalReviewServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldRethrowADependencyTimeoutOnRepointedAndLogItAsync()
+        {
+            // given: an open round, so the first read the changed reaction makes of its own is the
+            // round's reviews with when each was written — and that read is cancelled although
+            // the caller never asked. The exception's own token was never cancelled, so it is a
+            // dependency that gave up, i.e. a timeout: this service's dependency exception,
+            // wrapping the timeout, is logged and rethrown, and the substrate retries the delivery.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Submitted,
+                updatedWhen: changedWhen.AddDays(-1),
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
+            SetupSubstrateApprovalRow(storageApproval);
+            SetupConditions(CreateFlowConditions());
+
+            // The default constructor leaves CancellationToken at None, whose
+            // IsCancellationRequested is false — the timeout half of the filter.
+            var operationCanceledException = new OperationCanceledException();
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.FindDismissableApprovalReviewsAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(operationCanceledException);
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutApprovalOrchestrationException =
+                new TimeoutApprovalOrchestrationException(
+                    message: "Failed content item association orchestration timeout error occurred, " +
+                        "contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedDependencyException =
+                new ApprovalOrchestrationDependencyException(
+                    message: ExpectedDependencyMessage,
+                    innerException: timeoutApprovalOrchestrationException);
+
+            // when: a live token is handed in, so only the thrown exception's own token can decide
+            // the branch
+            ValueTask<EventEnvelope<Association>> repointedTask =
+                this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                    envelope: CreateRepointedEnvelope(
+                        CreateRepointedAssociation(entityId, changedWhen)),
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ApprovalOrchestrationDependencyException actualException =
+                await Assert.ThrowsAsync<ApprovalOrchestrationDependencyException>(
+                    repointedTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyException))),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.IsAny<Exception>()),
+                Times.Never);
+
+            // nothing was dismissed, written or announced past the read that gave up
+            this.approvalReviewServiceMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+
+            this.approvalServiceMock.Verify(service =>
+                service.ModifyApprovalAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
         }
 
         // The change's own moment, pinned rather than drawn. Every review and every round in these
