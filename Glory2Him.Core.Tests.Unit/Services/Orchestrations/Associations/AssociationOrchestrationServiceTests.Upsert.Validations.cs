@@ -672,5 +672,42 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldNotGateABibleReferenceHostAsync()
+        {
+            // given: a tag on a passage. A BibleReference host's settings entity is not built, so
+            // the gate has nothing to ask of it, and a Tag has no settings entity at all
+            // (§ARC16.2.1, the BibleReference host is a gap). No setting is read for the pair.
+            Association rawRequest =
+                CreateRawUpsertRequestBetween(EntityType.BibleReference, EntityType.Tag);
+
+            SetupMethodPathEndpointReads(rawRequest);
+            var insertedId = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.AddAssociationAsync(
+                    It.IsAny<Association>(),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync((Association association, CancellationToken _) =>
+                        {
+                            association.Id = insertedId;
+
+                            return association;
+                        });
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    rawRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then: written as the add writes a free pair, with no setting asked
+            actualResult.Status.Should().Be(AssociationSuggestionStatus.Created);
+            actualResult.AssociationId.Should().Be(insertedId);
+
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
