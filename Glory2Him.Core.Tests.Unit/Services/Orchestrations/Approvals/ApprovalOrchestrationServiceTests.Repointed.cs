@@ -253,6 +253,39 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldRefuseARepointedEnvelopeWithNoContentAsync()
+        {
+            // given: an Association-Repointed envelope carrying no content. The content is where
+            // the association's identity AND the change's time come from, so there is no round it
+            // could be about and no bound it could hand the flow. It is refused as every ear
+            // refuses one — before the signature is asked about, since there is nothing signed to
+            // read — and never dereferenced for the time.
+            var expectedInvalidException =
+                new InvalidApprovalOrchestrationException(
+                    message: "Approval is invalid, fix the errors and try again.");
+
+            // when
+            ValueTask<EventEnvelope<Association>> repointedTask =
+                this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                    envelope: CreateRepointedEnvelope(content: null),
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            InvalidApprovalOrchestrationException actualException =
+                await Assert.ThrowsAsync<InvalidApprovalOrchestrationException>(
+                    repointedTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedInvalidException);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.approvalServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+        }
+
         // The change's own moment, pinned rather than drawn. Every review and every round in these
         // tests is placed against it, and a drawn time can land in year 0001, where subtracting
         // from it throws.
