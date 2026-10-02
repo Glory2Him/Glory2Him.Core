@@ -125,8 +125,9 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.CachePolicies
             actualResponse.Headers.CacheControl.NoStore.Should().BeTrue();
         }
 
-        // A refusal is a failed answer too, and it is the authentication and authorization
-        // middleware that writes it, not an endpoint: the policy has to sit above them to reach it.
+        // A refusal is a failed answer too, and it is the authorization middleware, through the
+        // scheme's challenge or forbid, that writes it, not an endpoint: the policy has to sit
+        // above it to reach it.
         [Theory]
         [InlineData("api/profile", true, HttpStatusCode.Unauthorized)]
         [InlineData("api/admin/users", false, HttpStatusCode.Forbidden)]
