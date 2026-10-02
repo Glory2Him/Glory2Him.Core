@@ -29,6 +29,7 @@ using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Securities;
+using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
@@ -2246,6 +2247,103 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 Times.Once);
 
             this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [InlineData(nameof(IApprovalOrchestrationService.OnAssociationModifiedAsync), false)]
+        [InlineData(nameof(IApprovalOrchestrationService.OnAssociationModifiedAsync), true)]
+        [InlineData(nameof(IApprovalOrchestrationService.OnAssociationSubmittedAsync), false)]
+        [InlineData(nameof(IApprovalOrchestrationService.OnAssociationSubmittedAsync), true)]
+        public async Task ShouldHandTheFlowNoChangeTimeOnAnAssociationModifiedOrSubmittedFactAsync(
+            string handlerName,
+            bool shouldResetStaleReviewsOnChange)
+        {
+            // given: an Association-Modified or -Submitted fact. Only the Association-Repointed
+            // ear hands the flow a change time (§APR9.7.4); these two run it as every other ear
+            // does, exactly as before #727 (its criterion 10): no decided round is returned, and
+            // the round's reviews — all of them — are dismissed only when
+            // RequireReapprovalOnChange says so, with Berean's pass taken back alongside.
+            //
+            // Armed so that a change time would show. The round was approved a day before the
+            // fact's UpdatedWhen, which a bound would return, and its one active review was
+            // written between the two, which a bound would dismiss whatever the setting says.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            var activeReviewId = Guid.NewGuid();
+            var staleAssignmentId = Guid.NewGuid();
+            DateTimeOffset factUpdatedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Approved,
+                updatedWhen: factUpdatedWhen.AddDays(-1),
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Approved, approvalId));
+            SetupFlowSystemEnvelope<Association>();
+
+            List<Guid> dismissedReviewIds = SetupRepointedReviews(
+                approvalId,
+                CreateRepointedReview(activeReviewId, createdWhen: factUpdatedWhen.AddHours(-1)));
+
+            List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
+                SetupRepointedRoundWrites(storageApproval, flowSteps);
+
+            List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
+            SetupResettableAIReviewerAssignment(approvalId, staleAssignmentId);
+            SetupAIReviewerAssignmentReturnToPending();
+
+            SetupRepointedConditions(
+                CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: shouldResetStaleReviewsOnChange),
+                flowSteps);
+
+            EventEnvelope<Association> inputEnvelope =
+                CreateRepointedEnvelope(CreateRepointedAssociation(entityId, factUpdatedWhen));
+
+            // when
+            EventEnvelope<Association> actualReply = handlerName switch
+            {
+                nameof(IApprovalOrchestrationService.OnAssociationModifiedAsync) =>
+                    await this.approvalOrchestrationService.OnAssociationModifiedAsync(
+                        envelope: inputEnvelope,
+                        cancellationToken: cancellationToken),
+
+                nameof(IApprovalOrchestrationService.OnAssociationSubmittedAsync) =>
+                    await this.approvalOrchestrationService.OnAssociationSubmittedAsync(
+                        envelope: inputEnvelope,
+                        cancellationToken: cancellationToken),
+
+                _ => throw new InvalidOperationException($"No ear is wired for {handlerName}.")
+            };
+
+            // then: no decided round was returned, and the association was told nothing
+            roundWrites.Should().BeEmpty();
+            associationCommands.Should().BeEmpty();
+
+            // the round's reviews were never read with a bound, because there is none
+            this.accessBrokerMock.Verify(broker =>
+                broker.FindDismissableApprovalReviewsAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            // and the setting alone decided the dismissal, and Berean's pass with it
+            dismissedReviewIds.Should().Equal(
+                shouldResetStaleReviewsOnChange
+                    ? new[] { activeReviewId }
+                    : Array.Empty<Guid>());
+
+            this.aiReviewerAssignmentWorkflowServiceMock.Verify(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    staleAssignmentId,
+                    cancellationToken),
+                shouldResetStaleReviewsOnChange ? Times.Once() : Times.Never());
+
+            actualReply.Should().BeNull();
         }
 
         [Fact]
