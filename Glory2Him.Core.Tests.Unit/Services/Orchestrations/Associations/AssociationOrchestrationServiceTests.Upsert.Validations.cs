@@ -460,5 +460,82 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Theory]
+        [InlineData("Moved")]
+        [InlineData("Lovely")]
+        [InlineData("Beloved")]
+        public async Task ShouldThrowValidationExceptionOnUpsertIfTheItemIsLimitedToLoveAndLogItAsync(
+            string reactionName)
+        {
+            // given: the item allows reactions but is limited to Love, and the reaction given is
+            // another one. Two of them hold "love" inside a longer name, so the match is on the
+            // whole name rather than a part of it.
+            Association rawRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            ContentItem resolvedContentItem =
+                SetupMethodPathEndpointReads(rawRequest, reactionName);
+
+            ContentItemSetting loveOnlySetting =
+                CreateAllowingContentItemSetting(resolvedContentItem.ContentType);
+
+            loveOnlySetting.LimitReactionsToLoveOnly = true;
+            List<ContentItemSettingKey> expectedSettingKeys = CreateSettingKeysFor(resolvedContentItem);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new List<EffectiveContentItemSetting>
+                        {
+                            new EffectiveContentItemSetting
+                            {
+                                ContentItemId = resolvedContentItem.Id,
+                                ContentItemSetting = loveOnlySetting,
+                            },
+                        });
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationOrchestrationException.AddData(
+                key: nameof(ContentItemSetting.LimitReactionsToLoveOnly),
+                values: "Value allows only the Love reaction");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
+                    rawRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    upsertTask.AsTask);
+
+            // then: refused by the narrowing it names, and nothing is probed or written
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
