@@ -906,6 +906,72 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // Every read-only scope that could reach a reaction on a Story: the global block, each
+        // endpoint's %EntityType%-ReadOnly, and the item's narrow ContentItem-%ContentType%-ReadOnly.
+        public static TheoryData<string> ReadOnlyRolesOverAReaction() =>
+            new TheoryData<string>
+            {
+                Roles.ReadOnly,
+                Roles.ReadOnlyFor(EntityType.Reaction),
+                Roles.ReadOnlyFor(EntityType.ContentItem),
+                Roles.ReadOnlyFor(EntityType.ContentItem, ContentType.Story),
+            };
+
+        [Theory]
+        [MemberData(nameof(ReadOnlyRolesOverAReaction))]
+        public async Task ShouldUpsertAReactionWhateverReadOnlyRoleTheReaderHoldsAsync(
+            string readOnlyRole)
+        {
+            // given: a reader under a read-only role gives a reaction. A ReadOnly role blocks a
+            // contribution, and a reaction is not one, so a personal pair asks neither the global
+            // block nor the endpoint veto (§SEC14.7 posture A′ rule 1).
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId, readOnlyRole);
+
+            Association upsertRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            Association expectedUpsertedAssociation =
+                SetupReadersReaction(upsertRequest, readerUserId);
+
+            Association readersRow = expectedUpsertedAssociation.DeepClone();
+            readersRow.Id = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new PersonalAssociationUpsert
+                        {
+                            Outcome = PersonalAssociationUpsertOutcome.Created,
+                            Association = readersRow,
+                        });
+
+            var expectedResult = new AssociationSuggestionResult
+            {
+                Status = AssociationSuggestionStatus.Created,
+                AssociationId = readersRow.Id,
+            };
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.associationServiceMock.Verify(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A signed-in reader's reaction on an item whose setting allows reactions: the envelope,
         // both endpoint reads and the setting. Hands back the row the foundation is to be handed.
         private Association SetupReadersReaction(Association upsertRequest, string readerUserId)
