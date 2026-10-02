@@ -598,5 +598,79 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnUpsertIfTheItemsSettingDoesNotResolveAndLogItAsync()
+        {
+            // given: no setting resolves for the item under its type. The broker answers per key,
+            // and its answer here holds one allowing row for each term of the key that misses on
+            // that term alone — the same item under another type, and another item under the
+            // same type — so a gate that took a row for any other key would admit the pair.
+            Association rawRequest = CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Tag);
+            ContentItem resolvedContentItem = SetupMethodPathEndpointReads(rawRequest);
+            List<ContentItemSettingKey> expectedSettingKeys = CreateSettingKeysFor(resolvedContentItem);
+
+            var nearMissSettings = new List<EffectiveContentItemSetting>
+            {
+                new EffectiveContentItemSetting
+                {
+                    ContentItemId = resolvedContentItem.Id,
+                    ContentItemSetting = CreateAllowingContentItemSetting(ContentType.Testimony),
+                },
+
+                new EffectiveContentItemSetting
+                {
+                    ContentItemId = Guid.NewGuid(),
+                    ContentItemSetting = CreateAllowingContentItemSetting(resolvedContentItem.ContentType),
+                },
+            };
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(nearMissSettings);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationOrchestrationException.AddData(
+                key: nameof(ContentItemSetting.TagsAllowed),
+                values: "Value could not be resolved");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
+                    rawRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    upsertTask.AsTask);
+
+            // then: the gate never falls open — refused, and nothing is probed or written
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
