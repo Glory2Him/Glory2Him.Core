@@ -1,14 +1,11 @@
 import { FormEvent, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { manageAccountService } from '../../../services/foundations/manageAccountService';
 import { StatusMessage, extractApiErrorMessage } from '../statusMessage';
 
 // Ported from Blazor's Account/Pages/Manage/DeletePersonalData.razor. On success the
-// account is gone and the user is signed out, so the SPA returns to the home page —
-// the Blazor page's "redirect to current page" would only hit the login redirect.
+// account is gone and the user is signed out, so the browser loads the home page afresh
+// in this page's place — nothing read for the reader stays in the tab (§UI20.8 rule 3).
 export function DeletePersonalData() {
-    const navigate = useNavigate();
-
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState<string | null>(null);
 
@@ -23,7 +20,7 @@ export function DeletePersonalData() {
 
         deletePersonalData.mutate(password, {
             onSuccess: () => {
-                navigate('/');
+                location.replace('/');
             },
             onError: (error: unknown) => {
                 setMessage(extractApiErrorMessage(
