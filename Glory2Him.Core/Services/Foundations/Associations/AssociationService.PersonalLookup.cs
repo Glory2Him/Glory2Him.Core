@@ -118,8 +118,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // the key UX_Associations_PersonalPair holds — the host's type and effective id, the far
         // end's type and the reader — over the unfiltered store, withdrawn rows included, because
         // a revive needs the withdrawn row. The far end's key is not a term: a reader has one row
-        // per host whichever reaction it points at. The personal upsert (#719) is to resolve the
-        // reader's row with this condition rather than write a second one.
+        // per host whichever reaction it points at. The personal upsert (#719) resolves the
+        // reader's row with this condition rather than writing a second one.
         //
         // Ordered, because rows written before this feature can give one reader more than one row
         // on a host (§DOM4.10 rule 6): the live row first, then the most recently updated — the

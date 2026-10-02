@@ -131,6 +131,17 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             Association association,
             CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// Gives the signed caller a reaction they do not have, changes the one they have, or
+        /// brings back the one they withdrew, in one write on their one row for
+        /// <paramref name="association"/>'s host and far-end type, and answers which it did with
+        /// the row as it stands after the call (<c>Backend/Foundations/AssociationService.md §2</c>,
+        /// §ARC16.2.2).
+        /// </summary>
+        ValueTask<PersonalAssociationUpsert> UpsertPersonalAssociationAsync(
+            Association association,
+            CancellationToken cancellationToken = default);
+
         ValueTask<Association> ModifyAssociationAsync(
             Association association,
             CancellationToken cancellationToken = default);

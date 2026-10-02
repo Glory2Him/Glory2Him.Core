@@ -36,6 +36,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         private delegate ValueTask<PersonalAssociationMatch?>
             ReturningPersonalAssociationMatchFunction();
 
+        private delegate ValueTask<PersonalAssociationUpsert>
+            ReturningPersonalAssociationUpsertFunction();
+
         private delegate ValueTask<EventEnvelope<Association>?>
             ReturningAssociationEventEnvelopeFunction();
 
@@ -507,6 +510,133 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
                 throw await CreateAndLogCriticalDependencyExceptionAsync(
                     exception: failedStorageAssociationException);
+            }
+            catch (Exception exception)
+            {
+                var failedAssociationServiceException =
+                    new FailedAssociationServiceException(
+                        message: "Failed content item association service error occurred, please contact support.",
+                        innerException: exception,
+                        data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(
+                    failedAssociationServiceException);
+            }
+        }
+
+        // The personal upsert (#719): a write that refuses its caller and its input before it
+        // resolves the reader's row.
+        private async ValueTask<PersonalAssociationUpsert> TryCatch(
+            ReturningPersonalAssociationUpsertFunction returningPersonalAssociationUpsertFunction)
+        {
+            try
+            {
+                return await returningPersonalAssociationUpsertFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutAssociationException =
+                    new TimeoutAssociationException(
+                        message: "Failed content item association timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(
+                    exception: timeoutAssociationException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (UnauthorizedAssociationException unauthorizedAssociationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: unauthorizedAssociationException);
+            }
+            catch (NullAssociationException nullAssociationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: nullAssociationException);
+            }
+            catch (InvalidAssociationException invalidAssociationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: invalidAssociationException);
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageAssociationException =
+                    new FailedStorageAssociationException(
+                        message: "Failed content item association storage error occurred, contact support.",
+                        innerException: sqlException,
+                        data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(
+                    exception: failedStorageAssociationException);
+            }
+            // the create arm's minted Id already taken, refused as the add refuses it
+            catch (DuplicateKeyException duplicateKeyException)
+            {
+                var alreadyExistsAssociationException =
+                    new AlreadyExistsAssociationException(
+                        message: "Content item association already exists with the same Id.",
+                        innerException: duplicateKeyException,
+                        data: duplicateKeyException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    alreadyExistsAssociationException);
+            }
+            // a second first reaction racing the first is refused by UX_Associations_PersonalPair,
+            // and reaches the caller as the add's duplicate does (§DOM4.6 rule 2)
+            catch (DuplicateKeyWithUniqueIndexException duplicateKeyWithUniqueIndexException)
+            {
+                var alreadyExistsAssociationException =
+                    new AlreadyExistsAssociationException(
+                        message: "Content item association already exists, "
+                            + "a uniqueness rule rejected the write.",
+                        innerException: duplicateKeyWithUniqueIndexException,
+                        data: duplicateKeyWithUniqueIndexException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    alreadyExistsAssociationException);
+            }
+            catch (ForeignKeyConstraintConflictException foreignKeyConstraintConflictException)
+            {
+                var invalidAssociationReferenceException =
+                    new InvalidAssociationReferenceException(
+                        message: "Invalid content item association reference error occurred.",
+                        innerException: foreignKeyConstraintConflictException,
+                        data: foreignKeyConstraintConflictException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    invalidAssociationReferenceException);
+            }
+            // a revive or repoint whose row another write changed or removed since the lookup
+            catch (DbUpdateConcurrencyException dbUpdateConcurrencyException)
+            {
+                var lockedAssociationException = new LockedAssociationException(
+                    message: "Locked content item association record, please try again later.",
+                    innerException: dbUpdateConcurrencyException,
+                    data: dbUpdateConcurrencyException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    lockedAssociationException);
+            }
+            // after the concurrency catch above, which DbUpdateConcurrencyException must still reach
+            catch (DbUpdateException dbUpdateException)
+            {
+                var failedStorageAssociationException =
+                    new FailedStorageAssociationException(
+                        message: "Failed content item association storage error occurred, contact support.",
+                        innerException: dbUpdateException,
+                        data: dbUpdateException.Data);
+
+                throw await CreateAndLogDependencyExceptionAsync(
+                    failedStorageAssociationException);
             }
             catch (Exception exception)
             {
