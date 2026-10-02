@@ -10,13 +10,17 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 using Xeptions;
 
@@ -279,6 +283,61 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 Times.Once);
 
             this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(AssociationDependencyValidationExceptions))]
+        public async Task ShouldThrowDependencyValidationExceptionOnUpsertIfThePersonalUpsertIsRefusedAndLogItAsync(
+            Xeption foundationException)
+        {
+            // given: the foundation refuses the reader's reaction, which surfaces as this
+            // service's dependency validation exception carrying the foundation's own inner —
+            // never the foundation's exception type itself
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+
+            Association upsertRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            SetupMethodPathEndpointReads(upsertRequest);
+
+            var expectedDependencyValidationException =
+                new AssociationOrchestrationDependencyValidationException(
+                    message: "Content item association orchestration dependency validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: (foundationException.InnerException as Xeption)!);
+
+            this.associationServiceMock.Setup(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(foundationException);
+
+            // when
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationDependencyValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationDependencyValidationException>(
+                    upsertTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedDependencyValidationException);
+
+            this.associationServiceMock.Verify(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyValidationException))),
+                Times.Once);
+
             this.associationServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
