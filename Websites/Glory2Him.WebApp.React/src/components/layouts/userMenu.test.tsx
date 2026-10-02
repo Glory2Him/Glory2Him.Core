@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import UserMenuComponent from './userMenu';
@@ -12,19 +12,33 @@ vi.mock('../../services/foundations/accountService', () => ({
     accountService: { useLogout: vi.fn() }
 }));
 
+const readersPage = '/Posts/42';
+
+const RoutedLocation = () => <output data-testid="routed-location">{useLocation().pathname}</output>;
+
 const renderUnderSignedInReader = () =>
     render(
-        <MemoryRouter>
+        <MemoryRouter initialEntries={[readersPage]}>
             <AuthContextOverride userId="user-1" displayName="Reader One" roles={[]}>
                 <UserMenuComponent />
             </AuthContextOverride>
+            <RoutedLocation />
         </MemoryRouter>);
 
 describe('UserMenuComponent logout', () => {
     const replace = vi.fn();
+    const assign = vi.fn();
+    const reload = vi.fn();
+    const hrefAssigned = vi.fn();
 
     beforeEach(() => {
-        vi.stubGlobal('location', { ...window.location, replace });
+        vi.stubGlobal('location', {
+            replace,
+            assign,
+            reload,
+            get href() { return `http://localhost${readersPage}`; },
+            set href(value: string) { hrefAssigned(value); }
+        });
     });
 
     afterEach(() => {
@@ -55,6 +69,10 @@ describe('UserMenuComponent logout', () => {
         await userEvent.click(screen.getByRole('button', { name: /logout/i }));
 
         expect(replace).not.toHaveBeenCalled();
+        expect(assign).not.toHaveBeenCalled();
+        expect(reload).not.toHaveBeenCalled();
+        expect(hrefAssigned).not.toHaveBeenCalled();
+        expect(screen.getByTestId('routed-location')).toHaveTextContent(readersPage);
         expect(screen.getByRole('button', { name: /logout/i })).toBeInTheDocument();
     });
 });
