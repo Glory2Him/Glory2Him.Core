@@ -79,7 +79,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
         [Theory]
         [MemberData(nameof(BlockedEndpointCases))]
-        public async Task ShouldThrowValidationExceptionOnAddIfEitherEndpointIsBlockedForTheCallerAsync(
+        public async Task ShouldThrowValidationExceptionOnUpsertIfEitherEndpointIsBlockedForTheCallerAsync(
             string pairing,
             string[] callerRoles)
         {
@@ -102,14 +102,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     innerException: unauthorizedAssociationOrchestrationException);
 
             // when
-            ValueTask<AssociationSuggestionResult> addTask =
-                this.associationOrchestrationService.AddAssociationAsync(
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     TestContext.Current.CancellationToken);
 
             AssociationOrchestrationValidationException actualException =
                 await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
-                    addTask.AsTask);
+                    upsertTask.AsTask);
 
             // then
             actualException.Should().BeEquivalentTo(expectedValidationException);
@@ -131,7 +131,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         }
 
         [Fact]
-        public async Task ShouldAddWhenTheBlockIsOutsideBothEndpointsScopeAsync()
+        public async Task ShouldUpsertWhenTheBlockIsOutsideBothEndpointsScopeAsync()
         {
             // given: the negative control the theory above needs. A scoped block is SILENT
             // outside its scope (§SEC18.6 rule 2) — Tag-ReadOnly says nothing about a
@@ -193,7 +193,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             // when
             AssociationSuggestionResult actualResult =
-                await this.associationOrchestrationService.AddAssociationAsync(
+                await this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     TestContext.Current.CancellationToken);
 

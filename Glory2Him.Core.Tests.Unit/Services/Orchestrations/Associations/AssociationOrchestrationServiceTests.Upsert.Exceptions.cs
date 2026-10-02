@@ -10,13 +10,17 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 using Xeptions;
 
@@ -26,7 +30,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
     {
         [Theory]
         [MemberData(nameof(AssociationDependencyValidationExceptions))]
-        public async Task ShouldThrowDependencyValidationExceptionOnAddIfTheFoundationDoesAndLogItAsync(
+        public async Task ShouldThrowDependencyValidationExceptionOnUpsertIfTheFoundationDoesAndLogItAsync(
             Xeption foundationException)
         {
             // given: an Association foundation dependency-validation failure surfaces as an
@@ -50,14 +54,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                         .ThrowsAsync(foundationException);
 
             // when
-            ValueTask<AssociationSuggestionResult> addTask =
-                this.associationOrchestrationService.AddAssociationAsync(
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     TestContext.Current.CancellationToken);
 
             AssociationOrchestrationDependencyValidationException actualException =
                 await Assert.ThrowsAsync<AssociationOrchestrationDependencyValidationException>(
-                    addTask.AsTask);
+                    upsertTask.AsTask);
 
             // then
             actualException.Should().BeEquivalentTo(expectedDependencyValidationException);
@@ -71,7 +75,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
         [Theory]
         [MemberData(nameof(AssociationDependencyExceptions))]
-        public async Task ShouldThrowDependencyExceptionOnAddIfTheFoundationDoesAndLogItAsync(
+        public async Task ShouldThrowDependencyExceptionOnUpsertIfTheFoundationDoesAndLogItAsync(
             Xeption foundationException)
         {
             // given
@@ -92,13 +96,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                         .ThrowsAsync(foundationException);
 
             // when
-            ValueTask<AssociationSuggestionResult> addTask =
-                this.associationOrchestrationService.AddAssociationAsync(
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     TestContext.Current.CancellationToken);
 
             AssociationOrchestrationDependencyException actualException =
-                await Assert.ThrowsAsync<AssociationOrchestrationDependencyException>(addTask.AsTask);
+                await Assert.ThrowsAsync<AssociationOrchestrationDependencyException>(upsertTask.AsTask);
 
             // then
             actualException.Should().BeEquivalentTo(expectedDependencyException);
@@ -139,13 +143,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                         .ThrowsAsync(contentItemDependencyException);
 
             // when
-            ValueTask<AssociationSuggestionResult> addTask =
-                this.associationOrchestrationService.AddAssociationAsync(
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     TestContext.Current.CancellationToken);
 
             AssociationOrchestrationDependencyException actualException =
-                await Assert.ThrowsAsync<AssociationOrchestrationDependencyException>(addTask.AsTask);
+                await Assert.ThrowsAsync<AssociationOrchestrationDependencyException>(upsertTask.AsTask);
 
             // then
             actualException.Should().BeEquivalentTo(expectedDependencyException);
@@ -164,7 +168,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         }
 
         [Fact]
-        public async Task ShouldThrowDependencyExceptionOnAddIfOperationCanceledOccursWithoutRequestAndLogItAsync()
+        public async Task ShouldThrowDependencyExceptionOnUpsertIfOperationCanceledOccursWithoutRequestAndLogItAsync()
         {
             // given: an OperationCanceled whose token was NOT cancelled is a dependency timeout,
             // not a caller cancellation — it is turned into a timeout dependency error.
@@ -197,13 +201,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                         .ThrowsAsync(operationCanceledException);
 
             // when
-            ValueTask<AssociationSuggestionResult> addTask =
-                this.associationOrchestrationService.AddAssociationAsync(
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     TestContext.Current.CancellationToken);
 
             AssociationOrchestrationDependencyException actualException =
-                await Assert.ThrowsAsync<AssociationOrchestrationDependencyException>(addTask.AsTask);
+                await Assert.ThrowsAsync<AssociationOrchestrationDependencyException>(upsertTask.AsTask);
 
             // then
             actualException.Should().BeEquivalentTo(expectedDependencyException);
@@ -216,7 +220,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         }
 
         [Fact]
-        public async Task ShouldThrowOperationCanceledExceptionOnAddIfCancellationRequestedAsync()
+        public async Task ShouldThrowOperationCanceledExceptionOnUpsertIfCancellationRequestedAsync()
         {
             // given: a genuine caller cancellation must propagate as-is, never be masked as a
             // timeout or wrapped in an orchestration exception.
@@ -225,13 +229,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             await cancellationTokenSource.CancelAsync();
 
             // when
-            ValueTask<AssociationSuggestionResult> addTask =
-                this.associationOrchestrationService.AddAssociationAsync(
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     cancellationTokenSource.Token);
 
             // then
-            await Assert.ThrowsAsync<OperationCanceledException>(addTask.AsTask);
+            await Assert.ThrowsAsync<OperationCanceledException>(upsertTask.AsTask);
 
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
@@ -240,7 +244,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         }
 
         [Fact]
-        public async Task ShouldThrowServiceExceptionOnAddIfServiceErrorOccursAndLogItAsync()
+        public async Task ShouldThrowServiceExceptionOnUpsertIfServiceErrorOccursAndLogItAsync()
         {
             // given
             Association rawRequest = CreateRawAddRequest();
@@ -263,13 +267,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     .ThrowsAsync(serviceException);
 
             // when
-            ValueTask<AssociationSuggestionResult> addTask =
-                this.associationOrchestrationService.AddAssociationAsync(
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
                     rawRequest,
                     TestContext.Current.CancellationToken);
 
             AssociationOrchestrationServiceException actualException =
-                await Assert.ThrowsAsync<AssociationOrchestrationServiceException>(addTask.AsTask);
+                await Assert.ThrowsAsync<AssociationOrchestrationServiceException>(upsertTask.AsTask);
 
             // then
             actualException.Should().BeEquivalentTo(expectedServiceException);
@@ -280,6 +284,169 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(AssociationDependencyValidationExceptions))]
+        public async Task ShouldThrowDependencyValidationExceptionOnUpsertIfThePersonalUpsertIsRefusedAndLogItAsync(
+            Xeption foundationException)
+        {
+            // given: the foundation refuses the reader's reaction, which surfaces as this
+            // service's dependency validation exception carrying the foundation's own inner —
+            // never the foundation's exception type itself
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+
+            Association upsertRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            SetupMethodPathEndpointReads(upsertRequest);
+
+            var expectedDependencyValidationException =
+                new AssociationOrchestrationDependencyValidationException(
+                    message: "Content item association orchestration dependency validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: (foundationException.InnerException as Xeption)!);
+
+            this.associationServiceMock.Setup(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(foundationException);
+
+            // when
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationDependencyValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationDependencyValidationException>(
+                    upsertTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedDependencyValidationException);
+
+            this.associationServiceMock.Verify(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyValidationException))),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(AssociationDependencyExceptions))]
+        public async Task ShouldThrowDependencyExceptionOnUpsertIfThePersonalUpsertFailsAndLogItAsync(
+            Xeption foundationException)
+        {
+            // given: the foundation fails the reader's reaction
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+
+            Association upsertRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            SetupMethodPathEndpointReads(upsertRequest);
+
+            var expectedDependencyException =
+                new AssociationOrchestrationDependencyException(
+                    message: "Content item association orchestration dependency error occurred, contact support.",
+                    innerException: (foundationException.InnerException as Xeption)!);
+
+            this.associationServiceMock.Setup(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(foundationException);
+
+            // when
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationDependencyException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationDependencyException>(upsertTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedDependencyException);
+
+            this.associationServiceMock.Verify(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyException))),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnUpsertIfTheSettingReadFailsAndLogItAsync()
+        {
+            // given: the access broker fails while the gate reads the item's setting. A broker
+            // raises no family of its own, so its raw failure reaches this service's closing catch
+            // as its service exception (§ARC12.5), and the gate never falls open: nothing is
+            // probed or written (§ARC16.2.1).
+            Association rawRequest = CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Tag);
+            ContentItem resolvedContentItem = SetupMethodPathEndpointReads(rawRequest);
+            List<ContentItemSettingKey> expectedSettingKeys = CreateSettingKeysFor(resolvedContentItem);
+            var settingReadException = new Exception(GetRandomString());
+
+            var failedAssociationOrchestrationServiceException =
+                new FailedAssociationOrchestrationServiceException(
+                    message: "Failed content item association orchestration service error occurred, " +
+                        "please contact support.",
+                    innerException: settingReadException,
+                    data: settingReadException.Data);
+
+            var expectedServiceException =
+                new AssociationOrchestrationServiceException(
+                    message: "Content item association orchestration service error occurred, contact support.",
+                    innerException: failedAssociationOrchestrationServiceException);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(settingReadException);
+
+            // when
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
+                    rawRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationServiceException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationServiceException>(upsertTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedServiceException);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedServiceException))),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
     }
