@@ -236,9 +236,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             CancellationToken cancellationToken)
         {
             bool isApproved = approval.ApprovalStatus is ApprovalStatus.Approved;
-            bool isRejected = approval.ApprovalStatus is ApprovalStatus.Rejected;
 
-            if (isApproved is false && isRejected is false)
+            // What rejected the round is on the row: the workflow records a standing rejection
+            // under the system identity and a direct rejection under the person who took it
+            // (WorkflowAttribution, §APR9.7.5). A direct rejection counts no review, so it is
+            // never returned, whatever reviews stand beside it.
+            bool isStandingRejection =
+                approval.ApprovalStatus is ApprovalStatus.Rejected
+                    && approval.UpdatedBy == SystemIdentity.UserId;
+
+            if (isApproved is false && isStandingRejection is false)
             {
                 return false;
             }
