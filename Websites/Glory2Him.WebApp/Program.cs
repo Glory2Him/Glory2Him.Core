@@ -104,6 +104,30 @@ app.UseHttpsRedirection();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+// The browser's HTTP cache keeps no reader's API answer (design §UI20.8 rule 3): a page read
+// again after its reader left, by Back or by a restore, must be answered by the server for
+// whoever is signed in then. So an /api answer that sets no cache policy of its own is sent
+// no-store, decided as the headers go out so that an endpoint's own policy — the contributor
+// read's — stands. It sits above authorization because a refused /api request is answered there,
+// by the scheme's challenge or forbid, and a refusal is kept no more than any other answer.
+app.Use((httpContext, next) =>
+{
+    if (httpContext.Request.Path.StartsWithSegments("/api"))
+    {
+        httpContext.Response.OnStarting(() =>
+        {
+            if (string.IsNullOrEmpty(httpContext.Response.Headers.CacheControl))
+            {
+                httpContext.Response.Headers.CacheControl = "no-store";
+            }
+
+            return Task.CompletedTask;
+        });
+    }
+
+    return next(httpContext);
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 
