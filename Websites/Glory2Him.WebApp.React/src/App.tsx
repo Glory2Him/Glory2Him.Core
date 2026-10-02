@@ -5,6 +5,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { queryClientGlobalOptions } from './brokers/apiBroker.globals';
 import ToastBroker from './brokers/toastBroker';
 import { AuthProvider } from './components/securitys/authProvider';
+import { RestoredPageGuard } from './components/securitys/restoredPageGuard';
 import { YouVersionAppProvider } from './components/youVersion/youVersionAppProvider';
 import { CartProvider } from './services/views/cart/cartContext';
 import Root from './components/root';
@@ -41,6 +42,7 @@ function App() {
         <>
             <QueryClientProvider client={queryClientGlobalOptions}>
                 <AuthProvider>
+                    <RestoredPageGuard />
                     <YouVersionAppProvider>
                         <CartProvider>
                             <RouterProvider router={router} />
