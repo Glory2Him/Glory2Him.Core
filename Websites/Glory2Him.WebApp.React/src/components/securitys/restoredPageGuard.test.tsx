@@ -265,4 +265,27 @@ describe('RestoredPageGuard', () => {
         expect(reload).toHaveBeenCalledTimes(1);
         expect(isHidden()).toBe(true);
     });
+
+    it('should tell readers apart by their user id', async () => {
+        // given
+        const anotherReaderNamedAsA = new CurrentUser({
+            isAuthenticated: true,
+            userId: 'reader-c',
+            userName: readerA.userName,
+            displayName: readerA.displayName
+        });
+
+        mocks.currentUser = readerA;
+        render(<RestoredPageGuard />);
+        dispatchPageTransition('pagehide', true);
+        answerFreshRead(anotherReaderNamedAsA);
+
+        // when
+        dispatchPageTransition('pageshow', true);
+        await settle();
+
+        // then
+        expect(reload).toHaveBeenCalledTimes(1);
+        expect(isHidden()).toBe(true);
+    });
 });
