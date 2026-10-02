@@ -794,6 +794,63 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldAnswerAlreadyPendingForATakenDownReactionAsync()
+        {
+            // given: a moderator took the reader's reaction down, and the reader reacts again. A
+            // takedown is never revived, and the answer tells the reader nothing about it
+            // (§DOM4.10 rule 7). The row was Approved when it came down, so an answer that echoed
+            // its status would show.
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+
+            Association upsertRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            Association expectedUpsertedAssociation =
+                SetupReadersReaction(upsertRequest, readerUserId);
+
+            Association takenDownRow = expectedUpsertedAssociation.DeepClone();
+            takenDownRow.Id = Guid.NewGuid();
+            takenDownRow.ApprovalStatus = ApprovalStatus.Approved;
+            takenDownRow.IsDeleted = true;
+            takenDownRow.DeletedBy = $"moderator-{Guid.NewGuid()}";
+
+            this.associationServiceMock.Setup(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new PersonalAssociationUpsert
+                        {
+                            Outcome = PersonalAssociationUpsertOutcome.TakenDown,
+                            Association = takenDownRow,
+                        });
+
+            var expectedResult = new AssociationSuggestionResult
+            {
+                Status = AssociationSuggestionStatus.AlreadyPending,
+                AssociationId = takenDownRow.Id,
+            };
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.associationServiceMock.Verify(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A signed-in reader's reaction on an item whose setting allows reactions: the envelope,
         // both endpoint reads and the setting. Hands back the row the foundation is to be handed.
         private Association SetupReadersReaction(Association upsertRequest, string readerUserId)
