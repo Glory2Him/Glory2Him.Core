@@ -188,4 +188,20 @@ describe('RestoredPageGuard', () => {
         expect(reload).toHaveBeenCalledTimes(1);
         expect(isHidden()).toBe(true);
     });
+
+    it('should reload a restored page when a reader has signed in since it was cached', async () => {
+        // given
+        mocks.currentUser = nobody;
+        render(<RestoredPageGuard />);
+        dispatchPageTransition('pagehide', true);
+        answerFreshRead(readerB);
+
+        // when
+        dispatchPageTransition('pageshow', true);
+        await settle();
+
+        // then
+        expect(reload).toHaveBeenCalledTimes(1);
+        expect(isHidden()).toBe(true);
+    });
 });
