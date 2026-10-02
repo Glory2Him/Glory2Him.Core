@@ -155,6 +155,12 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             {
                 PersonalAssociationUpsertOutcome.Restored => AssociationSuggestionStatus.Restored,
                 PersonalAssociationUpsertOutcome.Repointed => AssociationSuggestionStatus.Repointed,
+
+                PersonalAssociationUpsertOutcome.Unchanged
+                    when personalAssociationUpsert.Association.ApprovalStatus == ApprovalStatus.Approved =>
+                        AssociationSuggestionStatus.AlreadyApproved,
+
+                PersonalAssociationUpsertOutcome.Unchanged => AssociationSuggestionStatus.AlreadyPending,
                 _ => AssociationSuggestionStatus.Created,
             };
 
