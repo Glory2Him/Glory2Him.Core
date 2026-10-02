@@ -1,0 +1,161 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
+using System.Net;
+using System.Net.Http;
+using System.Threading.Tasks;
+using FluentAssertions;
+using Glory2Him.WebApp.Models.Foundations.Users;
+using Glory2Him.WebApp.Tests.Acceptance.Brokers;
+using Xunit;
+
+namespace Glory2Him.WebApp.Tests.Acceptance.Apis.CachePolicies
+{
+    /// <summary>
+    /// The browser's HTTP cache keeps no reader's API answer (design §UI20.8 rule 3): an /api
+    /// answer that sets no cache policy of its own carries <c>no-store</c>, so a page read again
+    /// after its reader left is answered by the server for whoever is signed in then.
+    /// </summary>
+    [Collection(nameof(ApiTestCollection))]
+    public class ApiCachePolicyTests
+    {
+        private readonly ApiBroker apiBroker;
+
+        public ApiCachePolicyTests(ApiBroker apiBroker)
+        {
+            this.apiBroker = apiBroker;
+            this.apiBroker.ActAsSeededAdministrator();
+        }
+
+        [Fact]
+        public async Task ShouldAnswerAnApiReadWithNoStoreWhenItSetsNoPolicyOfItsOwn()
+        {
+            // given
+            string currentUserUrl = "api/accounts/me";
+
+            // when
+            this.apiBroker.ActAsAnonymous();
+
+            using HttpResponseMessage anonymousResponse =
+                await this.apiBroker.GetResponseAsync(currentUserUrl);
+
+            this.apiBroker.ActAsContributor();
+
+            using HttpResponseMessage signedInResponse =
+                await this.apiBroker.GetResponseAsync(currentUserUrl);
+
+            this.apiBroker.ActAsSeededAdministrator();
+
+            // then
+            anonymousResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+            anonymousResponse.Headers.CacheControl.Should().NotBeNull();
+            anonymousResponse.Headers.CacheControl.NoStore.Should().BeTrue();
+
+            signedInResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+            signedInResponse.Headers.CacheControl.Should().NotBeNull();
+            signedInResponse.Headers.CacheControl.NoStore.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task ShouldKeepTheCachePolicyAnApiEndpointSetsItself()
+        {
+            // given
+            string userName = $"contributor{Guid.NewGuid():N}"[..20];
+
+            AppUser arrangedUser = await this.apiBroker.AddUserAsync(
+                userName: userName,
+                email: $"{userName}@example.com",
+                password: "Test1!");
+
+            // when
+            using HttpResponseMessage actualResponse =
+                await this.apiBroker.GetResponseAsync($"api/contributors/{arrangedUser.Id}");
+
+            await this.apiBroker.RemoveUserAsync(arrangedUser.Id);
+
+            // then
+            actualResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+            actualResponse.Headers.CacheControl.Should().NotBeNull();
+            actualResponse.Headers.CacheControl.Public.Should().BeTrue();
+            actualResponse.Headers.CacheControl.MaxAge.Should().Be(TimeSpan.FromSeconds(60));
+            actualResponse.Headers.CacheControl.NoStore.Should().BeFalse();
+        }
+
+        // The app's document and its assets set no cache policy today. In this host the SPA's
+        // build output is not published, so the document is the fallback's answer for a client
+        // route; either way, the /api policy must not reach it.
+        [Theory]
+        [InlineData("assets/css/style.css")]
+        [InlineData("Account/Login")]
+        public async Task ShouldLeaveTheCachePolicyOutsideTheApiAsItIs(string relativeUrl)
+        {
+            // given
+            string nonApiUrl = relativeUrl;
+
+            // when
+            using HttpResponseMessage actualResponse =
+                await this.apiBroker.GetResponseAsync(nonApiUrl);
+
+            // then
+            actualResponse.Headers.CacheControl.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task ShouldAnswerAFailedApiRequestWithNoStore()
+        {
+            // given
+            string unknownApiUrl = $"api/no-such-route-{Guid.NewGuid():N}";
+
+            // when
+            using HttpResponseMessage actualResponse =
+                await this.apiBroker.GetResponseAsync(unknownApiUrl);
+
+            // then
+            actualResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            actualResponse.Headers.CacheControl.Should().NotBeNull();
+            actualResponse.Headers.CacheControl.NoStore.Should().BeTrue();
+        }
+
+        // A refusal is a failed answer too, and it is the authorization middleware, through the
+        // scheme's challenge or forbid, that writes it, not an endpoint: the policy has to sit
+        // above it to reach it.
+        [Theory]
+        [InlineData("api/profile", true, HttpStatusCode.Unauthorized)]
+        [InlineData("api/admin/users", false, HttpStatusCode.Forbidden)]
+        public async Task ShouldAnswerARefusedApiRequestWithNoStore(
+            string refusedApiUrl,
+            bool isAnonymous,
+            HttpStatusCode expectedStatusCode)
+        {
+            // given
+            if (isAnonymous)
+            {
+                this.apiBroker.ActAsAnonymous();
+            }
+            else
+            {
+                this.apiBroker.ActAsContributor();
+            }
+
+            // when
+            using HttpResponseMessage actualResponse =
+                await this.apiBroker.GetResponseAsync(refusedApiUrl);
+
+            this.apiBroker.ActAsSeededAdministrator();
+
+            // then
+            actualResponse.StatusCode.Should().Be(expectedStatusCode);
+            actualResponse.Headers.CacheControl.Should().NotBeNull();
+            actualResponse.Headers.CacheControl.NoStore.Should().BeTrue();
+        }
+    }
+}
