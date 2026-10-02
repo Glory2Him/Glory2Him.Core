@@ -29,6 +29,20 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             EntityType entityType,
             Guid entityId,
             CancellationToken cancellationToken = default) =>
+            ProcessEntityModifiedAsync(
+                entityType: entityType,
+                entityId: entityId,
+                changedWhen: null,
+                cancellationToken: cancellationToken);
+
+        // The flow's own body. changedWhen is the change's UpdatedWhen, and only the
+        // Association-Repointed ear hands one in (§APR9.7.4); this public method and every other
+        // ear pass none.
+        private ValueTask<ApprovalOutcome> ProcessEntityModifiedAsync(
+            EntityType entityType,
+            Guid entityId,
+            DateTimeOffset? changedWhen,
+            CancellationToken cancellationToken) =>
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -99,6 +113,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
                 await DismissStaleApprovalReviewsAsync(
                     approvalId: approval.Id,
+                    changedWhen: changedWhen,
                     cancellationToken: cancellationToken);
 
                 // RE-READ, and this is the whole reason evaluation takes its verdict rather than
@@ -306,8 +321,14 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
         // §9.7.4. Dismissed, not deleted: the review is a record that somebody looked, and the
         // audit trail keeps it. Dismissal is what stops it counting toward the threshold.
+        //
+        // BOUNDED FOR A CHANGED REACTION, and only for one. Its round starts with no reviews, so
+        // what goes is the old pair's: every active review written before the change. A review
+        // written since is the new pair's own and stands (§APR9.7.4). Every other caller passes
+        // no bound and dismisses every active review.
         private async ValueTask DismissStaleApprovalReviewsAsync(
             Guid approvalId,
+            DateTimeOffset? changedWhen,
             CancellationToken cancellationToken)
         {
             // Read UNFILTERED, through the gathering seam rather than the caller-facing service.
@@ -321,9 +342,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             //
             // What a round's reviews ARE is a fact about storage, not about who is asking. An
             // identity-filtered read must never be the input to an invariant.
-            List<Guid> staleReviewIds =
-                await this.accessBroker.FindDismissableApprovalReviewIdsAsync(
+            List<Guid> staleReviewIds = changedWhen is null
+                ? await this.accessBroker.FindDismissableApprovalReviewIdsAsync(
                     approvalId: approvalId,
+                    cancellationToken: cancellationToken)
+                : await FindOldPairReviewIdsAsync(
+                    approvalId: approvalId,
+                    changedWhen: changedWhen.Value,
                     cancellationToken: cancellationToken);
 
             // Each dismissal publishes ApprovalReview-Dismissed, and this service subscribes to
@@ -360,6 +385,24 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             {
                 suppressedDismissalApprovalId.Value = previouslySuppressedApprovalId;
             }
+        }
+
+        // The old pair's reviews: those whose CreatedWhen precedes the change's (§APR9.7.4). The
+        // gather is not bounded by the time, so the comparison is made here.
+        private async ValueTask<List<Guid>> FindOldPairReviewIdsAsync(
+            Guid approvalId,
+            DateTimeOffset changedWhen,
+            CancellationToken cancellationToken)
+        {
+            IReadOnlyList<DismissableApprovalReview> activeReviews =
+                await this.accessBroker.FindDismissableApprovalReviewsAsync(
+                    approvalId: approvalId,
+                    cancellationToken: cancellationToken);
+
+            return activeReviews
+                .Where(activeReview => activeReview.CreatedWhen < changedWhen)
+                .Select(activeReview => activeReview.Id)
+                .ToList();
         }
 
         // Static because the handler is bound into the singleton broker as a method group while

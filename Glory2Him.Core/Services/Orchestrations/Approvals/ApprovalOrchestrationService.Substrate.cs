@@ -283,10 +283,28 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 react: ProcessEntityModifiedAsync,
                 cancellationToken: cancellationToken);
 
+        // ── A reader's changed reaction (§ARC16.2.2) ─────────────────────────────────
+        //
+        // ONE MORE EAR ON THE MODIFIED FLOW, and the only one that hands it more than the row's
+        // identity: the change's UpdatedWhen. A round cannot say which fact moved it, so the
+        // flow is told, and the value is the bound of what it does for this change (§APR9.7.4).
+        //
+        // READ OFF THE VERIFIED FACT. The lambda runs inside the shared body, after the signature
+        // check, so the time it reads is the one the publisher signed and no caller can assert it.
         public ValueTask<EventEnvelope<Association>?> OnAssociationRepointedAsync(
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            ReactToEntityFactAsync(
+                envelope: envelope,
+                entityType: EntityType.Association,
+                eventName: "AssociationRepointed",
+                react: (entityType, entityId, reactionCancellationToken) =>
+                    ProcessEntityModifiedAsync(
+                        entityType: entityType,
+                        entityId: entityId,
+                        changedWhen: envelope.Content.UpdatedWhen,
+                        cancellationToken: reactionCancellationToken),
+                cancellationToken: cancellationToken);
 
         // ── The workflow records' ears (§10.17(a)) ────────────────────────────────────
         //
