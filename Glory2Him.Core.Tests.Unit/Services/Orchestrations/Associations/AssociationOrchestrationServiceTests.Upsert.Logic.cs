@@ -851,6 +851,61 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldOverwriteAClaimedUserIdWithTheCallersOnAReactionAsync()
+        {
+            // given: the request names another reader. UserId comes from the envelope and never
+            // from the request, and the claim is overwritten without comment rather than refused
+            // (§DOM4.10 rule 2), so the foundation is handed the caller's own user id.
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+
+            Association upsertRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            upsertRequest.UserId = $"another-reader-{Guid.NewGuid()}";
+
+            Association expectedUpsertedAssociation =
+                SetupReadersReaction(upsertRequest, readerUserId);
+
+            Association readersRow = expectedUpsertedAssociation.DeepClone();
+            readersRow.Id = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new PersonalAssociationUpsert
+                        {
+                            Outcome = PersonalAssociationUpsertOutcome.Created,
+                            Association = readersRow,
+                        });
+
+            var expectedResult = new AssociationSuggestionResult
+            {
+                Status = AssociationSuggestionStatus.Created,
+                AssociationId = readersRow.Id,
+            };
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then: written for the caller, and nothing said about the claim
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.associationServiceMock.Verify(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A signed-in reader's reaction on an item whose setting allows reactions: the envelope,
         // both endpoint reads and the setting. Hands back the row the foundation is to be handed.
         private Association SetupReadersReaction(Association upsertRequest, string readerUserId)
