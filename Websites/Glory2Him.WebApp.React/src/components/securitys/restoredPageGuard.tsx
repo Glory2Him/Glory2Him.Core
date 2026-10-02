@@ -6,7 +6,9 @@ export const RestoredPageGuard = (): ReactElement => {
 
     useEffect(() => {
         const handlePageShow = async () => {
+            document.documentElement.style.visibility = 'hidden';
             await refetch();
+            document.documentElement.style.removeProperty('visibility');
         };
 
         window.addEventListener('pageshow', handlePageShow);
