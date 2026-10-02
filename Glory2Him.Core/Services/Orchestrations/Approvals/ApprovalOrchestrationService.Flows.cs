@@ -63,8 +63,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 // change §APR7.5.1 rule 3 admits. Its round starts with no reviews, so a round
                 // the old reaction decided goes back to Submitted BEFORE ANYTHING ELSE, and is
                 // then evaluated like any other open round (§APR9.7.4).
-                if (changedWhen is not null
-                    && IsRoundDecidedBeforeTheChange(approval, changedWhen.Value))
+                bool isRoundDecidedOnTheOldPair = changedWhen is not null
+                    && await IsRoundDecidedOnTheOldPairAsync(
+                        approval: approval,
+                        changedWhen: changedWhen.Value,
+                        cancellationToken: cancellationToken);
+
+                if (isRoundDecidedOnTheOldPair)
                 {
                     approval = await ReturnDecidedRoundToSubmittedAsync(
                         approval: approval,
@@ -217,12 +222,35 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 cancellationToken: cancellationToken);
         }
 
-        // §APR9.7.4: a round decided before the change is the old reaction's.
-        private static bool IsRoundDecidedBeforeTheChange(
+        // §APR9.7.4's return, for a round the old pair decided: one decided before the change,
+        // which is the old reaction's; or one approved after it while one of the old pair's
+        // reviews still stood, because that approval may have counted it and nothing records
+        // which reviews an approval counted.
+        //
+        // The round's active reviews are read UNFILTERED, for the reason the dismissal reads them
+        // so: the flow runs as the reader, who may see none of them.
+        private async ValueTask<bool> IsRoundDecidedOnTheOldPairAsync(
             Approval approval,
-            DateTimeOffset changedWhen) =>
-            approval.ApprovalStatus is ApprovalStatus.Approved
-                && approval.UpdatedWhen < changedWhen;
+            DateTimeOffset changedWhen,
+            CancellationToken cancellationToken)
+        {
+            if (approval.ApprovalStatus is not ApprovalStatus.Approved)
+            {
+                return false;
+            }
+
+            if (approval.UpdatedWhen < changedWhen)
+            {
+                return true;
+            }
+
+            IReadOnlyList<DismissableApprovalReview> activeReviews =
+                await this.accessBroker.FindDismissableApprovalReviewsAsync(
+                    approvalId: approval.Id,
+                    cancellationToken: cancellationToken);
+
+            return activeReviews.Any(activeReview => activeReview.CreatedWhen < changedWhen);
+        }
 
         // Written as the WORKFLOW: nobody asked for the round back, the change did. The bypass
         // pair is cleared in the same write, because a round back at Submitted must not still
