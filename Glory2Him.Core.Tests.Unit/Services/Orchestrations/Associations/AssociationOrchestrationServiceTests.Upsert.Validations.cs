@@ -20,6 +20,7 @@ using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
+using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
@@ -745,6 +746,69 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldRunTheFacetGateBeforeAnyProbeOrWriteAsync()
+        {
+            // given: a pair the item's setting refuses. Each read records itself as it is made, so
+            // the order recorded is the order the flow asked in.
+            Association rawRequest = CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Tag);
+            var readsInOrder = new List<string>();
+
+            var resolvedContentItem = new ContentItem
+            {
+                Id = rawRequest.EntityAKeyId,
+                GroupId = Guid.NewGuid(),
+                ContentType = ContentType.Story,
+            };
+
+            this.contentItemServiceMock.Setup(service =>
+                service.RetrieveContentItemByIdAsync(
+                    rawRequest.EntityAKeyId,
+                    TestContext.Current.CancellationToken))
+                        .Callback(() => readsInOrder.Add("the A endpoint"))
+                        .ReturnsAsync(resolvedContentItem);
+
+            this.tagServiceMock.Setup(service =>
+                service.RetrieveTagByIdAsync(
+                    rawRequest.EntityBKeyId,
+                    TestContext.Current.CancellationToken))
+                        .Callback(() => readsInOrder.Add("the B endpoint"))
+                        .ReturnsAsync(new Tag { Id = rawRequest.EntityBKeyId });
+
+            ContentItemSetting refusingSetting =
+                CreateAllowingContentItemSetting(resolvedContentItem.ContentType);
+
+            refusingSetting.TagsAllowed = false;
+            List<ContentItemSettingKey> expectedSettingKeys = CreateSettingKeysFor(resolvedContentItem);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    TestContext.Current.CancellationToken))
+                        .Callback(() => readsInOrder.Add("the item's setting"))
+                        .ReturnsAsync(new List<EffectiveContentItemSetting>
+                        {
+                            new EffectiveContentItemSetting
+                            {
+                                ContentItemId = resolvedContentItem.Id,
+                                ContentItemSetting = refusingSetting,
+                            },
+                        });
+
+            // when
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
+                    rawRequest,
+                    TestContext.Current.CancellationToken);
+
+            await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(upsertTask.AsTask);
+
+            // then: the setting was asked once both endpoints had resolved, and the refusal came
+            // before any probe or write
+            readsInOrder.Should().Equal("the A endpoint", "the B endpoint", "the item's setting");
+            this.associationServiceMock.VerifyNoOtherCalls();
         }
     }
 }
