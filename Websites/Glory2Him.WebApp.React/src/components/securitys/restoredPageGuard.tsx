@@ -1,4 +1,5 @@
 import { ReactElement, useEffect, useRef } from 'react';
+import { onlineManager } from '@tanstack/react-query';
 import { accountService } from '../../services/foundations/accountService';
 import { CurrentUser } from '../../models/accounts/currentUser';
 
@@ -25,6 +26,13 @@ export const RestoredPageGuard = (): ReactElement => {
             }
 
             document.documentElement.style.visibility = 'hidden';
+
+            if (!onlineManager.isOnline()) {
+                window.location.reload();
+
+                return;
+            }
+
             const cachedReader = cachedReaderReference.current;
             const freshRead = await refetch();
 
