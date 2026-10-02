@@ -1,6 +1,6 @@
 import { render, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, useLocation } from 'react-router-dom';
+import { createMemoryRouter, RouterProvider, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import HeaderComponent from './header';
 import { AuthContextOverride } from '../securitys/authProvider';
@@ -35,34 +35,84 @@ const replace = vi.fn();
 const reload = vi.fn();
 const assign = vi.fn();
 const setHref = vi.fn();
+const setPathname = vi.fn();
+const setLocation = vi.fn();
+const historyMove = vi.fn();
+const openWindow = vi.fn();
 
+const locationStub = {
+    replace,
+    reload,
+    assign,
+    get pathname() {
+        return '/Account/Manage';
+    },
+    set pathname(value: string) {
+        setPathname(value);
+    },
+    get href() {
+        return 'http://localhost/Account/Manage';
+    },
+    set href(value: string) {
+        setHref(value);
+    }
+};
+
+// Every way a page can be loaded or left is stubbed with an observer: the location's methods
+// and setters, a write to window.location or document.location itself, the tab's history,
+// and window.open.
 const stubLocation = () => {
-    const stub = {
-        pathname: '/Account/Manage',
-        replace,
-        reload,
-        assign,
-        get href() {
-            return 'http://localhost/Account/Manage';
-        },
-        set href(value: string) {
-            setHref(value);
-        }
+    const locationProperty = {
+        configurable: true,
+        get: () => locationStub,
+        set: (value: unknown) => setLocation(value)
     };
 
-    vi.stubGlobal('location', stub);
+    Object.defineProperty(window, 'location', locationProperty);
+    Object.defineProperty(document, 'location', locationProperty);
+
+    for (const method of ['back', 'forward', 'go', 'pushState', 'replaceState'] as const) {
+        vi.spyOn(window.history, method).mockImplementation(historyMove);
+    }
+
+    vi.spyOn(window, 'open').mockImplementation(openWindow);
+};
+
+const originalWindowLocation = Object.getOwnPropertyDescriptor(window, 'location');
+const originalDocumentLocation = Object.getOwnPropertyDescriptor(document, 'location');
+
+const restoreLocation = () => {
+    if (originalWindowLocation) {
+        Object.defineProperty(window, 'location', originalWindowLocation);
+    }
+
+    if (originalDocumentLocation) {
+        Object.defineProperty(document, 'location', originalDocumentLocation);
+    } else {
+        delete (document as { location?: unknown }).location;
+    }
 };
 
 const RouterPath = () => <span data-testid="router-path">{useLocation().pathname}</span>;
 
-const renderHeader = () =>
-    render(
-        <MemoryRouter initialEntries={['/Account/Manage']}>
-            <AuthContextOverride userId="account-joan" displayName="joan" roles={[]}>
-                <HeaderComponent />
-                <RouterPath />
-            </AuthContextOverride>
-        </MemoryRouter>);
+let router: ReturnType<typeof createMemoryRouter>;
+
+const renderHeader = () => {
+    router = createMemoryRouter(
+        [{
+            path: '*',
+            element: (
+                <AuthContextOverride userId="account-joan" displayName="joan" roles={[]}>
+                    <HeaderComponent />
+                    <RouterPath />
+                </AuthContextOverride>)
+        }],
+        { initialEntries: ['/Account/Manage'] });
+
+    vi.spyOn(router, 'navigate');
+
+    return render(<RouterProvider router={router} />);
+};
 
 const pressHeaderLogout = async (container: HTMLElement) => {
     const topBar = container.querySelector('.navbar-top') as HTMLElement;
@@ -76,11 +126,16 @@ describe('HeaderComponent', () => {
         reload.mockClear();
         assign.mockClear();
         setHref.mockClear();
+        setPathname.mockClear();
+        setLocation.mockClear();
+        historyMove.mockClear();
+        openWindow.mockClear();
         stubLocation();
     });
 
     afterEach(() => {
-        vi.unstubAllGlobals();
+        vi.restoreAllMocks();
+        restoreLocation();
     });
 
     it("should load the home page afresh once the header's logout succeeds", async () => {
@@ -111,6 +166,11 @@ describe('HeaderComponent', () => {
         expect(reload).not.toHaveBeenCalled();
         expect(assign).not.toHaveBeenCalled();
         expect(setHref).not.toHaveBeenCalled();
+        expect(setPathname).not.toHaveBeenCalled();
+        expect(setLocation).not.toHaveBeenCalled();
+        expect(historyMove).not.toHaveBeenCalled();
+        expect(openWindow).not.toHaveBeenCalled();
+        expect(router.navigate).not.toHaveBeenCalled();
         expect(getByTestId('router-path')).toHaveTextContent('/Account/Manage');
     });
 });
