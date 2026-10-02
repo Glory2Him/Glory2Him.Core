@@ -15,6 +15,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Force.DeepCloner;
 using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
@@ -403,6 +404,81 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 IsAuthenticated = true,
                 Roles = roles
             };
+
+        // A signed-in reader, whose user id the envelope carries as its subject.
+        private static SecurityContext CreateReaderSecurityContext(
+            string readerUserId,
+            params string[] roles) =>
+            new SecurityContext
+            {
+                SubjectId = readerUserId,
+                IsAuthenticated = true,
+                Roles = roles
+            };
+
+        // The envelope the upsert mints for this request, under the ambient caller.
+        private EventEnvelope<Association> SetupInboundEnvelopeFor(Association request)
+        {
+            var inboundEnvelope = new EventEnvelope<Association>
+            {
+                Content = request,
+                SecurityContext = this.ambientSecurityContext,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(request))
+                    .ReturnsAsync(inboundEnvelope);
+
+            return inboundEnvelope;
+        }
+
+        // The item's winning setting, as the gate asks for it, admitting every facet.
+        private List<ContentItemSettingKey> SetupAllowingSettingFor(ContentItem contentItem)
+        {
+            List<ContentItemSettingKey> settingKeys = CreateSettingKeysFor(contentItem);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(settingKeys)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new List<EffectiveContentItemSetting>
+                        {
+                            new EffectiveContentItemSetting
+                            {
+                                ContentItemId = contentItem.Id,
+                                ContentItemSetting = CreateAllowingContentItemSetting(contentItem.ContentType),
+                            },
+                        });
+
+            return settingKeys;
+        }
+
+        // A reader's reaction on an item as resolution derives it from the raw request: the item
+        // at its group under AllVersions with its content type, the reaction at its own id under
+        // ThisVersionOnly with none, the reader's own user id, and Submitted (§ARC16.8.1).
+        private static Association CreateResolvedReactionFrom(
+            Association rawRequest,
+            ContentItem resolvedContentItem,
+            string readerUserId)
+        {
+            Association resolvedReaction = rawRequest.DeepClone();
+            resolvedReaction.EntityAGroupId = resolvedContentItem.GroupId;
+            resolvedReaction.EntityAContentType = resolvedContentItem.ContentType;
+            resolvedReaction.EntityAScope = Scope.AllVersions;
+            resolvedReaction.EntityBGroupId = rawRequest.EntityBKeyId;
+            resolvedReaction.EntityBContentType = null;
+            resolvedReaction.EntityBScope = Scope.ThisVersionOnly;
+            resolvedReaction.UserId = readerUserId;
+            resolvedReaction.ApprovalStatus = ApprovalStatus.Submitted;
+
+            return resolvedReaction;
+        }
+
+        private static Expression<Func<Association, bool>> SameAssociationAs(
+            Association expectedAssociation) =>
+            actualAssociation =>
+                new CompareLogic().Compare(expectedAssociation, actualAssociation).AreEqual;
 
         private static string GetRandomString() =>
             new MnemonicString(wordCount: GetRandomNumber()).GetValue();

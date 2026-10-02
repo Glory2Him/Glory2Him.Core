@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -20,6 +21,7 @@ using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Orchestrations.Associations;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
@@ -541,6 +543,89 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     It.IsAny<Association>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
+        }
+
+        [Fact]
+        public async Task ShouldUpsertTheReadersReactionAsTheReaderAtSubmittedAsync()
+        {
+            // given: a signed-in reader gives a reaction on an item whose setting allows reactions.
+            // The foundation resolves the reader's row itself, so this service hands it the
+            // resolved pair, as the reader and at Submitted, and asks no probe of its own.
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+
+            Association upsertRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            SetupInboundEnvelopeFor(upsertRequest);
+            ContentItem resolvedContentItem = SetupMethodPathEndpointReads(upsertRequest);
+            List<ContentItemSettingKey> expectedSettingKeys = SetupAllowingSettingFor(resolvedContentItem);
+
+            Association expectedUpsertedAssociation =
+                CreateResolvedReactionFrom(upsertRequest, resolvedContentItem, readerUserId);
+
+            Association readersRow = expectedUpsertedAssociation.DeepClone();
+            readersRow.Id = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new PersonalAssociationUpsert
+                        {
+                            Outcome = PersonalAssociationUpsertOutcome.Created,
+                            Association = readersRow,
+                        });
+
+            var expectedResult = new AssociationSuggestionResult
+            {
+                Status = AssociationSuggestionStatus.Created,
+                AssociationId = readersRow.Id,
+            };
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then: the reader's new row, answered Created with its id and nothing else
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(upsertRequest),
+                    Times.Once);
+
+            this.contentItemServiceMock.Verify(service =>
+                service.RetrieveContentItemByIdAsync(
+                    upsertRequest.EntityAKeyId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.reactionServiceMock.Verify(service =>
+                service.RetrieveReactionByIdAsync(
+                    upsertRequest.EntityBKeyId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.reactionServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
         }
     }
 }
