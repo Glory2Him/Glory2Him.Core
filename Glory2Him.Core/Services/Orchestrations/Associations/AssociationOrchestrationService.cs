@@ -9,12 +9,15 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
@@ -117,12 +120,39 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         {
             // The method path's reads are the ambient caller's, which on an HTTP request IS the
             // caller — so no read envelope is carried.
-            await DeriveAssociationToAddAsync(
+            bool isPersonal = await DeriveAssociationToAddAsync(
                 association: association,
                 inboundEnvelope: inboundEnvelope,
                 readEnvelope: null,
                 cancellationToken: cancellationToken);
 
+            return isPersonal
+                ? await UpsertPersonalPairAsync(association, cancellationToken)
+                : await AddEditorialPairAsync(association, cancellationToken);
+        }
+
+        private async ValueTask<AssociationSuggestionResult> UpsertPersonalPairAsync(
+            Association association,
+            CancellationToken cancellationToken)
+        {
+            association.ApprovalStatus = ApprovalStatus.Submitted;
+
+            PersonalAssociationUpsert personalAssociationUpsert =
+                await this.associationService.UpsertPersonalAssociationAsync(
+                    association,
+                    cancellationToken);
+
+            return new AssociationSuggestionResult
+            {
+                Status = AssociationSuggestionStatus.Created,
+                AssociationId = personalAssociationUpsert.Association.Id,
+            };
+        }
+
+        private async ValueTask<AssociationSuggestionResult> AddEditorialPairAsync(
+            Association association,
+            CancellationToken cancellationToken)
+        {
             (AssociationPairMatch? existingMatch, AssociationPairMatch? overlappingMatch) =
                 await FindPairOccupantsAsync(
                     association: association,
@@ -235,20 +265,26 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 
         // THE ADD'S WRITE FLOW — every rule that decides whether an add may happen and what the
         // row derives to — written ONCE and run by BOTH entry paths: UpsertAssociationAsync on the
-        // way to the pair probe, and the Association-Adding handler on the way to the
-        // foundation's own handler (#631). A rule added here is on both doors by construction and
-        // cannot be added to one alone, which is what makes "a gate the event path walks past"
+        // way to its branch, and the Association-Adding handler on the way to the foundation's
+        // own handler (#631). A rule added here is on both doors by construction and cannot be
+        // added to one alone, which is what makes "a gate the event path walks past"
         // structurally impossible rather than merely absent today.
         //
         // The two paths differ only in WHOSE reads resolve the endpoints: the method path passes
         // no read envelope and its endpoint services read as the ambient caller; the event path
         // passes the inbound envelope so they read as the signed one.
-        private async ValueTask DeriveAssociationToAddAsync(
+        //
+        // It answers whether the pair is personal, which the method path branches on once the
+        // flow is through. The event path never sees a personal pair here, because it refuses
+        // one before the flow begins (#723).
+        private async ValueTask<bool> DeriveAssociationToAddAsync(
             Association association,
             EventEnvelope<Association> inboundEnvelope,
             EventEnvelope<Association>? readEnvelope,
             CancellationToken cancellationToken)
         {
+            bool isPersonal = IsPersonalPair(association);
+
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
             ValidateOnAddAssociation(association);
 
@@ -295,13 +331,15 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             // the add to learn which pairings already exist.
             ValidateUserIsNotBlockedFromEndpoints(inboundEnvelope.SecurityContext, association);
 
-            // UserId is not the caller's to set. It partitions BOTH the canonical-pair probe and
-            // the unique index, so a caller-supplied value would evade the probe — missing a
-            // soft-deleted moderator-takedown row and laundering a fresh insert past it, or
-            // duplicating a live editorial row. The only rows that legitimately carry a UserId are
-            // per-user reactions, whose replace-on-react flow (thread 4) derives it from the caller
-            // and does not exist yet; until then every suggestion is editorial and carries no user.
-            association.UserId = null;
+            // UserId is derived, never the caller's to set (§DOM4.10 rules 1 and 2): the caller's
+            // own, from the envelope, on a personal pair, and null on an editorial one, whatever
+            // the request carried. It routes the row to one of the two unique indexes and selects
+            // its approval tier (§DOM4.10 rule 3), so a value the caller chose would file the row
+            // under a constraint that never sees it — and on an editorial pair would evade the
+            // canonical-pair probe, laundering an insert past a moderator's takedown.
+            association.UserId = isPersonal
+                ? inboundEnvelope.SecurityContext.SubjectId
+                : null;
 
             // THE FACET GATE (§ARC16.2.1), last in the flow: after both endpoints resolve and the
             // UserId is derived, and before the method path's pair probe and the event path's
@@ -311,6 +349,24 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 resolvedEntityA,
                 resolvedEntityB,
                 cancellationToken);
+
+            return isPersonal;
         }
+
+        // THE FLOW'S PERSONALITY, asked of the RAW endpoint types at its top, because its first
+        // step needs it before anything is read (AssociationOrchestrationService.md §1 rule 1). A
+        // pair is personal where either endpoint's type is, and that is the lookup's answer, never
+        // a test of this service's own (§DOM4.10 rule 4). A type outside the enum is not asked,
+        // for IsPersonalEndpoint's reason: the structural validation refuses it next as invalid,
+        // where the lookup would throw.
+        //
+        // The event door asks the same lookup for its own refusal through IsPersonalEndpoint, and
+        // the two share no member: a member both the shared flow and an entry path reach is a
+        // second route to one of the flow's rules, which the write-flow seam refuses.
+        private static bool IsPersonalPair(Association association) =>
+            new[] { association.EntityAType, association.EntityBType }
+                .Any(entityType =>
+                    Enum.IsDefined(entityType)
+                    && EntityTypePersonalisation.IsPersonal(entityType));
     }
 }
