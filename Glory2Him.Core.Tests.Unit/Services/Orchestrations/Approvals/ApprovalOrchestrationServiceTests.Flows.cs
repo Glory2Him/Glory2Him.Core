@@ -19,11 +19,13 @@ using Force.DeepCloner;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Events.Processings;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments.Exceptions;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
+using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Securities;
@@ -1612,5 +1614,176 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // service published
             actualEnvelope.Should().BeNull();
         }
+
+        // ── A reader's changed reaction (§APR9.7.4, #727) ──────────────────────────────────
+        //
+        // The flow is reached through the Association-Repointed ear, the only caller that hands
+        // it the change's UpdatedWhen, so these tests drive the ear and read the flow's work.
+
+        [Fact]
+        public async Task ShouldReturnARoundDecidedBeforeTheChangeAndEvaluateItAsync()
+        {
+            // given: the reader's reaction was approved a day before they changed it, so the
+            // round is the old reaction's and the change has to be decided afresh (§APR9.7.4, the
+            // round "was decided before the change"). The seeded personal tier answers every read:
+            // nothing is required and the met conditions apply themselves, so the evaluation
+            // approves the round again in the same act (§DOM4.5 rule 4).
+            //
+            // The round arrives BYPASS-APPROVED. Returning it withdraws that outcome, and a round
+            // back at Submitted must not still claim a waiver for a decision it no longer holds
+            // (§APR9.7.5), so the return write carries the pair cleared.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Approved,
+                updatedWhen: changedWhen.AddDays(-1),
+                updatedBy: SystemIdentity.UserId);
+
+            storageApproval.IsApprovedByBypass = true;
+            storageApproval.ApprovedByBypassReason = "approved before the reader changed it";
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Approved, approvalId));
+            SetupRepointedReviews(approvalId);
+            SetupFlowSystemEnvelope<Association>();
+
+            List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
+                SetupRepointedRoundWrites(storageApproval, flowSteps);
+
+            List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
+
+            SetupRepointedConditions(
+                CreateFlowConditions(areConditionsMet: true, shouldAutoApprove: true),
+                flowSteps);
+
+            // when
+            await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                envelope: CreateRepointedEnvelope(
+                    CreateRepointedAssociation(entityId, changedWhen)),
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then: returned first, as the workflow, with the waiver it no longer holds cleared
+            roundWrites.Should().HaveCount(2);
+
+            roundWrites[0].Approval.Id.Should().Be(approvalId);
+            roundWrites[0].Approval.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+            roundWrites[0].Approval.IsApprovedByBypass.Should().BeFalse();
+            roundWrites[0].Approval.ApprovedByBypassReason.Should().BeNull();
+            roundWrites[0].Attribution.Should().Be(WorkflowAttribution.System);
+
+            // the association followed its round to Submitted and was unpublished (§APR9.8)
+            associationCommands.Should().HaveCount(2);
+
+            associationCommands[0].Id.Should().Be(entityId);
+            associationCommands[0].ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+            associationCommands[0].IsPublished.Should().BeFalse();
+            associationCommands[0].PublishDate.Should().BeNull();
+            associationCommands[0].IsApprovedByBypass.Should().BeFalse();
+
+            // and the round was evaluated only after that: approved again, and published again
+            roundWrites[1].Approval.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
+            roundWrites[1].Attribution.Should().Be(WorkflowAttribution.System);
+            associationCommands[1].ApprovalStatus.Should().Be(ApprovalStatus.Approved);
+            associationCommands[1].IsPublished.Should().BeTrue();
+
+            flowSteps.Should().Equal(
+                "write:Submitted",
+                "command:Submitted",
+                "conditions-read",
+                "write:Approved",
+                "command:Approved");
+        }
+
+        private static Approval CreateRepointedRound(
+            Guid approvalId,
+            Guid entityId,
+            ApprovalStatus approvalStatus,
+            DateTimeOffset updatedWhen,
+            string updatedBy) =>
+            new Approval
+            {
+                Id = approvalId,
+                EntityType = EntityType.Association,
+                EntityId = entityId,
+                ApprovalStatus = approvalStatus,
+                UpdatedWhen = updatedWhen,
+                UpdatedBy = updatedBy,
+                IsDeleted = false,
+            };
+
+        // The round as the resolution reads it, and every write to it captured as a SNAPSHOT with
+        // the attribution it was written under: the flow mutates the row it holds and hands the
+        // same object on, so the instance alone would show only its last state.
+        private List<(Approval Approval, WorkflowAttribution Attribution)> SetupRepointedRoundWrites(
+            Approval storageApproval,
+            List<string> flowSteps)
+        {
+            var roundWrites = new List<(Approval Approval, WorkflowAttribution Attribution)>();
+
+            this.approvalServiceMock.Setup(service =>
+                service.RetrieveApprovalByIdAsync(
+                    storageApproval.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageApproval);
+
+            this.approvalServiceMock.Setup(service =>
+                service.ModifyApprovalAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
+                    It.IsAny<CancellationToken>()))
+                        .Returns((Approval approval,
+                            WorkflowAttribution attribution,
+                            CancellationToken cancellationToken) =>
+                        {
+                            Approval savedApproval = approval.DeepClone();
+                            roundWrites.Add((savedApproval, attribution));
+                            flowSteps.Add($"write:{savedApproval.ApprovalStatus}");
+
+                            return new ValueTask<Approval>(savedApproval.DeepClone());
+                        });
+
+            return roundWrites;
+        }
+
+        // Every entity command the flow sends the association, in order.
+        private List<Association> SetupRepointedAssociationCommands(List<string> flowSteps)
+        {
+            var associationCommands = new List<Association>();
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    AssociationEventOperation.Approving))
+                        .Returns((EventEnvelope<Association> envelope,
+                            AssociationEventOperation operation) =>
+                        {
+                            associationCommands.Add(envelope.Content);
+                            flowSteps.Add($"command:{envelope.Content.ApprovalStatus}");
+
+                            return new ValueTask<EventPublishResult<Association>>(
+                                new EventPublishResult<Association>());
+                        });
+
+            return associationCommands;
+        }
+
+        // The same verdict for every read, each one recorded where it happened.
+        private void SetupRepointedConditions(
+            ApprovalConditionsVerdict conditionsVerdict,
+            List<string> flowSteps) =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.EvaluateApprovalConditionsByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .Returns((Guid approvalId, CancellationToken cancellationToken) =>
+                        {
+                            flowSteps.Add("conditions-read");
+
+                            return new ValueTask<ApprovalConditionsVerdict>(conditionsVerdict);
+                        });
     }
 }
