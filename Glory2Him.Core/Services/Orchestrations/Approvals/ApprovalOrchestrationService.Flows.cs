@@ -53,12 +53,24 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     entityId: entityId,
                     cancellationToken: cancellationToken);
 
-                // §9.7.4. This flow only ever sees Draft and Submitted, and that is a property of
-                // the system rather than an assumption: a terminal row is immutable in place, so a
-                // versioned entity's edit becomes a DIFFERENT row running the Added flow, and a
-                // single-row entity's edit is refused at the foundation before any fact is
-                // published. Neither can arrive here.
+                // §9.7.4. Without a change time this flow only ever sees Draft and Submitted, and
+                // that is a property of the system rather than an assumption: a terminal row is
+                // immutable in place, so a versioned entity's edit becomes a DIFFERENT row running
+                // the Added flow, and a single-row entity's edit is refused at the foundation
+                // before any fact is published. Neither can arrive here.
                 //
+                // THE ONE DECIDED ROUND THAT DOES is a reader's changed reaction, the in-place
+                // change §APR7.5.1 rule 3 admits. Its round starts with no reviews, so a round
+                // the old reaction decided goes back to Submitted BEFORE ANYTHING ELSE, and is
+                // then evaluated like any other open round (§APR9.7.4).
+                if (changedWhen is not null
+                    && IsRoundDecidedBeforeTheChange(approval, changedWhen.Value))
+                {
+                    approval = await ReturnDecidedRoundToSubmittedAsync(
+                        approval: approval,
+                        cancellationToken: cancellationToken);
+                }
+
                 // ONE approval-state change CAN arrive on a -Modified, and it is the §9.2 rule 3
                 // carve-out: the owner or the publishing tier moving the entity between Draft and
                 // Submitted through the general modify — an edit and its submission as one act.
@@ -203,6 +215,37 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 approval: approval,
                 attribution: WorkflowAttribution.System,
                 cancellationToken: cancellationToken);
+        }
+
+        // §APR9.7.4: a round decided before the change is the old reaction's.
+        private static bool IsRoundDecidedBeforeTheChange(
+            Approval approval,
+            DateTimeOffset changedWhen) =>
+            approval.ApprovalStatus is ApprovalStatus.Approved
+                && approval.UpdatedWhen < changedWhen;
+
+        // Written as the WORKFLOW: nobody asked for the round back, the change did. The bypass
+        // pair is cleared in the same write, because a round back at Submitted must not still
+        // claim a waiver for a decision it no longer holds (§APR9.7.5). The association follows
+        // as a sync, and is unpublished until the round is approved again (§APR9.8).
+        private async ValueTask<Approval> ReturnDecidedRoundToSubmittedAsync(
+            Approval approval,
+            CancellationToken cancellationToken)
+        {
+            approval.ApprovalStatus = ApprovalStatus.Submitted;
+            approval.IsApprovedByBypass = false;
+            approval.ApprovedByBypassReason = null;
+
+            Approval returnedApproval = await this.approvalService.ModifyApprovalAsync(
+                approval: approval,
+                attribution: WorkflowAttribution.System,
+                cancellationToken: cancellationToken);
+
+            await PublishEntityApprovalCommandAsync(
+                approval: returnedApproval,
+                cancellationToken: cancellationToken);
+
+            return returnedApproval;
         }
 
         public ValueTask<ApprovalOutcome> ProcessApprovalInputsChangedAsync(
