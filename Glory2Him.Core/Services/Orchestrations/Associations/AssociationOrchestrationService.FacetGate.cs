@@ -86,11 +86,25 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 
             foreach (FacetQuestion facetQuestion in facetQuestions)
             {
-                ContentItemSetting winningSetting = effectiveSettings.Single().ContentItemSetting;
+                ContentItemSetting? winningSetting =
+                    FindWinningSetting(effectiveSettings, facetQuestion.SettingKey);
 
-                ValidateSettingAllowsTheFacet(winningSetting, facetQuestion);
+                ValidateSettingIsResolved(winningSetting, facetQuestion.FacetSwitch);
+                ValidateSettingAllowsTheFacet(winningSetting!, facetQuestion);
             }
         }
+
+        // The answer is per key — one item under one content type — and a key that resolves no row
+        // is absent from it (IAccessBroker), so each question takes the row for its own key.
+        private static ContentItemSetting? FindWinningSetting(
+            IReadOnlyList<EffectiveContentItemSetting> effectiveSettings,
+            ContentItemSettingKey settingKey) =>
+            effectiveSettings
+                .Where(effectiveSetting =>
+                    effectiveSetting.ContentItemId == settingKey.ContentItemId
+                        && effectiveSetting.ContentItemSetting.ContentType == settingKey.ContentType)
+                .Select(effectiveSetting => effectiveSetting.ContentItemSetting)
+                .FirstOrDefault();
 
         // Both orientations are asked, because the flow never reorders the pair: canonical order is
         // the foundation's to restore (§DOM4.4 rule 4), so the item may be either endpoint.
@@ -180,6 +194,21 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 
                 _ => null,
             };
+
+        // The gate never falls open (§ARC16.2.1): a key that resolves no row refuses the switch it
+        // asked, rather than admitting what no setting allowed.
+        private static void ValidateSettingIsResolved(
+            ContentItemSetting? winningSetting,
+            FacetSwitch facetSwitch) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsNotResolved(winningSetting), Parameter: facetSwitch.Name));
+
+        private static dynamic IsNotResolved(ContentItemSetting? winningSetting) => new
+        {
+            Condition = winningSetting is null,
+            Message = "Value could not be resolved"
+        };
 
         // Each refusal names the switch that refused (§ARC16.2.1). §SEC14.5's no-existence-leak
         // posture does not reach it: resolution has already shown the caller both endpoints, so
