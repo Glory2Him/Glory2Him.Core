@@ -27,14 +27,22 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         // The orchestration enforces the contribution gate itself (§SEC14.6): an exposer may bind
         // to it directly, so it never assumes an upstream layer already gated the caller.
         //
-        // The ADD's composition: the two row-free leaves, and then — once both endpoints have
+        // The UPSERT's composition: the two row-free leaves, and then — once both endpoints have
         // been resolved from storage — the endpoint half of the veto, which this member is the
         // one write able to decide for itself (§SEC14.7 posture A′ rule 4, "the add is the
-        // exception that proves the rule").
-        private static void ValidateUserIsAllowedToContribute(SecurityContext securityContext)
+        // exception that proves the rule"). A personal pair asks authentication alone: a
+        // reader's own reaction is not a contribution, so it asks none of the read-only roles,
+        // the global block here or the endpoint veto after resolution (posture A′ rule 1).
+        private static void ValidateUserIsAllowedToContribute(
+            SecurityContext securityContext,
+            bool isPersonal)
         {
             ValidateUserIsAuthenticated(securityContext);
-            ValidateUserIsNotGloballyBlocked(securityContext);
+
+            if (isPersonal is false)
+            {
+                ValidateUserIsNotGloballyBlocked(securityContext);
+            }
         }
 
         // ── ONE COMPOSITION PER OPERATION, over shared leaves ─────────────────────────

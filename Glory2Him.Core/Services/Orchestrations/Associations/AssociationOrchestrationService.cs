@@ -302,7 +302,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         {
             bool isPersonal = IsPersonalPair(association);
 
-            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext, isPersonal);
             ValidateOnAddAssociation(association);
 
             // Resolve BOTH endpoints against their foundation services and DERIVE the scope,
@@ -345,8 +345,12 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             // the add is the one write that resolves both endpoints from storage as its own first
             // act, so §SEC14.7 posture A′ rule 4's split puts this half on the orchestration
             // rather than below it. Asked before the pair probe, so a blocked caller cannot use
-            // the add to learn which pairings already exist.
-            ValidateUserIsNotBlockedFromEndpoints(inboundEnvelope.SecurityContext, association);
+            // the add to learn which pairings already exist. An editorial pair's alone: a reader's
+            // own reaction is outside the veto (posture A′ rule 1).
+            if (isPersonal is false)
+            {
+                ValidateUserIsNotBlockedFromEndpoints(inboundEnvelope.SecurityContext, association);
+            }
 
             // UserId is derived, never the caller's to set (§DOM4.10 rules 1 and 2): the caller's
             // own, from the envelope, on a personal pair, and null on an editorial one, whatever
