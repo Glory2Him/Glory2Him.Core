@@ -1838,6 +1838,75 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             flowSteps.Should().Equal("write:Submitted", "command:Submitted", "conditions-read");
         }
 
+        [Theory]
+        [InlineData(1, true)]
+        [InlineData(-1440, false)]
+        [InlineData(-1440, true)]
+        public async Task ShouldNeverReturnADirectRejectionAsync(
+            int minutesFromTheChangeToTheRejection,
+            bool isAnOldRejectionStanding)
+        {
+            // given: a publisher rejected the round directly, so the row records the person who
+            // took the decision and not the workflow (WorkflowAttribution, §APR9.7.5). A direct
+            // rejection counts no review, so no review can be what decided it, and returning it
+            // would erase a verdict nothing re-takes: the evaluation that follows can only approve
+            // or leave open (§APR9.7.4).
+            //
+            // Each row is a shape a STANDING rejection would be returned in: rejected after the
+            // change while an old rejection still stands, or rejected before the change, with or
+            // without its rejection still standing. The evaluation is armed to approve, so a round
+            // returned by mistake is written twice and published.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Rejected,
+                updatedWhen: changedWhen.AddMinutes(minutesFromTheChangeToTheRejection),
+                updatedBy: Guid.NewGuid().ToString());
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Rejected, approvalId));
+            SetupFlowSystemEnvelope<Association>();
+
+            DismissableApprovalReview[] standingReviews = isAnOldRejectionStanding
+                ? new[]
+                {
+                    CreateRepointedReview(
+                        Guid.NewGuid(),
+                        createdWhen: changedWhen.AddDays(-2),
+                        isRejection: true),
+                }
+                : Array.Empty<DismissableApprovalReview>();
+
+            SetupRepointedReviews(approvalId, standingReviews);
+
+            List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
+                SetupRepointedRoundWrites(storageApproval, flowSteps);
+
+            List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
+
+            SetupRepointedConditions(
+                CreateFlowConditions(areConditionsMet: true, shouldAutoApprove: true),
+                flowSteps);
+
+            // when
+            await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                envelope: CreateRepointedEnvelope(
+                    CreateRepointedAssociation(entityId, changedWhen)),
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then: the round stays Rejected, and the association is not told anything
+            roundWrites.Should().BeEmpty();
+            associationCommands.Should().BeEmpty();
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateSystemAsync(It.IsAny<Association>()),
+                Times.Never);
+        }
+
         private static Approval CreateRepointedRound(
             Guid approvalId,
             Guid entityId,
