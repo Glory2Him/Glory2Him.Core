@@ -709,5 +709,42 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldNotGateAContentItemFarEndAsync()
+        {
+            // given: two items paired, as in series membership. Each is a ContentItem host, but its
+            // far end is a ContentItem too, which maps no switch, so neither orientation is gated
+            // and no setting is read (the task's edge case; §ARC16.2.1's table).
+            Association rawRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.ContentItem);
+
+            SetupMethodPathEndpointReads(rawRequest);
+            var insertedId = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.AddAssociationAsync(
+                    It.IsAny<Association>(),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync((Association association, CancellationToken _) =>
+                        {
+                            association.Id = insertedId;
+
+                            return association;
+                        });
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    rawRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualResult.Status.Should().Be(AssociationSuggestionStatus.Created);
+            actualResult.AssociationId.Should().Be(insertedId);
+
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
