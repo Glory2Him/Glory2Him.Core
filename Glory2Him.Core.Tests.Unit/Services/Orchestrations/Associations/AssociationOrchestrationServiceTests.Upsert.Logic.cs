@@ -972,6 +972,92 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldNeverUpsertAnEditorialPairAsPersonalAsync()
+        {
+            // given: a suggested tag, from a signed-in caller whose envelope carries a subject and
+            // whose request claims a user. An editorial pair runs today's add — both probes, then
+            // the insert of a free pair — under no user at all, and never the personal upsert.
+            string callerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(callerUserId);
+
+            Association upsertRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Tag);
+
+            upsertRequest.UserId = callerUserId;
+            SetupInboundEnvelopeFor(upsertRequest);
+            ContentItem resolvedContentItem = SetupMethodPathEndpointReads(upsertRequest);
+            SetupAllowingSettingFor(resolvedContentItem);
+
+            Association expectedEditorialAssociation = upsertRequest.DeepClone();
+            expectedEditorialAssociation.EntityAGroupId = resolvedContentItem.GroupId;
+            expectedEditorialAssociation.EntityAContentType = resolvedContentItem.ContentType;
+            expectedEditorialAssociation.EntityAScope = Scope.AllVersions;
+            expectedEditorialAssociation.EntityBGroupId = upsertRequest.EntityBKeyId;
+            expectedEditorialAssociation.EntityBContentType = null;
+            expectedEditorialAssociation.EntityBScope = Scope.ThisVersionOnly;
+            expectedEditorialAssociation.UserId = null;
+
+            Association insertedAssociation = expectedEditorialAssociation.DeepClone();
+            insertedAssociation.Id = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.FindAssociationByPairAsync(
+                    It.Is(SameAssociationAs(expectedEditorialAssociation)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync((AssociationPairMatch)null);
+
+            this.associationServiceMock.Setup(service =>
+                service.FindOverlappingAssociationAsync(
+                    It.Is(SameAssociationAs(expectedEditorialAssociation)),
+                    (Guid?)null,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync((AssociationPairMatch)null);
+
+            this.associationServiceMock.Setup(service =>
+                service.AddAssociationAsync(
+                    It.Is(SameAssociationAs(expectedEditorialAssociation)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(insertedAssociation);
+
+            var expectedResult = new AssociationSuggestionResult
+            {
+                Status = AssociationSuggestionStatus.Created,
+                AssociationId = insertedAssociation.Id,
+            };
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindAssociationByPairAsync(
+                    It.Is(SameAssociationAs(expectedEditorialAssociation)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindOverlappingAssociationAsync(
+                    It.Is(SameAssociationAs(expectedEditorialAssociation)),
+                    (Guid?)null,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.AddAssociationAsync(
+                    It.Is(SameAssociationAs(expectedEditorialAssociation)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A signed-in reader's reaction on an item whose setting allows reactions: the envelope,
         // both endpoint reads and the setting. Hands back the row the foundation is to be handed.
         private Association SetupReadersReaction(Association upsertRequest, string readerUserId)
