@@ -89,5 +89,24 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.CachePolicies
             actualResponse.Headers.CacheControl.MaxAge.Should().Be(TimeSpan.FromSeconds(60));
             actualResponse.Headers.CacheControl.NoStore.Should().BeFalse();
         }
+
+        // The app's document and its assets set no cache policy today. In this host the SPA's
+        // build output is not published, so the document is the fallback's answer for a client
+        // route; either way, the /api policy must not reach it.
+        [Theory]
+        [InlineData("assets/css/style.css")]
+        [InlineData("Account/Login")]
+        public async Task ShouldLeaveTheCachePolicyOutsideTheApiAsItIs(string relativeUrl)
+        {
+            // given
+            string nonApiUrl = relativeUrl;
+
+            // when
+            using HttpResponseMessage actualResponse =
+                await this.apiBroker.GetResponseAsync(nonApiUrl);
+
+            // then
+            actualResponse.Headers.CacheControl.Should().BeNull();
+        }
     }
 }
