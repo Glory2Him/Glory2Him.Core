@@ -262,11 +262,11 @@ subscriptions must not use those helpers** — it registers the service and its 
 brokers scoped itself, as `CoreRegistration.AddCoreServices` does. **That conditional is a
 corollary and not the operative rule**: the rule above is unconditional, and
 `CoreRegistration.AddCoreServices` is cited for what it **does** — register scoped, by hand — and
-not for satisfying the condition, because that host wires **123** subscriptions. *(Counted as the
+not for satisfying the condition, because that host wires **124** subscriptions. *(Counted as the
 `expectedSubscriptionId:` verifications in
 `EventSubscriptionRegistrationTests.ShouldRegisterParticipantAddressesAndAllSubscriptionsAsync`,
 which ends in `VerifyNoOtherCalls` and so pins the number exactly rather than as a floor; it
-agrees with the 123 `await this.eventBroker.SubscribeTo…` calls in
+agrees with the 124 `await this.eventBroker.SubscribeTo…` calls in
 `EventSubscriptionRegistration.cs`.)* Only the genuinely stateless brokers (`IDateTimeBroker`,
 `IIdentifierBroker`, `IHashBroker`, `IEnvelopeIntegrityBroker`, `IEventBroker`) stay singletons
 **in that host**.

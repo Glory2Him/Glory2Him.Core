@@ -1438,8 +1438,8 @@ foundation, and the workflow still binds to its foundation facts.
    `AssociationEventOperation` carries no `Submitting` and `IAssociationService`
    no submit method — so its `-Submitted` is published by the approve transition
    alone, when an administrator's override re-opens a decided row or the
-   approval workflow returns a changed reaction's decided round (§APR9.7.4, not
-   yet built). Nothing above the foundation takes part in either route, so there
+   approval workflow returns a changed reaction's decided round (§APR9.7.4, built
+   by #727). Nothing above the foundation takes part in either route, so there
    is no processing fact to prefer.
 
    A **Versioned** type must have a processing service before it can
