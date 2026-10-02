@@ -300,7 +300,7 @@ Every page renders the family through its stories. No page renders `AssociationP
 | --- | --- | --- |
 | Read the associations for an entity — "associations for this entity", keyed on the effective id (§DOM4.6 rule 1) | `GET /api/associations` (§ARC17.4) | designed; `AssociationsController` does not exist yet (section 10, item 21) |
 | Suggest an association (`onAdd`) | `POST /api/associations` (§ARC17.4, §ARC16.8.1) | designed; not yet exposed (section 10, item 21) |
-| Remove an association (`onRemove`) | `DELETE /api/associations/{id}` (§ARC17.4) — owner or `Administrators` | designed; not yet exposed (section 10, item 21) |
+| Remove an association (`onRemove`) | `DELETE /api/associations/{id}` (§ARC17.4) — owner or `Administrators` | designed; not yet exposed (section 10, item 22) |
 | Approve or reject (`onApprove`, `onReject`) | not ruled — see section 10 | — |
 
 No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `contentItemModerationDetailPage.tsx` pass empty collections and answer `onAdd` with a "coming soon" toast; `postSingle.tsx`, `bibleReference.tsx` and the magazine sample hold suggestions in local state only. *(code: those files — suggestTag, asSuggestion)*
@@ -375,10 +375,16 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
     property through their rest spread
     (`UI/Components/AssociationPanel.TagAssociationPanel.md §4.3`), so the property reaches them
     with the panel's. The panel's own end's roles, which it does not compose either, are item 1.
-21. (needs issue) **Gap — associations are not exposed over HTTP.** The reads and writes the
+21. (#857) **Gap — associations are not exposed over HTTP.** The reads and writes the
     page calls for this family — reading an entity's associations, suggesting one and removing
     one (section 7; §ARC17.4) — are designed and not built: no `AssociationsController` exists at
     70dc72e7, so no product page can read or write an association through the family, and every
     page in section 6 passes an empty collection or holds suggestions in its own state. A page
     list narrowed by tag or Bible reference waits on the same read
-    (`UI/Components/ContentItemListPanel.md §8`). The work was filed as #318 (closed).
+    (`UI/Components/ContentItemListPanel.md §8`). The work was filed as #318 (closed). Suggesting
+    one is #728's (`POST /api/associations`). Reading an entity's associations is #857's, which
+    designs §ARC17.4's two reads with §SEC14.7 posture A′ rule 7 ahead of them (user ruling
+    2026-10-02). Removing one is item 22.
+22. (#700) **Gap — an association cannot be removed over HTTP.** Removing one, the third part of
+    item 21's gap, `DELETE /api/associations/{id}` (section 7; §ARC17.4), is held by a design task
+    other than item 21's: #700's point 6 plans the remove by id and the two gates beneath it.
