@@ -537,5 +537,66 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldNotNarrowAFarEndOtherThanAReactionOnAnItemLimitedToLoveAsync()
+        {
+            // given: the negative control the narrowing needs. Limiting an item to Love narrows
+            // its reactions and nothing else (§ARC16.2.1), so a tag on that item is asked only
+            // TagsAllowed, which is on. A narrowing that ignored the far end's type would refuse it.
+            Association rawRequest = CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Tag);
+            ContentItem resolvedContentItem = SetupMethodPathEndpointReads(rawRequest);
+
+            ContentItemSetting loveOnlySetting =
+                CreateAllowingContentItemSetting(resolvedContentItem.ContentType);
+
+            loveOnlySetting.LimitReactionsToLoveOnly = true;
+            List<ContentItemSettingKey> expectedSettingKeys = CreateSettingKeysFor(resolvedContentItem);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new List<EffectiveContentItemSetting>
+                        {
+                            new EffectiveContentItemSetting
+                            {
+                                ContentItemId = resolvedContentItem.Id,
+                                ContentItemSetting = loveOnlySetting,
+                            },
+                        });
+
+            var insertedId = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.AddAssociationAsync(
+                    It.IsAny<Association>(),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync((Association association, CancellationToken _) =>
+                        {
+                            association.Id = insertedId;
+
+                            return association;
+                        });
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    rawRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then: admitted, and the free pair inserted
+            actualResult.Status.Should().Be(AssociationSuggestionStatus.Created);
+            actualResult.AssociationId.Should().Be(insertedId);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
