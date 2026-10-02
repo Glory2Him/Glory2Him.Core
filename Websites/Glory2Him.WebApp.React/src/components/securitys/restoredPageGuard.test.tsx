@@ -62,8 +62,19 @@ const settle = async (): Promise<void> => {
     });
 };
 
-const isHidden = (): boolean =>
-    document.documentElement.style.visibility === 'hidden';
+const isHidden = (): boolean => {
+    const rootStyle = document.documentElement.style;
+
+    return rootStyle.visibility === 'hidden'
+        && rootStyle.getPropertyValue('opacity') === '0'
+        && rootStyle.getPropertyPriority('opacity') === 'important';
+};
+
+const isShown = (): boolean => {
+    const rootStyle = document.documentElement.style;
+
+    return rootStyle.visibility === '' && rootStyle.getPropertyValue('opacity') === '';
+};
 
 describe('RestoredPageGuard', () => {
     let reload: ReturnType<typeof vi.fn>;
@@ -97,7 +108,7 @@ describe('RestoredPageGuard', () => {
         // then
         expect(mocks.refetch).toHaveBeenCalledTimes(1);
         expect(reload).not.toHaveBeenCalled();
-        expect(isHidden()).toBe(false);
+        expect(isShown()).toBe(true);
     });
 
     it('should hide a restored page and read the current user again before deciding', async () => {
@@ -243,12 +254,12 @@ describe('RestoredPageGuard', () => {
 
         // when
         dispatchPageTransition('pageshow', false);
-        const hiddenAtOnce = isHidden();
+        const shownAtOnce = isShown();
         await settle();
 
         // then
-        expect(hiddenAtOnce).toBe(false);
-        expect(isHidden()).toBe(false);
+        expect(shownAtOnce).toBe(true);
+        expect(isShown()).toBe(true);
         expect(mocks.refetch).not.toHaveBeenCalled();
         expect(reload).not.toHaveBeenCalled();
     });
