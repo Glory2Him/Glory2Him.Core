@@ -91,6 +91,7 @@ describe('RestoredPageGuard', () => {
         onlineManager.setOnline(true);
         document.documentElement.style.removeProperty('visibility');
         document.documentElement.style.removeProperty('opacity');
+        document.body.removeAttribute('inert');
     });
 
     it('should resume a restored page for the same signed-in reader', async () => {
@@ -146,6 +147,25 @@ describe('RestoredPageGuard', () => {
         expect(opacityAtRestore).toBe('0');
         expect(opacityPriorityAtRestore).toBe('important');
         expect(rootStyle.getPropertyValue('opacity')).toBe('');
+    });
+
+    // An element a stylesheet shows inside the hidden root stays in the accessibility tree and
+    // takes clicks; nothing inside an inert body does.
+    it('should keep a restored page out of reach until it resumes', async () => {
+        // given
+        mocks.currentUser = readerA;
+        render(<RestoredPageGuard />);
+        dispatchPageTransition('pagehide', true);
+        answerFreshRead(freshCopyOf(readerA));
+
+        // when
+        dispatchPageTransition('pageshow', true);
+        const inertAtRestore = document.body.hasAttribute('inert');
+        await settle();
+
+        // then
+        expect(inertAtRestore).toBe(true);
+        expect(document.body.hasAttribute('inert')).toBe(false);
     });
 
     it('should compare with the reader noted when the page was cached', async () => {
