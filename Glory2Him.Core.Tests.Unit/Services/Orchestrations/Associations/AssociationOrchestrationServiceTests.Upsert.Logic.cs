@@ -627,5 +627,69 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.associationServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldAnswerRestoredWhenTheReadersRowWasRevivedAsync()
+        {
+            // given: the reader withdrew this reaction and gives it again, so the foundation
+            // revives their row at the status it was withdrawn at (§DOM4.10 rule 8)
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+
+            Association upsertRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            Association expectedUpsertedAssociation =
+                SetupReadersReaction(upsertRequest, readerUserId);
+
+            Association revivedRow = expectedUpsertedAssociation.DeepClone();
+            revivedRow.Id = Guid.NewGuid();
+            revivedRow.ApprovalStatus = ApprovalStatus.Approved;
+
+            this.associationServiceMock.Setup(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new PersonalAssociationUpsert
+                        {
+                            Outcome = PersonalAssociationUpsertOutcome.Restored,
+                            Association = revivedRow,
+                        });
+
+            var expectedResult = new AssociationSuggestionResult
+            {
+                Status = AssociationSuggestionStatus.Restored,
+                AssociationId = revivedRow.Id,
+            };
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.associationServiceMock.Verify(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // A signed-in reader's reaction on an item whose setting allows reactions: the envelope,
+        // both endpoint reads and the setting. Hands back the row the foundation is to be handed.
+        private Association SetupReadersReaction(Association upsertRequest, string readerUserId)
+        {
+            SetupInboundEnvelopeFor(upsertRequest);
+            ContentItem resolvedContentItem = SetupMethodPathEndpointReads(upsertRequest);
+            SetupAllowingSettingFor(resolvedContentItem);
+
+            return CreateResolvedReactionFrom(upsertRequest, resolvedContentItem, readerUserId);
+        }
     }
 }
