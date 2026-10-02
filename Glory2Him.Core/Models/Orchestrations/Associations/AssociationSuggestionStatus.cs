@@ -44,9 +44,10 @@ namespace Glory2Him.Core.Models.Orchestrations.Associations
         OverlapsExisting,
 
         /// <summary>
-        /// The caller's own soft-deleted row was resurrected — deletion cleared and approval
-        /// status reset to Draft (never inherited). A row soft-deleted by a moderator is never
-        /// resurrected, so this can only follow the contributor's own earlier removal.
+        /// The reader's own withdrawn row was revived to the reaction they gave again. It comes
+        /// back at the status it was withdrawn at, because a revive writes no status of its own
+        /// (§DOM4.10 rule 8). A row somebody else took down is never revived (§DOM4.10 rule 7), so
+        /// this follows only the reader's own withdrawal.
         /// </summary>
         Restored,
 

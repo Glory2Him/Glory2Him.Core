@@ -144,10 +144,18 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 
             return new AssociationSuggestionResult
             {
-                Status = AssociationSuggestionStatus.Created,
+                Status = ToSuggestionStatus(personalAssociationUpsert),
                 AssociationId = personalAssociationUpsert.Association.Id,
             };
         }
+
+        private static AssociationSuggestionStatus ToSuggestionStatus(
+            PersonalAssociationUpsert personalAssociationUpsert) =>
+            personalAssociationUpsert.Outcome switch
+            {
+                PersonalAssociationUpsertOutcome.Restored => AssociationSuggestionStatus.Restored,
+                _ => AssociationSuggestionStatus.Created,
+            };
 
         private async ValueTask<AssociationSuggestionResult> AddEditorialPairAsync(
             Association association,
