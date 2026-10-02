@@ -248,8 +248,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // §APR9.7.4's return, for a round the old pair decided: one decided before the change,
         // which is the old reaction's; one approved after it while one of the old pair's reviews
         // still stood, because that approval may have counted it and nothing records which
-        // reviews an approval counted; or one rejected after it while one of the old pair's
-        // rejections still stood, because then an old review is what blocks it.
+        // reviews an approval counted; or one rejected after it on a standing rejection while
+        // one of the old pair's rejections still stood and none of the new pair's did, because
+        // then an old review is what blocks it. A direct rejection is never returned.
         //
         // The round's active reviews are read UNFILTERED, for the reason the dismissal reads them
         // so: the flow runs as the reader, who may see none of them.
