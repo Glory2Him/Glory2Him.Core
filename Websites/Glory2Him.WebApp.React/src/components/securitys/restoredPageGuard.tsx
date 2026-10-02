@@ -1,5 +1,9 @@
 import { ReactElement, useEffect, useRef } from 'react';
 import { accountService } from '../../services/foundations/accountService';
+import { CurrentUser } from '../../models/accounts/currentUser';
+
+const signedInReaderOf = (currentUser: CurrentUser | undefined): string | undefined =>
+    currentUser?.isAuthenticated ? currentUser.userId : undefined;
 
 export const RestoredPageGuard = (): ReactElement => {
     const { data: currentUser, refetch } = accountService.useGetCurrentUser();
@@ -12,14 +16,15 @@ export const RestoredPageGuard = (): ReactElement => {
 
     useEffect(() => {
         const handlePageHide = () => {
-            cachedReaderReference.current = currentUserReference.current?.userId;
+            cachedReaderReference.current = signedInReaderOf(currentUserReference.current);
         };
 
         const handlePageShow = async () => {
             document.documentElement.style.visibility = 'hidden';
+            const cachedReader = cachedReaderReference.current;
             const freshRead = await refetch();
 
-            if (freshRead.data?.userId === cachedReaderReference.current) {
+            if (cachedReader !== undefined && signedInReaderOf(freshRead.data) === cachedReader) {
                 document.documentElement.style.removeProperty('visibility');
             } else {
                 window.location.reload();
