@@ -283,6 +283,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 react: ProcessEntityModifiedAsync,
                 cancellationToken: cancellationToken);
 
+        public ValueTask<EventEnvelope<Association>?> OnAssociationRepointedAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
         // ── The workflow records' ears (§10.17(a)) ────────────────────────────────────
         //
         // EVERY fact address on ApprovalReview and ApprovalComment has a subscriber, because
