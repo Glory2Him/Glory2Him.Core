@@ -137,7 +137,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     }
                 }
 
-                await DismissStaleApprovalReviewsAsync(
+                int dismissedReviewCount = await DismissStaleApprovalReviewsAsync(
                     approvalId: approval.Id,
                     changedWhen: changedWhen,
                     cancellationToken: cancellationToken);
@@ -179,9 +179,23 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 // What a failure costs instead: the two flags stay stale until a moderator asks
                 // Berean again, and the failure is in the error log. The same posture Resets.cs
                 // writes down for its own AI step, because both call the one helper.
-                await ResetStaleAIReviewerAssignmentAsync(
-                    approvalId: approval.Id,
-                    cancellationToken: cancellationToken);
+                //
+                // A CHANGED REACTION'S RETURN AND DISMISSAL ARE DELTAS, and Berean's half rides
+                // with them, so it carries their redelivery check (§APR9.7.4, §EVN20 rule 4).
+                // Once the change is processed no old-pair review stands and no round the old
+                // pair decided is left decided, so a delivery that returned nothing and dismissed
+                // nothing has nothing to take back: a pass Berean finished on the new reaction
+                // since stands, as a review written since does.
+                bool hasFoundNothingLeftToDo = changedWhen is not null
+                    && isRoundDecidedOnTheOldPair is false
+                    && dismissedReviewCount is 0;
+
+                if (hasFoundNothingLeftToDo is false)
+                {
+                    await ResetStaleAIReviewerAssignmentAsync(
+                        approvalId: approval.Id,
+                        cancellationToken: cancellationToken);
+                }
 
                 return outcome;
             });
@@ -426,7 +440,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // what goes is the old pair's: every active review written before the change. A review
         // written since is the new pair's own and stands (§APR9.7.4). Every other caller passes
         // no bound and dismisses every active review.
-        private async ValueTask DismissStaleApprovalReviewsAsync(
+        //
+        // Answers how many it dismissed, which is how a changed reaction tells a delivery that
+        // still had something to take back from one that found nothing left to do.
+        private async ValueTask<int> DismissStaleApprovalReviewsAsync(
             Guid approvalId,
             DateTimeOffset? changedWhen,
             CancellationToken cancellationToken)
@@ -485,6 +502,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             {
                 suppressedDismissalApprovalId.Value = previouslySuppressedApprovalId;
             }
+
+            return staleReviewIds.Count;
         }
 
         // The old pair's reviews: those whose CreatedWhen precedes the change's (§APR9.7.4). The
