@@ -1,3 +1,4 @@
+import { onlineManager } from '@tanstack/react-query';
 import { act, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CurrentUser } from '../../models/accounts/currentUser';
@@ -71,6 +72,7 @@ describe('RestoredPageGuard', () => {
 
     afterEach(() => {
         vi.restoreAllMocks();
+        onlineManager.setOnline(true);
         document.documentElement.style.removeProperty('visibility');
     });
 
@@ -235,6 +237,25 @@ describe('RestoredPageGuard', () => {
             isError: true,
             error: new Error('The current user could not be read.')
         });
+
+        // when
+        dispatchPageTransition('pageshow', true);
+        await settle();
+
+        // then
+        expect(reload).toHaveBeenCalledTimes(1);
+        expect(isHidden()).toBe(true);
+    });
+
+    it('should reload a restored page at once while the app is offline', async () => {
+        // given
+        mocks.currentUser = readerA;
+        render(<RestoredPageGuard />);
+        dispatchPageTransition('pagehide', true);
+        onlineManager.setOnline(false);
+
+        // React Query pauses a read while it counts the browser offline, so it never settles.
+        mocks.refetch.mockReturnValue(new Promise(() => { }));
 
         // when
         dispatchPageTransition('pageshow', true);
