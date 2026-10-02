@@ -1907,6 +1907,87 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 Times.Never);
         }
 
+        [Fact]
+        public async Task ShouldDismissTheOldPairsReviewsWhateverTheSettingSaysAsync()
+        {
+            // given: RequireReapprovalOnChange is OFF, which keeps every review standing on any
+            // other change (§APR8.8). A changed reaction's round starts with no reviews, so the old
+            // pair's are dismissed whatever the setting says — every active review written before
+            // the change, approvals and rejections alike — and Berean's finished pass goes back to
+            // pending with them (§APR8.8 regardless-rule 1, §APR9.7.4).
+            //
+            // The new pair's reviews stand: one written a minute after the change, and one stamped
+            // in the change's own tick, which does not precede it and so is not the old pair's.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            var oldApprovingReviewId = Guid.NewGuid();
+            var oldRejectingReviewId = Guid.NewGuid();
+            var staleAssignmentId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Submitted,
+                updatedWhen: changedWhen.AddDays(-1),
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
+            SetupRepointedRoundWrites(storageApproval, flowSteps);
+
+            List<Guid> dismissedReviewIds = SetupRepointedReviews(
+                approvalId,
+                flowSteps,
+                CreateRepointedReview(oldApprovingReviewId, createdWhen: changedWhen.AddDays(-1)),
+
+                CreateRepointedReview(
+                    oldRejectingReviewId,
+                    createdWhen: changedWhen.AddTicks(-1),
+                    isRejection: true),
+
+                CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen),
+                CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen.AddMinutes(1)));
+
+            SetupResettableAIReviewerAssignment(approvalId, staleAssignmentId);
+
+            this.aiReviewerAssignmentWorkflowServiceMock.Setup(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid aiReviewerAssignmentId, CancellationToken _) =>
+                        {
+                            flowSteps.Add("ai-reset");
+
+                            return new AIReviewerAssignment { Id = aiReviewerAssignmentId };
+                        });
+
+            SetupRepointedConditions(
+                CreateFlowConditions(shouldResetStaleReviewsOnChange: false),
+                flowSteps);
+
+            // when
+            await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                envelope: CreateRepointedEnvelope(
+                    CreateRepointedAssociation(entityId, changedWhen)),
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then: the old pair's reviews went, and the new pair's stood
+            dismissedReviewIds.Should().BeEquivalentTo(
+                new[] { oldApprovingReviewId, oldRejectingReviewId });
+
+            // Berean's pass on the old reaction went back to pending with them
+            this.aiReviewerAssignmentWorkflowServiceMock.Verify(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    staleAssignmentId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // and the round was evaluated on the reviews that were left: the dismissals come
+            // before the one conditions read, and Berean is the tidy-up after it
+            flowSteps.Should().Equal("dismiss", "dismiss", "conditions-read", "ai-reset");
+        }
+
         private static Approval CreateRepointedRound(
             Guid approvalId,
             Guid entityId,

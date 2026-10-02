@@ -159,12 +159,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 IsRejection = isRejection,
             };
 
+        private List<Guid> SetupRepointedReviews(
+            Guid approvalId,
+            params DismissableApprovalReview[] approvalReviews) =>
+            SetupRepointedReviews(approvalId, flowSteps: null, approvalReviews);
+
         // The round's active reviews as the access broker gathers them, unfiltered (§APR9.7.4).
         // The ids-only read answers the same set, so a flow that ignored the bound and dismissed
         // through it is caught by what it dismissed rather than by an unstubbed call. Every
-        // dismissal is captured, in order.
+        // dismissal is captured, in order, and recorded among the flow's steps when asked.
         private List<Guid> SetupRepointedReviews(
             Guid approvalId,
+            List<string> flowSteps,
             params DismissableApprovalReview[] approvalReviews)
         {
             var dismissedReviewIds = new List<Guid>();
@@ -190,6 +196,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                         .Returns((Guid approvalReviewId, CancellationToken cancellationToken) =>
                         {
                             dismissedReviewIds.Add(approvalReviewId);
+                            flowSteps?.Add("dismiss");
 
                             return new ValueTask<ApprovalReview>(
                                 new ApprovalReview { Id = approvalReviewId });
