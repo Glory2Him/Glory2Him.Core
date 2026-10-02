@@ -2049,6 +2049,79 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             flowSteps.Should().Equal("dismiss", "conditions-read");
         }
 
+        [Fact]
+        public async Task ShouldFindNothingLeftToDoOnARedeliveredChangeAsync()
+        {
+            // given: the round as the FIRST delivery of this fact left it — returned, its old
+            // pair's reviews dismissed, and approved again seconds after the change — and a
+            // reviewer and Berean have both looked at the NEW reaction since. The substrate
+            // delivers the same fact again (§EVN20 rule 10).
+            //
+            // The return and the dismissal are deltas, so they carry the redelivery check
+            // §EVN20 rule 4 requires: no old-pair review stands and no round decided before the
+            // change is left decided, so there is nothing to take back (§APR9.7.4). Berean's
+            // return to pending rides with the dismissal, and its pass on the new reaction must
+            // survive the redelivery like the reviewer's review.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Approved,
+                updatedWhen: changedWhen.AddSeconds(2),
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Approved, approvalId));
+            SetupFlowSystemEnvelope<Association>();
+
+            List<Guid> dismissedReviewIds = SetupRepointedReviews(
+                approvalId,
+                flowSteps,
+                CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen.AddMinutes(5)));
+
+            List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
+                SetupRepointedRoundWrites(storageApproval, flowSteps);
+
+            List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
+
+            // Berean's pass on the new reaction: finished, so a reset would have something to
+            // take back.
+            SetupResettableAIReviewerAssignment(approvalId, Guid.NewGuid());
+            SetupAIReviewerAssignmentReturnToPending();
+
+            SetupRepointedConditions(
+                CreateFlowConditions(areConditionsMet: true, shouldAutoApprove: true),
+                flowSteps);
+
+            EventEnvelope<Association> redeliveredEnvelope =
+                CreateRepointedEnvelope(CreateRepointedAssociation(entityId, changedWhen));
+
+            // when
+            await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                envelope: redeliveredEnvelope,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then: no round returned, no review dismissed, and nothing sent to the association
+            roundWrites.Should().BeEmpty();
+            associationCommands.Should().BeEmpty();
+            dismissedReviewIds.Should().BeEmpty();
+
+            // Berean is not asked about, let alone taken back
+            this.accessBrokerMock.Verify(broker =>
+                broker.FindResettableAIReviewerAssignmentIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
+
+            // only the evaluation ran again
+            flowSteps.Should().Equal("conditions-read");
+        }
+
         private static Approval CreateRepointedRound(
             Guid approvalId,
             Guid entityId,
