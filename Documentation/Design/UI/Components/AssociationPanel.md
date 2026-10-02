@@ -375,10 +375,13 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
     property through their rest spread
     (`UI/Components/AssociationPanel.TagAssociationPanel.md §4.3`), so the property reaches them
     with the panel's. The panel's own end's roles, which it does not compose either, are item 1.
-21. (needs issue) **Gap — associations are not exposed over HTTP.** The reads and writes the
+21. (#700) **Gap — associations are not exposed over HTTP.** The reads and writes the
     page calls for this family — reading an entity's associations, suggesting one and removing
     one (section 7; §ARC17.4) — are designed and not built: no `AssociationsController` exists at
     70dc72e7, so no product page can read or write an association through the family, and every
     page in section 6 passes an empty collection or holds suggestions in its own state. A page
     list narrowed by tag or Bible reference waits on the same read
-    (`UI/Components/ContentItemListPanel.md §8`). The work was filed as #318 (closed).
+    (`UI/Components/ContentItemListPanel.md §8`). The work was filed as #318 (closed). Suggesting
+    one is #728's (`POST /api/associations`). #700 holds reading an entity's associations and
+    removing one: its point 6 plans the collection read, §SEC14.7 posture A′ rule 7 ahead of it,
+    and the remove by id.
