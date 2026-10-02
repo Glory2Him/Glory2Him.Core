@@ -734,6 +734,66 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [InlineData(ApprovalStatus.Draft, AssociationSuggestionStatus.AlreadyPending)]
+        [InlineData(ApprovalStatus.Submitted, AssociationSuggestionStatus.AlreadyPending)]
+        [InlineData(ApprovalStatus.Approved, AssociationSuggestionStatus.AlreadyApproved)]
+        [InlineData(ApprovalStatus.Rejected, AssociationSuggestionStatus.AlreadyPending)]
+        public async Task ShouldAnswerTheHeldReactionsStatusWhenNothingChangedAsync(
+            ApprovalStatus heldStatus,
+            AssociationSuggestionStatus expectedStatus)
+        {
+            // given: the reader gives the reaction they already hold, so the foundation writes
+            // nothing and answers with their row as it stands. Pending and rejected answer alike,
+            // as the add's do, so a reader cannot learn a rejection by reacting again.
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+
+            Association upsertRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            Association expectedUpsertedAssociation =
+                SetupReadersReaction(upsertRequest, readerUserId);
+
+            Association heldRow = expectedUpsertedAssociation.DeepClone();
+            heldRow.Id = Guid.NewGuid();
+            heldRow.ApprovalStatus = heldStatus;
+
+            this.associationServiceMock.Setup(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new PersonalAssociationUpsert
+                        {
+                            Outcome = PersonalAssociationUpsertOutcome.Unchanged,
+                            Association = heldRow,
+                        });
+
+            var expectedResult = new AssociationSuggestionResult
+            {
+                Status = expectedStatus,
+                AssociationId = heldRow.Id,
+            };
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.associationServiceMock.Verify(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A signed-in reader's reaction on an item whose setting allows reactions: the envelope,
         // both endpoint reads and the setting. Hands back the row the foundation is to be handed.
         private Association SetupReadersReaction(Association upsertRequest, string readerUserId)
