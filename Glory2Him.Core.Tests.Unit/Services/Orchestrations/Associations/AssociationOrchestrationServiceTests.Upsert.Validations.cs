@@ -33,22 +33,36 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 {
     public partial class AssociationOrchestrationServiceTests
     {
-        public static TheoryData<SecurityContext?> UnauthenticatedSecurityContexts() =>
-            new TheoryData<SecurityContext?>
+        // An anonymous caller in both shapes, upserting a pair of each personality: a suggested tag,
+        // and a reaction, which asks none of the read-only roles but is the caller's own, so it
+        // asks authentication as every pair does.
+        public static TheoryData<SecurityContext?, EntityType> UnauthenticatedUpserts()
+        {
+            var unauthenticatedUpserts = new TheoryData<SecurityContext?, EntityType>();
+
+            foreach (EntityType farEndType in new[] { EntityType.Tag, EntityType.Reaction })
             {
-                null,
-                new SecurityContext { IsAuthenticated = false, Roles = Array.Empty<string>() },
-            };
+                unauthenticatedUpserts.Add(null, farEndType);
+
+                unauthenticatedUpserts.Add(
+                    new SecurityContext { IsAuthenticated = false, Roles = Array.Empty<string>() },
+                    farEndType);
+            }
+
+            return unauthenticatedUpserts;
+        }
 
         [Theory]
-        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        [MemberData(nameof(UnauthenticatedUpserts))]
         public async Task ShouldThrowValidationExceptionOnUpsertIfUserIsNotAuthenticatedAndLogItAsync(
-            SecurityContext? unauthenticatedSecurityContext)
+            SecurityContext? unauthenticatedSecurityContext,
+            EntityType farEndType)
         {
             // given
             this.ambientSecurityContext = unauthenticatedSecurityContext!;
 
-            Association rawRequest = CreateRawAddRequest();
+            Association rawRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, farEndType);
 
             var unauthorizedAssociationOrchestrationException =
                 new UnauthorizedAssociationOrchestrationException(
@@ -69,7 +83,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             AssociationOrchestrationValidationException actualException =
                 await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(upsertTask.AsTask);
 
-            // then: refused before any endpoint is read or any row looked up
+            // then: refused before any endpoint, setting or row is read
             actualException.Should().BeEquivalentTo(expectedValidationException);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -77,6 +91,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 Times.Once);
 
             this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.reactionServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
             this.associationServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
