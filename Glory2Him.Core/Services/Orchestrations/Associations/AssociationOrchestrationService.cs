@@ -154,6 +154,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             personalAssociationUpsert.Outcome switch
             {
                 PersonalAssociationUpsertOutcome.Restored => AssociationSuggestionStatus.Restored,
+                PersonalAssociationUpsertOutcome.Repointed => AssociationSuggestionStatus.Repointed,
                 _ => AssociationSuggestionStatus.Created,
             };
 
