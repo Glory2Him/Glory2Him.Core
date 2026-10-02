@@ -156,4 +156,20 @@ describe('RestoredPageGuard', () => {
         expect(reload).toHaveBeenCalledTimes(1);
         expect(isHidden()).toBe(true);
     });
+
+    it('should reload a restored page when nobody was signed in either time', async () => {
+        // given
+        mocks.currentUser = nobody;
+        render(<RestoredPageGuard />);
+        dispatchPageTransition('pagehide', true);
+        answerFreshRead(nobody);
+
+        // when
+        dispatchPageTransition('pageshow', true);
+        await settle();
+
+        // then
+        expect(reload).toHaveBeenCalledTimes(1);
+        expect(isHidden()).toBe(true);
+    });
 });
