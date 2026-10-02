@@ -169,14 +169,14 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
         // for ContentItem and Link, whose Added/Modified facts come from the processing tier
         // above — for six of the seven the submit verb is a foundation transition, and nothing
         // above the foundation takes part in it
-        // (ApprovalOrchestrationService.Substrate.cs:205-210 states this explicitly: a
+        // (ApprovalOrchestrationService.Substrate.cs:206-211 states this explicitly: a
         // "ContentItemProcessingSubmitted" name would verify nothing, ever). Association is the
         // seventh and the exception: it has no submit transition, and its Submitted fact is
         // emitted from the administrator decision-override path instead (see the theory's own
         // comment below) — included because the publisher composes and signs the same bare
         // name regardless of which path reached it. This is the pairing
         // #487 found proven nowhere: `ApprovalOrchestrationServiceTests.Substrate.cs` already
-        // proves the RECEIVER's literal is self-consistent for all 21 entity-fact handlers, but
+        // proves the RECEIVER's literal is self-consistent for all 22 entity-fact handlers, but
         // nothing published a real -Submitted fact through the real substrate until this theory —
         // so a publisher/receiver name mismatch specific to Submitted had no way to surface.
         [Theory]

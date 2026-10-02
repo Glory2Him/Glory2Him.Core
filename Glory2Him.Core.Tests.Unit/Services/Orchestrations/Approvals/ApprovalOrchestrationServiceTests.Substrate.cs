@@ -114,6 +114,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
                 (nameof(IApprovalOrchestrationService.OnAssociationSubmittedAsync),
                     EntityType.Association, "AssociationSubmitted", true),
+
+                // A reader's changed reaction: the foundation's name, and the modified flow
+                // (§ARC16.2.2).
+                (nameof(IApprovalOrchestrationService.OnAssociationRepointedAsync),
+                    EntityType.Association, "AssociationRepointed", true),
             };
 
         public static TheoryData<string, EntityType, string, bool> SubstrateEntityFactHandlers()
@@ -675,15 +680,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                             new Association { Id = entityId }, isEnvelopeNull, isContentNull),
                         cancellationToken);
 
+                case nameof(IApprovalOrchestrationService.OnAssociationRepointedAsync):
+                    return await service.OnAssociationRepointedAsync(
+                        CreateSubstrateFactEnvelope(
+                            new Association { Id = entityId }, isEnvelopeNull, isContentNull),
+                        cancellationToken);
+
                 default:
                     throw new InvalidOperationException(
                         $"No substrate handler is wired for {handlerName}.");
             }
         }
 
-        // The twenty-two substrate handlers share two bodies — ReactToEntityFactAsync and
+        // The thirty substrate handlers share two bodies — ReactToEntityFactAsync and
         // ReactToWorkflowRecordFactAsync — so the guard is proven once per body rather than
-        // twenty-two times.
+        // thirty times.
         //
         // Both assert the guard beats the SIGNATURE CHECK, which is the part a Times.Never on the
         // downstream services would not catch: before this, a delivery whose caller had already

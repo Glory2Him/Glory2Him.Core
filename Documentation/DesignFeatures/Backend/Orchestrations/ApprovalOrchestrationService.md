@@ -3,7 +3,7 @@ Parent: [Likes.md](../../Likes.md)
 Level: orchestration — `IApprovalOrchestrationService` (`Glory2Him.Core/Services/Orchestrations/Approvals/`)
 Inherits: §APR7.5.1 rule 3, §APR8.8 regardless-rule 1, §APR9.7.4, §APR9.7.5, §APR9.8, §ARC16.2.2, §ARC16.7, §DOM4.5 rule 4, §EVN19 rule 4, §EVN20 rule 4, §SEC14.6 rule 4, Likes.md rule 9
 
-A changed reaction goes back through the same approval process as any modification, in a round that starts with no reviews (§DOM4.5 rule 4, ruled on #685). §APR9.7.4 designs how, and §ARC16.2.2 names the subscription; neither is built. This user story is that one subscription and what the Modified flow does when it is the one that called.
+A changed reaction goes back through the same approval process as any modification, in a round that starts with no reviews (§DOM4.5 rule 4, ruled on #685). §APR9.7.4 designs how, and §ARC16.2.2 names the subscription; both are built (#727). This user story is that one subscription and what the Modified flow does when it is the one that called.
 
 ## 1. OnAssociationRepointedAsync (#727)
 
