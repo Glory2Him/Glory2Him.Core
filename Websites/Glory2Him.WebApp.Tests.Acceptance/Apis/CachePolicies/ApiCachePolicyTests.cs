@@ -108,5 +108,21 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.CachePolicies
             // then
             actualResponse.Headers.CacheControl.Should().BeNull();
         }
+
+        [Fact]
+        public async Task ShouldAnswerAFailedApiRequestWithNoStore()
+        {
+            // given
+            string unknownApiUrl = $"api/no-such-route-{Guid.NewGuid():N}";
+
+            // when
+            using HttpResponseMessage actualResponse =
+                await this.apiBroker.GetResponseAsync(unknownApiUrl);
+
+            // then
+            actualResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            actualResponse.Headers.CacheControl.Should().NotBeNull();
+            actualResponse.Headers.CacheControl.NoStore.Should().BeTrue();
+        }
     }
 }
