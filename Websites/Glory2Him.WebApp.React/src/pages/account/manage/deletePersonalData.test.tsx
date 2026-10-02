@@ -44,17 +44,20 @@ const renderDeletePersonalData = () => render(
 
 const landedOn = () => screen.getByTestId('landed').textContent;
 
-// Records every way the page could load another document, so none of them goes unseen.
+// Records the four members of the global location a page normally loads another document
+// through — replace, assign, reload and setting href. It does not see document.location,
+// a reassigned window.location or a router reload such as navigate(0).
 const stubLocation = () => {
+    const realHref = window.location.href;
+
     const location = {
-        ...window.location,
         replace: mocks.replace,
         assign: mocks.assign,
         reload: mocks.reload
     };
 
     Object.defineProperty(location, 'href', {
-        get: () => window.location.href,
+        get: () => realHref,
         set: mocks.setHref
     });
 
