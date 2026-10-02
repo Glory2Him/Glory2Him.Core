@@ -7,17 +7,20 @@ const signedInReaderOf = (currentUser: CurrentUser | undefined): string | undefi
     currentUser?.isAuthenticated ? currentUser.userId : undefined;
 
 // Hiding the root alone lets through any element a stylesheet marks `visibility: visible`, as the
-// theme's own rules do, some with `!important`. Nothing inside the root escapes its opacity.
+// theme's own rules do, some with `!important`. Nothing inside the root escapes its opacity, and
+// nothing inside an inert body can be reached by a click, the keyboard or assistive technology.
 const hidePage = (): void => {
     const rootStyle = document.documentElement.style;
     rootStyle.visibility = 'hidden';
     rootStyle.setProperty('opacity', '0', 'important');
+    document.body.setAttribute('inert', '');
 };
 
 const showPage = (): void => {
     const rootStyle = document.documentElement.style;
     rootStyle.removeProperty('visibility');
     rootStyle.removeProperty('opacity');
+    document.body.removeAttribute('inert');
 };
 
 export const RestoredPageGuard = (): ReactElement => {
