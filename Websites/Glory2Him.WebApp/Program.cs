@@ -104,6 +104,24 @@ app.UseHttpsRedirection();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+// The browser's HTTP cache keeps no reader's API answer (design §UI20.8 rule 3): a page read
+// again after its reader left, by Back or by a restore, must be answered by the server for
+// whoever is signed in then. So an /api answer is sent no-store.
+app.Use((httpContext, next) =>
+{
+    if (httpContext.Request.Path.StartsWithSegments("/api"))
+    {
+        httpContext.Response.OnStarting(() =>
+        {
+            httpContext.Response.Headers.CacheControl = "no-store";
+
+            return Task.CompletedTask;
+        });
+    }
+
+    return next(httpContext);
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 
