@@ -1058,6 +1058,85 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [InlineData(EntityType.ContentItem, EntityType.Reaction)]
+        [InlineData(EntityType.Reaction, EntityType.ContentItem)]
+        public async Task ShouldUpsertAReactionAsPersonalWhicheverEndpointItIsOnAsync(
+            EntityType entityAType,
+            EntityType entityBType)
+        {
+            // given: a pair is personal where either endpoint's type is (§DOM4.10 rule 4), and
+            // the flow never reorders it — the foundation restores canonical order — so a reaction
+            // sent on A is the reader's as much as one sent on B
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+            Association upsertRequest = CreateRawUpsertRequestBetween(entityAType, entityBType);
+            SetupInboundEnvelopeFor(upsertRequest);
+            ContentItem resolvedContentItem = SetupMethodPathEndpointReads(upsertRequest);
+            SetupAllowingSettingFor(resolvedContentItem);
+            bool isTheItemOnA = entityAType == EntityType.ContentItem;
+
+            Association expectedUpsertedAssociation = upsertRequest.DeepClone();
+
+            expectedUpsertedAssociation.EntityAGroupId =
+                isTheItemOnA ? resolvedContentItem.GroupId : upsertRequest.EntityAKeyId;
+
+            expectedUpsertedAssociation.EntityAContentType =
+                isTheItemOnA ? resolvedContentItem.ContentType : null;
+
+            expectedUpsertedAssociation.EntityAScope =
+                isTheItemOnA ? Scope.AllVersions : Scope.ThisVersionOnly;
+
+            expectedUpsertedAssociation.EntityBGroupId =
+                isTheItemOnA ? upsertRequest.EntityBKeyId : resolvedContentItem.GroupId;
+
+            expectedUpsertedAssociation.EntityBContentType =
+                isTheItemOnA ? null : resolvedContentItem.ContentType;
+
+            expectedUpsertedAssociation.EntityBScope =
+                isTheItemOnA ? Scope.ThisVersionOnly : Scope.AllVersions;
+
+            expectedUpsertedAssociation.UserId = readerUserId;
+            expectedUpsertedAssociation.ApprovalStatus = ApprovalStatus.Submitted;
+
+            Association readersRow = expectedUpsertedAssociation.DeepClone();
+            readersRow.Id = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new PersonalAssociationUpsert
+                        {
+                            Outcome = PersonalAssociationUpsertOutcome.Created,
+                            Association = readersRow,
+                        });
+
+            var expectedResult = new AssociationSuggestionResult
+            {
+                Status = AssociationSuggestionStatus.Created,
+                AssociationId = readersRow.Id,
+            };
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.associationServiceMock.Verify(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A signed-in reader's reaction on an item whose setting allows reactions: the envelope,
         // both endpoint reads and the setting. Hands back the row the foundation is to be handed.
         private Association SetupReadersReaction(Association upsertRequest, string readerUserId)
