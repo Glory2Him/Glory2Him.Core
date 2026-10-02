@@ -104,4 +104,22 @@ describe('RestoredPageGuard', () => {
         expect(isHidden()).toBe(true);
         expect(mocks.refetch).toHaveBeenCalledTimes(1);
     });
+
+    it('should compare with the reader noted when the page was cached', async () => {
+        // given
+        mocks.currentUser = readerA;
+        const { rerender } = render(<RestoredPageGuard />);
+        dispatchPageTransition('pagehide', true);
+        mocks.currentUser = readerB;
+        rerender(<RestoredPageGuard />);
+        answerFreshRead(readerB);
+
+        // when
+        dispatchPageTransition('pageshow', true);
+        await settle();
+
+        // then
+        expect(reload).toHaveBeenCalledTimes(1);
+        expect(isHidden()).toBe(true);
+    });
 });
