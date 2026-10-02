@@ -74,6 +74,7 @@ describe('RestoredPageGuard', () => {
         vi.restoreAllMocks();
         onlineManager.setOnline(true);
         document.documentElement.style.removeProperty('visibility');
+        document.documentElement.style.removeProperty('opacity');
     });
 
     it('should resume a restored page for the same signed-in reader', async () => {
@@ -107,6 +108,28 @@ describe('RestoredPageGuard', () => {
         // then
         expect(isHidden()).toBe(true);
         expect(mocks.refetch).toHaveBeenCalledTimes(1);
+    });
+
+    // A stylesheet can show an element inside a hidden root (`visibility: visible`, even with
+    // `!important`), but nothing inside the root escapes the root's opacity.
+    it('should hide everything on a restored page until it resumes, even what its stylesheet shows', async () => {
+        // given
+        mocks.currentUser = readerA;
+        render(<RestoredPageGuard />);
+        dispatchPageTransition('pagehide', true);
+        answerFreshRead(readerA);
+        const rootStyle = document.documentElement.style;
+
+        // when
+        dispatchPageTransition('pageshow', true);
+        const opacityAtRestore = rootStyle.getPropertyValue('opacity');
+        const opacityPriorityAtRestore = rootStyle.getPropertyPriority('opacity');
+        await settle();
+
+        // then
+        expect(opacityAtRestore).toBe('0');
+        expect(opacityPriorityAtRestore).toBe('important');
+        expect(rootStyle.getPropertyValue('opacity')).toBe('');
     });
 
     it('should compare with the reader noted when the page was cached', async () => {
