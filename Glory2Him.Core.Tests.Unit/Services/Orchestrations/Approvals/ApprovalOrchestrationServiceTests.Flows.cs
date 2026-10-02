@@ -1275,6 +1275,72 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         }
 
         /// <summary>
+        /// THE RESET IS ON AND NO REVIEW STANDS, and Berean's finished pass still goes back to
+        /// pending. Its assignment is keyed on the APPROVAL rather than on the round's reviews, so
+        /// an edit takes its verdict back whether or not a human review was there to dismiss.
+        ///
+        /// <para><b>What it catches.</b> A changed reaction skips Berean when its delivery
+        /// returned nothing and dismissed nothing — that is its redelivery check (§APR9.7.4).
+        /// An edit is handed no change time and has no such check: the setting decides, exactly
+        /// as before #727 (its criterion 10). Letting the check reach this flow would leave
+        /// Berean's pass standing on every edit to a round nobody has reviewed yet.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnBereanToPendingOnEditWhenNoReviewStoodToDismissAsync()
+        {
+            // given: a plain author revising their own submitted content, on a round that holds
+            // no active review at all
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            var approvalId = Guid.NewGuid();
+            var entityId = Guid.NewGuid();
+            var staleAssignmentId = Guid.NewGuid();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+            Approval storageApproval = CreateFlowApproval(
+                approvalId: approvalId,
+                entityId: entityId,
+                entityType: EntityType.Link,
+                approvalStatus: ApprovalStatus.Submitted);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
+            SetupFlowApprovalRow(storageApproval);
+            SetupDismissableReviews(approvalId);
+            SetupResettableAIReviewerAssignment(approvalId, staleAssignmentId);
+            SetupAIReviewerAssignmentReturnToPending();
+
+            SetupFlowConditionsReads(
+                firstConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true),
+
+                secondConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true));
+
+            // when
+            await this.approvalOrchestrationService.ProcessEntityModifiedAsync(
+                EntityType.Link,
+                entityId,
+                cancellationToken);
+
+            // then: the round was asked what it holds, and there was nothing to dismiss
+            this.accessBrokerMock.Verify(broker =>
+                broker.FindDismissableApprovalReviewIdsAsync(
+                    approvalId,
+                    cancellationToken),
+                Times.Once);
+
+            this.approvalReviewServiceMock.VerifyNoOtherCalls();
+
+            // and Berean's pass went back to pending all the same
+            this.aiReviewerAssignmentWorkflowServiceMock.Verify(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    staleAssignmentId,
+                    cancellationToken),
+                Times.Once);
+
+            this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
         /// THE RESET IS OFF, so nothing is dismissed and there is nothing stale — and the round is
         /// not asked about Berean either.
         ///
