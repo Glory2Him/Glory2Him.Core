@@ -58,9 +58,10 @@ const locationStub = {
     }
 };
 
-// Every way a page can be loaded or left is stubbed with an observer: the location's methods
-// and setters, a write to window.location or document.location itself, the tab's history,
-// and window.open.
+// These ways of loading or leaving a page are stubbed with an observer: the location's
+// replace, reload and assign, its href and pathname setters, a write to window.location or
+// document.location itself, the tab's history, and window.open. Its other setters, a form
+// submit and navigation.reload() are not observed.
 const stubLocation = () => {
     const locationProperty = {
         configurable: true,
