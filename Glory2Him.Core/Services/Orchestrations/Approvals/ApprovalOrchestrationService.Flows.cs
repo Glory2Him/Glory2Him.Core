@@ -288,11 +288,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 return activeReviews.Any(activeReview => activeReview.CreatedWhen < changedWhen);
             }
 
+            // A rejection written since the change is the new pair's own verdict, and returning
+            // the round would erase it: the evaluation that follows can only approve or leave
+            // it open. So an old rejection returns the round only when no new one stands.
             IEnumerable<DismissableApprovalReview> activeRejections =
                 activeReviews.Where(activeReview => activeReview.IsRejection);
 
             return activeRejections.Any(activeRejection =>
-                activeRejection.CreatedWhen < changedWhen);
+                    activeRejection.CreatedWhen < changedWhen)
+                && activeRejections.Any(activeRejection =>
+                    activeRejection.CreatedWhen >= changedWhen) is false;
         }
 
         // Written as the WORKFLOW: nobody asked for the round back, the change did. The bypass
