@@ -273,7 +273,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 return false;
             }
 
-            if (isApproved && approval.UpdatedWhen < changedWhen)
+            if (approval.UpdatedWhen < changedWhen)
             {
                 return true;
             }
