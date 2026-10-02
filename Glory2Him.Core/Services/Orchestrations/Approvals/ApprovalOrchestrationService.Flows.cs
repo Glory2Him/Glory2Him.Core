@@ -223,9 +223,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         }
 
         // §APR9.7.4's return, for a round the old pair decided: one decided before the change,
-        // which is the old reaction's; or one approved after it while one of the old pair's
-        // reviews still stood, because that approval may have counted it and nothing records
-        // which reviews an approval counted.
+        // which is the old reaction's; one approved after it while one of the old pair's reviews
+        // still stood, because that approval may have counted it and nothing records which
+        // reviews an approval counted; or one rejected after it while one of the old pair's
+        // rejections still stood, because then an old review is what blocks it.
         //
         // The round's active reviews are read UNFILTERED, for the reason the dismissal reads them
         // so: the flow runs as the reader, who may see none of them.
@@ -234,12 +235,15 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             DateTimeOffset changedWhen,
             CancellationToken cancellationToken)
         {
-            if (approval.ApprovalStatus is not ApprovalStatus.Approved)
+            bool isApproved = approval.ApprovalStatus is ApprovalStatus.Approved;
+            bool isRejected = approval.ApprovalStatus is ApprovalStatus.Rejected;
+
+            if (isApproved is false && isRejected is false)
             {
                 return false;
             }
 
-            if (approval.UpdatedWhen < changedWhen)
+            if (isApproved && approval.UpdatedWhen < changedWhen)
             {
                 return true;
             }
@@ -249,7 +253,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     approvalId: approval.Id,
                     cancellationToken: cancellationToken);
 
-            return activeReviews.Any(activeReview => activeReview.CreatedWhen < changedWhen);
+            if (isApproved)
+            {
+                return activeReviews.Any(activeReview => activeReview.CreatedWhen < changedWhen);
+            }
+
+            IEnumerable<DismissableApprovalReview> activeRejections =
+                activeReviews.Where(activeReview => activeReview.IsRejection);
+
+            return activeRejections.Any(activeRejection =>
+                activeRejection.CreatedWhen < changedWhen);
         }
 
         // Written as the WORKFLOW: nobody asked for the round back, the change did. The bypass
