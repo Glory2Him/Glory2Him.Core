@@ -2189,6 +2189,66 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         }
 
         [Fact]
+        public async Task ShouldReturnBereanToPendingWhenAChangedReactionReturnsItsRoundAsync()
+        {
+            // given: the round was approved a day before the change, and no review was ever
+            // written on it — the seeded personal tier approves without one — but Berean finished
+            // a pass over the old reaction. Returning the round is work this delivery found to
+            // do, so it is no redelivery, and Berean's verdict on the old pair goes back to
+            // pending with the rest of the round's, though no review stood to dismiss beside it
+            // (§APR8.8 regardless-rule 1, §APR9.7.4).
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            var staleAssignmentId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Approved,
+                updatedWhen: changedWhen.AddDays(-1),
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Approved, approvalId));
+            SetupFlowSystemEnvelope<Association>();
+
+            List<Guid> dismissedReviewIds = SetupRepointedReviews(approvalId);
+
+            List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
+                SetupRepointedRoundWrites(storageApproval, flowSteps);
+
+            SetupRepointedAssociationCommands(flowSteps);
+            SetupResettableAIReviewerAssignment(approvalId, staleAssignmentId);
+            SetupAIReviewerAssignmentReturnToPending();
+
+            SetupRepointedConditions(
+                CreateFlowConditions(areConditionsMet: true, shouldAutoApprove: true),
+                flowSteps);
+
+            // when
+            await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                envelope: CreateRepointedEnvelope(
+                    CreateRepointedAssociation(entityId, changedWhen)),
+                cancellationToken: cancellationToken);
+
+            // then: the round went back, with no review to dismiss
+            roundWrites.Should().NotBeEmpty();
+            roundWrites[0].Approval.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+            dismissedReviewIds.Should().BeEmpty();
+
+            // and Berean's pass over the old reaction went back to pending
+            this.aiReviewerAssignmentWorkflowServiceMock.Verify(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    staleAssignmentId,
+                    cancellationToken),
+                Times.Once);
+
+            this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldReturnARoundRejectedBeforeTheChangeAndEvaluateItAsync()
         {
             // given: the workflow rejected the round on a standing rejection a day BEFORE the
