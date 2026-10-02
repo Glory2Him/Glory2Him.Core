@@ -2187,6 +2187,68 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             flowSteps.Should().Equal("write:Submitted", "command:Submitted", "conditions-read");
         }
 
+        [Theory]
+        [InlineData(0L)]
+        [InlineData(300_000_000L)]
+        public async Task ShouldKeepARejectionTheNewPairAlsoStandsBehindAsync(
+            long ticksFromTheChangeToTheNewRejection)
+        {
+            // given: the workflow rejected the round a minute after the change on a standing
+            // rejection, and a rejection of the old reaction and one of the new reaction both
+            // still stand. A new review's rejection is the new pair's own verdict, so the round is
+            // not returned: the evaluation that would follow can only approve or leave it open,
+            // and returning it would erase a verdict nothing re-takes (§APR9.7.4, the third case).
+            //
+            // The new pair's rejection is written thirty seconds after the change, or in the
+            // change's own tick, which does not precede it. The evaluation is armed to approve, so
+            // a round returned by mistake is written and published.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Rejected,
+                updatedWhen: changedWhen.AddMinutes(1),
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Rejected, approvalId));
+            SetupFlowSystemEnvelope<Association>();
+
+            SetupRepointedReviews(
+                approvalId,
+                CreateRepointedReview(
+                    Guid.NewGuid(),
+                    createdWhen: changedWhen.AddHours(-1),
+                    isRejection: true),
+
+                CreateRepointedReview(
+                    Guid.NewGuid(),
+                    createdWhen: changedWhen.AddTicks(ticksFromTheChangeToTheNewRejection),
+                    isRejection: true));
+
+            List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
+                SetupRepointedRoundWrites(storageApproval, flowSteps);
+
+            List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
+
+            SetupRepointedConditions(
+                CreateFlowConditions(areConditionsMet: true, shouldAutoApprove: true),
+                flowSteps);
+
+            // when
+            await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                envelope: CreateRepointedEnvelope(
+                    CreateRepointedAssociation(entityId, changedWhen)),
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then: the round stays Rejected, and the association is not told anything
+            roundWrites.Should().BeEmpty();
+            associationCommands.Should().BeEmpty();
+        }
+
         private static Approval CreateRepointedRound(
             Guid approvalId,
             Guid entityId,
