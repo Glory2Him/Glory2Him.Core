@@ -35,6 +35,8 @@ const readerB = new CurrentUser({
     displayName: 'Reader B'
 });
 
+const nobody = new CurrentUser({ isAuthenticated: false });
+
 // The test environment treats a PageTransitionEvent as a plain Event and drops `persisted`
 // from its constructor, so it is set on the event itself.
 const dispatchPageTransition = (type: 'pagehide' | 'pageshow', persisted: boolean): void => {
@@ -129,6 +131,22 @@ describe('RestoredPageGuard', () => {
         render(<RestoredPageGuard />);
         dispatchPageTransition('pagehide', true);
         answerFreshRead(readerB);
+
+        // when
+        dispatchPageTransition('pageshow', true);
+        await settle();
+
+        // then
+        expect(reload).toHaveBeenCalledTimes(1);
+        expect(isHidden()).toBe(true);
+    });
+
+    it('should reload a restored page when its reader has signed out', async () => {
+        // given
+        mocks.currentUser = readerA;
+        render(<RestoredPageGuard />);
+        dispatchPageTransition('pagehide', true);
+        answerFreshRead(nobody);
 
         // when
         dispatchPageTransition('pageshow', true);
