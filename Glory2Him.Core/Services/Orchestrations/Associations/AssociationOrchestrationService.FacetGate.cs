@@ -23,18 +23,24 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 {
     internal partial class AssociationOrchestrationService
     {
-        // A switch the facet gate asks of a winning setting: its name, which a refusal carries,
-        // and how to read it.
+        // A switch the facet gate asks of a winning setting: its name, which a refusal carries, how
+        // to read it, and whether LimitReactionsToLoveOnly narrows it, which only the reaction
+        // switch is.
         private readonly struct FacetSwitch
         {
-            public FacetSwitch(string name, Func<ContentItemSetting, bool> isAllowed)
+            public FacetSwitch(
+                string name,
+                Func<ContentItemSetting, bool> isAllowed,
+                bool isNarrowedToLove = false)
             {
                 Name = name;
                 IsAllowed = isAllowed;
+                IsNarrowedToLove = isNarrowedToLove;
             }
 
             public string Name { get; }
             public Func<ContentItemSetting, bool> IsAllowed { get; }
+            public bool IsNarrowedToLove { get; }
         }
 
         // One question the gate asks of a pair, in one orientation: the ContentItem host's
@@ -157,7 +163,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 
                 EntityType.Reaction => new FacetSwitch(
                     nameof(ContentItemSetting.ReactionsAllowed),
-                    setting => setting.ReactionsAllowed),
+                    setting => setting.ReactionsAllowed,
+                    isNarrowedToLove: true),
 
                 EntityType.Comment => new FacetSwitch(
                     nameof(ContentItemSetting.CommentsAllowed),
@@ -186,7 +193,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 (Rule: IsNotAllowedBy(winningSetting, facetQuestion.FacetSwitch),
                     Parameter: facetQuestion.FacetSwitch.Name),
 
-                (Rule: IsNotLoveOnALoveOnlyItem(winningSetting, facetQuestion.FarEndReactionName),
+                (Rule: IsNotLoveOnALoveOnlyItem(winningSetting, facetQuestion),
                     Parameter: nameof(ContentItemSetting.LimitReactionsToLoveOnly)));
 
         private static dynamic IsNotAllowedBy(
@@ -197,13 +204,15 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 Message = "Value does not allow this association"
             };
 
-        // The narrowing (§ARC16.2.1): an item limited to Love admits a reaction by its Name.
+        // The narrowing (§ARC16.2.1): an item limited to Love admits a reaction by its Name. It
+        // narrows the reaction switch alone, so no other far end is asked it.
         private static dynamic IsNotLoveOnALoveOnlyItem(
             ContentItemSetting winningSetting,
-            string? reactionName) => new
+            FacetQuestion facetQuestion) => new
             {
-                Condition = winningSetting.LimitReactionsToLoveOnly
-                    && reactionName != LoveReactionName,
+                Condition = facetQuestion.FacetSwitch.IsNarrowedToLove
+                    && winningSetting.LimitReactionsToLoveOnly
+                    && facetQuestion.FarEndReactionName != LoveReactionName,
 
                 Message = "Value allows only the Love reaction"
             };
