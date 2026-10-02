@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
+using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
@@ -61,6 +62,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         private readonly IBibleReferenceService bibleReferenceService;
         private readonly ICommentService commentService;
         private readonly ILinkService linkService;
+        private readonly IAccessBroker accessBroker;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
         private readonly IEnvelopeIntegrityBroker envelopeIntegrityBroker;
         private readonly ILoggingBroker loggingBroker;
@@ -73,6 +75,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             IBibleReferenceService bibleReferenceService,
             ICommentService commentService,
             ILinkService linkService,
+            IAccessBroker accessBroker,
             IEventEnvelopeBroker eventEnvelopeBroker,
             IEnvelopeIntegrityBroker envelopeIntegrityBroker,
             ILoggingBroker loggingBroker)
@@ -84,6 +87,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             this.bibleReferenceService = bibleReferenceService;
             this.commentService = commentService;
             this.linkService = linkService;
+            this.accessBroker = accessBroker;
             this.eventEnvelopeBroker = eventEnvelopeBroker;
             this.envelopeIntegrityBroker = envelopeIntegrityBroker;
             this.loggingBroker = loggingBroker;

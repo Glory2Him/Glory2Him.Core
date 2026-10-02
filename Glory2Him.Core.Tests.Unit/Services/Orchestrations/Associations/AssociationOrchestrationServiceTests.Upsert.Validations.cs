@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -18,6 +19,7 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
+using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
@@ -359,6 +361,103 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     It.IsAny<CancellationToken>()),
                 Times.Never);
 
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // Each far end the gate maps, with the switch it asks of the ContentItem host's winning
+        // setting (§ARC16.2.1's table). There is no Attachment row: no Attachment endpoint
+        // resolves yet, so no pair reaches that switch (AssociationOrchestrationService.md §1
+        // rule 2). The last case holds the item on B, so the gate is held in both orientations.
+        public static TheoryData<EntityType, EntityType, string> FacetsRefusedBySetting() =>
+            new TheoryData<EntityType, EntityType, string>
+            {
+                { EntityType.ContentItem, EntityType.Tag, nameof(ContentItemSetting.TagsAllowed) },
+                { EntityType.ContentItem, EntityType.Reaction, nameof(ContentItemSetting.ReactionsAllowed) },
+                { EntityType.ContentItem, EntityType.Comment, nameof(ContentItemSetting.CommentsAllowed) },
+
+                {
+                    EntityType.ContentItem,
+                    EntityType.BibleReference,
+                    nameof(ContentItemSetting.BibleReferenceAllowed)
+                },
+
+                { EntityType.ContentItem, EntityType.Link, nameof(ContentItemSetting.LinksAllowed) },
+                { EntityType.Reaction, EntityType.ContentItem, nameof(ContentItemSetting.ReactionsAllowed) },
+            };
+
+        [Theory]
+        [MemberData(nameof(FacetsRefusedBySetting))]
+        public async Task ShouldThrowValidationExceptionOnUpsertIfTheSettingRefusesTheFacetAndLogItAsync(
+            EntityType entityAType,
+            EntityType entityBType,
+            string refusingSwitch)
+        {
+            // given: the item's winning setting allows every facet but the one its far end names,
+            // so only that switch can refuse the pair. The caller claims a content type the item
+            // does not carry, and the setting is asked under the one resolution derives.
+            Association rawRequest = CreateRawUpsertRequestBetween(entityAType, entityBType);
+            ContentItem resolvedContentItem = SetupMethodPathEndpointReads(rawRequest);
+            rawRequest.EntityAContentType = ContentType.Testimony;
+            rawRequest.EntityBContentType = ContentType.Testimony;
+
+            ContentItemSetting refusingSetting =
+                CreateAllowingContentItemSetting(resolvedContentItem.ContentType);
+
+            typeof(ContentItemSetting).GetProperty(refusingSwitch).SetValue(refusingSetting, false);
+            List<ContentItemSettingKey> expectedSettingKeys = CreateSettingKeysFor(resolvedContentItem);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new List<EffectiveContentItemSetting>
+                        {
+                            new EffectiveContentItemSetting
+                            {
+                                ContentItemId = resolvedContentItem.Id,
+                                ContentItemSetting = refusingSetting,
+                            },
+                        });
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationOrchestrationException.AddData(
+                key: refusingSwitch,
+                values: "Value does not allow this association");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
+                    rawRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    upsertTask.AsTask);
+
+            // then: refused by the switch it names, and nothing is probed or written
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
     }
