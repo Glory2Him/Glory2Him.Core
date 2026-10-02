@@ -120,9 +120,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         // and land it on a public scripture page — exactly what Tag-ReadOnly exists to prevent.
         // One end admits on the grant side; one end bars on the block side.
         //
-        // THIS IS THE ADD'S ALONE. Modify, remove and hard remove are handed an id or an
-        // untrusted row, so there is no resolved endpoint for this layer to compose from and the
-        // veto belongs one layer down (§SEC14.7 posture A′ rule 4). §SEC14.6 rule 2 makes the
+        // THIS IS THE UPSERT'S ALONE, and asked of an editorial pair only: a reader's own reaction
+        // is outside the veto (posture A′ rule 1). Modify, remove and hard remove are handed an id
+        // or an untrusted row, so there is no resolved endpoint for this layer to compose from and
+        // the veto belongs one layer down (§SEC14.7 posture A′ rule 4). §SEC14.6 rule 2 makes the
         // duplicate with the foundation's own gate intended rather than redundant.
         private static void ValidateUserIsNotBlockedFromEndpoints(
             SecurityContext securityContext,

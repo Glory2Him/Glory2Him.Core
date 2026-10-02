@@ -62,8 +62,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         // it reaches them through the same flow UpsertAssociationAsync uses. Proven by driving each
         // of that flow's refusals through BOTH entry points and requiring the SAME answer from
         // each — a rule present on one door and missing, or worded differently, on the other
-        // fails here. The reaction-specific facet refusal that will ride this seam is #617's,
-        // and is deliberately not written here.
+        // fails here. The facet gate rides this seam too (#724), and its refusals are proven on
+        // this door by #753, so they are deliberately not listed here.
         [Theory]
         [MemberData(nameof(WriteFlowRefusals))]
         public async Task ShouldRunTheSameWriteFlowOnBothEntryPathsAsync(string refusal)

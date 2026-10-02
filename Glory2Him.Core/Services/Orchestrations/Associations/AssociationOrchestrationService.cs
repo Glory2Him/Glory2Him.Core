@@ -36,9 +36,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     /// Coordinates the endpoint-aware association flows that no single foundation service can own,
     /// because the foundation keeps its self-only visibility filter as the dependency-free
     /// primitive and touches only its own entity (design §SEC14.3 Layer, §SEC14.6). It resolves an
-    /// association's endpoints against their foundation services, runs the retrieve-or-add
-    /// suggestion over the unfiltered canonical-pair probe, and returns a status projection that
-    /// never leaks the row body.
+    /// association's endpoints against their foundation services, runs the facet gate on the
+    /// write (§ARC16.2.1), runs an editorial pair's retrieve-or-add over the unfiltered
+    /// canonical-pair probe or hands a reader's reaction to the foundation's personal upsert, and
+    /// returns a status projection that never leaks the row body.
     ///
     /// <para><b>It is also the layer an exposer binds to for the whole CRUD surface</b>, because
     /// §SEC14.3's composite spans both endpoints and so cannot live in the foundation's own-table
@@ -46,9 +47,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     /// <c>.EndpointVisibility.cs</c>. The three writes carry <b>only</b> the half of the §SEC14.7
     /// posture A′ gate that needs no row — authentication, the global <c>ReadOnly</c> block, and
     /// <c>Administrators</c> on hard removal — and then forward; every rule that needs the stored
-    /// endpoints belongs to the foundation, and no second read duplicates it. The add is the one
-    /// write that resolves both endpoints as its own first act, so it is the one that decides the
-    /// endpoint veto for itself.</para>
+    /// endpoints belongs to the foundation, and no second read duplicates it. The upsert is the
+    /// one write that resolves both endpoints as its own first act, so it is the one that decides
+    /// the endpoint veto for itself, on an editorial pair — a reader's own reaction is outside
+    /// it.</para>
     ///
     /// <para>Whether the foundation in fact composes each of those from the stored row is its
     /// own business and is not uniform today: on <c>ModifyAssociationAsync</c> the four
@@ -131,6 +133,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 : await AddEditorialPairAsync(association, cancellationToken);
         }
 
+        // THE PERSONAL ARM (AssociationOrchestrationService.md §1 rules 4 and 5). A reaction row is
+        // created at Submitted, never at Draft (§ARC16.8.1): the seeded personal tier opens the
+        // round and closes it on submission, and a row created at Draft would never be counted.
+        // The foundation resolves the reader's row itself, after its own canonical ordering, so
+        // this arm runs no probe of its own (§ARC16.2.2).
         private async ValueTask<AssociationSuggestionResult> UpsertPersonalPairAsync(
             Association association,
             CancellationToken cancellationToken)
@@ -149,6 +156,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             };
         }
 
+        // The foundation's outcome becomes the result's status (AssociationOrchestrationService.md
+        // §1 rule 5), and an unchanged row answers by its status, as the editorial arm answers an
+        // occupant.
         private static AssociationSuggestionStatus ToSuggestionStatus(
             PersonalAssociationUpsert personalAssociationUpsert) =>
             personalAssociationUpsert.Outcome switch
@@ -166,6 +176,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 _ => AssociationSuggestionStatus.AlreadyPending,
             };
 
+        // THE EDITORIAL ARM: the add as it was, unchanged (§ARC16.8.1) — the two probes, the
+        // insert of a free pair and the same statuses. It never repoints.
         private async ValueTask<AssociationSuggestionResult> AddEditorialPairAsync(
             Association association,
             CancellationToken cancellationToken)
@@ -202,11 +214,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 };
             }
 
-            // A soft-deleted row occupies the pair. Resurrecting the caller's own row (and
-            // refusing a moderator takedown) is the §10.4 resurrect rule, and it needs a
-            // foundation restore primitive that does not exist yet — so this pass takes the SAFE
-            // branch: it never inserts past a deleted row (which would either duplicate it or
-            // launder a takedown), and reports it as already pending, which reveals nothing.
+            // A soft-deleted row occupies the pair. Whether an editorial row is ever revived is not
+            // settled (§ARC16.8.1) — a reader's own reaction is revived on the personal arm, never
+            // here — so this arm takes the SAFE branch: it never inserts past a deleted row (which
+            // would either duplicate it or launder a takedown), and reports it as already pending,
+            // which reveals nothing.
             if (existingMatch.IsDeleted)
             {
                 return new AssociationSuggestionResult

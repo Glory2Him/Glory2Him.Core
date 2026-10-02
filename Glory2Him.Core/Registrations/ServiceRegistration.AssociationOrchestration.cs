@@ -19,7 +19,8 @@ namespace Glory2Him.Core.Registrations
         /// <summary>
         /// Registers the Association orchestration service with the container. The caller is
         /// responsible for registering the foundation services and brokers it depends on
-        /// (the Association foundation service plus every endpoint entity's service, and
+        /// (the Association foundation service plus every endpoint entity's service,
+        /// <c>IAccessBroker</c>, which its facet gate reads the winning settings through, and
         /// <c>IEnvelopeIntegrityBroker</c>, which its event-path handler verifies inbound
         /// envelopes through).
         ///

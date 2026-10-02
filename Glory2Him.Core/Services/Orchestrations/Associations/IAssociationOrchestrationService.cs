@@ -31,22 +31,40 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     public partial interface IAssociationOrchestrationService
     {
         /// <summary>
-        /// Suggests an association between two endpoints — the retrieve-or-add flow of design
-        /// §7.4. The caller supplies only the raw endpoints (<c>EntityAType</c>/<c>EntityAKeyId</c>,
-        /// <c>EntityBType</c>/<c>EntityBKeyId</c>, and <c>UserId</c> for a reaction); the
-        /// orchestration resolves each endpoint against its foundation service and DERIVES the
-        /// scope, group id and content type — none of which it accepts from the caller, because
-        /// the content type is an authorization input and a caller-set scope could claim
-        /// <c>AllVersions</c> on an entity with no group.
+        /// Writes every association a caller makes — an editorial pairing such as a suggested
+        /// tag, and a reader's reaction — through one flow, and replaces the add (§ARC16.8.1). The
+        /// caller supplies only the raw endpoints (<c>EntityAType</c>/<c>EntityAKeyId</c>,
+        /// <c>EntityBType</c>/<c>EntityBKeyId</c>); the orchestration resolves each endpoint
+        /// against its foundation service and DERIVES the scope, group id and content type — none
+        /// of which it accepts from the caller, because the content type is an authorization
+        /// input and a caller-set scope could claim <c>AllVersions</c> on an entity with no group.
+        /// It derives <c>UserId</c> too: the caller's own, from the envelope, on a personal pair,
+        /// and null on an editorial one, whatever the request carried (§DOM4.10 rules 1 and 2).
         ///
-        /// <para>It then looks the canonical pair up over the unfiltered store and branches:
-        /// an unoccupied pair is inserted (<c>Created</c>); an occupied one is returned as-is —
-        /// <c>AlreadyApproved</c> for an approved row, <c>AlreadyPending</c> for any other
-        /// non-deleted state (pending and rejected are indistinguishable to the caller by
-        /// design); the caller's own soft-deleted row is resurrected to <c>Draft</c>
-        /// (<c>Restored</c>), while a moderator-deleted row is never resurrected, so a takedown
-        /// cannot be laundered by resubmitting. The result carries a status and the row id and
-        /// NOTHING else — the row body would leak another user's authorship.</para>
+        /// <para>A pair is personal where either endpoint's type is, as
+        /// <c>EntityTypePersonalisation</c> answers it — today a reaction. A personal pair asks
+        /// none of the read-only roles, because a reader's own reaction is not a contribution; an
+        /// editorial pair asks the global block and the endpoint veto (§SEC14.7 posture A′ rule
+        /// 1). Both then meet the facet gate: a <c>ContentItem</c> endpoint's winning setting must
+        /// allow the far end's facet, and the pair is refused, naming the switch, where it does
+        /// not or where no setting resolves (§ARC16.2.1).</para>
+        ///
+        /// <para>An editorial pair runs the retrieve-or-add of design §7.4 over the unfiltered
+        /// store: a free pair is inserted (<c>Created</c>); an occupied one is returned as it
+        /// stands — <c>AlreadyApproved</c> for an approved row, <c>AlreadyPending</c> for any
+        /// other, soft-deleted included, so pending, rejected and taken down are
+        /// indistinguishable to the caller; and a differently-scoped row that already covers the
+        /// pair answers <c>OverlapsExisting</c>.</para>
+        ///
+        /// <para>A personal pair is handed to the foundation's personal upsert at
+        /// <c>Submitted</c>, which gives, changes or brings back the reader's one reaction on the
+        /// item: <c>Created</c>, <c>Repointed</c> or <c>Restored</c>. A reaction the reader
+        /// already holds answers <c>AlreadyApproved</c> or <c>AlreadyPending</c> by its status,
+        /// and one a moderator took down answers <c>AlreadyPending</c>, which tells the reader
+        /// nothing.</para>
+        ///
+        /// <para>The result carries a status and the row id and NOTHING else — the row body would
+        /// leak another user's authorship.</para>
         /// </summary>
         ValueTask<AssociationSuggestionResult> UpsertAssociationAsync(
             Association association,
