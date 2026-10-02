@@ -124,5 +124,37 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.CachePolicies
             actualResponse.Headers.CacheControl.Should().NotBeNull();
             actualResponse.Headers.CacheControl.NoStore.Should().BeTrue();
         }
+
+        // A refusal is a failed answer too, and it is the authentication and authorization
+        // middleware that writes it, not an endpoint: the policy has to sit above them to reach it.
+        [Theory]
+        [InlineData("api/profile", true, HttpStatusCode.Unauthorized)]
+        [InlineData("api/admin/users", false, HttpStatusCode.Forbidden)]
+        public async Task ShouldAnswerARefusedApiRequestWithNoStore(
+            string refusedApiUrl,
+            bool isAnonymous,
+            HttpStatusCode expectedStatusCode)
+        {
+            // given
+            if (isAnonymous)
+            {
+                this.apiBroker.ActAsAnonymous();
+            }
+            else
+            {
+                this.apiBroker.ActAsContributor();
+            }
+
+            // when
+            using HttpResponseMessage actualResponse =
+                await this.apiBroker.GetResponseAsync(refusedApiUrl);
+
+            this.apiBroker.ActAsSeededAdministrator();
+
+            // then
+            actualResponse.StatusCode.Should().Be(expectedStatusCode);
+            actualResponse.Headers.CacheControl.Should().NotBeNull();
+            actualResponse.Headers.CacheControl.NoStore.Should().BeTrue();
+        }
     }
 }
