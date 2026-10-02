@@ -204,4 +204,22 @@ describe('RestoredPageGuard', () => {
         expect(reload).toHaveBeenCalledTimes(1);
         expect(isHidden()).toBe(true);
     });
+
+    it('should leave an ordinary page load alone', async () => {
+        // given
+        mocks.currentUser = readerA;
+        render(<RestoredPageGuard />);
+        answerFreshRead(readerA);
+
+        // when
+        dispatchPageTransition('pageshow', false);
+        const hiddenAtOnce = isHidden();
+        await settle();
+
+        // then
+        expect(hiddenAtOnce).toBe(false);
+        expect(isHidden()).toBe(false);
+        expect(mocks.refetch).not.toHaveBeenCalled();
+        expect(reload).not.toHaveBeenCalled();
+    });
 });
