@@ -28,7 +28,9 @@ export const RestoredPageGuard = (): ReactElement => {
             const cachedReader = cachedReaderReference.current;
             const freshRead = await refetch();
 
-            if (cachedReader !== undefined && signedInReaderOf(freshRead.data) === cachedReader) {
+            if (!freshRead.isError
+                && cachedReader !== undefined
+                && signedInReaderOf(freshRead.data) === cachedReader) {
                 document.documentElement.style.removeProperty('visibility');
             } else {
                 window.location.reload();
