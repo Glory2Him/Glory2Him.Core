@@ -153,6 +153,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             PersonalAssociationUpsert personalAssociationUpsert) =>
             personalAssociationUpsert.Outcome switch
             {
+                PersonalAssociationUpsertOutcome.Created => AssociationSuggestionStatus.Created,
                 PersonalAssociationUpsertOutcome.Restored => AssociationSuggestionStatus.Restored,
                 PersonalAssociationUpsertOutcome.Repointed => AssociationSuggestionStatus.Repointed,
 
@@ -160,8 +161,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     when personalAssociationUpsert.Association.ApprovalStatus == ApprovalStatus.Approved =>
                         AssociationSuggestionStatus.AlreadyApproved,
 
-                PersonalAssociationUpsertOutcome.Unchanged => AssociationSuggestionStatus.AlreadyPending,
-                _ => AssociationSuggestionStatus.Created,
+                // an unchanged row at any other status, and a takedown, which tells the reader
+                // nothing about why (§DOM4.10 rule 7)
+                _ => AssociationSuggestionStatus.AlreadyPending,
             };
 
         private async ValueTask<AssociationSuggestionResult> AddEditorialPairAsync(
