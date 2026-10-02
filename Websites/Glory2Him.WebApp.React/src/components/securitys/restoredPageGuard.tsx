@@ -19,7 +19,11 @@ export const RestoredPageGuard = (): ReactElement => {
             cachedReaderReference.current = signedInReaderOf(currentUserReference.current);
         };
 
-        const handlePageShow = async () => {
+        const handlePageShow = async (event: PageTransitionEvent) => {
+            if (!event.persisted) {
+                return;
+            }
+
             document.documentElement.style.visibility = 'hidden';
             const cachedReader = cachedReaderReference.current;
             const freshRead = await refetch();
