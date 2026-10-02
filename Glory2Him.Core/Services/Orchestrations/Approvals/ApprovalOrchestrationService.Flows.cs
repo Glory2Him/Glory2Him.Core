@@ -90,14 +90,6 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     entityId: entityId,
                     cancellationToken: cancellationToken);
 
-                ApprovalConditionsVerdict conditions =
-                    await this.accessBroker.EvaluateApprovalConditionsByIdAsync(
-                        approvalId: approval.Id,
-                        cancellationToken: cancellationToken);
-
-                ValidateStorageApprovalConditionsResolved(
-                    conditions, entityType, entityId);
-
                 // Beyond the carve-out above, the status is NOT moved by an edit. A Draft the
                 // owner left at Draft stays Draft — this flow never writes Submitted onto one of
                 // its own accord, because submitting is somebody's decision to offer the content,
@@ -118,14 +110,31 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 // Not short-circuited at the TOP of this flow, which was tried and reverted: an
                 // early return here skips the stale-review dismissal and the re-read the round
                 // legitimately needs. The guard sits after both, inside the evaluation.
-                if (conditions.ShouldResetStaleReviewsOnChange is false)
+                //
+                // A CHANGED REACTION SKIPS THIS READ. Its round starts with no reviews, so the old
+                // pair's are dismissed whatever RequireReapprovalOnChange says (§APR8.8
+                // regardless-rule 1), and a verdict read only to consult that setting would be
+                // work done to throw away. The evaluation reads the conditions once, after the
+                // dismissal.
+                if (changedWhen is null)
                 {
-                    // Never dismisses when the setting is off. The reviews stand, and the
-                    // conditions already read are the ones to evaluate against.
-                    return await EvaluateApprovalAsync(
-                        approval: approval,
-                        conditions: conditions,
-                        cancellationToken: cancellationToken);
+                    ApprovalConditionsVerdict conditions =
+                        await this.accessBroker.EvaluateApprovalConditionsByIdAsync(
+                            approvalId: approval.Id,
+                            cancellationToken: cancellationToken);
+
+                    ValidateStorageApprovalConditionsResolved(
+                        conditions, entityType, entityId);
+
+                    if (conditions.ShouldResetStaleReviewsOnChange is false)
+                    {
+                        // Never dismisses when the setting is off. The reviews stand, and the
+                        // conditions already read are the ones to evaluate against.
+                        return await EvaluateApprovalAsync(
+                            approval: approval,
+                            conditions: conditions,
+                            cancellationToken: cancellationToken);
+                    }
                 }
 
                 await DismissStaleApprovalReviewsAsync(
@@ -134,9 +143,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     cancellationToken: cancellationToken);
 
                 // RE-READ, and this is the whole reason evaluation takes its verdict rather than
-                // fetching one: the conditions above were measured against reviews that no longer
-                // count. Evaluating on them would auto-approve using approvals just discarded —
-                // exactly inverting what RequireReapprovalOnChange asked for.
+                // fetching one: any conditions read above were measured against reviews that no
+                // longer count. Evaluating on them would auto-approve using approvals just
+                // discarded — exactly inverting what the dismissal is for.
                 ApprovalOutcome outcome = await EvaluateResolvedApprovalAsync(
                     approval: approval,
                     cancellationToken: cancellationToken);
