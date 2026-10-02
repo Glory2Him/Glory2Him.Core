@@ -89,4 +89,19 @@ describe('RestoredPageGuard', () => {
         expect(reload).not.toHaveBeenCalled();
         expect(isHidden()).toBe(false);
     });
+
+    it('should hide a restored page and read the current user again before deciding', async () => {
+        // given
+        mocks.currentUser = readerA;
+        render(<RestoredPageGuard />);
+        dispatchPageTransition('pagehide', true);
+        mocks.refetch.mockReturnValue(new Promise(() => { }));
+
+        // when
+        dispatchPageTransition('pageshow', true);
+
+        // then
+        expect(isHidden()).toBe(true);
+        expect(mocks.refetch).toHaveBeenCalledTimes(1);
+    });
 });
