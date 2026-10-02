@@ -48,6 +48,13 @@ namespace Glory2Him.Core.Models.Orchestrations.Associations
         /// status reset to Draft (never inherited). A row soft-deleted by a moderator is never
         /// resurrected, so this can only follow the contributor's own earlier removal.
         /// </summary>
-        Restored
+        Restored,
+
+        /// <summary>
+        /// The reader's row was repointed to the reaction they gave, from another one they held
+        /// or from one they had withdrawn, in one write (§DOM4.10). Appended rather than placed
+        /// beside <see cref="Restored"/>, because the number crosses the wire and no member moves.
+        /// </summary>
+        Repointed
     }
 }
