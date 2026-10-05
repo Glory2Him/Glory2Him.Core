@@ -601,8 +601,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         // through it is caught by what it dismissed rather than by an unstubbed call. Every
         // dismissal is captured, in order, and recorded among the flow's steps when asked.
         //
-        // Each is answered only on the delivery's own token. The dismissed id is taken whatever
-        // it is, because every test asserts the ids it captured.
+        // Each is answered only on the delivery's own token, and each review is dismissed on its
+        // own id. The flow can dismiss only the ids it read, so every dismissal it makes is
+        // captured.
         private List<Guid> SetupRepointedReviews(
             Guid approvalId,
             CancellationToken cancellationToken,
@@ -625,18 +626,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     cancellationToken))
                         .ReturnsAsync(activeReviews.Select(review => review.Id).ToList());
 
-            this.approvalReviewServiceMock.Setup(service =>
-                service.DismissStaleApprovalReviewAsync(
-                    It.IsAny<Guid>(),
-                    cancellationToken))
-                        .Returns((Guid approvalReviewId, CancellationToken cancellationToken) =>
-                        {
-                            dismissedReviewIds.Add(approvalReviewId);
-                            flowSteps?.Add("dismiss");
+            foreach (DismissableApprovalReview activeReview in activeReviews)
+            {
+                Guid approvalReviewId = activeReview.Id;
 
-                            return new ValueTask<ApprovalReview>(
-                                new ApprovalReview { Id = approvalReviewId });
-                        });
+                this.approvalReviewServiceMock.Setup(service =>
+                    service.DismissStaleApprovalReviewAsync(
+                        approvalReviewId,
+                        cancellationToken))
+                            .Returns(() =>
+                            {
+                                dismissedReviewIds.Add(approvalReviewId);
+                                flowSteps?.Add("dismiss");
+
+                                return new ValueTask<ApprovalReview>(
+                                    new ApprovalReview { Id = approvalReviewId });
+                            });
+            }
 
             return dismissedReviewIds;
         }

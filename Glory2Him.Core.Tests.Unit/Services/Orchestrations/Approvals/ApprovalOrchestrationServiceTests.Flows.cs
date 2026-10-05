@@ -1722,7 +1722,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
                 SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
-            List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
 
             SetupRepointedConditions(
                 approvalId,
@@ -1804,7 +1804,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
                 SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
-            List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
 
             SetupRepointedConditions(
                 approvalId,
@@ -1881,7 +1881,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
                 SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
-            List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
 
             SetupRepointedConditions(
                 approvalId,
@@ -1965,7 +1965,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
                 SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
-            List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
 
             SetupRepointedConditions(
                 approvalId,
@@ -2106,7 +2106,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
                 SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
-            List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
 
             SetupRepointedConditions(
                 approvalId,
@@ -2174,7 +2174,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
                 SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
-            List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
 
             // Berean's pass on the new reaction: finished, so a reset would have something to
             // take back.
@@ -2244,7 +2244,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
                 SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
-            SetupRepointedAssociationCommands(flowSteps);
+            SetupRepointedAssociationCommands(entityId, flowSteps);
             SetupResettableAIReviewerAssignment(approvalId, staleAssignmentId);
             SetupAIReviewerAssignmentReturnToPending();
 
@@ -2319,7 +2319,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
                 SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
-            List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
             SetupResettableAIReviewerAssignment(approvalId, staleAssignmentId);
             SetupAIReviewerAssignmentReturnToPending();
 
@@ -2406,7 +2406,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
                 SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
-            List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
 
             SetupRepointedConditions(
                 approvalId,
@@ -2490,7 +2490,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
                 SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
-            List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
 
             SetupRepointedConditions(
                 approvalId,
@@ -2547,7 +2547,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
                 SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
-            List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
 
             SetupRepointedConditions(
                 approvalId,
@@ -2597,7 +2597,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
                 SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
-            List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
 
             SetupRepointedConditions(
                 approvalId,
@@ -2640,8 +2640,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         // the attribution it was written under: the flow mutates the row it holds and hands the
         // same object on, so the instance alone would show only its last state.
         //
-        // Both are answered only on the delivery's own token. The written row and its attribution
-        // are taken whatever they are, because every test asserts each one it captured.
+        // Both are answered only for THIS round, written as the workflow, on the delivery's own
+        // token. Any other write finds no setup and comes back null, and the flow faults where it
+        // next uses the row, so a test that expects no write still sees one.
         private List<(Approval Approval, WorkflowAttribution Attribution)> SetupRepointedRoundWrites(
             Approval storageApproval,
             CancellationToken cancellationToken,
@@ -2657,8 +2658,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             this.approvalServiceMock.Setup(service =>
                 service.ModifyApprovalAsync(
-                    It.IsAny<Approval>(),
-                    It.IsAny<WorkflowAttribution>(),
+                    It.Is<Approval>(approval => approval.Id == storageApproval.Id),
+                    WorkflowAttribution.System,
                     cancellationToken))
                         .Returns((Approval approval,
                             WorkflowAttribution attribution,
@@ -2674,14 +2675,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             return roundWrites;
         }
 
-        // Every entity command the flow sends the association, in order.
-        private List<Association> SetupRepointedAssociationCommands(List<string> flowSteps)
+        // Every entity command the flow sends THIS association, in order. A command for any other
+        // row finds no setup, and the flow faults on the publish result it never got.
+        private List<Association> SetupRepointedAssociationCommands(
+            Guid entityId,
+            List<string> flowSteps)
         {
             var associationCommands = new List<Association>();
 
             this.eventBrokerMock.Setup(broker =>
                 broker.PublishAssociationAsync(
-                    It.IsAny<EventEnvelope<Association>>(),
+                    It.Is<EventEnvelope<Association>>(envelope => envelope.Content.Id == entityId),
                     AssociationEventOperation.Approving))
                         .Returns((EventEnvelope<Association> envelope,
                             AssociationEventOperation operation) =>
