@@ -324,41 +324,12 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext, isPersonal);
             ValidateOnAddAssociation(association);
 
-            // Resolve BOTH endpoints against their foundation services and DERIVE the scope,
-            // group id and content type onto the row, overwriting anything the caller supplied —
-            // the content type is an authorization input and a caller-set scope could claim
-            // AllVersions on an entity with no group (§7.4, §5). A non-existent or non-visible
-            // endpoint surfaces here as not-found. Each resolution is kept for the facet gate.
-            ResolvedEndpoint resolvedEntityA = default;
-            ResolvedEndpoint resolvedEntityB = default;
-
-            await ResolveEndpointAsync(
-                association.EntityAType,
-                association.EntityAKeyId,
-                onResolved: resolved =>
-                {
-                    resolvedEntityA = resolved;
-                    association.EntityAGroupId = resolved.GroupId;
-                    association.EntityAContentType = resolved.ContentType;
-                    association.EntityAScope = resolved.Scope;
-                },
-                endpointName: "A",
-                readEnvelope: readEnvelope,
-                cancellationToken: cancellationToken);
-
-            await ResolveEndpointAsync(
-                association.EntityBType,
-                association.EntityBKeyId,
-                onResolved: resolved =>
-                {
-                    resolvedEntityB = resolved;
-                    association.EntityBGroupId = resolved.GroupId;
-                    association.EntityBContentType = resolved.ContentType;
-                    association.EntityBScope = resolved.Scope;
-                },
-                endpointName: "B",
-                readEnvelope: readEnvelope,
-                cancellationToken: cancellationToken);
+            // Each resolution is kept for the facet gate.
+            (ResolvedEndpoint resolvedEntityA, ResolvedEndpoint resolvedEntityB) =
+                await ResolvePairEndpointsAsync(
+                    association: association,
+                    readEnvelope: readEnvelope,
+                    cancellationToken: cancellationToken);
 
             // The endpoint half of the veto, decidable HERE and nowhere else above the foundation:
             // the add is the one write that resolves both endpoints from storage as its own first
@@ -391,6 +362,53 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 cancellationToken);
 
             return isPersonal;
+        }
+
+        // WHICH PAIR THESE ENDPOINTS DENOTE: both endpoints resolved against their foundation
+        // services, and the scope, group id and content type DERIVED onto the row, overwriting
+        // anything the caller supplied — the content type is an authorization input and a
+        // caller-set scope could claim AllVersions on an entity with no group (§7.4, §5). A
+        // non-existent or non-visible endpoint surfaces here as not-found. Written once, for the
+        // add's write flow and for the pair-keyed withdrawal, so the two cannot drift apart on
+        // which pair a request names (§ARC16.8, "Which pair do these endpoints denote").
+        private async ValueTask<(ResolvedEndpoint EntityA, ResolvedEndpoint EntityB)>
+            ResolvePairEndpointsAsync(
+                Association association,
+                EventEnvelope<Association>? readEnvelope,
+                CancellationToken cancellationToken)
+        {
+            ResolvedEndpoint resolvedEntityA = default;
+            ResolvedEndpoint resolvedEntityB = default;
+
+            await ResolveEndpointAsync(
+                association.EntityAType,
+                association.EntityAKeyId,
+                onResolved: resolved =>
+                {
+                    resolvedEntityA = resolved;
+                    association.EntityAGroupId = resolved.GroupId;
+                    association.EntityAContentType = resolved.ContentType;
+                    association.EntityAScope = resolved.Scope;
+                },
+                endpointName: "A",
+                readEnvelope: readEnvelope,
+                cancellationToken: cancellationToken);
+
+            await ResolveEndpointAsync(
+                association.EntityBType,
+                association.EntityBKeyId,
+                onResolved: resolved =>
+                {
+                    resolvedEntityB = resolved;
+                    association.EntityBGroupId = resolved.GroupId;
+                    association.EntityBContentType = resolved.ContentType;
+                    association.EntityBScope = resolved.Scope;
+                },
+                endpointName: "B",
+                readEnvelope: readEnvelope,
+                cancellationToken: cancellationToken);
+
+            return (resolvedEntityA, resolvedEntityB);
         }
 
         // THE FLOW'S PERSONALITY, asked of the RAW endpoint types at its top, because its first
