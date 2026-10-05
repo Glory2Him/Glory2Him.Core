@@ -310,6 +310,25 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             }
         }
 
+        // THE PAIR-KEYED WITHDRAWAL'S REFUSAL OF AN EDITORIAL PAIR (AssociationOrchestrationService.md
+        // §3 rule 2). A withdrawal is keyed on (content item, reaction, caller) (§ARC16.8), and
+        // only a personal row has a caller in its key: a pair is personal where either endpoint's
+        // type is (§DOM4.2), and that is the lookup's answer, never a test of this service's own
+        // (§DOM4.10 rule 4). Asked of the RAW endpoint types, so it refuses before anything is
+        // read, with ONE message for every editorial pair.
+        private static void ValidatePairIsPersonal(Association association)
+        {
+            bool isPersonal =
+                IsPersonalEndpoint(association.EntityAType)
+                || IsPersonalEndpoint(association.EntityBType);
+
+            if (isPersonal is false)
+            {
+                throw new InvalidAssociationOrchestrationException(
+                    message: "An editorial content item association cannot be withdrawn by its pair.");
+            }
+        }
+
         // A value outside the enum is malformed input, not a member the lookup was never told
         // about, so the lookup is not asked. Asking would turn it into the lookup's hard error, a
         // service exception, where the shared flow's structural validation refuses it as invalid.
