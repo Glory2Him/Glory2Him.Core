@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
@@ -342,6 +343,75 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             actualSummaries.Should().BeEquivalentTo(
                 expectedSummaries,
                 options => options.WithStrictOrdering());
+        }
+
+        [Fact]
+        public async Task ShouldAnswerNoViewerReactionForAnAnonymousCallerAsync()
+        {
+            // given: an anonymous caller. The caller's-reactions read would name Love on the first
+            // item were it asked, so an answer that asked it could not come back unchanged.
+            this.ambientSecurityContext = CreateAnonymousSecurityContext();
+            PublicContentItemGroup firstHost = CreatePublicContentItemGroup();
+            PublicContentItemGroup secondHost = CreatePublicContentItemGroup();
+            Reaction love = CreatePublicReaction(name: "Love");
+
+            var contentItemIds = new List<Guid>
+            {
+                firstHost.ContentItemId,
+                secondHost.ContentItemId,
+            };
+
+            SetupPublicContentItemGroups(contentItemIds, firstHost, secondHost);
+            SetupPublicReactions(love);
+
+            SetupWinningSettings(
+                hosts: [firstHost, secondHost],
+                CreateWinningSetting(firstHost, showReactions: true),
+                CreateWinningSetting(secondHost, showReactions: true));
+
+            SetupReactionCounts(
+                contentItemGroupIds: [firstHost.GroupId, secondHost.GroupId],
+                reactionIds: [love.Id],
+                CreatePairCount(firstHost, love, count: 1));
+
+            SetupCallerReactions(
+                contentItemGroupIds: [firstHost.GroupId, secondHost.GroupId],
+                CreatePairKey(firstHost, love));
+
+            var expectedSummaries = new List<ContentItemReactionSummary>
+            {
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = firstHost.ContentItemId,
+                    Reactions = new List<ContentItemReactionCount> { CreateReactionCount(love, count: 1) },
+                    ViewerReactionId = null,
+                    ViewerReactionName = null,
+                },
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = secondHost.ContentItemId,
+                    Reactions = new List<ContentItemReactionCount>(),
+                    ViewerReactionId = null,
+                    ViewerReactionName = null,
+                },
+            };
+
+            // when
+            IReadOnlyList<ContentItemReactionSummary> actualSummaries =
+                await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    contentItemIds,
+                    TestContext.Current.CancellationToken);
+
+            // then: every viewer member null, and the caller's-reactions read never asked
+            actualSummaries.Should().BeEquivalentTo(
+                expectedSummaries,
+                options => options.WithStrictOrdering());
+
+            this.associationServiceMock.Verify(service =>
+                service.RetrieveCallerContentItemReactionsAsync(
+                    It.IsAny<IReadOnlyList<Guid>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
         }
 
         // A caller who is not signed in.
