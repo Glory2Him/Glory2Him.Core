@@ -462,6 +462,52 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 options => options.WithStrictOrdering());
         }
 
+        [Fact]
+        public async Task ShouldAnswerADuplicatedIdOnceWithItsGroupsCountAsync()
+        {
+            // given: one id supplied twice
+            this.ambientSecurityContext = CreateAnonymousSecurityContext();
+            PublicContentItemGroup host = CreatePublicContentItemGroup();
+            Reaction love = CreatePublicReaction(name: "Love");
+
+            var contentItemIds = new List<Guid>
+            {
+                host.ContentItemId,
+                host.ContentItemId,
+            };
+
+            SetupPublicContentItemGroups(contentItemIds: [host.ContentItemId], host);
+            SetupPublicReactions(love);
+            SetupWinningSettings(hosts: [host], CreateWinningSetting(host, showReactions: true));
+
+            SetupReactionCounts(
+                contentItemGroupIds: [host.GroupId],
+                reactionIds: [love.Id],
+                CreatePairCount(host, love, count: 6));
+
+            var expectedSummaries = new List<ContentItemReactionSummary>
+            {
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = host.ContentItemId,
+                    Reactions = new List<ContentItemReactionCount> { CreateReactionCount(love, count: 6) },
+                    ViewerReactionId = null,
+                    ViewerReactionName = null,
+                },
+            };
+
+            // when
+            IReadOnlyList<ContentItemReactionSummary> actualSummaries =
+                await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    contentItemIds,
+                    TestContext.Current.CancellationToken);
+
+            // then: answered once, echoing itself, with its group's count
+            actualSummaries.Should().BeEquivalentTo(
+                expectedSummaries,
+                options => options.WithStrictOrdering());
+        }
+
         // A caller who is not signed in.
         private static SecurityContext CreateAnonymousSecurityContext() =>
             new SecurityContext { IsAuthenticated = false };
