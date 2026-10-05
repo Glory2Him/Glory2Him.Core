@@ -50,6 +50,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             var oldPairReviewId = Guid.NewGuid();
             var newPairReviewId = Guid.NewGuid();
             DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
             Approval storageApproval = CreateFlowApproval(
                 approvalId: approvalId,
@@ -63,6 +64,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             List<Guid> dismissedReviewIds = SetupRepointedReviews(
                 approvalId,
+                cancellationToken,
                 CreateRepointedReview(oldPairReviewId, createdWhen: changedWhen.AddMinutes(-1)),
                 CreateRepointedReview(newPairReviewId, createdWhen: changedWhen.AddMinutes(1)));
 
@@ -73,23 +75,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             EventEnvelope<Association> actualReply =
                 await this.approvalOrchestrationService.OnAssociationRepointedAsync(
                     envelope: inputEnvelope,
-                    cancellationToken: TestContext.Current.CancellationToken);
+                    cancellationToken: cancellationToken);
 
-            // then: verified as the fact this ear serves, and as a request
+            // then: THIS envelope was verified, as the fact this ear serves, and as a request
             this.envelopeIntegrityBrokerMock.Verify(broker =>
                 broker.VerifyAsync(
-                    It.IsAny<EventEnvelope<It.IsAnyType>>(),
+                    inputEnvelope,
                     "AssociationRepointed",
                     EnvelopeDirection.Request),
                 Times.Once);
 
             // the Modified flow ran for THIS association, under the type the ear names rather
-            // than one read off the payload
+            // than one read off the payload, and on the delivery's own token: a flow handed any
+            // other could not be cancelled with the delivery it is serving
             this.approvalServiceMock.Verify(service =>
                 service.FindApprovalByEntityAsync(
                     EntityType.Association,
                     entityId,
-                    It.IsAny<CancellationToken>()),
+                    cancellationToken),
                 Times.Once);
 
             // and bounded by the change's time: the round's reviews were read with when each was
@@ -97,7 +100,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.accessBrokerMock.Verify(broker =>
                 broker.FindDismissableApprovalReviewsAsync(
                     approvalId,
-                    It.IsAny<CancellationToken>()),
+                    cancellationToken),
                 Times.Once);
 
             dismissedReviewIds.Should().Equal(new[] { oldPairReviewId });
@@ -105,8 +108,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // never through the ids-only read the other ears' dismissal makes
             this.accessBrokerMock.Verify(broker =>
                 broker.FindDismissableApprovalReviewIdsAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()),
+                    approvalId,
+                    cancellationToken),
                 Times.Never);
 
             // A fact is a notification, so nothing is replied with.
@@ -127,6 +130,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             var entityId = Guid.NewGuid();
             var approvalId = Guid.NewGuid();
             DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
             Approval storageApproval = CreateFlowApproval(
                 approvalId: approvalId,
@@ -140,9 +144,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             SetupRepointedReviews(
                 approvalId,
+                cancellationToken,
                 CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen.AddDays(-1)));
 
             SetupSubstrateFailingVerification();
+
+            EventEnvelope<Association> inputEnvelope =
+                CreateRepointedEnvelope(CreateRepointedAssociation(entityId, changedWhen));
 
             var expectedInvalidException =
                 new InvalidApprovalOrchestrationException(
@@ -151,20 +159,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // when
             ValueTask<EventEnvelope<Association>> repointedTask =
                 this.approvalOrchestrationService.OnAssociationRepointedAsync(
-                    envelope: CreateRepointedEnvelope(
-                        CreateRepointedAssociation(entityId, changedWhen)),
-                    cancellationToken: TestContext.Current.CancellationToken);
+                    envelope: inputEnvelope,
+                    cancellationToken: cancellationToken);
 
             InvalidApprovalOrchestrationException actualException =
                 await Assert.ThrowsAsync<InvalidApprovalOrchestrationException>(
                     repointedTask.AsTask);
 
-            // then: refused, after asking only whether the signature holds
+            // then: refused, after asking only whether THIS envelope's signature holds
             actualException.Should().BeEquivalentTo(expectedInvalidException);
 
             this.envelopeIntegrityBrokerMock.Verify(broker =>
                 broker.VerifyAsync(
-                    It.IsAny<EventEnvelope<It.IsAnyType>>(),
+                    inputEnvelope,
                     "AssociationRepointed",
                     EnvelopeDirection.Request),
                 Times.Once);
@@ -172,9 +179,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // no round was read, so nothing was returned, dismissed, evaluated or announced
             this.approvalServiceMock.Verify(service =>
                 service.FindApprovalByEntityAsync(
-                    It.IsAny<EntityType>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()),
+                    EntityType.Association,
+                    entityId,
+                    cancellationToken),
                 Times.Never);
 
             this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
@@ -198,6 +205,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             var entityId = Guid.NewGuid();
             var approvalId = Guid.NewGuid();
             DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
             Approval storageApproval = CreateFlowApproval(
                 approvalId: approvalId,
@@ -211,6 +219,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             SetupRepointedReviews(
                 approvalId,
+                cancellationToken,
                 CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen.AddDays(-1)));
 
             var systemContext = new SecurityContext
@@ -220,13 +229,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 IsSystemIdentity = true,
             };
 
+            EventEnvelope<Association> inputEnvelope =
+                CreateRepointedEnvelope(
+                    CreateRepointedAssociation(entityId, changedWhen),
+                    securityContext: systemContext);
+
             // when
             EventEnvelope<Association> actualReply =
                 await this.approvalOrchestrationService.OnAssociationRepointedAsync(
-                    envelope: CreateRepointedEnvelope(
-                        CreateRepointedAssociation(entityId, changedWhen),
-                        securityContext: systemContext),
-                    cancellationToken: TestContext.Current.CancellationToken);
+                    envelope: inputEnvelope,
+                    cancellationToken: cancellationToken);
 
             // then: verified first — the flag is believed only on a verified envelope — and then
             // dropped, with nothing replied
@@ -234,7 +246,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             this.envelopeIntegrityBrokerMock.Verify(broker =>
                 broker.VerifyAsync(
-                    It.IsAny<EventEnvelope<It.IsAnyType>>(),
+                    inputEnvelope,
                     "AssociationRepointed",
                     EnvelopeDirection.Request),
                 Times.Once);
@@ -242,9 +254,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // no round was read, so nothing was returned, dismissed, evaluated or announced
             this.approvalServiceMock.Verify(service =>
                 service.FindApprovalByEntityAsync(
-                    It.IsAny<EntityType>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()),
+                    EntityType.Association,
+                    entityId,
+                    cancellationToken),
                 Times.Never);
 
             this.approvalServiceMock.VerifyNoOtherCalls();
@@ -313,6 +325,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             SetupRepointedReviews(
                 approvalId,
+                TestContext.Current.CancellationToken,
                 CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen.AddDays(-1)));
 
             this.approvalServiceMock.Setup(service =>
@@ -495,15 +508,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
         private List<Guid> SetupRepointedReviews(
             Guid approvalId,
+            CancellationToken cancellationToken,
             params DismissableApprovalReview[] approvalReviews) =>
-            SetupRepointedReviews(approvalId, flowSteps: null, approvalReviews);
+            SetupRepointedReviews(approvalId, cancellationToken, flowSteps: null, approvalReviews);
 
         // The round's active reviews as the access broker gathers them, unfiltered (§APR9.7.4).
         // The ids-only read answers the same set, so a flow that ignored the bound and dismissed
         // through it is caught by what it dismissed rather than by an unstubbed call. Every
         // dismissal is captured, in order, and recorded among the flow's steps when asked.
+        //
+        // Each is answered only on the delivery's own token. The dismissed id is taken whatever
+        // it is, because every test asserts the ids it captured.
         private List<Guid> SetupRepointedReviews(
             Guid approvalId,
+            CancellationToken cancellationToken,
             List<string> flowSteps,
             params DismissableApprovalReview[] approvalReviews)
         {
@@ -514,19 +532,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.accessBrokerMock.Setup(broker =>
                 broker.FindDismissableApprovalReviewsAsync(
                     approvalId,
-                    It.IsAny<CancellationToken>()))
+                    cancellationToken))
                         .ReturnsAsync(activeReviews);
 
             this.accessBrokerMock.Setup(broker =>
                 broker.FindDismissableApprovalReviewIdsAsync(
                     approvalId,
-                    It.IsAny<CancellationToken>()))
+                    cancellationToken))
                         .ReturnsAsync(activeReviews.Select(review => review.Id).ToList());
 
             this.approvalReviewServiceMock.Setup(service =>
                 service.DismissStaleApprovalReviewAsync(
                     It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()))
+                    cancellationToken))
                         .Returns((Guid approvalReviewId, CancellationToken cancellationToken) =>
                         {
                             dismissedReviewIds.Add(approvalReviewId);

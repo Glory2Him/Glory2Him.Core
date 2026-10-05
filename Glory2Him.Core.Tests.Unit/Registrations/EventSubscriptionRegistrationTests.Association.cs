@@ -190,8 +190,12 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         [Fact]
         public async Task ShouldSubscribeTheApprovalWorkflowToAssociationRepointed()
         {
-            // given
+            // given: the delivery comes on a token of its own, distinct from the registration's,
+            // so the handler is seen to hand the service the token of the fact it is serving
             var repointedSubscriptions = new List<EventSubscription>();
+            CancellationToken registrationCancellationToken = TestContext.Current.CancellationToken;
+            using var deliveryCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken deliveryCancellationToken = deliveryCancellationTokenSource.Token;
 
             Func<EventEnvelope<Association>, CancellationToken,
                 ValueTask<EventEnvelope<Association>>> repointedHandler = null;
@@ -202,7 +206,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                     AssociationEventOperation.Repointed,
                     It.IsAny<Func<EventEnvelope<Association>, CancellationToken,
                         ValueTask<EventEnvelope<Association>>>>(),
-                    It.IsAny<CancellationToken>()))
+                    registrationCancellationToken))
                         .Callback<EventSubscription, AssociationEventOperation,
                             Func<EventEnvelope<Association>, CancellationToken,
                                 ValueTask<EventEnvelope<Association>>>,
@@ -214,14 +218,13 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
 
             var deliveredEnvelope = new EventEnvelope<Association>();
 
-            await this.eventSubscriptionRegistration.RegisterAsync(
-                TestContext.Current.CancellationToken);
+            await this.eventSubscriptionRegistration.RegisterAsync(registrationCancellationToken);
 
             EventSubscription repointedSubscription =
                 repointedSubscriptions.Should().ContainSingle().Subject;
 
             // when
-            await repointedHandler(deliveredEnvelope, TestContext.Current.CancellationToken);
+            await repointedHandler(deliveredEnvelope, deliveryCancellationToken);
 
             // then
             repointedSubscription.Id.Should().Be(new Guid("01a0e17c-3a0f-7742-b50d-df70ca55b2fd"));
@@ -232,7 +235,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.approvalOrchestrationServiceMock.Verify(service =>
                 service.OnAssociationRepointedAsync(
                     deliveredEnvelope,
-                    It.IsAny<CancellationToken>()),
+                    deliveryCancellationToken),
                 Times.Once);
 
             this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();

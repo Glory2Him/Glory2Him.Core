@@ -1702,6 +1702,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             var entityId = Guid.NewGuid();
             var approvalId = Guid.NewGuid();
             DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
             var flowSteps = new List<string>();
 
             Approval storageApproval = CreateRepointedRound(
@@ -1715,15 +1716,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             storageApproval.ApprovedByBypassReason = "approved before the reader changed it";
 
             SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Approved, approvalId));
-            SetupRepointedReviews(approvalId);
+            SetupRepointedReviews(approvalId, cancellationToken);
             SetupFlowSystemEnvelope<Association>();
 
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
-                SetupRepointedRoundWrites(storageApproval, flowSteps);
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
             List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
 
             SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
                 CreateFlowConditions(areConditionsMet: true, shouldAutoApprove: true),
                 flowSteps);
 
@@ -1731,7 +1734,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             await this.approvalOrchestrationService.OnAssociationRepointedAsync(
                 envelope: CreateRepointedEnvelope(
                     CreateRepointedAssociation(entityId, changedWhen)),
-                cancellationToken: TestContext.Current.CancellationToken);
+                cancellationToken: cancellationToken);
 
             // then: returned first, as the workflow, with the waiver it no longer holds cleared
             roundWrites.Should().HaveCount(2);
@@ -1779,6 +1782,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             var entityId = Guid.NewGuid();
             var approvalId = Guid.NewGuid();
             DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
             var flowSteps = new List<string>();
 
             Approval storageApproval = CreateRepointedRound(
@@ -1793,15 +1797,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             SetupRepointedReviews(
                 approvalId,
+                cancellationToken,
                 CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen.AddHours(-1)),
                 CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen.AddSeconds(30)));
 
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
-                SetupRepointedRoundWrites(storageApproval, flowSteps);
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
             List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
 
             SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
                 CreateFlowConditions(
                     blockReasons: new List<AccessDenialReason>
                     {
@@ -1815,7 +1822,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             await this.approvalOrchestrationService.OnAssociationRepointedAsync(
                 envelope: CreateRepointedEnvelope(
                     CreateRepointedAssociation(entityId, changedWhen)),
-                cancellationToken: TestContext.Current.CancellationToken);
+                cancellationToken: cancellationToken);
 
             // then: returned as the workflow, and the association followed it off the public site
             roundWrites.Should().ContainSingle();
@@ -1845,6 +1852,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             var entityId = Guid.NewGuid();
             var approvalId = Guid.NewGuid();
             DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
             var flowSteps = new List<string>();
 
             Approval storageApproval = CreateRepointedRound(
@@ -1859,6 +1867,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             SetupRepointedReviews(
                 approvalId,
+                cancellationToken,
                 CreateRepointedReview(
                     Guid.NewGuid(),
                     createdWhen: changedWhen.AddHours(-1),
@@ -1870,11 +1879,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     isRejection: false));
 
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
-                SetupRepointedRoundWrites(storageApproval, flowSteps);
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
             List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
 
             SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
                 CreateFlowConditions(
                     blockReasons: new List<AccessDenialReason>
                     {
@@ -1888,7 +1899,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             await this.approvalOrchestrationService.OnAssociationRepointedAsync(
                 envelope: CreateRepointedEnvelope(
                     CreateRepointedAssociation(entityId, changedWhen)),
-                cancellationToken: TestContext.Current.CancellationToken);
+                cancellationToken: cancellationToken);
 
             // then: returned as the workflow, and the association followed it
             roundWrites.Should().ContainSingle();
@@ -1926,6 +1937,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             var entityId = Guid.NewGuid();
             var approvalId = Guid.NewGuid();
             DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
             var flowSteps = new List<string>();
 
             Approval storageApproval = CreateRepointedRound(
@@ -1948,14 +1960,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 }
                 : Array.Empty<DismissableApprovalReview>();
 
-            SetupRepointedReviews(approvalId, standingReviews);
+            SetupRepointedReviews(approvalId, cancellationToken, standingReviews);
 
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
-                SetupRepointedRoundWrites(storageApproval, flowSteps);
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
             List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
 
             SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
                 CreateFlowConditions(areConditionsMet: true, shouldAutoApprove: true),
                 flowSteps);
 
@@ -1963,15 +1977,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             await this.approvalOrchestrationService.OnAssociationRepointedAsync(
                 envelope: CreateRepointedEnvelope(
                     CreateRepointedAssociation(entityId, changedWhen)),
-                cancellationToken: TestContext.Current.CancellationToken);
+                cancellationToken: cancellationToken);
 
-            // then: the round stays Rejected, and the association is not told anything
+            // then: the round stays Rejected, and the association is not told anything — not even
+            // an envelope is minted for a command
             roundWrites.Should().BeEmpty();
             associationCommands.Should().BeEmpty();
-
-            this.eventEnvelopeBrokerMock.Verify(broker =>
-                broker.CreateSystemAsync(It.IsAny<Association>()),
-                Times.Never);
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
         }
 
         [Fact]
@@ -1991,6 +2003,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             var oldRejectingReviewId = Guid.NewGuid();
             var staleAssignmentId = Guid.NewGuid();
             DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
             var flowSteps = new List<string>();
 
             Approval storageApproval = CreateRepointedRound(
@@ -2001,10 +2014,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 updatedBy: SystemIdentity.UserId);
 
             SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
-            SetupRepointedRoundWrites(storageApproval, flowSteps);
+            SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
             List<Guid> dismissedReviewIds = SetupRepointedReviews(
                 approvalId,
+                cancellationToken,
                 flowSteps,
                 CreateRepointedReview(oldApprovingReviewId, createdWhen: changedWhen.AddDays(-1)),
 
@@ -2020,8 +2034,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             this.aiReviewerAssignmentWorkflowServiceMock.Setup(service =>
                 service.ReturnStaleAIReviewerAssignmentToPendingAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()))
+                    staleAssignmentId,
+                    cancellationToken))
                         .ReturnsAsync((Guid aiReviewerAssignmentId, CancellationToken _) =>
                         {
                             flowSteps.Add("ai-reset");
@@ -2030,6 +2044,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                         });
 
             SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
                 CreateFlowConditions(shouldResetStaleReviewsOnChange: false),
                 flowSteps);
 
@@ -2037,7 +2053,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             await this.approvalOrchestrationService.OnAssociationRepointedAsync(
                 envelope: CreateRepointedEnvelope(
                     CreateRepointedAssociation(entityId, changedWhen)),
-                cancellationToken: TestContext.Current.CancellationToken);
+                cancellationToken: cancellationToken);
 
             // then: the old pair's reviews went, and the new pair's stood
             dismissedReviewIds.Should().BeEquivalentTo(
@@ -2047,7 +2063,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.aiReviewerAssignmentWorkflowServiceMock.Verify(service =>
                 service.ReturnStaleAIReviewerAssignmentToPendingAsync(
                     staleAssignmentId,
-                    It.IsAny<CancellationToken>()),
+                    cancellationToken),
                 Times.Once);
 
             // and the round was evaluated on the reviews that were left: the dismissals come
@@ -2067,6 +2083,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             var approvalId = Guid.NewGuid();
             var oldPairReviewId = Guid.NewGuid();
             DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
             var flowSteps = new List<string>();
 
             Approval storageApproval = CreateRepointedRound(
@@ -2081,16 +2098,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             List<Guid> dismissedReviewIds = SetupRepointedReviews(
                 approvalId,
+                cancellationToken,
                 flowSteps,
                 CreateRepointedReview(oldPairReviewId, createdWhen: changedWhen.AddHours(-2)),
                 CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen.AddMinutes(5)));
 
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
-                SetupRepointedRoundWrites(storageApproval, flowSteps);
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
             List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
 
             SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
                 CreateFlowConditions(
                     blockReasons: new List<AccessDenialReason>
                     {
@@ -2104,7 +2124,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             await this.approvalOrchestrationService.OnAssociationRepointedAsync(
                 envelope: CreateRepointedEnvelope(
                     CreateRepointedAssociation(entityId, changedWhen)),
-                cancellationToken: TestContext.Current.CancellationToken);
+                cancellationToken: cancellationToken);
 
             // then: it stayed Submitted — nothing written to the round, nothing sent to the
             // association
@@ -2132,6 +2152,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             var entityId = Guid.NewGuid();
             var approvalId = Guid.NewGuid();
             DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
             var flowSteps = new List<string>();
 
             Approval storageApproval = CreateRepointedRound(
@@ -2146,11 +2167,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             List<Guid> dismissedReviewIds = SetupRepointedReviews(
                 approvalId,
+                cancellationToken,
                 flowSteps,
                 CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen.AddMinutes(5)));
 
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
-                SetupRepointedRoundWrites(storageApproval, flowSteps);
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
             List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
 
@@ -2160,6 +2182,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             SetupAIReviewerAssignmentReturnToPending();
 
             SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
                 CreateFlowConditions(areConditionsMet: true, shouldAutoApprove: true),
                 flowSteps);
 
@@ -2169,7 +2193,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // when
             await this.approvalOrchestrationService.OnAssociationRepointedAsync(
                 envelope: redeliveredEnvelope,
-                cancellationToken: TestContext.Current.CancellationToken);
+                cancellationToken: cancellationToken);
 
             // then: no round returned, no review dismissed, and nothing sent to the association
             roundWrites.Should().BeEmpty();
@@ -2179,8 +2203,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // Berean is not asked about, let alone taken back
             this.accessBrokerMock.Verify(broker =>
                 broker.FindResettableAIReviewerAssignmentIdAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()),
+                    approvalId,
+                    cancellationToken),
                 Times.Never);
 
             this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
@@ -2215,16 +2239,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Approved, approvalId));
             SetupFlowSystemEnvelope<Association>();
 
-            List<Guid> dismissedReviewIds = SetupRepointedReviews(approvalId);
+            List<Guid> dismissedReviewIds = SetupRepointedReviews(approvalId, cancellationToken);
 
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
-                SetupRepointedRoundWrites(storageApproval, flowSteps);
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
             SetupRepointedAssociationCommands(flowSteps);
             SetupResettableAIReviewerAssignment(approvalId, staleAssignmentId);
             SetupAIReviewerAssignmentReturnToPending();
 
             SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
                 CreateFlowConditions(areConditionsMet: true, shouldAutoApprove: true),
                 flowSteps);
 
@@ -2287,16 +2313,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             List<Guid> dismissedReviewIds = SetupRepointedReviews(
                 approvalId,
+                cancellationToken,
                 CreateRepointedReview(activeReviewId, createdWhen: factUpdatedWhen.AddHours(-1)));
 
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
-                SetupRepointedRoundWrites(storageApproval, flowSteps);
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
             List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
             SetupResettableAIReviewerAssignment(approvalId, staleAssignmentId);
             SetupAIReviewerAssignmentReturnToPending();
 
             SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
                 CreateFlowConditions(
                     shouldResetStaleReviewsOnChange: shouldResetStaleReviewsOnChange),
                 flowSteps);
@@ -2327,8 +2356,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // the round's reviews were never read with a bound, because there is none
             this.accessBrokerMock.Verify(broker =>
                 broker.FindDismissableApprovalReviewsAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()),
+                    approvalId,
+                    cancellationToken),
                 Times.Never);
 
             // and the setting alone decided the dismissal, and Berean's pass with it
@@ -2360,6 +2389,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             var entityId = Guid.NewGuid();
             var approvalId = Guid.NewGuid();
             DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
             var flowSteps = new List<string>();
 
             Approval storageApproval = CreateRepointedRound(
@@ -2371,14 +2401,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Rejected, approvalId));
             SetupFlowSystemEnvelope<Association>();
-            SetupRepointedReviews(approvalId);
+            SetupRepointedReviews(approvalId, cancellationToken);
 
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
-                SetupRepointedRoundWrites(storageApproval, flowSteps);
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
             List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
 
             SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
                 CreateFlowConditions(
                     blockReasons: new List<AccessDenialReason>
                     {
@@ -2392,7 +2424,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             await this.approvalOrchestrationService.OnAssociationRepointedAsync(
                 envelope: CreateRepointedEnvelope(
                     CreateRepointedAssociation(entityId, changedWhen)),
-                cancellationToken: TestContext.Current.CancellationToken);
+                cancellationToken: cancellationToken);
 
             // then: returned as the workflow
             roundWrites.Should().ContainSingle();
@@ -2429,6 +2461,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             var entityId = Guid.NewGuid();
             var approvalId = Guid.NewGuid();
             DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
             var flowSteps = new List<string>();
 
             Approval storageApproval = CreateRepointedRound(
@@ -2443,6 +2476,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             SetupRepointedReviews(
                 approvalId,
+                cancellationToken,
                 CreateRepointedReview(
                     Guid.NewGuid(),
                     createdWhen: changedWhen.AddHours(-1),
@@ -2454,11 +2488,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     isRejection: true));
 
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
-                SetupRepointedRoundWrites(storageApproval, flowSteps);
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
             List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
 
             SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
                 CreateFlowConditions(areConditionsMet: true, shouldAutoApprove: true),
                 flowSteps);
 
@@ -2466,7 +2502,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             await this.approvalOrchestrationService.OnAssociationRepointedAsync(
                 envelope: CreateRepointedEnvelope(
                     CreateRepointedAssociation(entityId, changedWhen)),
-                cancellationToken: TestContext.Current.CancellationToken);
+                cancellationToken: cancellationToken);
 
             // then: the round stays Rejected, and the association is not told anything
             roundWrites.Should().BeEmpty();
@@ -2487,6 +2523,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             var entityId = Guid.NewGuid();
             var approvalId = Guid.NewGuid();
             DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
             var flowSteps = new List<string>();
 
             Approval storageApproval = CreateRepointedRound(
@@ -2501,17 +2538,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             SetupRepointedReviews(
                 approvalId,
+                cancellationToken,
                 CreateRepointedReview(
                     Guid.NewGuid(),
                     createdWhen: changedWhen.AddHours(-1),
                     isRejection: false));
 
             List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
-                SetupRepointedRoundWrites(storageApproval, flowSteps);
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
 
             List<Association> associationCommands = SetupRepointedAssociationCommands(flowSteps);
 
             SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
                 CreateFlowConditions(areConditionsMet: true, shouldAutoApprove: true),
                 flowSteps);
 
@@ -2519,7 +2559,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             await this.approvalOrchestrationService.OnAssociationRepointedAsync(
                 envelope: CreateRepointedEnvelope(
                     CreateRepointedAssociation(entityId, changedWhen)),
-                cancellationToken: TestContext.Current.CancellationToken);
+                cancellationToken: cancellationToken);
 
             // then: the round stays Rejected, and the association is not told anything
             roundWrites.Should().BeEmpty();
@@ -2546,8 +2586,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         // The round as the resolution reads it, and every write to it captured as a SNAPSHOT with
         // the attribution it was written under: the flow mutates the row it holds and hands the
         // same object on, so the instance alone would show only its last state.
+        //
+        // Both are answered only on the delivery's own token. The written row and its attribution
+        // are taken whatever they are, because every test asserts each one it captured.
         private List<(Approval Approval, WorkflowAttribution Attribution)> SetupRepointedRoundWrites(
             Approval storageApproval,
+            CancellationToken cancellationToken,
             List<string> flowSteps)
         {
             var roundWrites = new List<(Approval Approval, WorkflowAttribution Attribution)>();
@@ -2555,14 +2599,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalServiceMock.Setup(service =>
                 service.RetrieveApprovalByIdAsync(
                     storageApproval.Id,
-                    It.IsAny<CancellationToken>()))
+                    cancellationToken))
                         .ReturnsAsync(storageApproval);
 
             this.approvalServiceMock.Setup(service =>
                 service.ModifyApprovalAsync(
                     It.IsAny<Approval>(),
                     It.IsAny<WorkflowAttribution>(),
-                    It.IsAny<CancellationToken>()))
+                    cancellationToken))
                         .Returns((Approval approval,
                             WorkflowAttribution attribution,
                             CancellationToken cancellationToken) =>
@@ -2599,15 +2643,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             return associationCommands;
         }
 
-        // The same verdict for every read, each one recorded where it happened.
+        // The same verdict for every read of THIS round on the delivery's own token, each one
+        // recorded where it happened.
         private void SetupRepointedConditions(
+            Guid approvalId,
+            CancellationToken cancellationToken,
             ApprovalConditionsVerdict conditionsVerdict,
             List<string> flowSteps) =>
             this.accessBrokerMock.Setup(broker =>
                 broker.EvaluateApprovalConditionsByIdAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()))
-                        .Returns((Guid approvalId, CancellationToken cancellationToken) =>
+                    approvalId,
+                    cancellationToken))
+                        .Returns(() =>
                         {
                             flowSteps.Add("conditions-read");
 
