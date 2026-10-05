@@ -42,7 +42,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.11 [Must]** A Bible reference click leads to a page showing the passage, `/BibleReferences/{reference}` (`UI/Pages/BibleReference.md`). A reference that cannot be read as a passage is rule 2.26. *(user, 2026-09-27; code: contentItemFeedNavigation.ts — `onBibleReferenceClick`; code: toUsfmReference.ts — `bibleReferenceHref`)* ≠ `UI/Components/ContentItemListPanel.md §10 item 8`
 
-**2.12 [Must]** This page is the journal's search. A click on a card's tag, type chip, *Submitted by* or *Author* raises its hook, and the page applies the value to its own list: it puts the value in its committed criteria, in its URL (rule 2.3), and its search bar shows it in the matching box — Tags, Category, Submitted by or Author, each one of the bar's advanced boxes — with the advanced section expanded (`UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md rule 2.23`). A tag narrows the list once associations are exposed over HTTP (§ARC17.4, not yet built). *(user, 2026-09-27; `UI/Components/ContentItemListPanel.md rules 2.8–2.12 and 2.24`)* ≠ item 7
+**2.12 [Must]** This page is the journal's search. A click on a card's tag, type chip, *Submitted by* or *Author* raises its hook, and the page applies the value to its own list: it puts the value in its committed criteria, in its URL (rule 2.3), and its search bar shows it in the matching box — Tags, Category, Submitted by or Author, each one of the bar's advanced boxes — with the advanced section expanded (`UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md rule 2.23`). A tag narrows the list only once associations are exposed over HTTP (§ARC17.4, not yet built) and a read narrows on it (`UI/Components/ContentItemListPanel.md §10 item 15`, not yet designed). *(user, 2026-09-27; `UI/Components/ContentItemListPanel.md rules 2.8–2.12 and 2.24`)* ≠ item 7
 
 **2.13 [Must]** The page's own link beside its heading, *Share what He has done*, leads a signed-in reader to the contribution page, `/posts/contribute`, carrying this page's own address as `from`, so the contribution page's Cancel can return them here (`UI/Pages/Contribute.md rule 2.9`). A signed-out reader who presses it is sent to sign in through the one reusable sign-in action, and then on to the contribution form, `/posts/contribute`, the place their press was heading for, the origin surviving the sign-in step — but not while their sign-in state is still being read. *(code: posts.tsx — the `Link` beside the heading; test: posts.test.tsx — "should render the journal and a way into the contribution form"; user, 2026-09-27; §UI20.6.6 rule 2)* ≠ items 8 and 12
 
@@ -276,8 +276,9 @@ Every write a card leads to is decided again by the service (§SEC14.6).
    bar can yet be asked to open it (`UI/Components/ContentItemListPanel.md §10 item 12`,
    `UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md §10 item 7`). The page's half
    is to wire the four hooks, putting the value in its criteria and opening the advanced section.
-   A tag narrows nothing until associations are exposed over HTTP (§ARC17.4, not yet built). The same gap on `/` is `UI/Pages/Home.md §6 item 9`, which
-   names the others.
+   A tag narrows nothing until associations are exposed over HTTP (§ARC17.4, not yet built) and a
+   read narrows on it (`UI/Components/ContentItemListPanel.md §10 item 15`, not yet designed). The
+   same gap on `/` is `UI/Pages/Home.md §6 item 9`, which names the others.
 8. (needs issue) **Page gap — the contribution link sends a signed-out reader to the
    contribution page unsigned.** Rule 2.13 (user rulings 2026-09-27; §UI20.6.6 rule 2): a
    signed-out reader who presses *Share what He has done* is sent straight to sign in through the

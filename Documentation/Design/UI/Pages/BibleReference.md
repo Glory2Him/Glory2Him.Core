@@ -290,7 +290,8 @@ are decided under §SEC14.7 posture A′, and a reaction under posture A′ rule
    passage in its Bible references box, listing every item associated with the passage. The page has
    none: its one link beneath the passage is *Show Full Chapter* (`bibleReference.tsx`, line 108). A
    reference narrows `/posts` only once associations are exposed over HTTP (§ARC17.4, not yet
-   built), so until then the search shows the whole journal, the reference in its box. #700's
+   built) and a read narrows on it (`UI/Components/ContentItemListPanel.md §10 item 15`, not yet
+   designed), so until then the search shows the whole journal, the reference in its box. #700's
    mockup places the button.
 7. (#700) **Page gap — `/BibleReferences`: a reference the page cannot read shows Not Found.** Held
    for #700 (item 5). Rule 2.18 (user ruling 2026-09-28, in their words: "open page, display "{x}"
