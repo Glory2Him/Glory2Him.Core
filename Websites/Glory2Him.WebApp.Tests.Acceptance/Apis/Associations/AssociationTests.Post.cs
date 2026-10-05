@@ -133,5 +133,29 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
             }
         }
+
+        [Fact]
+        public async Task ShouldReturnUnauthorizedOnPostIfCallerIsAnonymousAsync()
+        {
+            // given
+            CoreContentItem publishedContentItem = await InsertPublishedContentItemAsync();
+            Association inputPair = CreateReactionPair(publishedContentItem.Id, seededAmenReactionId);
+            this.apiBroker.ActAsAnonymous();
+
+            try
+            {
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.PostAssociationAsync(inputPair);
+
+                // then
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
+            }
+        }
     }
 }
