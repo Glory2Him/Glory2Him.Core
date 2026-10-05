@@ -9,11 +9,15 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
+using Glory2Him.Core.Brokers.Securities;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
@@ -32,9 +36,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     /// Coordinates the endpoint-aware association flows that no single foundation service can own,
     /// because the foundation keeps its self-only visibility filter as the dependency-free
     /// primitive and touches only its own entity (design §SEC14.3 Layer, §SEC14.6). It resolves an
-    /// association's endpoints against their foundation services, runs the retrieve-or-add
-    /// suggestion over the unfiltered canonical-pair probe, and returns a status projection that
-    /// never leaks the row body.
+    /// association's endpoints against their foundation services, runs the facet gate on the
+    /// write (§ARC16.2.1), runs an editorial pair's retrieve-or-add over the unfiltered
+    /// canonical-pair probe or hands a reader's reaction to the foundation's personal upsert, and
+    /// returns a status projection that never leaks the row body.
     ///
     /// <para><b>It is also the layer an exposer binds to for the whole CRUD surface</b>, because
     /// §SEC14.3's composite spans both endpoints and so cannot live in the foundation's own-table
@@ -42,9 +47,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     /// <c>.EndpointVisibility.cs</c>. The three writes carry <b>only</b> the half of the §SEC14.7
     /// posture A′ gate that needs no row — authentication, the global <c>ReadOnly</c> block, and
     /// <c>Administrators</c> on hard removal — and then forward; every rule that needs the stored
-    /// endpoints belongs to the foundation, and no second read duplicates it. The add is the one
-    /// write that resolves both endpoints as its own first act, so it is the one that decides the
-    /// endpoint veto for itself.</para>
+    /// endpoints belongs to the foundation, and no second read duplicates it. The upsert is the
+    /// one write that resolves both endpoints as its own first act, so it is the one that decides
+    /// the endpoint veto for itself, on an editorial pair — a reader's own reaction is outside
+    /// it.</para>
     ///
     /// <para>Whether the foundation in fact composes each of those from the stored row is its
     /// own business and is not uniform today: on <c>ModifyAssociationAsync</c> the four
@@ -61,6 +67,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         private readonly IBibleReferenceService bibleReferenceService;
         private readonly ICommentService commentService;
         private readonly ILinkService linkService;
+        private readonly IAccessBroker accessBroker;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
         private readonly IEnvelopeIntegrityBroker envelopeIntegrityBroker;
         private readonly ILoggingBroker loggingBroker;
@@ -73,6 +80,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             IBibleReferenceService bibleReferenceService,
             ICommentService commentService,
             ILinkService linkService,
+            IAccessBroker accessBroker,
             IEventEnvelopeBroker eventEnvelopeBroker,
             IEnvelopeIntegrityBroker envelopeIntegrityBroker,
             ILoggingBroker loggingBroker)
@@ -84,12 +92,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             this.bibleReferenceService = bibleReferenceService;
             this.commentService = commentService;
             this.linkService = linkService;
+            this.accessBroker = accessBroker;
             this.eventEnvelopeBroker = eventEnvelopeBroker;
             this.envelopeIntegrityBroker = envelopeIntegrityBroker;
             this.loggingBroker = loggingBroker;
         }
 
-        public ValueTask<AssociationSuggestionResult> AddAssociationAsync(
+        public ValueTask<AssociationSuggestionResult> UpsertAssociationAsync(
             Association association,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
@@ -100,25 +109,86 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 EventEnvelope<Association> envelope =
                     await this.eventEnvelopeBroker.CreateAsync(content: association);
 
-                return await DoAddAssociationAsync(
+                return await DoUpsertAssociationAsync(
                     association: association,
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
             });
 
-        private async ValueTask<AssociationSuggestionResult> DoAddAssociationAsync(
+        private async ValueTask<AssociationSuggestionResult> DoUpsertAssociationAsync(
             Association association,
             EventEnvelope<Association> inboundEnvelope,
             CancellationToken cancellationToken)
         {
             // The method path's reads are the ambient caller's, which on an HTTP request IS the
             // caller — so no read envelope is carried.
-            await DeriveAssociationToAddAsync(
+            bool isPersonal = await DeriveAssociationToAddAsync(
                 association: association,
                 inboundEnvelope: inboundEnvelope,
                 readEnvelope: null,
                 cancellationToken: cancellationToken);
 
+            return isPersonal
+                ? await UpsertPersonalPairAsync(association, cancellationToken)
+                : await AddEditorialPairAsync(association, cancellationToken);
+        }
+
+        // THE PERSONAL ARM (AssociationOrchestrationService.md §1 rules 4 and 5). A reaction row is
+        // created at Submitted, never at Draft (§ARC16.8.1): the seeded personal tier opens the
+        // round and closes it on submission, and a row created at Draft would never be counted.
+        // The foundation resolves the reader's row itself, after its own canonical ordering, so
+        // this arm runs no probe of its own (§ARC16.2.2).
+        private async ValueTask<AssociationSuggestionResult> UpsertPersonalPairAsync(
+            Association association,
+            CancellationToken cancellationToken)
+        {
+            association.ApprovalStatus = ApprovalStatus.Submitted;
+
+            PersonalAssociationUpsert personalAssociationUpsert =
+                await this.associationService.UpsertPersonalAssociationAsync(
+                    association,
+                    cancellationToken);
+
+            return new AssociationSuggestionResult
+            {
+                Status = ToSuggestionStatus(personalAssociationUpsert),
+                AssociationId = personalAssociationUpsert.Association.Id,
+            };
+        }
+
+        // The foundation's outcome becomes the result's status (AssociationOrchestrationService.md
+        // §1 rule 5), and an unchanged row answers by its status, as the editorial arm answers an
+        // occupant. Every outcome is declared, and one that is not is a hard error rather than a
+        // default, as EntityTypePersonalisation refuses an undeclared member (§DOM4.10 rule 4): a
+        // default would answer an outcome added to the foundation with a status nobody decided.
+        private static AssociationSuggestionStatus ToSuggestionStatus(
+            PersonalAssociationUpsert personalAssociationUpsert) =>
+            personalAssociationUpsert.Outcome switch
+            {
+                PersonalAssociationUpsertOutcome.Created => AssociationSuggestionStatus.Created,
+                PersonalAssociationUpsertOutcome.Restored => AssociationSuggestionStatus.Restored,
+                PersonalAssociationUpsertOutcome.Repointed => AssociationSuggestionStatus.Repointed,
+
+                PersonalAssociationUpsertOutcome.Unchanged
+                    when personalAssociationUpsert.Association.ApprovalStatus == ApprovalStatus.Approved =>
+                        AssociationSuggestionStatus.AlreadyApproved,
+
+                PersonalAssociationUpsertOutcome.Unchanged => AssociationSuggestionStatus.AlreadyPending,
+
+                // a takedown tells the reader nothing about why (§DOM4.10 rule 7)
+                PersonalAssociationUpsertOutcome.TakenDown => AssociationSuggestionStatus.AlreadyPending,
+
+                _ => throw new NotSupportedException(
+                    $"Personal association upsert outcome '{personalAssociationUpsert.Outcome}' " +
+                    "has no declared suggestion status."),
+            };
+
+        // THE EDITORIAL ARM: the add as it was, unchanged (§ARC16.8.1) — the two probes, the
+        // insert of a free pair and the same statuses. It never repoints.
+        private async ValueTask<AssociationSuggestionResult> AddEditorialPairAsync(
+            Association association,
+            CancellationToken cancellationToken)
+        {
             (AssociationPairMatch? existingMatch, AssociationPairMatch? overlappingMatch) =
                 await FindPairOccupantsAsync(
                     association: association,
@@ -151,11 +221,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 };
             }
 
-            // A soft-deleted row occupies the pair. Resurrecting the caller's own row (and
-            // refusing a moderator takedown) is the §10.4 resurrect rule, and it needs a
-            // foundation restore primitive that does not exist yet — so this pass takes the SAFE
-            // branch: it never inserts past a deleted row (which would either duplicate it or
-            // launder a takedown), and reports it as already pending, which reveals nothing.
+            // A soft-deleted row occupies the pair. Whether an editorial row is ever revived is not
+            // settled (§ARC16.8.1) — a reader's own reaction is revived on the personal arm, never
+            // here — so this arm takes the SAFE branch: it never inserts past a deleted row (which
+            // would either duplicate it or launder a takedown), and reports it as already pending,
+            // which reveals nothing.
             if (existingMatch.IsDeleted)
             {
                 return new AssociationSuggestionResult
@@ -230,34 +300,44 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         }
 
         // THE ADD'S WRITE FLOW — every rule that decides whether an add may happen and what the
-        // row derives to — written ONCE and run by BOTH entry paths: AddAssociationAsync on the
-        // way to the pair probe, and the Association-Adding handler on the way to the
-        // foundation's own handler (#631). A rule added here is on both doors by construction and
-        // cannot be added to one alone, which is what makes "a gate the event path walks past"
+        // row derives to — written ONCE and run by BOTH entry paths: UpsertAssociationAsync on the
+        // way to its branch, and the Association-Adding handler on the way to the foundation's
+        // own handler (#631). A rule added here is on both doors by construction and cannot be
+        // added to one alone, which is what makes "a gate the event path walks past"
         // structurally impossible rather than merely absent today.
         //
         // The two paths differ only in WHOSE reads resolve the endpoints: the method path passes
         // no read envelope and its endpoint services read as the ambient caller; the event path
         // passes the inbound envelope so they read as the signed one.
-        private async ValueTask DeriveAssociationToAddAsync(
+        //
+        // It answers whether the pair is personal, which the method path branches on once the
+        // flow is through. The event path never sees a personal pair here, because it refuses
+        // one before the flow begins (#723).
+        private async ValueTask<bool> DeriveAssociationToAddAsync(
             Association association,
             EventEnvelope<Association> inboundEnvelope,
             EventEnvelope<Association>? readEnvelope,
             CancellationToken cancellationToken)
         {
-            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+            bool isPersonal = IsPersonalPair(association);
+
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext, isPersonal);
             ValidateOnAddAssociation(association);
 
             // Resolve BOTH endpoints against their foundation services and DERIVE the scope,
             // group id and content type onto the row, overwriting anything the caller supplied —
             // the content type is an authorization input and a caller-set scope could claim
             // AllVersions on an entity with no group (§7.4, §5). A non-existent or non-visible
-            // endpoint surfaces here as not-found.
+            // endpoint surfaces here as not-found. Each resolution is kept for the facet gate.
+            ResolvedEndpoint resolvedEntityA = default;
+            ResolvedEndpoint resolvedEntityB = default;
+
             await ResolveEndpointAsync(
                 association.EntityAType,
                 association.EntityAKeyId,
                 onResolved: resolved =>
                 {
+                    resolvedEntityA = resolved;
                     association.EntityAGroupId = resolved.GroupId;
                     association.EntityAContentType = resolved.ContentType;
                     association.EntityAScope = resolved.Scope;
@@ -271,6 +351,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 association.EntityBKeyId,
                 onResolved: resolved =>
                 {
+                    resolvedEntityB = resolved;
                     association.EntityBGroupId = resolved.GroupId;
                     association.EntityBContentType = resolved.ContentType;
                     association.EntityBScope = resolved.Scope;
@@ -283,16 +364,49 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             // the add is the one write that resolves both endpoints from storage as its own first
             // act, so §SEC14.7 posture A′ rule 4's split puts this half on the orchestration
             // rather than below it. Asked before the pair probe, so a blocked caller cannot use
-            // the add to learn which pairings already exist.
-            ValidateUserIsNotBlockedFromEndpoints(inboundEnvelope.SecurityContext, association);
+            // the add to learn which pairings already exist. An editorial pair's alone: a reader's
+            // own reaction is outside the veto (posture A′ rule 1).
+            if (isPersonal is false)
+            {
+                ValidateUserIsNotBlockedFromEndpoints(inboundEnvelope.SecurityContext, association);
+            }
 
-            // UserId is not the caller's to set. It partitions BOTH the canonical-pair probe and
-            // the unique index, so a caller-supplied value would evade the probe — missing a
-            // soft-deleted moderator-takedown row and laundering a fresh insert past it, or
-            // duplicating a live editorial row. The only rows that legitimately carry a UserId are
-            // per-user reactions, whose replace-on-react flow (thread 4) derives it from the caller
-            // and does not exist yet; until then every suggestion is editorial and carries no user.
-            association.UserId = null;
+            // UserId is derived, never the caller's to set (§DOM4.10 rules 1 and 2): the caller's
+            // own, from the envelope, on a personal pair, and null on an editorial one, whatever
+            // the request carried. It routes the row to one of the two unique indexes and selects
+            // its approval tier (§DOM4.10 rule 3), so a value the caller chose would file the row
+            // under a constraint that never sees it — and on an editorial pair would evade the
+            // canonical-pair probe, laundering an insert past a moderator's takedown.
+            association.UserId = isPersonal
+                ? inboundEnvelope.SecurityContext.SubjectId
+                : null;
+
+            // THE FACET GATE (§ARC16.2.1), last in the flow: after both endpoints resolve and the
+            // UserId is derived, and before the method path's pair probe and the event path's
+            // claims check, so a refused pair reaches no row through either door.
+            await ValidateSettingsAllowTheFacetAsync(
+                association,
+                resolvedEntityA,
+                resolvedEntityB,
+                cancellationToken);
+
+            return isPersonal;
         }
+
+        // THE FLOW'S PERSONALITY, asked of the RAW endpoint types at its top, because its first
+        // step needs it before anything is read (AssociationOrchestrationService.md §1 rule 1). A
+        // pair is personal where either endpoint's type is, and that is the lookup's answer, never
+        // a test of this service's own (§DOM4.10 rule 4). A type outside the enum is not asked,
+        // for IsPersonalEndpoint's reason: the structural validation refuses it next as invalid,
+        // where the lookup would throw.
+        //
+        // The event door asks the same lookup for its own refusal through IsPersonalEndpoint, and
+        // the two share no member: a member both the shared flow and an entry path reach is a
+        // second route to one of the flow's rules, which the write-flow seam refuses.
+        private static bool IsPersonalPair(Association association) =>
+            new[] { association.EntityAType, association.EntityBType }
+                .Any(entityType =>
+                    Enum.IsDefined(entityType)
+                    && EntityTypePersonalisation.IsPersonal(entityType));
     }
 }

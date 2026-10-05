@@ -10,16 +10,25 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Force.DeepCloner;
 using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
+using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.BibleReferences;
+using Glory2Him.Core.Models.Foundations.Comments;
 using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Foundations.ContentItemSettings;
+using Glory2Him.Core.Models.Foundations.Links;
+using Glory2Him.Core.Models.Foundations.Reactions;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Services.Foundations.Associations;
@@ -30,6 +39,7 @@ using Glory2Him.Core.Services.Foundations.Links;
 using Glory2Him.Core.Services.Foundations.Reactions;
 using Glory2Him.Core.Services.Foundations.Tags;
 using Glory2Him.Core.Services.Orchestrations.Associations;
+using KellermanSoftware.CompareNetObjects;
 using Moq;
 using Tynamix.ObjectFiller;
 using Xeptions;
@@ -45,6 +55,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         private readonly Mock<IBibleReferenceService> bibleReferenceServiceMock;
         private readonly Mock<ICommentService> commentServiceMock;
         private readonly Mock<ILinkService> linkServiceMock;
+        private readonly Mock<IAccessBroker> accessBrokerMock;
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
         private readonly Mock<IEnvelopeIntegrityBroker> envelopeIntegrityBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
@@ -60,9 +71,29 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.bibleReferenceServiceMock = new Mock<IBibleReferenceService>();
             this.commentServiceMock = new Mock<ICommentService>();
             this.linkServiceMock = new Mock<ILinkService>();
+            this.accessBrokerMock = new Mock<IAccessBroker>();
             this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
             this.envelopeIntegrityBrokerMock = new Mock<IEnvelopeIntegrityBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
+
+            // Allowing by default, for the reason the integrity broker is valid by default: every
+            // write that resolves a ContentItem endpoint meets the facet gate (§ARC16.2.1), and a
+            // test about anything else would otherwise be asserting the gate. Each key asked is
+            // answered with a setting that admits every facet. The gate's own tests override it.
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.IsAny<IReadOnlyList<ContentItemSettingKey>>(),
+                    It.IsAny<CancellationToken>()))
+                        .Returns((IReadOnlyList<ContentItemSettingKey> contentItemSettingKeys, CancellationToken _) =>
+                            new ValueTask<IReadOnlyList<EffectiveContentItemSetting>>(
+                                contentItemSettingKeys
+                                    .Select(contentItemSettingKey => new EffectiveContentItemSetting
+                                    {
+                                        ContentItemId = contentItemSettingKey.ContentItemId,
+                                        ContentItemSetting =
+                                            CreateAllowingContentItemSetting(contentItemSettingKey.ContentType),
+                                    })
+                                    .ToList()));
 
             // Valid by default. The verification tests override it; every other test on the event
             // path would otherwise be asserting the guard rather than its own subject.
@@ -94,6 +125,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 bibleReferenceService: this.bibleReferenceServiceMock.Object,
                 commentService: this.commentServiceMock.Object,
                 linkService: this.linkServiceMock.Object,
+                accessBroker: this.accessBrokerMock.Object,
                 eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,
                 envelopeIntegrityBroker: this.envelopeIntegrityBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
@@ -235,12 +267,218 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             };
         }
 
+        // A raw upsert request between any two endpoint types: the endpoint types and key ids the
+        // caller supplies, and nothing else.
+        private static Association CreateRawUpsertRequestBetween(
+            EntityType entityAType,
+            EntityType entityBType)
+        {
+            return new Association
+            {
+                EntityAType = entityAType,
+                EntityAKeyId = Guid.NewGuid(),
+                EntityBType = entityBType,
+                EntityBKeyId = Guid.NewGuid(),
+            };
+        }
+
+        // The method path's endpoint reads for a request between any two of the types the flow
+        // resolves, each keyed on its endpoint's key id and the test's token. A ContentItem is a
+        // Story and a Link is a version, each in a group of its own, so a group never equals the key
+        // it was resolved from. Hands back the ContentItem, if either endpoint is one, so a test can
+        // assert what was derived from it.
+        private ContentItem SetupMethodPathEndpointReads(
+            Association rawRequest,
+            string reactionName = null)
+        {
+            ContentItem resolvedContentItem = null;
+
+            foreach ((EntityType entityType, Guid keyId) in new[]
+            {
+                (rawRequest.EntityAType, rawRequest.EntityAKeyId),
+                (rawRequest.EntityBType, rawRequest.EntityBKeyId),
+            })
+            {
+                switch (entityType)
+                {
+                    case EntityType.ContentItem:
+                        resolvedContentItem = new ContentItem
+                        {
+                            Id = keyId,
+                            GroupId = Guid.NewGuid(),
+                            ContentType = ContentType.Story,
+                        };
+
+                        this.contentItemServiceMock.Setup(service =>
+                            service.RetrieveContentItemByIdAsync(
+                                keyId,
+                                TestContext.Current.CancellationToken))
+                                    .ReturnsAsync(resolvedContentItem);
+
+                        break;
+
+                    case EntityType.Tag:
+                        this.tagServiceMock.Setup(service =>
+                            service.RetrieveTagByIdAsync(keyId, TestContext.Current.CancellationToken))
+                                .ReturnsAsync(new Tag { Id = keyId });
+
+                        break;
+
+                    case EntityType.Reaction:
+                        this.reactionServiceMock.Setup(service =>
+                            service.RetrieveReactionByIdAsync(keyId, TestContext.Current.CancellationToken))
+                                .ReturnsAsync(new Reaction
+                                {
+                                    Id = keyId,
+                                    Name = reactionName ?? GetRandomString(),
+                                });
+
+                        break;
+
+                    case EntityType.Comment:
+                        this.commentServiceMock.Setup(service =>
+                            service.RetrieveCommentByIdAsync(keyId, TestContext.Current.CancellationToken))
+                                .ReturnsAsync(new Comment { Id = keyId });
+
+                        break;
+
+                    case EntityType.BibleReference:
+                        this.bibleReferenceServiceMock.Setup(service =>
+                            service.RetrieveBibleReferenceByIdAsync(
+                                keyId,
+                                TestContext.Current.CancellationToken))
+                                    .ReturnsAsync(new BibleReference { Id = keyId });
+
+                        break;
+
+                    case EntityType.Link:
+                        this.linkServiceMock.Setup(service =>
+                            service.RetrieveLinkByIdAsync(keyId, TestContext.Current.CancellationToken))
+                                .ReturnsAsync(new Link { Id = keyId, GroupId = Guid.NewGuid() });
+
+                        break;
+                }
+            }
+
+            return resolvedContentItem;
+        }
+
+        // A winning setting that admits every facet the gate asks: each <Facet>Allowed switch on,
+        // and no narrowing to Love. Every Show<Facet> switch is left off, so a gate that asked the
+        // display switch instead (§ARC16.2.1) would refuse.
+        private static ContentItemSetting CreateAllowingContentItemSetting(ContentType contentType) =>
+            new ContentItemSetting
+            {
+                Id = Guid.NewGuid(),
+                ContentType = contentType,
+                TagsAllowed = true,
+                ReactionsAllowed = true,
+                CommentsAllowed = true,
+                BibleReferenceAllowed = true,
+                LinksAllowed = true,
+                AttachmentsAllowed = true,
+                LimitReactionsToLoveOnly = false,
+            };
+
+        // The settings the gate is to ask for: the item's own key id under its derived type.
+        private static List<ContentItemSettingKey> CreateSettingKeysFor(ContentItem contentItem) =>
+            new List<ContentItemSettingKey>
+            {
+                new ContentItemSettingKey
+                {
+                    ContentType = contentItem.ContentType,
+                    ContentItemId = contentItem.Id,
+                },
+            };
+
+        // the keys by value, whatever collection carries them
+        private static Expression<Func<IReadOnlyList<ContentItemSettingKey>, bool>> SameSettingKeysAs(
+            IReadOnlyList<ContentItemSettingKey> expectedSettingKeys) =>
+            actualSettingKeys =>
+                new CompareLogic(new ComparisonConfig { IgnoreObjectTypes = true })
+                    .Compare(expectedSettingKeys, actualSettingKeys).AreEqual;
+
         private static SecurityContext CreateAuthenticatedSecurityContext(params string[] roles) =>
             new SecurityContext
             {
                 IsAuthenticated = true,
                 Roles = roles
             };
+
+        // A signed-in reader, whose user id the envelope carries as its subject.
+        private static SecurityContext CreateReaderSecurityContext(
+            string readerUserId,
+            params string[] roles) =>
+            new SecurityContext
+            {
+                SubjectId = readerUserId,
+                IsAuthenticated = true,
+                Roles = roles
+            };
+
+        // The envelope the upsert mints for this request, under the ambient caller.
+        private EventEnvelope<Association> SetupInboundEnvelopeFor(Association request)
+        {
+            var inboundEnvelope = new EventEnvelope<Association>
+            {
+                Content = request,
+                SecurityContext = this.ambientSecurityContext,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(request))
+                    .ReturnsAsync(inboundEnvelope);
+
+            return inboundEnvelope;
+        }
+
+        // The item's winning setting, as the gate asks for it, admitting every facet.
+        private List<ContentItemSettingKey> SetupAllowingSettingFor(ContentItem contentItem)
+        {
+            List<ContentItemSettingKey> settingKeys = CreateSettingKeysFor(contentItem);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(settingKeys)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new List<EffectiveContentItemSetting>
+                        {
+                            new EffectiveContentItemSetting
+                            {
+                                ContentItemId = contentItem.Id,
+                                ContentItemSetting = CreateAllowingContentItemSetting(contentItem.ContentType),
+                            },
+                        });
+
+            return settingKeys;
+        }
+
+        // A reader's reaction on an item as resolution derives it from the raw request: the item
+        // at its group under AllVersions with its content type, the reaction at its own id under
+        // ThisVersionOnly with none, the reader's own user id, and Submitted (§ARC16.8.1).
+        private static Association CreateResolvedReactionFrom(
+            Association rawRequest,
+            ContentItem resolvedContentItem,
+            string readerUserId)
+        {
+            Association resolvedReaction = rawRequest.DeepClone();
+            resolvedReaction.EntityAGroupId = resolvedContentItem.GroupId;
+            resolvedReaction.EntityAContentType = resolvedContentItem.ContentType;
+            resolvedReaction.EntityAScope = Scope.AllVersions;
+            resolvedReaction.EntityBGroupId = rawRequest.EntityBKeyId;
+            resolvedReaction.EntityBContentType = null;
+            resolvedReaction.EntityBScope = Scope.ThisVersionOnly;
+            resolvedReaction.UserId = readerUserId;
+            resolvedReaction.ApprovalStatus = ApprovalStatus.Submitted;
+
+            return resolvedReaction;
+        }
+
+        private static Expression<Func<Association, bool>> SameAssociationAs(
+            Association expectedAssociation) =>
+            actualAssociation =>
+                new CompareLogic().Compare(expectedAssociation, actualAssociation).AreEqual;
 
         private static string GetRandomString() =>
             new MnemonicString(wordCount: GetRandomNumber()).GetValue();

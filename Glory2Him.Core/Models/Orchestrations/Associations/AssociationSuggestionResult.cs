@@ -14,16 +14,19 @@ using System;
 namespace Glory2Him.Core.Models.Orchestrations.Associations
 {
     /// <summary>
-    /// What the retrieve-or-add suggestion returns: the outcome and the row id, and nothing
-    /// else (design §7.4). Carrying only these two is the whole point — the row body would leak
-    /// another user's authorship, and the id alone is enough for the page to link to the pairing
-    /// once it becomes visible.
+    /// What the upsert returns: the outcome and the row id, and nothing else (§ARC16.8.1, design
+    /// §7.4). Carrying only these two is the whole point — the row body would leak another user's
+    /// authorship, and the id alone is enough for the page to link to the pairing once it becomes
+    /// visible.
     /// </summary>
     public class AssociationSuggestionResult
     {
         public AssociationSuggestionStatus Status { get; set; }
 
-        /// <summary>The id of the row that was created, resurrected, or already occupied the pair.</summary>
+        /// <summary>
+        /// The id of the row that was created, revived or repointed, or that already occupied the
+        /// pair.
+        /// </summary>
         public Guid AssociationId { get; set; }
     }
 }

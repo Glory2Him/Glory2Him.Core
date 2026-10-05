@@ -36,9 +36,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 "   ",
             };
 
-        // 3b. The derived UserId is null on every path until the personal-reaction derivation
-        // exists, so every non-null claim differs — an empty or blank string included. A non-null
-        // UserId makes the row personal, and that tier is seeded to auto-approve.
+        // 3b. On this path the derived UserId is always null: the flow derives the caller's own
+        // only for a personal pair, which this door refuses before the flow runs (#723). So every
+        // non-null claim differs — an empty or blank string included. A non-null UserId makes the
+        // row personal, and that tier is seeded to auto-approve.
         [Theory]
         [MemberData(nameof(ClaimedUserIds))]
         public async Task ShouldRefuseAClaimedUserIdOnTheEventPathAsync(string claimedUserId)

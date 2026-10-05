@@ -27,14 +27,22 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         // The orchestration enforces the contribution gate itself (§SEC14.6): an exposer may bind
         // to it directly, so it never assumes an upstream layer already gated the caller.
         //
-        // The ADD's composition: the two row-free leaves, and then — once both endpoints have
+        // The UPSERT's composition: the two row-free leaves, and then — once both endpoints have
         // been resolved from storage — the endpoint half of the veto, which this member is the
         // one write able to decide for itself (§SEC14.7 posture A′ rule 4, "the add is the
-        // exception that proves the rule").
-        private static void ValidateUserIsAllowedToContribute(SecurityContext securityContext)
+        // exception that proves the rule"). A personal pair asks authentication alone: a
+        // reader's own reaction is not a contribution, so it asks none of the read-only roles,
+        // the global block here or the endpoint veto after resolution (posture A′ rule 1).
+        private static void ValidateUserIsAllowedToContribute(
+            SecurityContext securityContext,
+            bool isPersonal)
         {
             ValidateUserIsAuthenticated(securityContext);
-            ValidateUserIsNotGloballyBlocked(securityContext);
+
+            if (isPersonal is false)
+            {
+                ValidateUserIsNotGloballyBlocked(securityContext);
+            }
         }
 
         // ── ONE COMPOSITION PER OPERATION, over shared leaves ─────────────────────────
@@ -112,9 +120,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         // and land it on a public scripture page — exactly what Tag-ReadOnly exists to prevent.
         // One end admits on the grant side; one end bars on the block side.
         //
-        // THIS IS THE ADD'S ALONE. Modify, remove and hard remove are handed an id or an
-        // untrusted row, so there is no resolved endpoint for this layer to compose from and the
-        // veto belongs one layer down (§SEC14.7 posture A′ rule 4). §SEC14.6 rule 2 makes the
+        // THIS IS THE UPSERT'S ALONE, and asked of an editorial pair only: a reader's own reaction
+        // is outside the veto (posture A′ rule 1). Modify, remove and hard remove are handed an id
+        // or an untrusted row, so there is no resolved endpoint for this layer to compose from and
+        // the veto belongs one layer down (§SEC14.7 posture A′ rule 4). §SEC14.6 rule 2 makes the
         // duplicate with the foundation's own gate intended rather than redundant.
         private static void ValidateUserIsNotBlockedFromEndpoints(
             SecurityContext securityContext,
