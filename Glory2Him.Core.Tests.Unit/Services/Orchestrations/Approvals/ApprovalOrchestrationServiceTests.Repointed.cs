@@ -455,6 +455,90 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 Times.Never);
         }
 
+        [Fact]
+        public async Task ShouldRethrowAServiceFailureOnRepointedAndLogItAsync()
+        {
+            // given: an open round with one review of the old reaction standing, and a failure no
+            // dependency family names, thrown from its DISMISSAL — the deepest call a changed
+            // reaction's flow makes — to prove the broad catch sits outside the whole of it. What
+            // the service did not anticipate is its own fault until proven otherwise: it is
+            // wrapped as this service's service exception, logged once and rethrown OUT of the
+            // ear, so the substrate records the delivery as failed and redelivers it.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Submitted,
+                updatedWhen: changedWhen.AddDays(-1),
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
+            SetupSubstrateApprovalRow(storageApproval);
+
+            SetupRepointedReviews(
+                approvalId,
+                TestContext.Current.CancellationToken,
+                CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen.AddHours(-1)));
+
+            var serviceException = new Exception("Service error occurred.");
+
+            this.approvalReviewServiceMock.Setup(service =>
+                service.DismissStaleApprovalReviewAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(serviceException);
+
+            var failedApprovalOrchestrationServiceException =
+                new FailedApprovalOrchestrationServiceException(
+                    message: "Failed content item association orchestration service error occurred, " +
+                        "please contact support.",
+                    innerException: serviceException,
+                    data: serviceException.Data);
+
+            var expectedServiceException =
+                new ApprovalOrchestrationServiceException(
+                    message: "Content item association orchestration service error occurred, contact support.",
+                    innerException: failedApprovalOrchestrationServiceException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> repointedTask =
+                this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                    envelope: CreateRepointedEnvelope(
+                        CreateRepointedAssociation(entityId, changedWhen)),
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ApprovalOrchestrationServiceException actualException =
+                await Assert.ThrowsAsync<ApprovalOrchestrationServiceException>(
+                    repointedTask.AsTask);
+
+            // then: this service's own failure, logged once, and rethrown
+            actualException.Should().BeEquivalentTo(expectedServiceException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedServiceException))),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.IsAny<Exception>()),
+                Times.Never);
+
+            // and the flow stopped where it failed: nothing written to the round, nothing sent to
+            // the association
+            this.approvalServiceMock.Verify(service =>
+                service.ModifyApprovalAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // The change's own moment, pinned rather than drawn. Every review and every round in these
         // tests is placed against it, and a drawn time can land in year 0001, where subtracting
         // from it throws.
