@@ -38,19 +38,21 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     /// primitive and touches only its own entity (design §SEC14.3 Layer, §SEC14.6). It resolves an
     /// association's endpoints against their foundation services, runs the facet gate on the
     /// write (§ARC16.2.1), runs an editorial pair's retrieve-or-add over the unfiltered
-    /// canonical-pair probe or hands a reader's reaction to the foundation's personal upsert, and
-    /// returns a status projection that never leaks the row body.
+    /// canonical-pair probe or hands a reader's reaction to the foundation's personal upsert,
+    /// withdraws a reader's reaction by its pair, and returns a status projection that never leaks
+    /// the row body.
     ///
     /// <para><b>It is also the layer an exposer binds to for the whole CRUD surface</b>, because
     /// §SEC14.3's composite spans both endpoints and so cannot live in the foundation's own-table
     /// read. The two reads carry that composite — one shared private evaluator, in
-    /// <c>.EndpointVisibility.cs</c>. The three writes carry <b>only</b> the half of the §SEC14.7
-    /// posture A′ gate that needs no row — authentication, the global <c>ReadOnly</c> block, and
-    /// <c>Administrators</c> on hard removal — and then forward; every rule that needs the stored
-    /// endpoints belongs to the foundation, and no second read duplicates it. The upsert is the
-    /// one write that resolves both endpoints as its own first act, so it is the one that decides
-    /// the endpoint veto for itself, on an editorial pair — a reader's own reaction is outside
-    /// it.</para>
+    /// <c>.EndpointVisibility.cs</c>. Modify, remove and hard remove carry <b>only</b> the half of
+    /// the §SEC14.7 posture A′ gate that needs no row — authentication, the global
+    /// <c>ReadOnly</c> block, and <c>Administrators</c> on hard removal — and then forward; every
+    /// rule that needs the stored endpoints belongs to the foundation, and no second read
+    /// duplicates it. The upsert and the pair-keyed withdrawal resolve both endpoints as their
+    /// own first act, and the upsert is the one that decides the endpoint veto for itself, on an
+    /// editorial pair — a reader's own reaction is outside it, and it is the only pair the
+    /// withdrawal takes.</para>
     ///
     /// <para>Whether the foundation in fact composes each of those from the stored row is its
     /// own business and is not uniform today: on <c>ModifyAssociationAsync</c> the four
@@ -331,12 +333,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     readEnvelope: readEnvelope,
                     cancellationToken: cancellationToken);
 
-            // The endpoint half of the veto, decidable HERE and nowhere else above the foundation:
-            // the add is the one write that resolves both endpoints from storage as its own first
-            // act, so §SEC14.7 posture A′ rule 4's split puts this half on the orchestration
-            // rather than below it. Asked before the pair probe, so a blocked caller cannot use
-            // the add to learn which pairings already exist. An editorial pair's alone: a reader's
-            // own reaction is outside the veto (posture A′ rule 1).
+            // The endpoint half of the veto, decidable HERE above the foundation: the add resolves
+            // both endpoints from storage as its own first act, so §SEC14.7 posture A′ rule 4's
+            // split puts this half on the orchestration rather than below it. Asked before the
+            // pair probe, so a blocked caller cannot use the add to learn which pairings already
+            // exist. An editorial pair's alone: a reader's own reaction is outside the veto
+            // (posture A′ rule 1), which is why the pair-keyed withdrawal, the other write to
+            // resolve both endpoints, never asks it.
             if (isPersonal is false)
             {
                 ValidateUserIsNotBlockedFromEndpoints(inboundEnvelope.SecurityContext, association);

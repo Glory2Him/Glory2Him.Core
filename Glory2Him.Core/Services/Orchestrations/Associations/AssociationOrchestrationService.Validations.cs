@@ -29,10 +29,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         //
         // The UPSERT's composition: the two row-free leaves, and then — once both endpoints have
         // been resolved from storage — the endpoint half of the veto, which this member is the
-        // one write able to decide for itself (§SEC14.7 posture A′ rule 4, "the add is the
-        // exception that proves the rule"). A personal pair asks authentication alone: a
-        // reader's own reaction is not a contribution, so it asks none of the read-only roles,
-        // the global block here or the endpoint veto after resolution (posture A′ rule 1).
+        // one write to decide for itself (§SEC14.7 posture A′ rule 4, "the add is the exception
+        // that proves the rule"). A personal pair asks authentication alone: a reader's own
+        // reaction is not a contribution, so it asks none of the read-only roles, the global
+        // block here or the endpoint veto after resolution (posture A′ rule 1).
         private static void ValidateUserIsAllowedToContribute(
             SecurityContext securityContext,
             bool isPersonal)
@@ -44,6 +44,15 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 ValidateUserIsNotGloballyBlocked(securityContext);
             }
         }
+
+        // THE PAIR-KEYED WITHDRAWAL's composition: authentication alone. What it withdraws is the
+        // caller's own reaction, which is not a contribution, and the far end's type says the
+        // pair is personal before anything is read, so the exemption is decidable here and it
+        // asks none of the read-only roles (§SEC14.7 posture A′ rules 1 and 4). Its own method
+        // rather than the upsert's, which asks the global block of an editorial pair, or the
+        // remove's, which asks it of every caller.
+        private static void ValidateUserMayRemoveAssociationByPair(SecurityContext securityContext) =>
+            ValidateUserIsAuthenticated(securityContext);
 
         // ── ONE COMPOSITION PER OPERATION, over shared leaves ─────────────────────────
         //
@@ -71,14 +80,6 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             ValidateUserIsAuthenticated(securityContext);
             ValidateUserIsNotGloballyBlocked(securityContext);
         }
-
-        // THE PAIR-KEYED WITHDRAWAL's composition: authentication alone. What it withdraws is the
-        // caller's own reaction, which is not a contribution, and the far end's type says the
-        // pair is personal before anything is read, so the exemption is decidable here and it
-        // asks none of the read-only roles (§SEC14.7 posture A′ rules 1 and 4). Its own method
-        // rather than the remove's, which asks the global block.
-        private static void ValidateUserMayRemoveAssociationByPair(SecurityContext securityContext) =>
-            ValidateUserIsAuthenticated(securityContext);
 
         // HARD REMOVE's composition: the same two row-free leaves, plus Administrators — which is
         // itself decidable with no row, so it joins this layer's half rather than the
