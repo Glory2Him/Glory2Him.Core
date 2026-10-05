@@ -26,6 +26,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 ValidateAssociationIsNotNull(association);
 
                 EventEnvelope<Association> envelope =
