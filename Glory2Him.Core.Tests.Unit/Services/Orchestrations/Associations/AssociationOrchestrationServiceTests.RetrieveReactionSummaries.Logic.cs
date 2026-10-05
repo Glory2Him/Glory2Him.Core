@@ -879,6 +879,206 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.contentItemServiceMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldLeaveOutAReactionNobodyGaveAsync()
+        {
+            // given: an item given Love and no other reaction of the vocabulary
+            this.ambientSecurityContext = CreateAnonymousSecurityContext();
+            PublicContentItemGroup host = CreatePublicContentItemGroup();
+            Reaction joy = CreatePublicReaction(name: "Joy");
+            Reaction love = CreatePublicReaction(name: "Love");
+            Reaction peace = CreatePublicReaction(name: "Peace");
+            var contentItemIds = new List<Guid> { host.ContentItemId };
+
+            SetupPublicContentItemGroups(contentItemIds, host);
+            SetupPublicReactions(joy, love, peace);
+            SetupWinningSettings(hosts: [host], CreateWinningSetting(host, showReactions: true));
+
+            SetupReactionCounts(
+                contentItemGroupIds: [host.GroupId],
+                reactionIds: [joy.Id, love.Id, peace.Id],
+                CreatePairCount(host, love, count: 1));
+
+            var expectedSummaries = new List<ContentItemReactionSummary>
+            {
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = host.ContentItemId,
+                    Reactions = new List<ContentItemReactionCount> { CreateReactionCount(love, count: 1) },
+                    ViewerReactionId = null,
+                    ViewerReactionName = null,
+                },
+            };
+
+            // when
+            IReadOnlyList<ContentItemReactionSummary> actualSummaries =
+                await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    contentItemIds,
+                    TestContext.Current.CancellationToken);
+
+            // then: Love alone — a reaction with a zero count does not appear
+            actualSummaries.Should().BeEquivalentTo(
+                expectedSummaries,
+                options => options.WithStrictOrdering());
+        }
+
+        [Fact]
+        public async Task ShouldCountEveryReactionOnAnItemLimitedToLoveAsync()
+        {
+            // given: an item whose winning setting limits reactions to Love, given Love twice and
+            // Joy once before it was narrowed
+            this.ambientSecurityContext = CreateAnonymousSecurityContext();
+            PublicContentItemGroup host = CreatePublicContentItemGroup();
+            Reaction love = CreatePublicReaction(name: "Love");
+            Reaction joy = CreatePublicReaction(name: "Joy");
+            var contentItemIds = new List<Guid> { host.ContentItemId };
+
+            SetupPublicContentItemGroups(contentItemIds, host);
+            SetupPublicReactions(love, joy);
+
+            SetupWinningSettings(
+                hosts: [host],
+                CreateWinningSetting(host, showReactions: true, limitReactionsToLoveOnly: true));
+
+            SetupReactionCounts(
+                contentItemGroupIds: [host.GroupId],
+                reactionIds: [love.Id, joy.Id],
+                CreatePairCount(host, love, count: 2),
+                CreatePairCount(host, joy, count: 1));
+
+            var expectedSummaries = new List<ContentItemReactionSummary>
+            {
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = host.ContentItemId,
+
+                    Reactions = new List<ContentItemReactionCount>
+                    {
+                        CreateReactionCount(love, count: 2),
+                        CreateReactionCount(joy, count: 1),
+                    },
+
+                    ViewerReactionId = null,
+                    ViewerReactionName = null,
+                },
+            };
+
+            // when
+            IReadOnlyList<ContentItemReactionSummary> actualSummaries =
+                await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    contentItemIds,
+                    TestContext.Current.CancellationToken);
+
+            // then: Joy's count beside Love's — the narrowing governs the write, not history
+            actualSummaries.Should().BeEquivalentTo(
+                expectedSummaries,
+                options => options.WithStrictOrdering());
+        }
+
+        [Fact]
+        public async Task ShouldAnswerEachItemsOwnCountsUnderItsSuppliedIdAsync()
+        {
+            // given: two items of different groups, each supplied by an id that is not its group
+            // id, Love counted on the first's group and Joy on the second's
+            this.ambientSecurityContext = CreateAnonymousSecurityContext();
+            PublicContentItemGroup firstHost = CreatePublicContentItemGroup();
+            PublicContentItemGroup secondHost = CreatePublicContentItemGroup();
+            Reaction love = CreatePublicReaction(name: "Love");
+            Reaction joy = CreatePublicReaction(name: "Joy");
+
+            var contentItemIds = new List<Guid>
+            {
+                firstHost.ContentItemId,
+                secondHost.ContentItemId,
+            };
+
+            SetupPublicContentItemGroups(contentItemIds, firstHost, secondHost);
+            SetupPublicReactions(love, joy);
+
+            SetupWinningSettings(
+                hosts: [firstHost, secondHost],
+                CreateWinningSetting(firstHost, showReactions: true),
+                CreateWinningSetting(secondHost, showReactions: true));
+
+            SetupReactionCounts(
+                contentItemGroupIds: [firstHost.GroupId, secondHost.GroupId],
+                reactionIds: [love.Id, joy.Id],
+                CreatePairCount(secondHost, joy, count: 4),
+                CreatePairCount(firstHost, love, count: 7));
+
+            var expectedSummaries = new List<ContentItemReactionSummary>
+            {
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = firstHost.ContentItemId,
+                    Reactions = new List<ContentItemReactionCount> { CreateReactionCount(love, count: 7) },
+                    ViewerReactionId = null,
+                    ViewerReactionName = null,
+                },
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = secondHost.ContentItemId,
+                    Reactions = new List<ContentItemReactionCount> { CreateReactionCount(joy, count: 4) },
+                    ViewerReactionId = null,
+                    ViewerReactionName = null,
+                },
+            };
+
+            // when
+            IReadOnlyList<ContentItemReactionSummary> actualSummaries =
+                await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    contentItemIds,
+                    TestContext.Current.CancellationToken);
+
+            // then: each group's count, echoed onto the id that item was supplied by
+            actualSummaries.Should().BeEquivalentTo(
+                expectedSummaries,
+                options => options.WithStrictOrdering());
+        }
+
+        [Fact]
+        public async Task ShouldLeaveOutACountForAReactionOutsideTheVocabularyAsync()
+        {
+            // given: the count read answers a row for a reaction outside the public vocabulary
+            this.ambientSecurityContext = CreateAnonymousSecurityContext();
+            PublicContentItemGroup host = CreatePublicContentItemGroup();
+            Reaction love = CreatePublicReaction(name: "Love");
+            Reaction withdrawnReaction = CreatePublicReaction(name: "Withdrawn");
+            var contentItemIds = new List<Guid> { host.ContentItemId };
+
+            SetupPublicContentItemGroups(contentItemIds, host);
+            SetupPublicReactions(love);
+            SetupWinningSettings(hosts: [host], CreateWinningSetting(host, showReactions: true));
+
+            SetupReactionCounts(
+                contentItemGroupIds: [host.GroupId],
+                reactionIds: [love.Id],
+                CreatePairCount(host, withdrawnReaction, count: 4),
+                CreatePairCount(host, love, count: 2));
+
+            var expectedSummaries = new List<ContentItemReactionSummary>
+            {
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = host.ContentItemId,
+                    Reactions = new List<ContentItemReactionCount> { CreateReactionCount(love, count: 2) },
+                    ViewerReactionId = null,
+                    ViewerReactionName = null,
+                },
+            };
+
+            // when
+            IReadOnlyList<ContentItemReactionSummary> actualSummaries =
+                await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    contentItemIds,
+                    TestContext.Current.CancellationToken);
+
+            // then: only the vocabulary's reactions are counted
+            actualSummaries.Should().BeEquivalentTo(
+                expectedSummaries,
+                options => options.WithStrictOrdering());
+        }
+
         // A caller who is not signed in.
         private static SecurityContext CreateAnonymousSecurityContext() =>
             new SecurityContext { IsAuthenticated = false };
