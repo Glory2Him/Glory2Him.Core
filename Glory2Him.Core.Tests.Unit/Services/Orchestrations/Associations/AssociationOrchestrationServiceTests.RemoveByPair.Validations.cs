@@ -113,14 +113,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         }
 
         // Every way a reaction's pair can name an invalid endpoint, each named by what is wrong
-        // with it: an empty key on either side, a type outside the enum, and a type no endpoint
+        // with it: an empty key or a type outside the enum on either side, and a type no endpoint
         // service resolves.
         public static TheoryData<string> InvalidWithdrawalEndpoints() =>
             new TheoryData<string>
             {
                 "an empty A key",
                 "an empty B key",
-                "an unrecognized endpoint type",
+                "an unrecognized A type",
+                "an unrecognized B type",
                 "an unsupported endpoint type",
             };
 
@@ -161,11 +162,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
                     break;
 
-                case "an unrecognized endpoint type":
+                case "an unrecognized A type":
                     removalRequest.EntityAType = (EntityType)int.MaxValue;
 
                     invalidAssociationOrchestrationException.AddData(
                         key: nameof(Association.EntityAType),
+                        values: "Value is not a recognized entity type");
+
+                    break;
+
+                case "an unrecognized B type":
+                    removalRequest.EntityBType = (EntityType)int.MaxValue;
+
+                    invalidAssociationOrchestrationException.AddData(
+                        key: nameof(Association.EntityBType),
                         values: "Value is not a recognized entity type");
 
                     break;
