@@ -1138,6 +1138,71 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // Every outcome the foundation can answer, walked from its enum, so a member added there
+        // reaches the test below the day it is added.
+        public static TheoryData<PersonalAssociationUpsertOutcome> PersonalUpsertOutcomes()
+        {
+            var personalUpsertOutcomes = new TheoryData<PersonalAssociationUpsertOutcome>();
+
+            foreach (PersonalAssociationUpsertOutcome personalUpsertOutcome in
+                Enum.GetValues<PersonalAssociationUpsertOutcome>())
+            {
+                personalUpsertOutcomes.Add(personalUpsertOutcome);
+            }
+
+            return personalUpsertOutcomes;
+        }
+
+        [Theory]
+        [MemberData(nameof(PersonalUpsertOutcomes))]
+        public async Task ShouldAnswerEveryPersonalUpsertOutcomeWithADeclaredStatusAsync(
+            PersonalAssociationUpsertOutcome personalUpsertOutcome)
+        {
+            // given: each outcome the foundation can answer. The mapping declares a status for
+            // every one and refuses any other, so an outcome added to the foundation without an
+            // arm here reds this test rather than reaching a reader (§1 rule 5).
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+
+            Association upsertRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            Association expectedUpsertedAssociation =
+                SetupReadersReaction(upsertRequest, readerUserId);
+
+            Association readersRow = expectedUpsertedAssociation.DeepClone();
+            readersRow.Id = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new PersonalAssociationUpsert
+                        {
+                            Outcome = personalUpsertOutcome,
+                            Association = readersRow,
+                        });
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then: a status the result declares, with the reader's row
+            Enum.IsDefined(actualResult.Status).Should().BeTrue();
+            actualResult.AssociationId.Should().Be(readersRow.Id);
+
+            this.associationServiceMock.Verify(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A signed-in reader's reaction on an item whose setting allows reactions: the envelope,
         // both endpoint reads and the setting. Hands back the row the foundation is to be handed.
         private Association SetupReadersReaction(Association upsertRequest, string readerUserId)
