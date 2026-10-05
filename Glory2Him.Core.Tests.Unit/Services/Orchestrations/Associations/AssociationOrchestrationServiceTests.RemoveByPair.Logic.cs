@@ -336,6 +336,75 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldWithdrawOnlyTheCallersOwnReactionAsync()
+        {
+            // given: the request names another reader. UserId comes from the envelope and never
+            // from the request, and the claim is overwritten without comment (§DOM4.10 rules 1
+            // and 2), so the lookup is asked for the caller's own row and another reader's row is
+            // never reached: a withdrawal is keyed on (content item, reaction, caller) (§ARC16.8).
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+
+            Association removalRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            string anotherReaderUserId = $"another-reader-{Guid.NewGuid()}";
+            removalRequest.UserId = anotherReaderUserId;
+            Association expectedLookupPair = SetupReadersWithdrawal(removalRequest, readerUserId);
+
+            var readersRow = new PersonalAssociationMatch
+            {
+                Id = Guid.NewGuid(),
+                EntityBKeyId = removalRequest.EntityBKeyId,
+                IsDeleted = false,
+            };
+
+            this.associationServiceMock.Setup(service =>
+                service.FindPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedLookupPair)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(readersRow);
+
+            this.associationServiceMock.Setup(service =>
+                service.RemoveAssociationByIdAsync(
+                    readersRow.Id,
+                    null,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new Association { Id = readersRow.Id, IsDeleted = true });
+
+            var expectedResult = new AssociationRemovalResult
+            {
+                Status = AssociationRemovalStatus.Removed,
+                AssociationId = readersRow.Id,
+            };
+
+            // when
+            AssociationRemovalResult actualResult =
+                await this.associationOrchestrationService.RemoveAssociationByPairAsync(
+                    removalRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then: the caller's own row is withdrawn, and nothing is said about the claim
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedLookupPair)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.RemoveAssociationByIdAsync(
+                    readersRow.Id,
+                    null,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A signed-in reader's withdrawal: the envelope and both endpoint reads. Hands back the
         // pair the lookup is to be handed.
         private Association SetupReadersWithdrawal(Association removalRequest, string readerUserId)
