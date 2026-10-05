@@ -389,3 +389,27 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
 22. (#700) **Gap — an association cannot be removed over HTTP.** Removing one, the third part of
     item 21's gap, `DELETE /api/associations/{id}` (section 7; §ARC17.4), is held by a design task
     other than item 21's: #700's point 6 plans the remove by id and the two gates beneath it.
+23. (needs issue) **Gap — code comments still send a reader to #318.** #318 was closed as not
+    planned on 2026-09-27, yet 39 lines in 20 files at 45db6477 still name it as the work that
+    exposes associations over HTTP — reading, writing or counting them — or that narrows a list by
+    tag or Bible reference. Evidence (`git grep -n "#318" -- Websites Glory2Him.Core`), under
+    `Websites/Glory2Him.WebApp.React/src/`:
+    `components/contentItems/contentItemDefaultPanel.tsx` lines 128 and 145;
+    `hooks/useContentItemEngagement.ts` lines 18 and 20;
+    `models/components/contentItems/contentItemSearchItem.ts` lines 76, 157 and 166;
+    `pages/admin/contentItemModerationDetailPage.tsx` lines 640 and 735;
+    `pages/admin/contentItemModerationPage.tsx` line 39; `pages/contentItemFeedPages.test.tsx` line
+    169; `pages/home.tsx` line 166; `pages/myPostDetail.tsx` lines 38, 142 and 201;
+    `pages/postDetail.test.tsx` lines 42, 307, 359, 416, 448 and 471; `pages/postDetail.tsx` lines
+    30, 60, 133 and 189; `pages/posts.test.tsx` lines 200 and 215; `pages/posts.tsx` line 151;
+    `pages/samplePages/components/contentItemListPanelDoc.tsx` lines 89, 633 and 835;
+    `pages/samplePages/components/shared/contentItemShapeSamples.ts` line 42;
+    `services/views/contentItems/contentItemFeedScope.ts` line 23;
+    `services/views/contentItems/toContentItemSearchItem.test.ts` line 114; and
+    `services/views/contentItems/toContentItemSearchItem.ts` lines 77 and 80. Beyond the React app:
+    `Glory2Him.Core/Services/Orchestrations/Associations/AssociationOrchestrationService.Writes.cs`
+    line 67, `Websites/Glory2Him.WebApp/Infrastructure/CoreRegistration.cs` line 237 and
+    `Websites/Glory2Him.WebApp.Tests.Unit/Infrastructure/CoreRegistrationTests.cs` line 87. Each
+    sends a reader to a closed issue. Where that work now has a holder, it is recorded in items 21
+    and 22, in `UI/Components/ContentItemListPanel.md §10 item 15`, or, for the reaction
+    summaries, in #730 (§ARC16.8).
