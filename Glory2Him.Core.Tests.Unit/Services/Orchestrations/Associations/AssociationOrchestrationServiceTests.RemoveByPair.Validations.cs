@@ -10,7 +10,6 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
@@ -229,7 +228,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 this.contentItemServiceMock.Setup(service =>
                     service.RetrieveContentItemByIdAsync(
                         removalRequest.EntityAKeyId,
-                        It.IsAny<CancellationToken>()))
+                        TestContext.Current.CancellationToken))
                             .ThrowsAsync(new ContentItemValidationException(
                                 message: "Content item validation error occurred, fix the errors and try again.",
                                 innerException: new Xeption(message: "Content item not found.")));
@@ -239,7 +238,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 this.reactionServiceMock.Setup(service =>
                     service.RetrieveReactionByIdAsync(
                         removalRequest.EntityBKeyId,
-                        It.IsAny<CancellationToken>()))
+                        TestContext.Current.CancellationToken))
                             .ThrowsAsync(new ReactionValidationException(
                                 message: "Reaction validation error occurred, fix the errors and try again.",
                                 innerException: new Xeption(message: "Reaction not found.")));
