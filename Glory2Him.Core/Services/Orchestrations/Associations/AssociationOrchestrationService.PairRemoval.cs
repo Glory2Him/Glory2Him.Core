@@ -39,9 +39,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 
                 ValidateUserMayRemoveAssociationByPair(envelope.SecurityContext);
 
-                // the upsert's own structural validation rather than a copy of it: the two take
-                // one caller shape, so a rule added to it binds both
-                ValidateOnAddAssociation(association);
+                ValidateOnRemoveAssociationByPair(association);
                 ValidatePairIsPersonal(association);
 
                 // as on the upsert, the endpoint reads are the ambient caller's, which on an HTTP

@@ -226,6 +226,19 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 (Rule: IsInvalid(association.EntityAKeyId), Parameter: nameof(Association.EntityAKeyId)),
                 (Rule: IsInvalid(association.EntityBKeyId), Parameter: nameof(Association.EntityBKeyId)));
 
+        // THE PAIR-KEYED WITHDRAWAL's structural validation. It takes the upsert's caller shape —
+        // the raw endpoints and nothing else — so today it asks what the add asks, but over the
+        // shared leaves in a composition of its own: a rule later added to the add's caller shape,
+        // and so to its event door, must not bind the withdrawal unseen, nor a rule the
+        // withdrawal needs bind the add.
+        private static void ValidateOnRemoveAssociationByPair(Association association) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(association.EntityAType), Parameter: nameof(Association.EntityAType)),
+                (Rule: IsInvalid(association.EntityBType), Parameter: nameof(Association.EntityBType)),
+                (Rule: IsInvalid(association.EntityAKeyId), Parameter: nameof(Association.EntityAKeyId)),
+                (Rule: IsInvalid(association.EntityBKeyId), Parameter: nameof(Association.EntityBKeyId)));
+
         // THE DERIVATION, EXPRESSED AS A REFUSAL — the event path's arm, and the difference from
         // the method path is the signature, not the rule. Both paths run the same write flow and
         // let the derived value govern. On the method path the derived value simply overwrites
