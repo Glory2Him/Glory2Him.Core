@@ -91,6 +91,69 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // The Association foundation failing either of the withdrawal's two calls with each of its
+        // dependency and service families.
+        public static TheoryData<string, Xeption> FoundationFailuresOnRemoveByPair()
+        {
+            string randomMessage = GetRandomString();
+            var innerException = new Xeption(message: randomMessage);
+            var foundationFailures = new TheoryData<string, Xeption>();
+
+            foreach (string failingCall in new[] { "lookup", "soft delete" })
+            {
+                foundationFailures.Add(
+                    failingCall,
+                    new Glory2Him.Core.Models.Foundations.Associations.Exceptions
+                        .AssociationDependencyException(message: randomMessage, innerException: innerException));
+
+                foundationFailures.Add(
+                    failingCall,
+                    new Glory2Him.Core.Models.Foundations.Associations.Exceptions
+                        .AssociationServiceException(message: randomMessage, innerException: innerException));
+            }
+
+            return foundationFailures;
+        }
+
+        [Theory]
+        [MemberData(nameof(FoundationFailuresOnRemoveByPair))]
+        public async Task ShouldThrowDependencyExceptionOnRemoveByPairIfTheFoundationFailsAndLogItAsync(
+            string failingCall,
+            Xeption foundationException)
+        {
+            // given: the foundation fails the lookup or the soft delete
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+
+            Association removalRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            SetupFailingWithdrawal(removalRequest, readerUserId, failingCall, foundationException);
+
+            var expectedDependencyException =
+                new AssociationOrchestrationDependencyException(
+                    message: "Content item association orchestration dependency error occurred, contact support.",
+                    innerException: (foundationException.InnerException as Xeption)!);
+
+            // when
+            ValueTask<AssociationRemovalResult> removeTask =
+                this.associationOrchestrationService.RemoveAssociationByPairAsync(
+                    removalRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationDependencyException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationDependencyException>(removeTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyException))),
+                Times.Once);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A reader's withdrawal whose lookup, or whose soft delete of the live row the lookup
         // finds, throws the given exception.
         private void SetupFailingWithdrawal(
