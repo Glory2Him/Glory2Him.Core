@@ -287,6 +287,63 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.associationServiceMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task ShouldNameTheCallersOwnReactionEvenWhenItIsNotCountedAsync(bool isCounted)
+        {
+            // given: a signed-in reader who holds Love on the item, counted already or not yet —
+            // a reaction awaiting review under a tightened tier is not counted (§ARC16.8)
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId: GetRandomString());
+            PublicContentItemGroup host = CreatePublicContentItemGroup();
+            Reaction joy = CreatePublicReaction(name: "Joy");
+            Reaction love = CreatePublicReaction(name: "Love");
+            var contentItemIds = new List<Guid> { host.ContentItemId };
+
+            AssociationPairCount[] pairCounts = isCounted
+                ? [CreatePairCount(host, love, count: 3)]
+                : [];
+
+            SetupPublicContentItemGroups(contentItemIds, host);
+            SetupPublicReactions(joy, love);
+            SetupWinningSettings(hosts: [host], CreateWinningSetting(host, showReactions: true));
+
+            SetupReactionCounts(
+                contentItemGroupIds: [host.GroupId],
+                reactionIds: [joy.Id, love.Id],
+                pairCounts);
+
+            SetupCallerReactions(
+                contentItemGroupIds: [host.GroupId],
+                CreatePairKey(host, love));
+
+            var expectedSummaries = new List<ContentItemReactionSummary>
+            {
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = host.ContentItemId,
+
+                    Reactions = pairCounts
+                        .Select(pairCount => CreateReactionCount(love, pairCount.Count))
+                        .ToList(),
+
+                    ViewerReactionId = love.Id,
+                    ViewerReactionName = love.Name,
+                },
+            };
+
+            // when
+            IReadOnlyList<ContentItemReactionSummary> actualSummaries =
+                await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    contentItemIds,
+                    TestContext.Current.CancellationToken);
+
+            // then: pressed, whether or not the number has moved
+            actualSummaries.Should().BeEquivalentTo(
+                expectedSummaries,
+                options => options.WithStrictOrdering());
+        }
+
         // A caller who is not signed in.
         private static SecurityContext CreateAnonymousSecurityContext() =>
             new SecurityContext { IsAuthenticated = false };
