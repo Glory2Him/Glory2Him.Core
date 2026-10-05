@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
@@ -104,6 +105,100 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.tagServiceMock.VerifyNoOtherCalls();
             this.reactionServiceMock.VerifyNoOtherCalls();
             this.accessBrokerMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // Every way a reaction's pair can name an invalid endpoint, each named by what is wrong
+        // with it: an empty key on either side, a type outside the enum, and a type no endpoint
+        // service resolves.
+        public static TheoryData<string> InvalidWithdrawalEndpoints() =>
+            new TheoryData<string>
+            {
+                "an empty A key",
+                "an empty B key",
+                "an unrecognized endpoint type",
+                "an unsupported endpoint type",
+            };
+
+        [Theory]
+        [MemberData(nameof(InvalidWithdrawalEndpoints))]
+        public async Task ShouldThrowValidationExceptionOnRemoveByPairIfAnEndpointIsInvalidAndLogItAsync(
+            string invalidEndpoint)
+        {
+            // given: the withdrawal takes the upsert's caller shape and its structural validation
+            // and endpoint resolution, so a malformed pair is refused with the upsert's own
+            // validation exception, and no row is looked up
+            this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString());
+
+            Association removalRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            switch (invalidEndpoint)
+            {
+                case "an empty A key":
+                    removalRequest.EntityAKeyId = Guid.Empty;
+
+                    invalidAssociationOrchestrationException.AddData(
+                        key: nameof(Association.EntityAKeyId),
+                        values: "Id is required");
+
+                    break;
+
+                case "an empty B key":
+                    removalRequest.EntityBKeyId = Guid.Empty;
+
+                    invalidAssociationOrchestrationException.AddData(
+                        key: nameof(Association.EntityBKeyId),
+                        values: "Id is required");
+
+                    break;
+
+                case "an unrecognized endpoint type":
+                    removalRequest.EntityAType = (EntityType)int.MaxValue;
+
+                    invalidAssociationOrchestrationException.AddData(
+                        key: nameof(Association.EntityAType),
+                        values: "Value is not a recognized entity type");
+
+                    break;
+
+                case "an unsupported endpoint type":
+                    removalRequest.EntityAType = EntityType.Attachment;
+
+                    invalidAssociationOrchestrationException =
+                        new InvalidAssociationOrchestrationException(
+                            message: "Entity type Attachment is not supported as an association endpoint.");
+
+                    break;
+            }
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<AssociationRemovalResult> removeTask =
+                this.associationOrchestrationService.RemoveAssociationByPairAsync(
+                    removalRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(removeTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
             this.associationServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
