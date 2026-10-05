@@ -13,6 +13,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using AssociationSuggestionStatus = Glory2Him.Core.Models.Orchestrations.Associations.AssociationSuggestionStatus;
 using Glory2Him.WebApp.Tests.Acceptance.Models.Associations;
 using CoreContentItem = Glory2Him.Core.Models.Foundations.ContentItems.ContentItem;
@@ -155,6 +156,34 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
             {
                 this.apiBroker.ActAsSeededAdministrator();
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
+            }
+        }
+
+        [Fact]
+        public async Task ShouldReturnBadRequestOnPostIfTheItemRefusesReactionsAsync()
+        {
+            // given
+            // The seeded Series default refuses reactions (ContentItemSettingSeedData), so the
+            // facet gate turns the pair away.
+            CoreContentItem publishedSeries =
+                await InsertPublishedContentItemAsync(ContentType.Series);
+
+            Association inputPair = CreateReactionPair(publishedSeries.Id, seededAmenReactionId);
+            this.apiBroker.ActAsContributor();
+
+            try
+            {
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.PostAssociationAsync(inputPair);
+
+                // then
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedSeries.Id);
             }
         }
     }
