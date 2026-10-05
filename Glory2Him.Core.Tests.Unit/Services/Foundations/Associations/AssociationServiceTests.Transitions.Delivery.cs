@@ -33,10 +33,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         /// verb, so <c>Association-Submitted</c> is published solely as the fallback arm of the
         /// decision switch — an administrator re-opening a terminal row (§8.6 HR-4), or the
         /// approval workflow returning a changed reaction's decided round (§APR9.7.4). It is
-        /// still a REQUIRED delivery: it reaches
-        /// <c>ApprovalOrchestrationService.OnAssociationSubmittedAsync</c>, which moves the
-        /// association's approval to Submitted and re-evaluates the round on an override, and
-        /// drops the workflow's own return as it drops every fact carrying the system identity.
+        /// still a REQUIRED delivery, because the subscription list decides and never what one
+        /// subscriber does with one fact (§EVN23 rule 1): the address has a state-writing
+        /// subscriber in <c>ApprovalOrchestrationService.OnAssociationSubmittedAsync</c>. That ear
+        /// drops this fact on either route, because the workflow sends the association every
+        /// approval command itself, so the fact carries the system identity.
         ///
         /// <para>That arm is also why the inspection in the tail is unconditional rather than
         /// written against the operation. The address here is not chosen by the verb the caller
