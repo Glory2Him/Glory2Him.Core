@@ -21,48 +21,51 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 {
     internal partial class AssociationOrchestrationService
     {
-        public async ValueTask<AssociationRemovalResult> RemoveAssociationByPairAsync(
+        public ValueTask<AssociationRemovalResult> RemoveAssociationByPairAsync(
             Association association,
-            CancellationToken cancellationToken = default)
-        {
-            EventEnvelope<Association> envelope =
-                await this.eventEnvelopeBroker.CreateAsync(content: association);
-
-            await ResolvePairEndpointsAsync(
-                association: association,
-                readEnvelope: null,
-                cancellationToken: cancellationToken);
-
-            association.UserId = envelope.SecurityContext.SubjectId;
-
-            PersonalAssociationMatch? readersRow =
-                await this.associationService.FindPersonalAssociationAsync(
-                    association,
-                    cancellationToken);
-
-            if (readersRow is null
-                || readersRow.IsDeleted
-                || readersRow.EntityBKeyId != GetNamedReactionId(association))
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
             {
+                EventEnvelope<Association> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: association);
+
+                ValidateUserMayRemoveAssociationByPair(envelope.SecurityContext);
+
+                await ResolvePairEndpointsAsync(
+                    association: association,
+                    readEnvelope: null,
+                    cancellationToken: cancellationToken);
+
+                association.UserId = envelope.SecurityContext.SubjectId;
+
+                PersonalAssociationMatch? readersRow =
+                    await this.associationService.FindPersonalAssociationAsync(
+                        association,
+                        cancellationToken);
+
+                if (readersRow is null
+                    || readersRow.IsDeleted
+                    || readersRow.EntityBKeyId != GetNamedReactionId(association))
+                {
+                    return new AssociationRemovalResult
+                    {
+                        Status = AssociationRemovalStatus.NothingToRemove,
+                        AssociationId = null,
+                    };
+                }
+
+                Association withdrawnAssociation =
+                    await this.associationService.RemoveAssociationByIdAsync(
+                        readersRow.Id,
+                        deletionReason: null,
+                        cancellationToken);
+
                 return new AssociationRemovalResult
                 {
-                    Status = AssociationRemovalStatus.NothingToRemove,
-                    AssociationId = null,
+                    Status = AssociationRemovalStatus.Removed,
+                    AssociationId = withdrawnAssociation.Id,
                 };
-            }
-
-            Association withdrawnAssociation =
-                await this.associationService.RemoveAssociationByIdAsync(
-                    readersRow.Id,
-                    deletionReason: null,
-                    cancellationToken);
-
-            return new AssociationRemovalResult
-            {
-                Status = AssociationRemovalStatus.Removed,
-                AssociationId = withdrawnAssociation.Id,
-            };
-        }
+            });
 
         // THE REACTION THE CALLER NAMED, on whichever endpoint the request carries it: the
         // upsert's caller shape names a reaction on either (§ARC16.8.1). Which endpoint holds it
