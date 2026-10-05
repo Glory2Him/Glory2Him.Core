@@ -94,5 +94,44 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
             }
         }
+
+        [Fact]
+        public async Task ShouldKeepTheHeldReactionOverHttpAsync()
+        {
+            // given
+            CoreContentItem publishedContentItem = await InsertPublishedContentItemAsync();
+            Association inputPair = CreateReactionPair(publishedContentItem.Id, seededAmenReactionId);
+            AssociationSuggestionResult givenResult = null;
+            this.apiBroker.ActAsContributor();
+
+            try
+            {
+                HttpResponseMessage givenResponse =
+                    await this.apiBroker.PostAssociationAsync(inputPair);
+
+                givenResult = await ReadResultAsync(givenResponse);
+
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.PostAssociationAsync(inputPair);
+
+                AssociationSuggestionResult actualResult = await ReadResultAsync(actualResponse);
+
+                // then
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                actualResult.Status.Should().Be(AssociationSuggestionStatus.AlreadyApproved);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+
+                if (givenResult is not null)
+                {
+                    await this.apiBroker.RemoveCoreAssociationByIdAsync(givenResult.AssociationId);
+                }
+
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
+            }
+        }
     }
 }
