@@ -326,12 +326,19 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             IReadOnlyList<Guid> contentItemIds) =>
             Validate(
                 message: "Content item association is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(contentItemIds), Parameter: nameof(contentItemIds)));
+                (Rule: IsInvalid(contentItemIds), Parameter: nameof(contentItemIds)),
+                (Rule: IsEmpty(contentItemIds), Parameter: nameof(contentItemIds)));
 
         private static dynamic IsInvalid(IReadOnlyList<Guid> ids) => new
         {
             Condition = ids is null,
             Message = "List is required"
+        };
+
+        private static dynamic IsEmpty(IReadOnlyList<Guid> ids) => new
+        {
+            Condition = ids is not null && ids.Count is 0,
+            Message = "List must hold at least one id"
         };
 
         private static dynamic IsInvalid(Guid id) => new
