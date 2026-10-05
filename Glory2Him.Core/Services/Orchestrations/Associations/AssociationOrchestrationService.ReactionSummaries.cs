@@ -111,8 +111,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             IReadOnlyList<Reaction> vocabulary,
             PublicContentItemGroup host)
         {
-            AssociationPairKey? callerReaction = callerReactions.FirstOrDefault(callerReaction =>
-                callerReaction.EntityAEffectiveId == host.GroupId);
+            AssociationPairKey? callerReaction = callerReactions.FirstOrDefault(pairKey =>
+                pairKey.EntityAEffectiveId == host.GroupId);
 
             return vocabulary.FirstOrDefault(reaction =>
                 reaction.Id == callerReaction?.EntityBKeyId);
