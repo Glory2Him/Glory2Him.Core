@@ -30,6 +30,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             CancellationToken cancellationToken = default) =>
             TryCatch<IReadOnlyList<ContentItemReactionSummary>>(async () =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 ValidateOnRetrieveContentItemReactionSummaries(contentItemIds);
 
                 // duplicates are answered once, not refused (§ARC16.8, The set, its bounds)
