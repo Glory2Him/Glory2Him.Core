@@ -170,11 +170,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         [Fact]
         public async Task ShouldReturnAlreadyPendingWithoutInsertingWhenTheOnlyRowIsSoftDeletedAsync()
         {
-            // given: a soft-deleted row occupies the pair. This pass never inserts past it — that
-            // would duplicate it or launder a moderator takedown — and reports it as pending,
+            // given: a soft-deleted row occupies the pair. The editorial arm never inserts past it —
+            // that would duplicate it or launder a moderator takedown — and reports it as pending,
             // revealing nothing. The row is deliberately a once-APPROVED one: the deleted branch
             // must mask it as AlreadyPending, never leak AlreadyApproved (which would disclose the
-            // takedown). (Resurrecting the caller's own row is a later pass.)
+            // takedown). Whether an editorial row is ever revived is not settled (§ARC16.8.1); a
+            // reader's own reaction is revived on the personal arm, never here.
             Association rawRequest = CreateRawAddRequest();
             SetupEndpointReads(rawRequest);
 
