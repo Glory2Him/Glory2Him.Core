@@ -17,6 +17,7 @@ using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using RESTFulSense.Clients.Extensions;
+using Xeptions;
 
 namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
 {
@@ -85,6 +86,43 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
 
             var expectedActionResult =
                 new ActionResult<AssociationSuggestionResult>(expectedNotFoundObjectResult);
+
+            this.associationOrchestrationServiceMock.Setup(service =>
+                service.UpsertAssociationAsync(someAssociation, cancellationToken))
+                    .ThrowsAsync(associationOrchestrationValidationException);
+
+            // when
+            ActionResult<AssociationSuggestionResult> actualActionResult =
+                await this.associationsController.PostAssociationAsync(someAssociation, cancellationToken);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.associationOrchestrationServiceMock.Verify(service =>
+                service.UpsertAssociationAsync(someAssociation, cancellationToken),
+                    Times.Once);
+
+            this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldReturnBadRequestOnPostIfValidationErrorOccurredAsync()
+        {
+            // given
+            Association someAssociation = CreateRandomAssociation();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var someInnerException = new Xeption();
+
+            var associationOrchestrationValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: GetRandomString(),
+                    innerException: someInnerException);
+
+            BadRequestObjectResult expectedBadRequestObjectResult =
+                BadRequest(someInnerException);
+
+            var expectedActionResult =
+                new ActionResult<AssociationSuggestionResult>(expectedBadRequestObjectResult);
 
             this.associationOrchestrationServiceMock.Setup(service =>
                 service.UpsertAssociationAsync(someAssociation, cancellationToken))
