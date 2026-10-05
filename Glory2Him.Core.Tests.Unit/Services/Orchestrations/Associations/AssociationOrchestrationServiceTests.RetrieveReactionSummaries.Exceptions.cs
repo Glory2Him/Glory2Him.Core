@@ -274,6 +274,50 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             VerifyNothingIsReadForTheSummaries();
         }
 
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnRetrieveReactionSummariesIfOperationCanceledOccursWithoutRequestAndLogItAsync()
+        {
+            // given: a dependency is cancelled without the caller asking, which is a timeout
+            SetupEverySummaryReadToAnswer();
+            var operationCanceledException = new OperationCanceledException();
+
+            SetupSummaryFoundationToThrow(nameof(IContentItemService), operationCanceledException);
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutAssociationOrchestrationException =
+                new TimeoutAssociationOrchestrationException(
+                    message: "Failed content item association orchestration timeout error occurred, " +
+                        "contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedDependencyException =
+                new AssociationOrchestrationDependencyException(
+                    message: "Content item association orchestration dependency error occurred, contact support.",
+                    innerException: timeoutAssociationOrchestrationException);
+
+            // when
+            ValueTask<IReadOnlyList<ContentItemReactionSummary>> retrieveTask =
+                this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    [Guid.NewGuid()],
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationDependencyException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationDependencyException>(
+                    retrieveTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyException))),
+                Times.Once);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A signed-in reader, and a world in which every read the summary makes answers — one
         // item that shows reactions, given Love, the reader's own included — so that an exception
         // test breaks exactly the read it names and every other read is reached.
