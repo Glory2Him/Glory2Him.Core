@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.Reactions;
@@ -51,17 +52,61 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     vocabulary.Select(reaction => reaction.Id).ToList(),
                     cancellationToken);
 
-            return hosts
-                .Select(host => new ContentItemReactionSummary
-                {
-                    ContentItemId = host.ContentItemId,
+            IReadOnlyList<AssociationPairKey> callerReactions =
+                await RetrieveCallerReactionsOnAsync(hosts, cancellationToken);
 
-                    Reactions = countedHosts.Contains(host)
-                        ? CountReactionsGivenTo(host, vocabulary, pairCounts)
-                        : new List<ContentItemReactionCount>(),
+            return hosts
+                .Select(host =>
+                {
+                    AssociationPairKey? callerReaction =
+                        FindCallerReactionOn(callerReactions, host);
+
+                    return new ContentItemReactionSummary
+                    {
+                        ContentItemId = host.ContentItemId,
+
+                        Reactions = countedHosts.Contains(host)
+                            ? CountReactionsGivenTo(host, vocabulary, pairCounts)
+                            : new List<ContentItemReactionCount>(),
+
+                        ViewerReactionId = callerReaction?.EntityBKeyId,
+
+                        ViewerReactionName = vocabulary
+                            .FirstOrDefault(reaction => reaction.Id == callerReaction?.EntityBKeyId)?
+                            .Name,
+                    };
                 })
                 .ToList();
         }
+
+        // The caller's own reactions, over every answered host's group whether it is counted or
+        // not, and asked only for a signed-in caller (AssociationOrchestrationService.md §4 rule
+        // 6). Signed in is the security context on the envelope this read mints, never an ambient
+        // accessor; the read carries no association, so the envelope carries an empty one.
+        private async ValueTask<IReadOnlyList<AssociationPairKey>> RetrieveCallerReactionsOnAsync(
+            IReadOnlyList<PublicContentItemGroup> hosts,
+            CancellationToken cancellationToken)
+        {
+            EventEnvelope<Association> envelope =
+                await this.eventEnvelopeBroker.CreateAsync(content: new Association());
+
+            if (envelope.SecurityContext.IsAuthenticated is false)
+            {
+                return Array.Empty<AssociationPairKey>();
+            }
+
+            return await this.associationService.RetrieveCallerContentItemReactionsAsync(
+                hosts.Select(host => host.GroupId).ToList(),
+                cancellationToken);
+        }
+
+        // The caller's row is keyed on the host's group, and mapped back onto the id the host was
+        // supplied by.
+        private static AssociationPairKey? FindCallerReactionOn(
+            IReadOnlyList<AssociationPairKey> callerReactions,
+            PublicContentItemGroup host) =>
+            callerReactions.FirstOrDefault(callerReaction =>
+                callerReaction.EntityAEffectiveId == host.GroupId);
 
         // §SEC14.3 rule 6's key for a host: its own content type and the id it was supplied by
         // (§ARC16.8, the rule 6 row).
