@@ -367,7 +367,8 @@ The paging behind `hasMore` is the consumer's. *(code: services/foundations/cont
     reference narrows a list cites this item for the narrowing (`UI/Pages/Posts.md rule 2.12` and
     §6 item 7, `UI/Pages/Home.md rules 2.4 and 2.13` and §6 items 7 and 15,
     `UI/Pages/MyPosts.md rule 2.14`, `UI/Pages/ContentItemModerationPage.md rule 2.13`,
-    `UI/Pages/BibleReference.md §6 item 6`), and how a read narrows by either is not designed.
+    `UI/Pages/BibleReference.md rule 2.17` and §6 item 6), and how a read narrows by either is
+    not designed.
     The narrowing waits on reading associations over HTTP
     (`UI/Components/AssociationPanel.md §10 item 21`), and is not part of that read's design: the
     user ruled on 2026-10-05 that #857 plans only the read (#857, Open question 1: *"only the
