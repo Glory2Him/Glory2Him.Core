@@ -58,8 +58,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             return hosts
                 .Select(host =>
                 {
-                    AssociationPairKey? callerReaction =
-                        FindCallerReactionOn(callerReactions, host);
+                    Reaction? viewerReaction =
+                        FindViewerReactionOn(callerReactions, vocabulary, host);
 
                     return new ContentItemReactionSummary
                     {
@@ -69,11 +69,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                             ? CountReactionsGivenTo(host, vocabulary, pairCounts)
                             : new List<ContentItemReactionCount>(),
 
-                        ViewerReactionId = callerReaction?.EntityBKeyId,
-
-                        ViewerReactionName = vocabulary
-                            .FirstOrDefault(reaction => reaction.Id == callerReaction?.EntityBKeyId)?
-                            .Name,
+                        ViewerReactionId = viewerReaction?.Id,
+                        ViewerReactionName = viewerReaction?.Name,
                     };
                 })
                 .ToList();
@@ -100,13 +97,21 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 cancellationToken);
         }
 
-        // The caller's row is keyed on the host's group, and mapped back onto the id the host was
-        // supplied by.
-        private static AssociationPairKey? FindCallerReactionOn(
+        // The reaction of the vocabulary the caller's own row on the host names. The row is keyed
+        // on the host's group, and mapped back onto the id the host was supplied by. A row naming
+        // a reaction outside the vocabulary names none: the card offers only the vocabulary, so it
+        // could not mark it (AssociationOrchestrationService.md, Deviations 2).
+        private static Reaction? FindViewerReactionOn(
             IReadOnlyList<AssociationPairKey> callerReactions,
-            PublicContentItemGroup host) =>
-            callerReactions.FirstOrDefault(callerReaction =>
+            IReadOnlyList<Reaction> vocabulary,
+            PublicContentItemGroup host)
+        {
+            AssociationPairKey? callerReaction = callerReactions.FirstOrDefault(callerReaction =>
                 callerReaction.EntityAEffectiveId == host.GroupId);
+
+            return vocabulary.FirstOrDefault(reaction =>
+                reaction.Id == callerReaction?.EntityBKeyId);
+        }
 
         // §SEC14.3 rule 6's key for a host: its own content type and the id it was supplied by
         // (§ARC16.8, the rule 6 row).
