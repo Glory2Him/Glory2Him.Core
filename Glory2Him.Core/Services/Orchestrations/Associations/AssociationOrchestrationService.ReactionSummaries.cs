@@ -29,9 +29,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             IReadOnlyList<Guid> contentItemIds,
             CancellationToken cancellationToken = default)
         {
+            // duplicates are answered once, not refused (§ARC16.8, The set, its bounds)
             IReadOnlyList<PublicContentItemGroup> hosts =
                 await this.contentItemService.RetrievePublicContentItemGroupsAsync(
-                    contentItemIds,
+                    contentItemIds.Distinct().ToList(),
                     cancellationToken);
 
             IReadOnlyList<Reaction> vocabulary =
