@@ -172,9 +172,11 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
         // (ApprovalOrchestrationService.Substrate.cs:206-211 states this explicitly: a
         // "ContentItemProcessingSubmitted" name would verify nothing, ever). Association is the
         // seventh and the exception: it has no submit transition, and its Submitted fact is
-        // emitted from the administrator decision-override path instead (see the theory's own
-        // comment below) — included because the publisher composes and signs the same bare
-        // name regardless of which path reached it. This is the pairing
+        // emitted from its approve transition's fallback arm instead, reached by an
+        // administrator's decision override or by the approval workflow returning a changed
+        // reaction's decided round (see the theory's own comment below) — included because the
+        // publisher composes and signs the same bare name regardless of which path reached it.
+        // This is the pairing
         // #487 found proven nowhere: `ApprovalOrchestrationServiceTests.Substrate.cs` already
         // proves the RECEIVER's literal is self-consistent for all 22 entity-fact handlers, but
         // nothing published a real -Submitted fact through the real substrate until this theory —
@@ -192,12 +194,13 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
             // given: for six of these seven, the submit verb reaches the foundation directly
             // regardless of which tier owns the Added/Modified fact, so every entity signs its
             // own bare name here. Association is the exception — it has no submit transition at
-            // all; its Submitted fact is emitted by the administrator decision-override path in
-            // AssociationService.Transitions.cs, on the fallback branch where the decision is
-            // neither Approved nor Rejected ("an override back to Submitted re-opens the
-            // round"). Included here anyway because the publisher composes and signs the same
-            // bare "AssociationSubmitted" name regardless of which code path reached it, and
-            // that composition is exactly what this theory proves.
+            // all; its Submitted fact is emitted in AssociationService.Transitions.cs, on the
+            // fallback branch where the decision is neither Approved nor Rejected. An
+            // administrator's override back to Submitted reaches it, and so does the approval
+            // workflow returning a changed reaction's decided round (§APR9.7.4). Included here
+            // anyway because the publisher composes and signs the same bare
+            // "AssociationSubmitted" name regardless of which code path reached it, and that
+            // composition is exactly what this theory proves.
 
             // when
             IReadOnlyList<bool> outcomes = await PublishFoundationSubmittedFactAsync(entityName);

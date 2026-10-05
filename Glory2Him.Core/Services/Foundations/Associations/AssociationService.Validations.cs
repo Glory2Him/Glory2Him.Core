@@ -287,7 +287,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // refuses a CHANGE to ApprovalStatus, and its condition is guarded by
         // inputStatus != storageStatus — so a caller who echoes the stored status back unchanged
         // passes it. An association never forks, so refusing the write IS the enforcement, and
-        // the only way back is the Administrators override on the approval transition (§8.6 HR-4).
+        // the way back runs through the approval transition alone: the Administrators override
+        // (§8.6 HR-4), or the approval workflow returning a reader's changed reaction to
+        // Submitted (§APR9.7.4).
         //
         // Reachable in principle and inert in practice, which is worth stating rather than
         // leaving for someone to rediscover: an association has NO caller-editable content —
