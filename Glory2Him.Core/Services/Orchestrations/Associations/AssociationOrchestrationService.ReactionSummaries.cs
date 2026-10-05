@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.Reactions;
 using Glory2Him.Core.Models.Orchestrations.Associations;
+using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Orchestrations.Associations
 {
@@ -35,9 +36,18 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             IReadOnlyList<Reaction> vocabulary =
                 await this.reactionService.RetrievePublicReactionsAsync(cancellationToken);
 
+            IReadOnlyList<EffectiveContentItemSetting> winningSettings =
+                await this.accessBroker.RetrieveEffectiveContentItemSettingsAsync(
+                    hosts.Select(CreateSettingKeyFor).ToList(),
+                    cancellationToken);
+
+            List<PublicContentItemGroup> countedHosts = hosts
+                .Where(host => IsShowingReactions(winningSettings, host))
+                .ToList();
+
             IReadOnlyList<AssociationPairCount> pairCounts =
                 await this.associationService.RetrieveContentItemReactionCountsAsync(
-                    hosts.Select(host => host.GroupId).ToList(),
+                    countedHosts.Select(host => host.GroupId).ToList(),
                     vocabulary.Select(reaction => reaction.Id).ToList(),
                     cancellationToken);
 
@@ -45,10 +55,30 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 .Select(host => new ContentItemReactionSummary
                 {
                     ContentItemId = host.ContentItemId,
-                    Reactions = CountReactionsGivenTo(host, vocabulary, pairCounts),
+
+                    Reactions = countedHosts.Contains(host)
+                        ? CountReactionsGivenTo(host, vocabulary, pairCounts)
+                        : new List<ContentItemReactionCount>(),
                 })
                 .ToList();
         }
+
+        // §SEC14.3 rule 6's key for a host: its own content type and the id it was supplied by
+        // (§ARC16.8, the rule 6 row).
+        private static ContentItemSettingKey CreateSettingKeyFor(PublicContentItemGroup host) =>
+            new ContentItemSettingKey
+            {
+                ContentType = host.ContentType,
+                ContentItemId = host.ContentItemId,
+            };
+
+        // A host is counted only where its winning setting shows reactions. A key the settings
+        // read leaves out resolved no row, and that hides them too: a missing setting never
+        // means "show" (AssociationOrchestrationService.md §4 rule 4).
+        private static bool IsShowingReactions(
+            IReadOnlyList<EffectiveContentItemSetting> winningSettings,
+            PublicContentItemGroup host) =>
+            FindWinningSetting(winningSettings, CreateSettingKeyFor(host))?.ShowReactions is true;
 
         // The host's counts in the vocabulary's order, the order the vocabulary read answers in,
         // whatever order the counts arrive in: it is walked rather than sorted.
