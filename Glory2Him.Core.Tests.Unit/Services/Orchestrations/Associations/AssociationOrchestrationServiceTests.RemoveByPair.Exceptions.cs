@@ -183,6 +183,55 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnRemoveByPairIfServiceErrorOccursAndLogItAsync()
+        {
+            // given: an unexpected failure, here while the envelope is minted
+            this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString());
+
+            Association removalRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            var serviceException = new Exception(GetRandomString());
+
+            var failedAssociationOrchestrationServiceException =
+                new FailedAssociationOrchestrationServiceException(
+                    message: "Failed content item association orchestration service error occurred, " +
+                        "please contact support.",
+                    innerException: serviceException,
+                    data: serviceException.Data);
+
+            var expectedServiceException =
+                new AssociationOrchestrationServiceException(
+                    message: "Content item association orchestration service error occurred, contact support.",
+                    innerException: failedAssociationOrchestrationServiceException);
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(removalRequest))
+                    .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<AssociationRemovalResult> removeTask =
+                this.associationOrchestrationService.RemoveAssociationByPairAsync(
+                    removalRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationServiceException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationServiceException>(removeTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedServiceException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedServiceException))),
+                Times.Once);
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.reactionServiceMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A reader's withdrawal whose lookup, or whose soft delete of the live row the lookup
         // finds, throws the given exception.
         private void SetupFailingWithdrawal(
