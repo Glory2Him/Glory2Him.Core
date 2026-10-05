@@ -9,7 +9,6 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.Associations;
@@ -27,9 +26,16 @@ namespace Glory2Him.WebApp.Controllers.Associations
         public AssociationsController(IAssociationOrchestrationService associationOrchestrationService) =>
             this.associationOrchestrationService = associationOrchestrationService;
 
-        public ValueTask<ActionResult<AssociationSuggestionResult>> PostAssociationAsync(
+        public async ValueTask<ActionResult<AssociationSuggestionResult>> PostAssociationAsync(
             [FromBody] Association association,
-            CancellationToken cancellationToken) =>
-            throw new NotImplementedException();
+            CancellationToken cancellationToken)
+        {
+            AssociationSuggestionResult associationSuggestionResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    association,
+                    cancellationToken);
+
+            return Created(associationSuggestionResult);
+        }
     }
 }
