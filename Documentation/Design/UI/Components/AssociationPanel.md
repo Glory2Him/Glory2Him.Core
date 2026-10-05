@@ -383,7 +383,8 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
     list narrowed by tag or Bible reference waits on the same read, and the narrowing itself is
     not this item's: it is `UI/Components/ContentItemListPanel.md §10 item 15`, since #857 plans
     only the read (user ruling 2026-10-05). The work was filed as #318 (closed). Suggesting
-    one is #728's (`POST /api/associations`). Reading an entity's associations is #857's, which
+    one is #871's, which rules where an editorial row's `Id` is minted; #728 serves the route,
+    `POST /api/associations`, for a reader's reaction alone (ruling 2026-10-05). Reading an entity's associations is #857's, which
     designs §ARC17.4's two reads with §SEC14.7 posture A′ rule 7 ahead of them (user ruling
     2026-10-02). Removing one is item 22.
 22. (#700) **Gap — an association cannot be removed over HTTP.** Removing one, the third part of
