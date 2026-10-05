@@ -11,6 +11,7 @@
 
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
@@ -55,6 +56,54 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.reactionServiceMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemoveByPairIfThePairIsEditorialAndLogItAsync()
+        {
+            // given: a suggested tag, from a signed-in caller. Neither endpoint's type is
+            // personal, so the pair has no caller in its key, and a withdrawal is keyed on
+            // (content item, reaction, caller) (§ARC16.8): it is refused as invalid, before any
+            // endpoint or row is read.
+            this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString());
+
+            Association removalRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Tag);
+
+            SetupInboundEnvelopeFor(removalRequest);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "An editorial content item association cannot be withdrawn by its pair.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<AssociationRemovalResult> removeTask =
+                this.associationOrchestrationService.RemoveAssociationByPairAsync(
+                    removalRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(removeTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.reactionServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
             this.associationServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
