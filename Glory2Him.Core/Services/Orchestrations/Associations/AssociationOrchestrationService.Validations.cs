@@ -344,11 +344,12 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             Message = "List must hold at least one id"
         };
 
-        // The bound guards a public read against a hand-formed request (§ARC16.8, The set, its
+        // The bound guards a public read against a hand-formed request, and it counts DISTINCT ids,
+        // because duplicates are answered once rather than refused (§ARC16.8, The set, its
         // bounds).
         private static dynamic IsOverTheSummaryBound(IReadOnlyList<Guid> ids) => new
         {
-            Condition = ids is not null && ids.Count > MaxContentItemReactionSummaryIds,
+            Condition = ids is not null && ids.Distinct().Count() > MaxContentItemReactionSummaryIds,
             Message = $"List must hold no more than {MaxContentItemReactionSummaryIds} distinct ids"
         };
 
