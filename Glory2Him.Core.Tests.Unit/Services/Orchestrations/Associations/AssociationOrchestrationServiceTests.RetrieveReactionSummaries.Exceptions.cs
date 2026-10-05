@@ -253,6 +253,27 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnRetrieveReactionSummariesIfCancellationRequestedAsync()
+        {
+            // given: a genuine caller cancellation propagates as it is, never masked as a timeout
+            // or wrapped
+            using var cancellationTokenSource = new CancellationTokenSource();
+            await cancellationTokenSource.CancelAsync();
+
+            // when
+            ValueTask<IReadOnlyList<ContentItemReactionSummary>> retrieveTask =
+                this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    [Guid.NewGuid()],
+                    cancellationTokenSource.Token);
+
+            // then: nothing is read
+            await Assert.ThrowsAsync<OperationCanceledException>(retrieveTask.AsTask);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+            VerifyNothingIsReadForTheSummaries();
+        }
+
         // A signed-in reader, and a world in which every read the summary makes answers — one
         // item that shows reactions, given Love, the reader's own included — so that an exception
         // test breaks exactly the read it names and every other read is reached.
