@@ -59,5 +59,45 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
 
             associationOrchestrationServiceMock.VerifyNoOtherCalls();
         }
+
+        [Theory]
+        [InlineData(AssociationSuggestionStatus.Restored)]
+        [InlineData(AssociationSuggestionStatus.Repointed)]
+        [InlineData(AssociationSuggestionStatus.AlreadyApproved)]
+        [InlineData(AssociationSuggestionStatus.AlreadyPending)]
+        [InlineData(AssociationSuggestionStatus.OverlapsExisting)]
+        public async Task ShouldReturnOkOnPostForEveryOutcomeThatCreatedNoRowAsync(
+            AssociationSuggestionStatus status)
+        {
+            // given
+            Association randomAssociation = CreateRandomAssociation();
+            Association inputAssociation = randomAssociation;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            AssociationSuggestionResult upsertedResult = CreateAssociationSuggestionResult(status);
+            AssociationSuggestionResult expectedResult = upsertedResult.DeepClone();
+
+            var expectedObjectResult =
+                new OkObjectResult(expectedResult);
+
+            var expectedActionResult =
+                new ActionResult<AssociationSuggestionResult>(expectedObjectResult);
+
+            associationOrchestrationServiceMock
+                .Setup(service => service.UpsertAssociationAsync(inputAssociation, cancellationToken))
+                    .ReturnsAsync(upsertedResult);
+
+            // when
+            ActionResult<AssociationSuggestionResult> actualActionResult =
+                await associationsController.PostAssociationAsync(inputAssociation, cancellationToken);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            associationOrchestrationServiceMock
+                .Verify(service => service.UpsertAssociationAsync(inputAssociation, cancellationToken),
+                    Times.Once);
+
+            associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
     }
 }
