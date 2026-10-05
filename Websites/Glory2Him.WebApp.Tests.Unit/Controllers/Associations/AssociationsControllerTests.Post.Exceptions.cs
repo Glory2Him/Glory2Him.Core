@@ -9,9 +9,11 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Microsoft.AspNetCore.Mvc;
@@ -127,6 +129,50 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
             this.associationOrchestrationServiceMock.Setup(service =>
                 service.UpsertAssociationAsync(someAssociation, cancellationToken))
                     .ThrowsAsync(associationOrchestrationValidationException);
+
+            // when
+            ActionResult<AssociationSuggestionResult> actualActionResult =
+                await this.associationsController.PostAssociationAsync(someAssociation, cancellationToken);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.associationOrchestrationServiceMock.Verify(service =>
+                service.UpsertAssociationAsync(someAssociation, cancellationToken),
+                    Times.Once);
+
+            this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldReturnConflictOnPostIfAlreadyExistsErrorOccurredAsync()
+        {
+            // given
+            Association someAssociation = CreateRandomAssociation();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var someInnerException = new Exception();
+            string someMessage = GetRandomString();
+
+            var alreadyExistsAssociationException =
+                new AlreadyExistsAssociationException(
+                    message: someMessage,
+                    innerException: someInnerException,
+                    data: someInnerException.Data);
+
+            var associationOrchestrationDependencyValidationException =
+                new AssociationOrchestrationDependencyValidationException(
+                    message: someMessage,
+                    innerException: alreadyExistsAssociationException);
+
+            ConflictObjectResult expectedConflictObjectResult =
+                Conflict(alreadyExistsAssociationException);
+
+            var expectedActionResult =
+                new ActionResult<AssociationSuggestionResult>(expectedConflictObjectResult);
+
+            this.associationOrchestrationServiceMock.Setup(service =>
+                service.UpsertAssociationAsync(someAssociation, cancellationToken))
+                    .ThrowsAsync(associationOrchestrationDependencyValidationException);
 
             // when
             ActionResult<AssociationSuggestionResult> actualActionResult =
