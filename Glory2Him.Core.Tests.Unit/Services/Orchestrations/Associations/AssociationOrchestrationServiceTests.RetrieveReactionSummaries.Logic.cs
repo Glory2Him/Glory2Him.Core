@@ -172,6 +172,85 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 options => options.WithStrictOrdering());
         }
 
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task ShouldAnswerNoReactionsForAnItemThatHidesThemAsync(
+            bool hidingHostResolvesASetting)
+        {
+            // given: one item whose winning setting shows reactions, beside one whose winning
+            // setting hides them — or whose key the settings read leaves out of its answer
+            // because it resolves no row, which must never mean "show"
+            this.ambientSecurityContext = CreateAnonymousSecurityContext();
+            PublicContentItemGroup showingHost = CreatePublicContentItemGroup();
+            PublicContentItemGroup hidingHost = CreatePublicContentItemGroup();
+            Reaction love = CreatePublicReaction(name: "Love");
+
+            var contentItemIds = new List<Guid>
+            {
+                showingHost.ContentItemId,
+                hidingHost.ContentItemId,
+            };
+
+            var winningSettings = new List<EffectiveContentItemSetting>
+            {
+                CreateWinningSetting(showingHost, showReactions: true),
+            };
+
+            if (hidingHostResolvesASetting)
+            {
+                winningSettings.Add(CreateWinningSetting(hidingHost, showReactions: false));
+            }
+
+            SetupPublicContentItemGroups(contentItemIds, showingHost, hidingHost);
+            SetupPublicReactions(love);
+            SetupWinningSettings(hosts: [showingHost, hidingHost], winningSettings.ToArray());
+
+            // The count read answers a row for the hiding item's group as well, so its empty
+            // answer cannot rest on that group being left out of the count alone.
+            SetupReactionCounts(
+                contentItemGroupIds: [showingHost.GroupId],
+                reactionIds: [love.Id],
+                CreatePairCount(showingHost, love, count: 2),
+                CreatePairCount(hidingHost, love, count: 5));
+
+            var expectedSummaries = new List<ContentItemReactionSummary>
+            {
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = showingHost.ContentItemId,
+                    Reactions = new List<ContentItemReactionCount> { CreateReactionCount(love, count: 2) },
+                    ViewerReactionId = null,
+                    ViewerReactionName = null,
+                },
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = hidingHost.ContentItemId,
+                    Reactions = new List<ContentItemReactionCount>(),
+                    ViewerReactionId = null,
+                    ViewerReactionName = null,
+                },
+            };
+
+            // when
+            IReadOnlyList<ContentItemReactionSummary> actualSummaries =
+                await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    contentItemIds,
+                    TestContext.Current.CancellationToken);
+
+            // then: answered, with no counts, and its group not handed to the count
+            actualSummaries.Should().BeEquivalentTo(
+                expectedSummaries,
+                options => options.WithStrictOrdering());
+
+            this.associationServiceMock.Verify(service =>
+                service.RetrieveContentItemReactionCountsAsync(
+                    It.Is(SameIdsAs(new List<Guid> { showingHost.GroupId })),
+                    It.Is(SameIdsAs(new List<Guid> { love.Id })),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+        }
+
         // A caller who is not signed in.
         private static SecurityContext CreateAnonymousSecurityContext() =>
             new SecurityContext { IsAuthenticated = false };
