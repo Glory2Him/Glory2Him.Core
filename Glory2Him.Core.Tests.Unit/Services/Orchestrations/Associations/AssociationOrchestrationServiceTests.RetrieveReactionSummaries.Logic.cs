@@ -1079,6 +1079,221 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 options => options.WithStrictOrdering());
         }
 
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task ShouldAskForTheCallersReactionsOnceForEveryAnsweredHostAsync(
+            bool identityCarriesAUserId)
+        {
+            // given: a signed-in caller — one whose identity carries no user id is still signed
+            // in, and is asked for so the read can log the misconfiguration (AssociationService.md
+            // §4 rule 2) — and several answered items, one of which hides reactions, beside an id
+            // the public groups read does not answer
+            string readerUserId = identityCarriesAUserId ? GetRandomString() : null;
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+            PublicContentItemGroup showingHost = CreatePublicContentItemGroup();
+            PublicContentItemGroup hidingHost = CreatePublicContentItemGroup();
+            Guid notVisibleContentItemId = Guid.NewGuid();
+            Reaction love = CreatePublicReaction(name: "Love");
+
+            var contentItemIds = new List<Guid>
+            {
+                showingHost.ContentItemId,
+                notVisibleContentItemId,
+                hidingHost.ContentItemId,
+            };
+
+            var answeredContentItemGroupIds = new List<Guid>
+            {
+                showingHost.GroupId,
+                hidingHost.GroupId,
+            };
+
+            SetupPublicContentItemGroups(contentItemIds, showingHost, hidingHost);
+            SetupPublicReactions(love);
+
+            SetupWinningSettings(
+                hosts: [showingHost, hidingHost],
+                CreateWinningSetting(showingHost, showReactions: true),
+                CreateWinningSetting(hidingHost, showReactions: false));
+
+            SetupReactionCounts(
+                contentItemGroupIds: [showingHost.GroupId],
+                reactionIds: [love.Id]);
+
+            SetupCallerReactions(answeredContentItemGroupIds);
+
+            // when
+            await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                contentItemIds,
+                TestContext.Current.CancellationToken);
+
+            // then: one round trip over every answered host's group, counted or not
+            this.associationServiceMock.Verify(service =>
+                service.RetrieveCallerContentItemReactionsAsync(
+                    It.Is(SameIdsAs(answeredContentItemGroupIds)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+        }
+
+        [Fact]
+        public async Task ShouldAnswerNoViewerReactionOnAnItemTheCallerHasNotReactedToAsync()
+        {
+            // given: a signed-in reader who holds Love on one answered item and nothing on another
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId: GetRandomString());
+            PublicContentItemGroup reactedHost = CreatePublicContentItemGroup();
+            PublicContentItemGroup unreactedHost = CreatePublicContentItemGroup();
+            Reaction love = CreatePublicReaction(name: "Love");
+
+            var contentItemIds = new List<Guid>
+            {
+                reactedHost.ContentItemId,
+                unreactedHost.ContentItemId,
+            };
+
+            SetupPublicContentItemGroups(contentItemIds, reactedHost, unreactedHost);
+            SetupPublicReactions(love);
+
+            SetupWinningSettings(
+                hosts: [reactedHost, unreactedHost],
+                CreateWinningSetting(reactedHost, showReactions: true),
+                CreateWinningSetting(unreactedHost, showReactions: true));
+
+            SetupReactionCounts(
+                contentItemGroupIds: [reactedHost.GroupId, unreactedHost.GroupId],
+                reactionIds: [love.Id],
+                CreatePairCount(reactedHost, love, count: 1),
+                CreatePairCount(unreactedHost, love, count: 3));
+
+            SetupCallerReactions(
+                contentItemGroupIds: [reactedHost.GroupId, unreactedHost.GroupId],
+                CreatePairKey(reactedHost, love));
+
+            var expectedSummaries = new List<ContentItemReactionSummary>
+            {
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = reactedHost.ContentItemId,
+                    Reactions = new List<ContentItemReactionCount> { CreateReactionCount(love, count: 1) },
+                    ViewerReactionId = love.Id,
+                    ViewerReactionName = love.Name,
+                },
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = unreactedHost.ContentItemId,
+                    Reactions = new List<ContentItemReactionCount> { CreateReactionCount(love, count: 3) },
+                    ViewerReactionId = null,
+                    ViewerReactionName = null,
+                },
+            };
+
+            // when
+            IReadOnlyList<ContentItemReactionSummary> actualSummaries =
+                await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    contentItemIds,
+                    TestContext.Current.CancellationToken);
+
+            // then: the second item's viewer members are null, though others gave it Love
+            actualSummaries.Should().BeEquivalentTo(
+                expectedSummaries,
+                options => options.WithStrictOrdering());
+        }
+
+        [Fact]
+        public async Task ShouldNameTheCallersOwnReactionOnAnItemThatHidesReactionsAsync()
+        {
+            // given: a signed-in reader who holds Love on an item whose winning setting hides
+            // reactions
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId: GetRandomString());
+            PublicContentItemGroup hidingHost = CreatePublicContentItemGroup();
+            Reaction love = CreatePublicReaction(name: "Love");
+            var contentItemIds = new List<Guid> { hidingHost.ContentItemId };
+
+            SetupPublicContentItemGroups(contentItemIds, hidingHost);
+            SetupPublicReactions(love);
+
+            SetupWinningSettings(
+                hosts: [hidingHost],
+                CreateWinningSetting(hidingHost, showReactions: false));
+
+            SetupReactionCounts(
+                contentItemGroupIds: [],
+                reactionIds: [love.Id]);
+
+            SetupCallerReactions(
+                contentItemGroupIds: [hidingHost.GroupId],
+                CreatePairKey(hidingHost, love));
+
+            var expectedSummaries = new List<ContentItemReactionSummary>
+            {
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = hidingHost.ContentItemId,
+                    Reactions = new List<ContentItemReactionCount>(),
+                    ViewerReactionId = love.Id,
+                    ViewerReactionName = love.Name,
+                },
+            };
+
+            // when
+            IReadOnlyList<ContentItemReactionSummary> actualSummaries =
+                await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    contentItemIds,
+                    TestContext.Current.CancellationToken);
+
+            // then: no counts, and the reader's own reaction still named
+            actualSummaries.Should().BeEquivalentTo(
+                expectedSummaries,
+                options => options.WithStrictOrdering());
+        }
+
+        [Fact]
+        public async Task ShouldNameTheCallersOwnReactionUnderTheSuppliedIdAsync()
+        {
+            // given: a signed-in reader who holds Love on an item supplied by an id that is not its
+            // group id. Their row is keyed on the group.
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId: GetRandomString());
+            PublicContentItemGroup host = CreatePublicContentItemGroup();
+            Reaction joy = CreatePublicReaction(name: "Joy");
+            Reaction love = CreatePublicReaction(name: "Love");
+            var contentItemIds = new List<Guid> { host.ContentItemId };
+
+            SetupPublicContentItemGroups(contentItemIds, host);
+            SetupPublicReactions(joy, love);
+            SetupWinningSettings(hosts: [host], CreateWinningSetting(host, showReactions: true));
+
+            SetupReactionCounts(
+                contentItemGroupIds: [host.GroupId],
+                reactionIds: [joy.Id, love.Id],
+                CreatePairCount(host, love, count: 1));
+
+            SetupCallerReactions(
+                contentItemGroupIds: [host.GroupId],
+                CreatePairKey(host, love));
+
+            var expectedSummaries = new List<ContentItemReactionSummary>
+            {
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = host.ContentItemId,
+                    Reactions = new List<ContentItemReactionCount> { CreateReactionCount(love, count: 1) },
+                    ViewerReactionId = love.Id,
+                    ViewerReactionName = love.Name,
+                },
+            };
+
+            // when
+            IReadOnlyList<ContentItemReactionSummary> actualSummaries =
+                await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    contentItemIds,
+                    TestContext.Current.CancellationToken);
+
+            // then: the group's row, mapped back onto the id it was supplied by
+            actualSummaries.Should().BeEquivalentTo(
+                expectedSummaries,
+                options => options.WithStrictOrdering());
+        }
+
         // A caller who is not signed in.
         private static SecurityContext CreateAnonymousSecurityContext() =>
             new SecurityContext { IsAuthenticated = false };
