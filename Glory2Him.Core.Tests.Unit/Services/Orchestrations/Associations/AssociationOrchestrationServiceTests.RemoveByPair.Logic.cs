@@ -121,6 +121,59 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldAnswerNothingToRemoveWhenTheReaderHoldsNoReactionAsync()
+        {
+            // given: the reader holds no reaction on the item, so the lookup finds no row
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+
+            Association removalRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            Association expectedLookupPair = SetupReadersWithdrawal(removalRequest, readerUserId);
+
+            this.associationServiceMock.Setup(service =>
+                service.FindPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedLookupPair)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync((PersonalAssociationMatch)null);
+
+            var expectedResult = new AssociationRemovalResult
+            {
+                Status = AssociationRemovalStatus.NothingToRemove,
+                AssociationId = null,
+            };
+
+            // when
+            AssociationRemovalResult actualResult =
+                await this.associationOrchestrationService.RemoveAssociationByPairAsync(
+                    removalRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then: nothing is removed, and no id is answered
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedLookupPair)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // A signed-in reader's withdrawal: the envelope and both endpoint reads. Hands back the
+        // pair the lookup is to be handed.
+        private Association SetupReadersWithdrawal(Association removalRequest, string readerUserId)
+        {
+            SetupInboundEnvelopeFor(removalRequest);
+            ContentItem resolvedContentItem = SetupMethodPathEndpointReads(removalRequest);
+
+            return CreateResolvedPairFrom(removalRequest, resolvedContentItem, readerUserId);
+        }
+
         // The reaction a withdrawal request names: the key of its Reaction endpoint, on whichever
         // side the request puts it.
         private static Guid GetNamedReactionId(Association removalRequest) =>
