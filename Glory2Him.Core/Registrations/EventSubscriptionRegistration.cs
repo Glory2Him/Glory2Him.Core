@@ -2250,8 +2250,10 @@ namespace Glory2Him.Core.Registrations
                     Name = EventBrokerIdentifiers
                         .ApprovalOrchestrationOnAssociationSubmittedSubscriptionName,
 
-                    Description = "Moves the association's approval to Submitted when the submit " +
-                        "verb moves the association, then evaluates the round."
+                    Description = "Hears an association reaching Submitted and runs the Modified " +
+                        "flow for it. Association has no submit verb, so today the fact comes " +
+                        "only from the workflow's own approval commands, which carry the system " +
+                        "identity and are dropped."
                 },
                 operation: AssociationEventOperation.Submitted,
                 associationEventHandler:
