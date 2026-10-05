@@ -449,5 +449,74 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnUpsertIfThePersonalUpsertAnswersAnUndeclaredOutcomeAndLogItAsync()
+        {
+            // given: the foundation answers an outcome this service declares no status for, as a
+            // member added to PersonalAssociationUpsertOutcome without an arm here would be. A
+            // silent default would answer it with a status nobody decided, so it fails loudly
+            // instead, as EntityTypePersonalisation refuses an undeclared member (§DOM4.10 rule 4).
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+
+            Association upsertRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            SetupMethodPathEndpointReads(upsertRequest);
+            var undeclaredOutcome = (PersonalAssociationUpsertOutcome)int.MaxValue;
+
+            this.associationServiceMock.Setup(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new PersonalAssociationUpsert
+                        {
+                            Outcome = undeclaredOutcome,
+                            Association = new Association { Id = Guid.NewGuid() },
+                        });
+
+            var notSupportedException =
+                new NotSupportedException(
+                    message: $"Personal association upsert outcome '{undeclaredOutcome}' " +
+                        "has no declared suggestion status.");
+
+            var failedAssociationOrchestrationServiceException =
+                new FailedAssociationOrchestrationServiceException(
+                    message: "Failed content item association orchestration service error occurred, " +
+                        "please contact support.",
+                    innerException: notSupportedException,
+                    data: notSupportedException.Data);
+
+            var expectedServiceException =
+                new AssociationOrchestrationServiceException(
+                    message: "Content item association orchestration service error occurred, contact support.",
+                    innerException: failedAssociationOrchestrationServiceException);
+
+            // when
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationServiceException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationServiceException>(upsertTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedServiceException);
+
+            this.associationServiceMock.Verify(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedServiceException))),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
