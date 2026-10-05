@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 using Glory2Him.Core.Services.Orchestrations.Associations;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESTFulSense.Controllers;
 
@@ -28,6 +29,8 @@ namespace Glory2Him.WebApp.Controllers.Associations
         public AssociationsController(IAssociationOrchestrationService associationOrchestrationService) =>
             this.associationOrchestrationService = associationOrchestrationService;
 
+        [HttpPost]
+        [Authorize]
         public async ValueTask<ActionResult<AssociationSuggestionResult>> PostAssociationAsync(
             [FromBody] Association association,
             CancellationToken cancellationToken)
