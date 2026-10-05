@@ -12,6 +12,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Glory2Him.Core.Services.Orchestrations.Associations;
@@ -65,6 +66,13 @@ namespace Glory2Him.WebApp.Controllers.Associations
                 associationOrchestrationValidationException)
             {
                 return BadRequest(associationOrchestrationValidationException.InnerException);
+            }
+            catch (AssociationOrchestrationDependencyValidationException
+                associationOrchestrationDependencyValidationException)
+                when (associationOrchestrationDependencyValidationException.InnerException
+                    is AlreadyExistsAssociationException)
+            {
+                return Conflict(associationOrchestrationDependencyValidationException.InnerException);
             }
         }
     }
