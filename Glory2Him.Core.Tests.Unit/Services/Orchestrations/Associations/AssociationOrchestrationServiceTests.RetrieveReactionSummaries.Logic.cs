@@ -251,6 +251,42 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 Times.Once);
         }
 
+        [Fact]
+        public async Task ShouldCountOnlyThePublicVocabularyAsync()
+        {
+            // given: the item also carries counts on a reaction outside the public vocabulary —
+            // one withdrawn from it since readers gave it — which the vocabulary read leaves out
+            this.ambientSecurityContext = CreateAnonymousSecurityContext();
+            PublicContentItemGroup host = CreatePublicContentItemGroup();
+            Reaction love = CreatePublicReaction(name: "Love");
+            Reaction joy = CreatePublicReaction(name: "Joy");
+            var contentItemIds = new List<Guid> { host.ContentItemId };
+
+            SetupPublicContentItemGroups(contentItemIds, host);
+            SetupPublicReactions(love, joy);
+            SetupWinningSettings(hosts: [host], CreateWinningSetting(host, showReactions: true));
+
+            SetupReactionCounts(
+                contentItemGroupIds: [host.GroupId],
+                reactionIds: [love.Id, joy.Id],
+                CreatePairCount(host, love, count: 4));
+
+            // when
+            await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                contentItemIds,
+                TestContext.Current.CancellationToken);
+
+            // then: the count is handed the vocabulary's ids and no other
+            this.associationServiceMock.Verify(service =>
+                service.RetrieveContentItemReactionCountsAsync(
+                    It.Is(SameIdsAs(new List<Guid> { host.GroupId })),
+                    It.Is(SameIdsAs(new List<Guid> { love.Id, joy.Id })),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+        }
+
         // A caller who is not signed in.
         private static SecurityContext CreateAnonymousSecurityContext() =>
             new SecurityContext { IsAuthenticated = false };
