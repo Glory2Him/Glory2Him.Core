@@ -9,8 +9,10 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations;
@@ -38,7 +40,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     association,
                     cancellationToken);
 
-            if (readersRow is null)
+            if (readersRow is null
+                || readersRow.EntityBKeyId != GetNamedReactionId(association))
             {
                 return new AssociationRemovalResult
                 {
@@ -59,5 +62,14 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 AssociationId = withdrawnAssociation.Id,
             };
         }
+
+        // THE REACTION THE CALLER NAMED, on whichever endpoint the request carries it: the
+        // upsert's caller shape names a reaction on either (§ARC16.8.1). Which endpoint holds it
+        // is the personalisation lookup's answer, never a test of this service's own (§DOM4.10
+        // rule 4).
+        private static Guid GetNamedReactionId(Association association) =>
+            EntityTypePersonalisation.IsPersonal(association.EntityAType)
+                ? association.EntityAKeyId
+                : association.EntityBKeyId;
     }
 }
