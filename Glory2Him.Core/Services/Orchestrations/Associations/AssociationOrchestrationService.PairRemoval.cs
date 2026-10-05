@@ -32,6 +32,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     await this.eventEnvelopeBroker.CreateAsync(content: association);
 
                 ValidateUserMayRemoveAssociationByPair(envelope.SecurityContext);
+                ValidateOnAddAssociation(association);
                 ValidatePairIsPersonal(association);
 
                 await ResolvePairEndpointsAsync(
