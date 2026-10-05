@@ -2147,8 +2147,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // The return and the dismissal are deltas, so they carry the redelivery check
             // §EVN20 rule 4 requires: no old-pair review stands and no round decided before the
             // change is left decided, so there is nothing to take back (§APR9.7.4). Berean's
-            // return to pending rides with the dismissal, and its pass on the new reaction must
-            // survive the redelivery like the reviewer's review.
+            // return to pending rides with the return and the dismissal, and its pass on the new
+            // reaction must survive the redelivery like the reviewer's review.
             var entityId = Guid.NewGuid();
             var approvalId = Guid.NewGuid();
             DateTimeOffset changedWhen = RepointedChangeTime;
