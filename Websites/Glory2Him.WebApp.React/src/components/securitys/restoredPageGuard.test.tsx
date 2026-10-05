@@ -1,5 +1,6 @@
+import { ReactElement } from 'react';
 import { onlineManager } from '@tanstack/react-query';
-import { act, render } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CurrentUser } from '../../models/accounts/currentUser';
 import { RestoredPageGuard } from './restoredPageGuard';
@@ -62,21 +63,77 @@ const settle = async (): Promise<void> => {
     });
 };
 
-const isHidden = (): boolean => {
-    const rootStyle = document.documentElement.style;
-
-    return rootStyle.visibility === 'hidden'
-        && rootStyle.getPropertyValue('opacity') === '0'
-        && rootStyle.getPropertyPriority('opacity') === 'important'
-        && document.body.hasAttribute('inert');
+// The tests load no stylesheet, so parts that set `visibility: visible !important` on themselves
+// stand for the theme's `.offcanvas.show`: one inside the app's container, and one appended to
+// `document.body` outside it, as react-bootstrap's `Modal` renders. Hidden is judged by outcome on
+// both: not drawn, not exposed to assistive technology, and out of reach of pointer and keyboard.
+const showItself = (element: HTMLElement | null): void => {
+    element?.style.setProperty('visibility', 'visible', 'important');
 };
 
-const isShown = (): boolean => {
-    const rootStyle = document.documentElement.style;
+// The part that sets no `visibility` of its own sees a `visibility: hidden` left on `<html>`,
+// which the parts that show themselves cannot.
+const Page = (): ReactElement => (
+    <>
+        <RestoredPageGuard />
+        <div data-testid="part-inside-the-app" ref={showItself} />
+        <div data-testid="part-with-no-visibility" />
+    </>
+);
 
-    return rootStyle.visibility === ''
-        && rootStyle.getPropertyValue('opacity') === ''
-        && !document.body.hasAttribute('inert');
+let partOutsideTheApp: HTMLElement;
+
+const appendPartOutsideTheApp = (): void => {
+    partOutsideTheApp = document.createElement('div');
+    showItself(partOutsideTheApp);
+    document.body.appendChild(partOutsideTheApp);
+};
+
+const partsThatShowThemselves = (): Array<HTMLElement> =>
+    [screen.getByTestId('part-inside-the-app'), partOutsideTheApp];
+
+const selfAndAncestorsOf = (element: Element): Array<Element> => {
+    const elements: Array<Element> = [];
+
+    for (let current: Element | null = element; current !== null; current = current.parentElement) {
+        elements.push(current);
+    }
+
+    return elements;
+};
+
+const isUnderDisplayNone = (part: Element): boolean =>
+    selfAndAncestorsOf(part).some(element => getComputedStyle(element).display === 'none');
+
+const isUnderInert = (part: Element): boolean =>
+    selfAndAncestorsOf(part).some(element =>
+        element.hasAttribute('inert') || (element as HTMLElement).inert === true);
+
+const isNotDrawn = (part: Element): boolean =>
+    getComputedStyle(part).visibility !== 'visible'
+    || isUnderDisplayNone(part)
+    || selfAndAncestorsOf(part).some(element => getComputedStyle(element).opacity === '0');
+
+const isNotExposed = (part: Element): boolean =>
+    isUnderDisplayNone(part)
+    || isUnderInert(part)
+    || selfAndAncestorsOf(part).some(element => element.getAttribute('aria-hidden') === 'true');
+
+const isOutOfReach = (part: Element): boolean =>
+    isUnderDisplayNone(part) || isUnderInert(part);
+
+const isHidden = (): boolean =>
+    partsThatShowThemselves().every(part =>
+        isNotDrawn(part) && isNotExposed(part) && isOutOfReach(part));
+
+const isShown = (): boolean => {
+    const visibilityOfAPartWithNone =
+        getComputedStyle(screen.getByTestId('part-with-no-visibility')).visibility;
+
+    return partsThatShowThemselves().every(part =>
+        !isNotDrawn(part) && !isNotExposed(part) && !isOutOfReach(part))
+        && visibilityOfAPartWithNone !== 'hidden'
+        && visibilityOfAPartWithNone !== 'collapse';
 };
 
 describe('RestoredPageGuard', () => {
@@ -87,21 +144,27 @@ describe('RestoredPageGuard', () => {
         mocks.refetch.mockReset();
         reload = vi.fn();
         vi.spyOn(window.location, 'reload').mockImplementation(reload);
+        appendPartOutsideTheApp();
     });
 
     afterEach(() => {
         vi.restoreAllMocks();
         onlineManager.setOnline(true);
-        document.documentElement.style.removeProperty('visibility');
-        document.documentElement.style.removeProperty('opacity');
-        document.body.removeAttribute('inert');
+        partOutsideTheApp.remove();
+
+        // A page left hidden must not leak into the next test, whatever the guard hid it by.
+        for (const element of [document.documentElement, document.body]) {
+            element.removeAttribute('style');
+            element.removeAttribute('inert');
+            element.removeAttribute('aria-hidden');
+        }
     });
 
     it('should resume a restored page for the same signed-in reader', async () => {
         // given
-        const { rerender } = render(<RestoredPageGuard />);
+        const { rerender } = render(<Page />);
         mocks.currentUser = readerA;
-        rerender(<RestoredPageGuard />);
+        rerender(<Page />);
         dispatchPageTransition('pagehide', true);
         answerFreshRead(freshCopyOf(readerA));
 
@@ -118,7 +181,7 @@ describe('RestoredPageGuard', () => {
     it('should hide a restored page and read the current user again before deciding', async () => {
         // given
         mocks.currentUser = readerA;
-        render(<RestoredPageGuard />);
+        render(<Page />);
         dispatchPageTransition('pagehide', true);
         mocks.refetch.mockReturnValue(new Promise(() => { }));
 
@@ -130,54 +193,13 @@ describe('RestoredPageGuard', () => {
         expect(mocks.refetch).toHaveBeenCalledTimes(1);
     });
 
-    // A stylesheet can show an element inside a hidden root (`visibility: visible`, even with
-    // `!important`), but nothing inside the root escapes the root's opacity.
-    it('should hide everything on a restored page until it resumes, even what its stylesheet shows', async () => {
-        // given
-        mocks.currentUser = readerA;
-        render(<RestoredPageGuard />);
-        dispatchPageTransition('pagehide', true);
-        answerFreshRead(freshCopyOf(readerA));
-        const rootStyle = document.documentElement.style;
-
-        // when
-        dispatchPageTransition('pageshow', true);
-        const opacityAtRestore = rootStyle.getPropertyValue('opacity');
-        const opacityPriorityAtRestore = rootStyle.getPropertyPriority('opacity');
-        await settle();
-
-        // then
-        expect(opacityAtRestore).toBe('0');
-        expect(opacityPriorityAtRestore).toBe('important');
-        expect(rootStyle.getPropertyValue('opacity')).toBe('');
-    });
-
-    // An element a stylesheet shows inside the hidden root stays in the accessibility tree and
-    // takes clicks; nothing inside an inert body does.
-    it('should keep a restored page out of reach until it resumes', async () => {
-        // given
-        mocks.currentUser = readerA;
-        render(<RestoredPageGuard />);
-        dispatchPageTransition('pagehide', true);
-        answerFreshRead(freshCopyOf(readerA));
-
-        // when
-        dispatchPageTransition('pageshow', true);
-        const inertAtRestore = document.body.hasAttribute('inert');
-        await settle();
-
-        // then
-        expect(inertAtRestore).toBe(true);
-        expect(document.body.hasAttribute('inert')).toBe(false);
-    });
-
     it('should compare with the reader noted when the page was cached', async () => {
         // given
         mocks.currentUser = readerA;
-        const { rerender } = render(<RestoredPageGuard />);
+        const { rerender } = render(<Page />);
         dispatchPageTransition('pagehide', true);
         mocks.currentUser = readerB;
-        rerender(<RestoredPageGuard />);
+        rerender(<Page />);
         answerFreshRead(readerB);
 
         // when
@@ -192,7 +214,7 @@ describe('RestoredPageGuard', () => {
     it('should reload a restored page when another reader is signed in', async () => {
         // given
         mocks.currentUser = readerA;
-        render(<RestoredPageGuard />);
+        render(<Page />);
         dispatchPageTransition('pagehide', true);
         answerFreshRead(readerB);
 
@@ -208,7 +230,7 @@ describe('RestoredPageGuard', () => {
     it('should reload a restored page when its reader has signed out', async () => {
         // given
         mocks.currentUser = readerA;
-        render(<RestoredPageGuard />);
+        render(<Page />);
         dispatchPageTransition('pagehide', true);
         answerFreshRead(nobody);
 
@@ -224,7 +246,7 @@ describe('RestoredPageGuard', () => {
     it('should reload a restored page when nobody was signed in either time', async () => {
         // given
         mocks.currentUser = nobody;
-        render(<RestoredPageGuard />);
+        render(<Page />);
         dispatchPageTransition('pagehide', true);
         answerFreshRead(nobody);
 
@@ -240,7 +262,7 @@ describe('RestoredPageGuard', () => {
     it('should reload a restored page whose reader was never read', async () => {
         // given
         mocks.currentUser = undefined;
-        render(<RestoredPageGuard />);
+        render(<Page />);
         dispatchPageTransition('pagehide', true);
         answerFreshRead(readerB);
 
@@ -256,7 +278,7 @@ describe('RestoredPageGuard', () => {
     it('should reload a restored page when a reader has signed in since it was cached', async () => {
         // given
         mocks.currentUser = nobody;
-        render(<RestoredPageGuard />);
+        render(<Page />);
         dispatchPageTransition('pagehide', true);
         answerFreshRead(readerB);
 
@@ -272,7 +294,7 @@ describe('RestoredPageGuard', () => {
     it('should leave an ordinary page load alone', async () => {
         // given
         mocks.currentUser = readerA;
-        render(<RestoredPageGuard />);
+        render(<Page />);
         answerFreshRead(freshCopyOf(readerA));
 
         // when
@@ -290,7 +312,7 @@ describe('RestoredPageGuard', () => {
     it('should reload a restored page when the current user cannot be read', async () => {
         // given
         mocks.currentUser = readerA;
-        render(<RestoredPageGuard />);
+        render(<Page />);
         dispatchPageTransition('pagehide', true);
 
         // React Query keeps the last answer beside the error of a failed read.
@@ -312,7 +334,7 @@ describe('RestoredPageGuard', () => {
     it('should reload a restored page at once while the app is offline', async () => {
         // given
         mocks.currentUser = readerA;
-        render(<RestoredPageGuard />);
+        render(<Page />);
         dispatchPageTransition('pagehide', true);
         onlineManager.setOnline(false);
 
@@ -338,7 +360,7 @@ describe('RestoredPageGuard', () => {
         });
 
         mocks.currentUser = readerA;
-        render(<RestoredPageGuard />);
+        render(<Page />);
         dispatchPageTransition('pagehide', true);
         answerFreshRead(anotherReaderNamedAsA);
 
