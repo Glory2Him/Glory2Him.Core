@@ -38,9 +38,18 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     association,
                     cancellationToken);
 
+            if (readersRow is null)
+            {
+                return new AssociationRemovalResult
+                {
+                    Status = AssociationRemovalStatus.NothingToRemove,
+                    AssociationId = null,
+                };
+            }
+
             Association withdrawnAssociation =
                 await this.associationService.RemoveAssociationByIdAsync(
-                    readersRow!.Id,
+                    readersRow.Id,
                     deletionReason: null,
                     cancellationToken);
 
