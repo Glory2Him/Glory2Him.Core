@@ -412,4 +412,6 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
     `Websites/Glory2Him.WebApp.Tests.Unit/Infrastructure/CoreRegistrationTests.cs` line 87. Each
     sends a reader to a closed issue. Where that work now has a holder, it is recorded in items 21
     and 22, in `UI/Components/ContentItemListPanel.md §10 item 15`, or, for the reaction
-    summaries, in #730 (§ARC16.8).
+    summaries, in #730 (§ARC16.8). Saving a reader's reaction — giving, changing or withdrawing
+    it — is #739's (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2`), whose writes go
+    through #728's upsert and #729's withdrawal by pair.
