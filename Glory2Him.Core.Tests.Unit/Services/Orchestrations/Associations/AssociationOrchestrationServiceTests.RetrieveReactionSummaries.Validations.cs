@@ -181,6 +181,48 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetrieveReactionSummariesIfAnIdIsEmptyAndLogItAsync()
+        {
+            // given: a list holding Guid.Empty among valid ids
+            List<Guid> contentItemIds = CreateDistinctContentItemIds(count: 3);
+            contentItemIds.Insert(index: 1, Guid.Empty);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationOrchestrationException.UpsertDataList(
+                key: "contentItemIds",
+                value: "Every id is required");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<IReadOnlyList<ContentItemReactionSummary>> retrieveTask =
+                this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    contentItemIds,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    retrieveTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+            VerifyNothingIsReadForTheSummaries();
+        }
+
         private static List<Guid> CreateDistinctContentItemIds(int count) =>
             Enumerable.Range(start: 0, count)
                 .Select(_ => Guid.NewGuid())
