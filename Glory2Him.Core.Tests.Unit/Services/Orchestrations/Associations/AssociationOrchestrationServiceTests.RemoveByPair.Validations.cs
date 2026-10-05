@@ -10,13 +10,17 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
+using Glory2Him.Core.Models.Foundations.Reactions.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Moq;
+using Xeptions;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 {
@@ -182,6 +186,74 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     message: "Content item association orchestration validation error occurred, " +
                         "fix the errors and try again.",
                     innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<AssociationRemovalResult> removeTask =
+                this.associationOrchestrationService.RemoveAssociationByPairAsync(
+                    removalRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(removeTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [InlineData("A")]
+        [InlineData("B")]
+        public async Task ShouldThrowValidationExceptionOnRemoveByPairIfAnEndpointIsNotFoundAndLogItAsync(
+            string missingEndpointName)
+        {
+            // given: an endpoint's own service reports a row that does not exist, or that the
+            // caller may not see, as its validation failure. The resolution the withdrawal shares
+            // with the upsert turns that into a not-found endpoint, named by its side, and never
+            // re-surfaces the endpoint's own exception type; no row is looked up.
+            this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString());
+
+            Association removalRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            SetupMethodPathEndpointReads(removalRequest);
+
+            if (missingEndpointName == "A")
+            {
+                this.contentItemServiceMock.Setup(service =>
+                    service.RetrieveContentItemByIdAsync(
+                        removalRequest.EntityAKeyId,
+                        It.IsAny<CancellationToken>()))
+                            .ThrowsAsync(new ContentItemValidationException(
+                                message: "Content item validation error occurred, fix the errors and try again.",
+                                innerException: new Xeption(message: "Content item not found.")));
+            }
+            else
+            {
+                this.reactionServiceMock.Setup(service =>
+                    service.RetrieveReactionByIdAsync(
+                        removalRequest.EntityBKeyId,
+                        It.IsAny<CancellationToken>()))
+                            .ThrowsAsync(new ReactionValidationException(
+                                message: "Reaction validation error occurred, fix the errors and try again.",
+                                innerException: new Xeption(message: "Reaction not found.")));
+            }
+
+            var notFoundAssociationOrchestrationException =
+                new NotFoundAssociationOrchestrationException(
+                    message: $"The {missingEndpointName} endpoint was not found.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: notFoundAssociationOrchestrationException);
 
             // when
             ValueTask<AssociationRemovalResult> removeTask =
