@@ -41,6 +41,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     cancellationToken);
 
             if (readersRow is null
+                || readersRow.IsDeleted
                 || readersRow.EntityBKeyId != GetNamedReactionId(association))
             {
                 return new AssociationRemovalResult
