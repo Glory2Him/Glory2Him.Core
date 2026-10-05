@@ -22,6 +22,19 @@ using RESTFulSense.Controllers;
 
 namespace Glory2Him.WebApp.Controllers.Associations
 {
+    /// <summary>
+    /// The association exposure point (§ARC12.6 row 14). It binds
+    /// <see cref="IAssociationOrchestrationService"/> alone (§EVN13 rule 3), holds no logic, and
+    /// maps the orchestration's exception families onto status codes. Its routes are added by the
+    /// work that needs them rather than all at once: today it serves only the upsert.
+    ///
+    /// <para><b>The upsert answers <c>201</c> only when a row was created, and <c>200</c>
+    /// otherwise</b>, with the result rather than the row as the body. Both depart from
+    /// <c>the-standard-exposers</c> ts-exposers-003, and
+    /// <c>Documentation/DesignFeatures/Backend/Controllers/AssociationsController.md</c>,
+    /// <i>Deviations</i>, records why: five of the six outcomes create nothing, and the row
+    /// would leak its author (§ARC16.8.1).</para>
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class AssociationsController : RESTFulController
