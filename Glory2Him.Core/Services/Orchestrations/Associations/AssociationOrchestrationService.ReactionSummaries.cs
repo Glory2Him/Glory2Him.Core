@@ -11,17 +11,68 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Foundations.Reactions;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 
 namespace Glory2Him.Core.Services.Orchestrations.Associations
 {
     internal partial class AssociationOrchestrationService
     {
-        public ValueTask<IReadOnlyList<ContentItemReactionSummary>> RetrieveContentItemReactionSummariesAsync(
+        public async ValueTask<IReadOnlyList<ContentItemReactionSummary>> RetrieveContentItemReactionSummariesAsync(
             IReadOnlyList<Guid> contentItemIds,
-            CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            CancellationToken cancellationToken = default)
+        {
+            IReadOnlyList<PublicContentItemGroup> hosts =
+                await this.contentItemService.RetrievePublicContentItemGroupsAsync(
+                    contentItemIds,
+                    cancellationToken);
+
+            IReadOnlyList<Reaction> vocabulary =
+                await this.reactionService.RetrievePublicReactionsAsync(cancellationToken);
+
+            IReadOnlyList<AssociationPairCount> pairCounts =
+                await this.associationService.RetrieveContentItemReactionCountsAsync(
+                    hosts.Select(host => host.GroupId).ToList(),
+                    vocabulary.Select(reaction => reaction.Id).ToList(),
+                    cancellationToken);
+
+            return hosts
+                .Select(host => new ContentItemReactionSummary
+                {
+                    ContentItemId = host.ContentItemId,
+                    Reactions = CountReactionsGivenTo(host, vocabulary, pairCounts),
+                })
+                .ToList();
+        }
+
+        // The host's counts in the vocabulary's order, the order the vocabulary read answers in,
+        // whatever order the counts arrive in: it is walked rather than sorted.
+        private static List<ContentItemReactionCount> CountReactionsGivenTo(
+            PublicContentItemGroup host,
+            IReadOnlyList<Reaction> vocabulary,
+            IReadOnlyList<AssociationPairCount> pairCounts) =>
+            vocabulary
+                .Select(reaction => new
+                {
+                    Reaction = reaction,
+
+                    PairCount = pairCounts.FirstOrDefault(pairCount =>
+                        pairCount.EntityAEffectiveId == host.GroupId
+                            && pairCount.EntityBKeyId == reaction.Id),
+                })
+                .Where(reactionCount => reactionCount.PairCount is not null)
+                .Select(reactionCount => new ContentItemReactionCount
+                {
+                    ReactionId = reactionCount.Reaction.Id,
+                    Name = reactionCount.Reaction.Name,
+                    UnicodeEmoji = reactionCount.Reaction.UnicodeEmoji,
+                    Count = reactionCount.PairCount!.Count,
+                })
+                .ToList();
     }
 }
