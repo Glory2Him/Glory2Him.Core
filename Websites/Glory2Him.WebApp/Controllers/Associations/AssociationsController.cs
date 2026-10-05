@@ -35,7 +35,9 @@ namespace Glory2Him.WebApp.Controllers.Associations
                     association,
                     cancellationToken);
 
-            return Created(associationSuggestionResult);
+            return associationSuggestionResult.Status is AssociationSuggestionStatus.Created
+                ? Created(associationSuggestionResult)
+                : Ok(associationSuggestionResult);
         }
     }
 }
