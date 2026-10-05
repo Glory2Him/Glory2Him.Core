@@ -15,10 +15,12 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Orchestrations.Associations;
+using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 
@@ -487,6 +489,67 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 Times.Once);
 
             this.accessBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // An anonymous caller in both shapes: no security context at all, and one that is not
+        // signed in.
+        public static TheoryData<SecurityContext> UnauthenticatedWithdrawals() =>
+            new TheoryData<SecurityContext>
+            {
+                null,
+                new SecurityContext { IsAuthenticated = false, Roles = Array.Empty<string>() },
+            };
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedWithdrawals))]
+        public async Task ShouldThrowValidationExceptionOnRemoveByPairIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext unauthenticatedSecurityContext)
+        {
+            // given: an anonymous caller owns no reaction to withdraw, so it is refused before
+            // anything is read
+            this.ambientSecurityContext = unauthenticatedSecurityContext;
+
+            Association removalRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            SetupInboundEnvelopeFor(removalRequest);
+
+            var unauthorizedAssociationOrchestrationException =
+                new UnauthorizedAssociationOrchestrationException(
+                    message: "The current user is not authenticated.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: unauthorizedAssociationOrchestrationException);
+
+            // when
+            ValueTask<AssociationRemovalResult> removeTask =
+                this.associationOrchestrationService.RemoveAssociationByPairAsync(
+                    removalRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(removeTask.AsTask);
+
+            // then: refused before any endpoint or row is read
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(removalRequest),
+                    Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.reactionServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
