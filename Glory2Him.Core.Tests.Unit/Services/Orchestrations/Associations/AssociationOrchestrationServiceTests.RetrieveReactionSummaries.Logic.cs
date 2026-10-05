@@ -414,6 +414,54 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 Times.Never);
         }
 
+        [Fact]
+        public async Task ShouldAnswerNoViewerReactionForAReactionOutsideTheVocabularyAsync()
+        {
+            // given: a signed-in reader whose own row names a reaction withdrawn from the
+            // vocabulary since they gave it. The card offers only the vocabulary, so it could not
+            // mark that reaction anyway (AssociationOrchestrationService.md, Deviations 2).
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId: GetRandomString());
+            PublicContentItemGroup host = CreatePublicContentItemGroup();
+            Reaction love = CreatePublicReaction(name: "Love");
+            Reaction withdrawnReaction = CreatePublicReaction(name: "Withdrawn");
+            var contentItemIds = new List<Guid> { host.ContentItemId };
+
+            SetupPublicContentItemGroups(contentItemIds, host);
+            SetupPublicReactions(love);
+            SetupWinningSettings(hosts: [host], CreateWinningSetting(host, showReactions: true));
+
+            SetupReactionCounts(
+                contentItemGroupIds: [host.GroupId],
+                reactionIds: [love.Id],
+                CreatePairCount(host, love, count: 2));
+
+            SetupCallerReactions(
+                contentItemGroupIds: [host.GroupId],
+                CreatePairKey(host, withdrawnReaction));
+
+            var expectedSummaries = new List<ContentItemReactionSummary>
+            {
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = host.ContentItemId,
+                    Reactions = new List<ContentItemReactionCount> { CreateReactionCount(love, count: 2) },
+                    ViewerReactionId = null,
+                    ViewerReactionName = null,
+                },
+            };
+
+            // when
+            IReadOnlyList<ContentItemReactionSummary> actualSummaries =
+                await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    contentItemIds,
+                    TestContext.Current.CancellationToken);
+
+            // then: both viewer members null, not the id alone
+            actualSummaries.Should().BeEquivalentTo(
+                expectedSummaries,
+                options => options.WithStrictOrdering());
+        }
+
         // A caller who is not signed in.
         private static SecurityContext CreateAnonymousSecurityContext() =>
             new SecurityContext { IsAuthenticated = false };
