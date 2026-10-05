@@ -330,7 +330,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 message: "Content item association is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItemIds), Parameter: nameof(contentItemIds)),
                 (Rule: IsEmpty(contentItemIds), Parameter: nameof(contentItemIds)),
-                (Rule: IsOverTheSummaryBound(contentItemIds), Parameter: nameof(contentItemIds)));
+                (Rule: IsOverTheSummaryBound(contentItemIds), Parameter: nameof(contentItemIds)),
+                (Rule: HoldsAnEmptyId(contentItemIds), Parameter: nameof(contentItemIds)));
 
         private static dynamic IsInvalid(IReadOnlyList<Guid> ids) => new
         {
@@ -351,6 +352,12 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         {
             Condition = ids is not null && ids.Distinct().Count() > MaxContentItemReactionSummaryIds,
             Message = $"List must hold no more than {MaxContentItemReactionSummaryIds} distinct ids"
+        };
+
+        private static dynamic HoldsAnEmptyId(IReadOnlyList<Guid> ids) => new
+        {
+            Condition = ids is not null && ids.Contains(Guid.Empty),
+            Message = "Every id is required"
         };
 
         private static dynamic IsInvalid(Guid id) => new
