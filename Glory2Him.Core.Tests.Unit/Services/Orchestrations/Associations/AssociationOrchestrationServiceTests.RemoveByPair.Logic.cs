@@ -10,13 +10,16 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Orchestrations.Associations;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
@@ -402,6 +405,88 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 Times.Once);
 
             this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldWithdrawWithoutAskingTheItemsSettingAsync()
+        {
+            // given: the item's setting no longer allows reactions. The facet gate judges what may
+            // be given, and withdrawing is never gated (§ARC16.2.1), so a reader can always take
+            // back a reaction they gave before the setting changed.
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+
+            Association removalRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            SetupInboundEnvelopeFor(removalRequest);
+            ContentItem resolvedContentItem = SetupMethodPathEndpointReads(removalRequest);
+
+            Association expectedLookupPair =
+                CreateResolvedPairFrom(removalRequest, resolvedContentItem, readerUserId);
+
+            ContentItemSetting refusingSetting =
+                CreateAllowingContentItemSetting(resolvedContentItem.ContentType);
+
+            refusingSetting.ReactionsAllowed = false;
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(CreateSettingKeysFor(resolvedContentItem))),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new List<EffectiveContentItemSetting>
+                        {
+                            new EffectiveContentItemSetting
+                            {
+                                ContentItemId = resolvedContentItem.Id,
+                                ContentItemSetting = refusingSetting,
+                            },
+                        });
+
+            var readersRow = new PersonalAssociationMatch
+            {
+                Id = Guid.NewGuid(),
+                EntityBKeyId = removalRequest.EntityBKeyId,
+                IsDeleted = false,
+            };
+
+            this.associationServiceMock.Setup(service =>
+                service.FindPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedLookupPair)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(readersRow);
+
+            this.associationServiceMock.Setup(service =>
+                service.RemoveAssociationByIdAsync(
+                    readersRow.Id,
+                    null,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new Association { Id = readersRow.Id, IsDeleted = true });
+
+            var expectedResult = new AssociationRemovalResult
+            {
+                Status = AssociationRemovalStatus.Removed,
+                AssociationId = readersRow.Id,
+            };
+
+            // when
+            AssociationRemovalResult actualResult =
+                await this.associationOrchestrationService.RemoveAssociationByPairAsync(
+                    removalRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then: withdrawn, and the setting is never asked
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.associationServiceMock.Verify(service =>
+                service.RemoveAssociationByIdAsync(
+                    readersRow.Id,
+                    null,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.accessBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
