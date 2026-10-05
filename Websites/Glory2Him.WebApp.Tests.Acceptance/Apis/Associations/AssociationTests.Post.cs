@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -185,6 +186,22 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 this.apiBroker.ActAsSeededAdministrator();
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedSeries.Id);
             }
+        }
+
+        [Fact]
+        public async Task ShouldReturnNotFoundOnPostIfTheItemDoesNotExistAsync()
+        {
+            // given
+            Guid nonExistentContentItemId = Guid.NewGuid();
+            Association inputPair = CreateReactionPair(nonExistentContentItemId, seededAmenReactionId);
+            this.apiBroker.ActAsContributor();
+
+            // when
+            HttpResponseMessage actualResponse =
+                await this.apiBroker.PostAssociationAsync(inputPair);
+
+            // then
+            actualResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
         }
     }
 }
