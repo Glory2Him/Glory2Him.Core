@@ -262,9 +262,9 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
 5. (needs issue) **Page gap — `/myposts/{id}`: suggesting a tag or a Bible reference sends
    nothing.** The page answers each panel's `onAdd` with a "coming soon" toast and reads no
    associations, so both lists are always empty (`myPostDetail.tsx` — `suggestTag`,
-   `suggestBibleReference`, `associationCollection={[]}`). The server work is not yet built: the association HTTP exposer (§ARC17.4), with the association
-   read `GET /api/associations` and the suggestion `POST /api/associations`
-   (`UI/Components/AssociationPanel.md §7`). The page's half is to read the item's associations, project
+   `suggestBibleReference`, `associationCollection={[]}`). The server work is partly built: of the association HTTP exposer (§ARC17.4), the suggestion
+   `POST /api/associations` is served (#728) and the association read `GET /api/associations` is
+   not (`UI/Components/AssociationPanel.md §7`). The page's half is to read the item's associations, project
    them to the panels, and send each suggestion with the viewer as its owner
    (`UI/Components/AssociationPanel.md §7`, the note on `asSuggestedAssociation`).
 6. (needs issue) **Page gap — `/myposts/{id}`: the tag and Bible reference facet switches are not
