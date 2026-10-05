@@ -9,9 +9,9 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 
@@ -19,9 +19,36 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 {
     internal partial class AssociationOrchestrationService
     {
-        public ValueTask<AssociationRemovalResult> RemoveAssociationByPairAsync(
+        public async ValueTask<AssociationRemovalResult> RemoveAssociationByPairAsync(
             Association association,
-            CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            CancellationToken cancellationToken = default)
+        {
+            EventEnvelope<Association> envelope =
+                await this.eventEnvelopeBroker.CreateAsync(content: association);
+
+            await ResolvePairEndpointsAsync(
+                association: association,
+                readEnvelope: null,
+                cancellationToken: cancellationToken);
+
+            association.UserId = envelope.SecurityContext.SubjectId;
+
+            PersonalAssociationMatch? readersRow =
+                await this.associationService.FindPersonalAssociationAsync(
+                    association,
+                    cancellationToken);
+
+            Association withdrawnAssociation =
+                await this.associationService.RemoveAssociationByIdAsync(
+                    readersRow!.Id,
+                    deletionReason: null,
+                    cancellationToken);
+
+            return new AssociationRemovalResult
+            {
+                Status = AssociationRemovalStatus.Removed,
+                AssociationId = withdrawnAssociation.Id,
+            };
+        }
     }
 }
