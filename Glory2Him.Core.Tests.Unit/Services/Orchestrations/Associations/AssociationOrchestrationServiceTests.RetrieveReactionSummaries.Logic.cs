@@ -78,6 +78,100 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 options => options.WithStrictOrdering());
         }
 
+        [Fact]
+        public async Task ShouldAnswerAnItemNobodyReactedToWithNoReactionsAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAnonymousSecurityContext();
+            PublicContentItemGroup host = CreatePublicContentItemGroup();
+            Reaction love = CreatePublicReaction(name: "Love");
+            Reaction joy = CreatePublicReaction(name: "Joy");
+            var contentItemIds = new List<Guid> { host.ContentItemId };
+
+            SetupPublicContentItemGroups(contentItemIds, host);
+            SetupPublicReactions(love, joy);
+            SetupWinningSettings(hosts: [host], CreateWinningSetting(host, showReactions: true));
+
+            SetupReactionCounts(
+                contentItemGroupIds: [host.GroupId],
+                reactionIds: [love.Id, joy.Id]);
+
+            var expectedSummaries = new List<ContentItemReactionSummary>
+            {
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = host.ContentItemId,
+                    Reactions = new List<ContentItemReactionCount>(),
+                    ViewerReactionId = null,
+                    ViewerReactionName = null,
+                },
+            };
+
+            // when
+            IReadOnlyList<ContentItemReactionSummary> actualSummaries =
+                await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    contentItemIds,
+                    TestContext.Current.CancellationToken);
+
+            // then: answered, with no reaction entered at zero
+            actualSummaries.Should().BeEquivalentTo(
+                expectedSummaries,
+                options => options.WithStrictOrdering());
+        }
+
+        [Fact]
+        public async Task ShouldLeaveOutAnIdThatIsNotPubliclyVisibleAsync()
+        {
+            // given: two ids the public groups read does not answer — one naming an item nobody
+            // may see and one naming nothing look the same from here — beside one it does
+            this.ambientSecurityContext = CreateAnonymousSecurityContext();
+            PublicContentItemGroup visibleHost = CreatePublicContentItemGroup();
+            Guid notVisibleContentItemId = Guid.NewGuid();
+            Guid nonexistentContentItemId = Guid.NewGuid();
+            Reaction love = CreatePublicReaction(name: "Love");
+
+            var contentItemIds = new List<Guid>
+            {
+                notVisibleContentItemId,
+                visibleHost.ContentItemId,
+                nonexistentContentItemId,
+            };
+
+            SetupPublicContentItemGroups(contentItemIds, visibleHost);
+            SetupPublicReactions(love);
+
+            SetupWinningSettings(
+                hosts: [visibleHost],
+                CreateWinningSetting(visibleHost, showReactions: true));
+
+            SetupReactionCounts(
+                contentItemGroupIds: [visibleHost.GroupId],
+                reactionIds: [love.Id],
+                CreatePairCount(visibleHost, love, count: 2));
+
+            var expectedSummaries = new List<ContentItemReactionSummary>
+            {
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = visibleHost.ContentItemId,
+                    Reactions = new List<ContentItemReactionCount> { CreateReactionCount(love, count: 2) },
+                    ViewerReactionId = null,
+                    ViewerReactionName = null,
+                },
+            };
+
+            // when
+            IReadOnlyList<ContentItemReactionSummary> actualSummaries =
+                await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    contentItemIds,
+                    TestContext.Current.CancellationToken);
+
+            // then: absent — not an empty summary, and not a refusal (§SEC14.5 rule 4)
+            actualSummaries.Should().BeEquivalentTo(
+                expectedSummaries,
+                options => options.WithStrictOrdering());
+        }
+
         // A caller who is not signed in.
         private static SecurityContext CreateAnonymousSecurityContext() =>
             new SecurityContext { IsAuthenticated = false };
