@@ -282,7 +282,7 @@ The paging behind `hasMore` is the consumer's. *(code: services/foundations/cont
 - **Validation:** none. The panel writes nothing.
 - **Confirmation:** none.
 - **Freshness:** the consumer owns it. A reaction choice is persisted by the consumer, which hands back a refreshed collection; the panel holds no optimistic state. When `criteria` changes — a pill click, the back button, a shared link — the bar reseeds from it. *(code: contentItemTemplate.ts — `onReactionSelected`; `UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md rule 2.3`)*
-- **Criteria no read acts on:** the tag and bible-reference criteria commit and reach the URL, but no page's read narrows on them until associations have an HTTP exposer (`UI/Components/AssociationPanel.md §10 item 21`). *(code: contentItemSearchItem.ts — `tags` comment; code: services/foundations/contentItemService.ts — `useSearchContentItems`)*
+- **Criteria no read acts on:** the tag and bible-reference criteria commit and reach the URL, but no page's read narrows on them (section 10, item 15). *(code: contentItemSearchItem.ts — `tags` comment; code: services/foundations/contentItemService.ts — `useSearchContentItems`)*
 
 ## 9. Styling and Accessibility
 
@@ -358,3 +358,18 @@ The paging behind `hasMore` is the consumer's. *(code: services/foundations/cont
     offers Share wherever the switch is on and `onShareClick` is wired, and asks nothing of the
     item's status (`contentItemDefaultPanel.tsx` — `showsShare`, line 147). A page rendering
     `ContentItemPanel` itself can set the switch card by card; through this panel it cannot.
+15. (needs issue) **No list narrows by tag or Bible reference.** The bar commits both criteria,
+    each with its Any/All match mode, and the page keeps them in its URL, but no page's read acts
+    on them: `useSearchContentItems` hands the broker the query, type, author, shareability,
+    submitter and statuses, and none of the tags, the Bible references or their match modes
+    (`services/foundations/contentItemService.ts`, lines 105-116 at dbefe8aa). A list narrowed by
+    either shows what it showed before. Every page rule and gap that says a tag or a Bible
+    reference narrows a list cites this item for the narrowing (`UI/Pages/Posts.md rule 2.12` and
+    §6 item 7, `UI/Pages/Home.md rules 2.4 and 2.13` and §6 items 7 and 15,
+    `UI/Pages/MyPosts.md rule 2.14`, `UI/Pages/ContentItemModerationPage.md rule 2.13`,
+    `UI/Pages/BibleReference.md rule 2.17` and §6 item 6), and how a read narrows by either is
+    not designed.
+    The narrowing waits on reading associations over HTTP
+    (`UI/Components/AssociationPanel.md §10 item 21`), and is not part of that read's design: the
+    user ruled on 2026-10-05 that #857 plans only the read (#857, Open question 1: *"only the
+    read"*).

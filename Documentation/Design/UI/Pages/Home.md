@@ -27,7 +27,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.3 [Must]** Both reads are caller-independent: a privileged visitor sees the rows an anonymous one sees, so no role change anywhere can put a draft on the front page. Unreviewed content is never shown on a public page. *(code: home.tsx — header comment; user, 2026-09-27)*
 
-**2.4 [Should]** A tag or a Bible reference alone keeps the feed read, because no read narrows on either until associations are exposed over HTTP (§ARC17.4, not yet built). *(test: contentItemFeedPages.test.tsx — "should stay on the feed when the reader supplied only %s")*
+**2.4 [Should]** A tag or a Bible reference alone keeps the feed read, because no read narrows on either (`UI/Components/ContentItemListPanel.md §10 item 15`), and none can until associations are exposed over HTTP (§ARC17.4, not yet built). *(test: contentItemFeedPages.test.tsx — "should stay on the feed when the reader supplied only %s")*
 
 **2.5 [Must]** The committed criteria live in the URL, so a shared link and the back button land with the results showing. The header's *Search* leads to `/posts`, not to this page (§UI20.7 rule 4). *(code: home.tsx — header comment, `search`; user, 2026-09-27)* ≠ item 12
 
@@ -45,7 +45,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.12 [Must]** A Bible reference click leads to a page showing the passage, `/BibleReferences/{reference}`, addressed as that route parses it (`UI/Pages/BibleReference.md`). A reference that cannot be read as a passage is rule 2.25. *(user, 2026-09-27; code: contentItemFeedNavigation.ts — `onBibleReferenceClick`; code: toUsfmReference.ts — `bibleReferenceHref`)* ≠ `UI/Components/ContentItemListPanel.md §10 item 8`
 
-**2.13 [Must]** A click on a card's tag, type chip, *Submitted by* or *Author* raises its hook, and the page opens the journal's search, `/posts`, handed the value: its search bar shows the value in the matching box — Tags, Category, Submitted by or Author, each one of the bar's advanced boxes — with the advanced section expanded (`UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md rule 2.23`). A tag narrows the list there once associations are exposed over HTTP (§ARC17.4, not yet built). *(user, 2026-09-27; `UI/Components/ContentItemListPanel.md rules 2.8–2.12 and 2.24`)* ≠ item 9
+**2.13 [Must]** A click on a card's tag, type chip, *Submitted by* or *Author* raises its hook, and the page opens the journal's search, `/posts`, handed the value: its search bar shows the value in the matching box — Tags, Category, Submitted by or Author, each one of the bar's advanced boxes — with the advanced section expanded (`UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md rule 2.23`). A tag narrows the list there only once associations are exposed over HTTP (§ARC17.4, not yet built) and a read narrows on it (`UI/Components/ContentItemListPanel.md §10 item 15`, not yet designed). *(user, 2026-09-27; `UI/Components/ContentItemListPanel.md rules 2.8–2.12 and 2.24`)* ≠ item 9
 
 **2.14 [Must]** The comments control leads to the item's comments on its detail view, `/posts/{id}#comments`. *(code: contentItemFeedNavigation.ts — `onCommentsClick`)* ≠ item 6
 
@@ -337,7 +337,9 @@ write a card leads to is decided again by the service (§SEC14.6).
    card's tag, content type, *Submitted by* or *Author* raises its hook, and the page opens
    `/posts` handed the value, its search bar showing it in the matching box with the advanced
    section expanded where the box is an advanced one; on `/posts` itself the page applies the
-   value to its own list the same way. Tags narrow the list once associations are exposed over HTTP (§ARC17.4, not yet built). Rule 2.13 says so
+   value to its own list the same way. Tags narrow the list only once associations are exposed
+   over HTTP (§ARC17.4, not yet built) and a read narrows on them
+   (`UI/Components/ContentItemListPanel.md §10 item 15`, not yet designed). Rule 2.13 says so
    here; the pages' halves are item 9 and the items it names. In the admin section the same
    clicks open the queue, `/Admin/Posts`, handed the value, as the user ruled the same day
    (`UI/Pages/ContentItemModerationPage.md rule 2.13`).
@@ -471,7 +473,8 @@ write a card leads to is decided again by the service (§SEC14.6).
     `/SamplePages` (`src/components/layouts/footer.tsx`, lines 95-102; §UI20.5.1, its item 2).
     §UI20.7 rule 4 (user rulings 2026-09-27) sends each to `/posts` with its word as a tag, in the
     search bar's Tags box with the advanced section expanded (`UI/Pages/Posts.md rule 2.22`). A tag
-    narrows nothing until associations are exposed over HTTP (§ARC17.4, not yet built;
+    narrows nothing until associations are exposed over HTTP (§ARC17.4, not yet built) and a read
+    narrows on it (`UI/Components/ContentItemListPanel.md §10 item 15`, not yet designed;
     `UI/Pages/Posts.md rule 2.12`), so until then a topic link shows the whole journal, its tag in
     the Tags box. The links are to move before `/Categories` does, or with it: once §UI20.5.1 item 2
     has moved `/Categories` under `/SamplePages`, a link still pointing there reaches the Not Found
