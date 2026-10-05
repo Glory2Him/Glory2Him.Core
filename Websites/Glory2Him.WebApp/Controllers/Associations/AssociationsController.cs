@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations;
+using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Glory2Him.Core.Services.Orchestrations.Associations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -35,14 +36,22 @@ namespace Glory2Him.WebApp.Controllers.Associations
             [FromBody] Association association,
             CancellationToken cancellationToken)
         {
-            AssociationSuggestionResult associationSuggestionResult =
-                await this.associationOrchestrationService.UpsertAssociationAsync(
-                    association,
-                    cancellationToken);
+            try
+            {
+                AssociationSuggestionResult associationSuggestionResult =
+                    await this.associationOrchestrationService.UpsertAssociationAsync(
+                        association,
+                        cancellationToken);
 
-            return associationSuggestionResult.Status is AssociationSuggestionStatus.Created
-                ? Created(associationSuggestionResult)
-                : Ok(associationSuggestionResult);
+                return associationSuggestionResult.Status is AssociationSuggestionStatus.Created
+                    ? Created(associationSuggestionResult)
+                    : Ok(associationSuggestionResult);
+            }
+            catch (AssociationOrchestrationValidationException
+                associationOrchestrationValidationException)
+            {
+                return BadRequest(associationOrchestrationValidationException.InnerException);
+            }
         }
     }
 }
