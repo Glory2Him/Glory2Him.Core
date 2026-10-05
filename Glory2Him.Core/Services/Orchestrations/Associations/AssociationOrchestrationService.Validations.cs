@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
@@ -318,6 +319,20 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             Validate(
                 message: "Content item association is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(associationId), Parameter: nameof(Association.Id)));
+
+        // THE SUMMARY'S OWN VALIDATION (AssociationOrchestrationService.md §4 rule 1), asked before
+        // any read.
+        private static void ValidateOnRetrieveContentItemReactionSummaries(
+            IReadOnlyList<Guid> contentItemIds) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentItemIds), Parameter: nameof(contentItemIds)));
+
+        private static dynamic IsInvalid(IReadOnlyList<Guid> ids) => new
+        {
+            Condition = ids is null,
+            Message = "List is required"
+        };
 
         private static dynamic IsInvalid(Guid id) => new
         {

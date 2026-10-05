@@ -25,57 +25,60 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 {
     internal partial class AssociationOrchestrationService
     {
-        public async ValueTask<IReadOnlyList<ContentItemReactionSummary>> RetrieveContentItemReactionSummariesAsync(
+        public ValueTask<IReadOnlyList<ContentItemReactionSummary>> RetrieveContentItemReactionSummariesAsync(
             IReadOnlyList<Guid> contentItemIds,
-            CancellationToken cancellationToken = default)
-        {
-            // duplicates are answered once, not refused (§ARC16.8, The set, its bounds)
-            IReadOnlyList<PublicContentItemGroup> hosts =
-                await this.contentItemService.RetrievePublicContentItemGroupsAsync(
-                    contentItemIds.Distinct().ToList(),
-                    cancellationToken);
+            CancellationToken cancellationToken = default) =>
+            TryCatch<IReadOnlyList<ContentItemReactionSummary>>(async () =>
+            {
+                ValidateOnRetrieveContentItemReactionSummaries(contentItemIds);
 
-            IReadOnlyList<Reaction> vocabulary =
-                await this.reactionService.RetrievePublicReactionsAsync(cancellationToken);
+                // duplicates are answered once, not refused (§ARC16.8, The set, its bounds)
+                IReadOnlyList<PublicContentItemGroup> hosts =
+                    await this.contentItemService.RetrievePublicContentItemGroupsAsync(
+                        contentItemIds.Distinct().ToList(),
+                        cancellationToken);
 
-            IReadOnlyList<EffectiveContentItemSetting> winningSettings =
-                await this.accessBroker.RetrieveEffectiveContentItemSettingsAsync(
-                    hosts.Select(CreateSettingKeyFor).ToList(),
-                    cancellationToken);
+                IReadOnlyList<Reaction> vocabulary =
+                    await this.reactionService.RetrievePublicReactionsAsync(cancellationToken);
 
-            List<PublicContentItemGroup> countedHosts = hosts
-                .Where(host => IsShowingReactions(winningSettings, host))
-                .ToList();
+                IReadOnlyList<EffectiveContentItemSetting> winningSettings =
+                    await this.accessBroker.RetrieveEffectiveContentItemSettingsAsync(
+                        hosts.Select(CreateSettingKeyFor).ToList(),
+                        cancellationToken);
 
-            IReadOnlyList<AssociationPairCount> pairCounts =
-                await this.associationService.RetrieveContentItemReactionCountsAsync(
-                    countedHosts.Select(host => host.GroupId).ToList(),
-                    vocabulary.Select(reaction => reaction.Id).ToList(),
-                    cancellationToken);
+                List<PublicContentItemGroup> countedHosts = hosts
+                    .Where(host => IsShowingReactions(winningSettings, host))
+                    .ToList();
 
-            IReadOnlyList<AssociationPairKey> callerReactions =
-                await RetrieveCallerReactionsOnAsync(hosts, cancellationToken);
+                IReadOnlyList<AssociationPairCount> pairCounts =
+                    await this.associationService.RetrieveContentItemReactionCountsAsync(
+                        countedHosts.Select(host => host.GroupId).ToList(),
+                        vocabulary.Select(reaction => reaction.Id).ToList(),
+                        cancellationToken);
 
-            return hosts
-                .Select(host =>
-                {
-                    Reaction? viewerReaction =
-                        FindViewerReactionOn(callerReactions, vocabulary, host);
+                IReadOnlyList<AssociationPairKey> callerReactions =
+                    await RetrieveCallerReactionsOnAsync(hosts, cancellationToken);
 
-                    return new ContentItemReactionSummary
+                return hosts
+                    .Select(host =>
                     {
-                        ContentItemId = host.ContentItemId,
+                        Reaction? viewerReaction =
+                            FindViewerReactionOn(callerReactions, vocabulary, host);
 
-                        Reactions = countedHosts.Contains(host)
-                            ? CountReactionsGivenTo(host, vocabulary, pairCounts)
-                            : new List<ContentItemReactionCount>(),
+                        return new ContentItemReactionSummary
+                        {
+                            ContentItemId = host.ContentItemId,
 
-                        ViewerReactionId = viewerReaction?.Id,
-                        ViewerReactionName = viewerReaction?.Name,
-                    };
-                })
-                .ToList();
-        }
+                            Reactions = countedHosts.Contains(host)
+                                ? CountReactionsGivenTo(host, vocabulary, pairCounts)
+                                : new List<ContentItemReactionCount>(),
+
+                            ViewerReactionId = viewerReaction?.Id,
+                            ViewerReactionName = viewerReaction?.Name,
+                        };
+                    })
+                    .ToList();
+            });
 
         // The caller's own reactions, over every answered host's group whether it is counted or
         // not, and asked only for a signed-in caller (AssociationOrchestrationService.md §4 rule
