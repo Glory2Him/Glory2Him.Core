@@ -414,4 +414,8 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
     and 22, in `UI/Components/ContentItemListPanel.md §10 item 15`, or, for the reaction
     summaries, in #730 (§ARC16.8). Saving a reader's reaction — giving, changing or withdrawing
     it — is #739's (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2`), whose writes go
-    through #728's upsert and #729's withdrawal by pair.
+    through #728's upsert and #729's withdrawal by pair. Rewriting four of these lines is #738's:
+    under its *Constraints* it rewrites `useContentItemEngagement.ts`'s header comment, lines
+    14-21, which holds lines 18 and 20, and `toContentItemSearchItem.ts`'s comment at lines 71-83,
+    which holds lines 77 and 80. The task carved from this item leaves those four lines to #738,
+    and takes up any of them that still names #318 once #738 has merged.
