@@ -345,15 +345,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 ValidateUserIsNotBlockedFromEndpoints(inboundEnvelope.SecurityContext, association);
             }
 
-            // UserId is derived, never the caller's to set (§DOM4.10 rules 1 and 2): the caller's
-            // own, from the envelope, on a personal pair, and null on an editorial one, whatever
-            // the request carried. It routes the row to one of the two unique indexes and selects
-            // its approval tier (§DOM4.10 rule 3), so a value the caller chose would file the row
-            // under a constraint that never sees it — and on an editorial pair would evade the
-            // canonical-pair probe, laundering an insert past a moderator's takedown.
-            association.UserId = isPersonal
-                ? inboundEnvelope.SecurityContext.SubjectId
-                : null;
+            // UserId routes the row to one of the two unique indexes and selects its approval tier
+            // (§DOM4.10 rule 3), so a value the caller chose would file the row under a constraint
+            // that never sees it — and on an editorial pair would evade the canonical-pair probe,
+            // laundering an insert past a moderator's takedown.
+            association.UserId = DeriveUserId(inboundEnvelope.SecurityContext, isPersonal);
 
             // THE FACET GATE (§ARC16.2.1), last in the flow: after both endpoints resolve and the
             // UserId is derived, and before the method path's pair probe and the event path's
@@ -413,6 +409,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 
             return (resolvedEntityA, resolvedEntityB);
         }
+
+        // THE UserId DERIVATION. UserId is derived, never the caller's to set (§DOM4.10 rules 1
+        // and 2): the caller's own, from the envelope, on a personal pair, and null on an
+        // editorial one, whatever the request carried. Written once, for the add's write flow and
+        // for the pair-keyed withdrawal (§ARC16.8, "UserId from the envelope"), so the withdrawal's
+        // lookup always keys on the id the add wrote.
+        private static string? DeriveUserId(SecurityContext securityContext, bool isPersonal) =>
+            isPersonal
+                ? securityContext.SubjectId
+                : null;
 
         // THE FLOW'S PERSONALITY, asked of the RAW endpoint types at its top, because its first
         // step needs it before anything is read (AssociationOrchestrationService.md §1 rule 1). A

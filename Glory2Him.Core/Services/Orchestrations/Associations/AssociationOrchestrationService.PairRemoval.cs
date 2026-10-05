@@ -49,10 +49,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     readEnvelope: null,
                     cancellationToken: cancellationToken);
 
-                // UserId is derived, never the caller's to set (§DOM4.10 rules 1 and 2): whatever
-                // the request carried is overwritten with the caller's own, so the lookup below
-                // can only ever find the caller's row
-                association.UserId = envelope.SecurityContext.SubjectId;
+                // the add's own derivation, on a pair the refusal above has shown to be personal:
+                // whatever the request carried is overwritten with the caller's own id, so the
+                // lookup below can only ever find the caller's row
+                association.UserId = DeriveUserId(envelope.SecurityContext, isPersonal: true);
 
                 PersonalAssociationMatch? readersRow =
                     await this.associationService.FindPersonalAssociationAsync(
