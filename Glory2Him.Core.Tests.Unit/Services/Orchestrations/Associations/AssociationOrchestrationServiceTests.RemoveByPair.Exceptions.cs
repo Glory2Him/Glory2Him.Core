@@ -232,6 +232,57 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnRemoveByPairIfOperationCanceledOccursWithoutRequestAndLogItAsync()
+        {
+            // given: the lookup is cancelled although the caller's token was not, which is a
+            // dependency timeout rather than a caller cancellation
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+
+            Association removalRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            SetupFailingWithdrawal(
+                removalRequest,
+                readerUserId,
+                failingCall: "lookup",
+                foundationException: new OperationCanceledException());
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutAssociationOrchestrationException =
+                new TimeoutAssociationOrchestrationException(
+                    message: "Failed content item association orchestration timeout error occurred, " +
+                        "contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedDependencyException =
+                new AssociationOrchestrationDependencyException(
+                    message: "Content item association orchestration dependency error occurred, contact support.",
+                    innerException: timeoutAssociationOrchestrationException);
+
+            // when
+            ValueTask<AssociationRemovalResult> removeTask =
+                this.associationOrchestrationService.RemoveAssociationByPairAsync(
+                    removalRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationDependencyException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationDependencyException>(removeTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyException))),
+                Times.Once);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A reader's withdrawal whose lookup, or whose soft delete of the live row the lookup
         // finds, throws the given exception.
         private void SetupFailingWithdrawal(
