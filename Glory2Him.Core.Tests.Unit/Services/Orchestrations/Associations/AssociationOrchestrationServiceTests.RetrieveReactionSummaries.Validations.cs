@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Foundations.Reactions;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Moq;
@@ -143,6 +144,41 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             this.loggingBrokerMock.VerifyNoOtherCalls();
             VerifyNothingIsReadForTheSummaries();
+        }
+
+        [Fact]
+        public async Task ShouldNotThrowValidationExceptionOnRetrieveReactionSummariesIfTwentyFiveDistinctIdsCarryDuplicatesAsync()
+        {
+            // given: 25 distinct ids, three of them supplied twice, so the list holds 28 entries
+            this.ambientSecurityContext = CreateAnonymousSecurityContext();
+            List<Guid> distinctContentItemIds = CreateDistinctContentItemIds(count: 25);
+            Reaction love = CreatePublicReaction(name: "Love");
+
+            List<Guid> contentItemIds = distinctContentItemIds
+                .Concat(distinctContentItemIds.Take(3))
+                .ToList();
+
+            SetupPublicContentItemGroups(distinctContentItemIds);
+            SetupPublicReactions(love);
+            SetupWinningSettings(hosts: []);
+            SetupReactionCounts(contentItemGroupIds: [], reactionIds: [love.Id]);
+
+            // when
+            IReadOnlyList<ContentItemReactionSummary> actualSummaries =
+                await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    contentItemIds,
+                    TestContext.Current.CancellationToken);
+
+            // then: the bound counts distinct ids, and the 25 are handed to the public groups read
+            actualSummaries.Should().BeEmpty();
+
+            this.contentItemServiceMock.Verify(service =>
+                service.RetrievePublicContentItemGroupsAsync(
+                    It.Is(SameIdsAs(distinctContentItemIds)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
         private static List<Guid> CreateDistinctContentItemIds(int count) =>
