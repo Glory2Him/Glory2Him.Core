@@ -158,7 +158,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 
         // The foundation's outcome becomes the result's status (AssociationOrchestrationService.md
         // §1 rule 5), and an unchanged row answers by its status, as the editorial arm answers an
-        // occupant.
+        // occupant. Every outcome is declared, and one that is not is a hard error rather than a
+        // default, as EntityTypePersonalisation refuses an undeclared member (§DOM4.10 rule 4): a
+        // default would answer an outcome added to the foundation with a status nobody decided.
         private static AssociationSuggestionStatus ToSuggestionStatus(
             PersonalAssociationUpsert personalAssociationUpsert) =>
             personalAssociationUpsert.Outcome switch
@@ -171,9 +173,14 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     when personalAssociationUpsert.Association.ApprovalStatus == ApprovalStatus.Approved =>
                         AssociationSuggestionStatus.AlreadyApproved,
 
-                // an unchanged row at any other status, and a takedown, which tells the reader
-                // nothing about why (§DOM4.10 rule 7)
-                _ => AssociationSuggestionStatus.AlreadyPending,
+                PersonalAssociationUpsertOutcome.Unchanged => AssociationSuggestionStatus.AlreadyPending,
+
+                // a takedown tells the reader nothing about why (§DOM4.10 rule 7)
+                PersonalAssociationUpsertOutcome.TakenDown => AssociationSuggestionStatus.AlreadyPending,
+
+                _ => throw new NotSupportedException(
+                    $"Personal association upsert outcome '{personalAssociationUpsert.Outcome}' " +
+                    "has no declared suggestion status."),
             };
 
         // THE EDITORIAL ARM: the add as it was, unchanged (§ARC16.8.1) — the two probes, the
