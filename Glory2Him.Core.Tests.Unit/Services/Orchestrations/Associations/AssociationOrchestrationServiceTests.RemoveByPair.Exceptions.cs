@@ -154,6 +154,35 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnRemoveByPairIfCancellationRequestedAsync()
+        {
+            // given: a genuine caller cancellation propagates as it is, never masked as a timeout
+            // or wrapped in an orchestration exception, and nothing is read
+            this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString());
+
+            Association removalRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            await cancellationTokenSource.CancelAsync();
+
+            // when
+            ValueTask<AssociationRemovalResult> removeTask =
+                this.associationOrchestrationService.RemoveAssociationByPairAsync(
+                    removalRequest,
+                    cancellationTokenSource.Token);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(removeTask.AsTask);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.reactionServiceMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A reader's withdrawal whose lookup, or whose soft delete of the live row the lookup
         // finds, throws the given exception.
         private void SetupFailingWithdrawal(
