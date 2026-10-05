@@ -90,7 +90,7 @@ export default function HeaderComponent(): ReactElement {
                                             slightly higher than the sibling <a> links). The actual nav-link
                                             styling lives on the inner span instead, which renders with the
                                             exact same box as "About"/"Contact"/"Admin". */}
-                                        <button type="button" onClick={() => logout.mutate()}
+                                        <button type="button" onClick={() => logout.mutate(undefined, { onSuccess: () => location.replace("/") })}
                                             className="p-0 border-0 bg-transparent">
                                             <span className="nav-link d-flex align-items-center">
                                                 <i className="bi bi-box-arrow-right me-1"></i>Logout
