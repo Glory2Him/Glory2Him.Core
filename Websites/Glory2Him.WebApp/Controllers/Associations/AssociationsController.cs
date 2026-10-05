@@ -74,6 +74,11 @@ namespace Glory2Him.WebApp.Controllers.Associations
             {
                 return Conflict(associationOrchestrationDependencyValidationException.InnerException);
             }
+            catch (AssociationOrchestrationDependencyValidationException
+                associationOrchestrationDependencyValidationException)
+            {
+                return BadRequest(associationOrchestrationDependencyValidationException.InnerException);
+            }
         }
     }
 }
