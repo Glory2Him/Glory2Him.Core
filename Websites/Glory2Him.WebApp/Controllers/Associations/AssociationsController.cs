@@ -19,6 +19,8 @@ using RESTFulSense.Controllers;
 
 namespace Glory2Him.WebApp.Controllers.Associations
 {
+    [ApiController]
+    [Route("api/[controller]")]
     public class AssociationsController : RESTFulController
     {
         private readonly IAssociationOrchestrationService associationOrchestrationService;
