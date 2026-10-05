@@ -62,6 +62,47 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             VerifyNothingIsReadForTheSummaries();
         }
 
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetrieveReactionSummariesIfThereAreNoIdsAndLogItAsync()
+        {
+            // given
+            IReadOnlyList<Guid> noContentItemIds = new List<Guid>();
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationOrchestrationException.UpsertDataList(
+                key: "contentItemIds",
+                value: "List must hold at least one id");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<IReadOnlyList<ContentItemReactionSummary>> retrieveTask =
+                this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    noContentItemIds,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    retrieveTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+            VerifyNothingIsReadForTheSummaries();
+        }
+
         // Refused before any read: no host, no vocabulary, no setting, no count, no caller's
         // reaction, and no envelope minted.
         private void VerifyNothingIsReadForTheSummaries()
