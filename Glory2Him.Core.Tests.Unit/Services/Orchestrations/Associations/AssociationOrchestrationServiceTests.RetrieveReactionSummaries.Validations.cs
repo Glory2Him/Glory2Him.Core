@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Orchestrations.Associations;
@@ -102,6 +103,52 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
             VerifyNothingIsReadForTheSummaries();
         }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetrieveReactionSummariesIfThereAreMoreThan25IdsAndLogItAsync()
+        {
+            // given
+            IReadOnlyList<Guid> tooManyContentItemIds = CreateDistinctContentItemIds(count: 26);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationOrchestrationException.UpsertDataList(
+                key: "contentItemIds",
+                value: "List must hold no more than 25 distinct ids");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<IReadOnlyList<ContentItemReactionSummary>> retrieveTask =
+                this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    tooManyContentItemIds,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    retrieveTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+            VerifyNothingIsReadForTheSummaries();
+        }
+
+        private static List<Guid> CreateDistinctContentItemIds(int count) =>
+            Enumerable.Range(start: 0, count)
+                .Select(_ => Guid.NewGuid())
+                .ToList();
 
         // Refused before any read: no host, no vocabulary, no setting, no count, no caller's
         // reaction, and no envelope minted.
