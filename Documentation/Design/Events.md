@@ -1438,8 +1438,8 @@ foundation, and the workflow still binds to its foundation facts.
    `AssociationEventOperation` carries no `Submitting` and `IAssociationService`
    no submit method — so its `-Submitted` is published by the approve transition
    alone, when an administrator's override re-opens a decided row or the
-   approval workflow returns a changed reaction's decided round (§APR9.7.4, not
-   yet built). Nothing above the foundation takes part in either route, so there
+   approval workflow returns a changed reaction's decided round (§APR9.7.4, built
+   by #727). Nothing above the foundation takes part in either route, so there
    is no processing fact to prefer.
 
    A **Versioned** type must have a processing service before it can
@@ -1561,7 +1561,7 @@ either.
   amended, the orchestration receives that fact (rules 1–3 above decide at
   which tier) and, where the effective `ApprovalSetting` requires re-approval on
   change — or, whatever it requires, where the fact is a reader's changed
-  reaction (§APR8.8 regardless-rule 1, not yet built) — determines that the
+  reaction (§APR8.8 regardless-rule 1, built by #727) — determines that the
   existing verdicts no longer describe the current content. It then sets
   **every active `ApprovalReview` on that approval to `Dismissed`** — for a
   changed reaction, every one the old pair earned (§APR9.7.4). An `-Added`
@@ -1824,7 +1824,7 @@ addresses of its own, both for the automatic Berean assignment of
 | Address | Rule | Reaction |
 | --- | --- | --- |
 | `Approval-Added` | §APR8.6.2.1 | A round opened. Where it opened at `Submitted` and the six gates pass, Berean is assigned under the system identity. |
-| `Approval-Modified` | §APR8.6.2.1 | A round may have *reached* `Submitted` — a draft submitted, §APR8.6 HR-4's reset re-opening a decided one, or a changed reaction's decided round returned (§APR9.7.4, not yet built). Same gates, same write. |
+| `Approval-Modified` | §APR8.6.2.1 | A round may have *reached* `Submitted` — a draft submitted, §APR8.6 HR-4's reset re-opening a decided one, or a changed reaction's decided round returned (§APR9.7.4, built by #727). Same gates, same write. |
 
 Four things about this pair:
 
@@ -2138,7 +2138,7 @@ itself is at-least-once.**
      a second pass — the reviewer orchestration's retirements and the AI
      orchestration's automatic assignment, both built. The
      `Association-Repointed` ear takes this shape for its return and dismissal,
-     gating on the change's signed `UpdatedWhen` (§APR9.7.4, not yet built).
+     gating on the change's signed `UpdatedWhen` (§APR9.7.4, built by #727).
 
    Both shapes exist already; neither is new work. An earlier version of this
    rule offered only the first, which was true of every orchestration handler
@@ -2340,7 +2340,7 @@ Avoiding event spaghetti:
    makes that tolerable for the fact handlers is that they re-evaluate the round
    rather than apply a delta — idempotence by construction, not deduplication —
    save two deltas. The `Association-Repointed` ear's carries the check
-   §APR9.7.4 names (not yet built); the `-Modified` and `-Submitted` ears'
+   §APR9.7.4 names (built by #727); the `-Modified` and `-Submitted` ears'
    dismissal under `RequireReapprovalOnChange = true` carries none
    (§APR9.7.4's residual). A handler added above the foundation that applies
    a delta owns the check that makes it safe.

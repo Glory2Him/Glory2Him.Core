@@ -109,6 +109,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                         .ReturnsAsync(new List<Guid>());
 
+            // NO REVIEW STANDS ON A ROUND, unless a test says otherwise. A changed reaction's
+            // flow reads the round's reviews with when each was written (§APR9.7.4), and Moq's
+            // default for ValueTask<IReadOnlyList<T>> is null rather than an empty list — so
+            // without this the substrate theories' Association-Repointed row would fault on a
+            // null enumeration instead of answering for its route.
+            this.accessBrokerMock.Setup(broker =>
+                broker.FindDismissableApprovalReviewsAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new List<DismissableApprovalReview>());
+
             // The publisher tier by default, because that is who reaches the verdict at all.
             // Tests about the gate override it explicitly.
             this.ambientSecurityContext =

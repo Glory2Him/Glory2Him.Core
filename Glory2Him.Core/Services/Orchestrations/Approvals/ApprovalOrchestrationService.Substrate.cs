@@ -31,14 +31,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
     internal partial class ApprovalOrchestrationService
     {
         // The workflow's ears. Each handler does one thing: name the entity type the fact came
-        // from, and hand the row's identity to the flow that decides what it means.
+        // from, and hand the row's identity to the flow that decides what it means. The
+        // Association-Repointed ear alone hands it the change's time as well (§APR9.7.4).
         //
         // Typed per entity because the substrate is typed — an envelope carries one entity and
         // the address it arrived on is what says which. The EntityType is supplied HERE rather
         // than read off the payload, so a forged or mistyped body cannot make a Tag fact drive a
         // ContentItem's approval.
         //
-        // For the seven ENTITIES: -Added and -Modified only. An entity's removal is not an
+        // For the seven ENTITIES: -Added, -Modified and -Submitted, and Association-Repointed for
+        // a reader's changed reaction, but never -Removed. An entity's removal is not an
         // approval state (§9.7.6) — a takedown is not a moderation step, and re-opening an
         // approval because its subject was withdrawn is the opposite of what should happen. The
         // consequences of removal are handled where they belong: the removing flow unpublishes,
@@ -281,6 +283,34 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 entityType: EntityType.Association,
                 eventName: "AssociationSubmitted",
                 react: ProcessEntityModifiedAsync,
+                cancellationToken: cancellationToken);
+
+        // ── A reader's changed reaction (§ARC16.2.2) ─────────────────────────────────
+        //
+        // ONE MORE EAR ON THE MODIFIED FLOW, and the only one that hands it more than the row's
+        // identity: the change's UpdatedWhen. A round cannot say which fact moved it, so the
+        // flow is told, and the value is the bound of what it does for this change: a round the
+        // old reaction's reviews decided goes back to Submitted, and the reviews written before
+        // the change are dismissed whatever RequireReapprovalOnChange says (§APR9.7.4).
+        //
+        // READ OFF THE VERIFIED FACT. The lambda runs inside the shared body, after the signature
+        // check, so the time it reads is the one the publisher signed and no caller can assert it.
+        //
+        // Association-Restored has no ear, deliberately: a revive to the same reaction changes no
+        // content and keeps the status it was withdrawn at (§ARC16.2.2).
+        public ValueTask<EventEnvelope<Association>?> OnAssociationRepointedAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default) =>
+            ReactToEntityFactAsync(
+                envelope: envelope,
+                entityType: EntityType.Association,
+                eventName: "AssociationRepointed",
+                react: (entityType, entityId, reactionCancellationToken) =>
+                    ProcessEntityModifiedAsync(
+                        entityType: entityType,
+                        entityId: entityId,
+                        changedWhen: envelope.Content.UpdatedWhen,
+                        cancellationToken: reactionCancellationToken),
                 cancellationToken: cancellationToken);
 
         // ── The workflow records' ears (§10.17(a)) ────────────────────────────────────

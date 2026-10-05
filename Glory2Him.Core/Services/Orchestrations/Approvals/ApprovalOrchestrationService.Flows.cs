@@ -29,6 +29,20 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             EntityType entityType,
             Guid entityId,
             CancellationToken cancellationToken = default) =>
+            ProcessEntityModifiedAsync(
+                entityType: entityType,
+                entityId: entityId,
+                changedWhen: null,
+                cancellationToken: cancellationToken);
+
+        // The flow's own body. changedWhen is the change's UpdatedWhen, and only the
+        // Association-Repointed ear hands one in (§APR9.7.4); this public method and every other
+        // ear pass none.
+        private ValueTask<ApprovalOutcome> ProcessEntityModifiedAsync(
+            EntityType entityType,
+            Guid entityId,
+            DateTimeOffset? changedWhen,
+            CancellationToken cancellationToken) =>
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -39,12 +53,29 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     entityId: entityId,
                     cancellationToken: cancellationToken);
 
-                // §9.7.4. This flow only ever sees Draft and Submitted, and that is a property of
-                // the system rather than an assumption: a terminal row is immutable in place, so a
-                // versioned entity's edit becomes a DIFFERENT row running the Added flow, and a
-                // single-row entity's edit is refused at the foundation before any fact is
-                // published. Neither can arrive here.
+                // §9.7.4. Without a change time this flow only ever sees Draft and Submitted, and
+                // that is a property of the system rather than an assumption: a terminal row is
+                // immutable in place, so a versioned entity's edit becomes a DIFFERENT row running
+                // the Added flow, and a single-row entity's edit is refused at the foundation
+                // before any fact is published. Neither can arrive here.
                 //
+                // THE ONE DECIDED ROUND THAT DOES is a reader's changed reaction, the in-place
+                // change §APR7.5.1 rule 3 admits. Its round starts with no reviews, so a round
+                // the old reaction decided goes back to Submitted BEFORE ANYTHING ELSE, and is
+                // then evaluated like any other open round (§APR9.7.4).
+                bool isRoundDecidedOnTheOldPair = changedWhen is not null
+                    && await IsRoundDecidedOnTheOldPairAsync(
+                        approval: approval,
+                        changedWhen: changedWhen.Value,
+                        cancellationToken: cancellationToken);
+
+                if (isRoundDecidedOnTheOldPair)
+                {
+                    approval = await ReturnDecidedRoundToSubmittedAsync(
+                        approval: approval,
+                        cancellationToken: cancellationToken);
+                }
+
                 // ONE approval-state change CAN arrive on a -Modified, and it is the §9.2 rule 3
                 // carve-out: the owner or the publishing tier moving the entity between Draft and
                 // Submitted through the general modify — an edit and its submission as one act.
@@ -58,14 +89,6 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     entityType: entityType,
                     entityId: entityId,
                     cancellationToken: cancellationToken);
-
-                ApprovalConditionsVerdict conditions =
-                    await this.accessBroker.EvaluateApprovalConditionsByIdAsync(
-                        approvalId: approval.Id,
-                        cancellationToken: cancellationToken);
-
-                ValidateStorageApprovalConditionsResolved(
-                    conditions, entityType, entityId);
 
                 // Beyond the carve-out above, the status is NOT moved by an edit. A Draft the
                 // owner left at Draft stays Draft — this flow never writes Submitted onto one of
@@ -87,24 +110,42 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 // Not short-circuited at the TOP of this flow, which was tried and reverted: an
                 // early return here skips the stale-review dismissal and the re-read the round
                 // legitimately needs. The guard sits after both, inside the evaluation.
-                if (conditions.ShouldResetStaleReviewsOnChange is false)
+                //
+                // A CHANGED REACTION SKIPS THIS READ. Its round starts with no reviews, so the old
+                // pair's are dismissed whatever RequireReapprovalOnChange says (§APR8.8
+                // regardless-rule 1), and a verdict read only to consult that setting would be
+                // work done to throw away. The evaluation reads the conditions once, after the
+                // dismissal.
+                if (changedWhen is null)
                 {
-                    // Never dismisses when the setting is off. The reviews stand, and the
-                    // conditions already read are the ones to evaluate against.
-                    return await EvaluateApprovalAsync(
-                        approval: approval,
-                        conditions: conditions,
-                        cancellationToken: cancellationToken);
+                    ApprovalConditionsVerdict conditions =
+                        await this.accessBroker.EvaluateApprovalConditionsByIdAsync(
+                            approvalId: approval.Id,
+                            cancellationToken: cancellationToken);
+
+                    ValidateStorageApprovalConditionsResolved(
+                        conditions, entityType, entityId);
+
+                    if (conditions.ShouldResetStaleReviewsOnChange is false)
+                    {
+                        // Never dismisses when the setting is off. The reviews stand, and the
+                        // conditions already read are the ones to evaluate against.
+                        return await EvaluateApprovalAsync(
+                            approval: approval,
+                            conditions: conditions,
+                            cancellationToken: cancellationToken);
+                    }
                 }
 
-                await DismissStaleApprovalReviewsAsync(
+                int dismissedReviewCount = await DismissStaleApprovalReviewsAsync(
                     approvalId: approval.Id,
+                    changedWhen: changedWhen,
                     cancellationToken: cancellationToken);
 
                 // RE-READ, and this is the whole reason evaluation takes its verdict rather than
-                // fetching one: the conditions above were measured against reviews that no longer
-                // count. Evaluating on them would auto-approve using approvals just discarded —
-                // exactly inverting what RequireReapprovalOnChange asked for.
+                // fetching one: any conditions read above were measured against reviews that no
+                // longer count. Evaluating on them would auto-approve using approvals just
+                // discarded — exactly inverting what the dismissal is for.
                 ApprovalOutcome outcome = await EvaluateResolvedApprovalAsync(
                     approval: approval,
                     cancellationToken: cancellationToken);
@@ -138,9 +179,23 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 // What a failure costs instead: the two flags stay stale until a moderator asks
                 // Berean again, and the failure is in the error log. The same posture Resets.cs
                 // writes down for its own AI step, because both call the one helper.
-                await ResetStaleAIReviewerAssignmentAsync(
-                    approvalId: approval.Id,
-                    cancellationToken: cancellationToken);
+                //
+                // A CHANGED REACTION'S RETURN AND DISMISSAL ARE DELTAS, and Berean's half rides
+                // with them, so it carries their redelivery check (§APR9.7.4, §EVN20 rule 4).
+                // Once the change is processed no old-pair review stands and no round the old
+                // pair decided is left decided, so a delivery that returned nothing and dismissed
+                // nothing has nothing to take back: a pass Berean finished on the new reaction
+                // since stands, as a review written since does.
+                bool hasFoundNothingLeftToDo = changedWhen is not null
+                    && isRoundDecidedOnTheOldPair is false
+                    && dismissedReviewCount is 0;
+
+                if (hasFoundNothingLeftToDo is false)
+                {
+                    await ResetStaleAIReviewerAssignmentAsync(
+                        approvalId: approval.Id,
+                        cancellationToken: cancellationToken);
+                }
 
                 return outcome;
             });
@@ -188,6 +243,86 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 approval: approval,
                 attribution: WorkflowAttribution.System,
                 cancellationToken: cancellationToken);
+        }
+
+        // §APR9.7.4's return, for a round the old pair decided: one decided before the change,
+        // which is the old reaction's; one approved after it while one of the old pair's reviews
+        // still stood, because that approval may have counted it and nothing records which
+        // reviews an approval counted; or one rejected after it on a standing rejection while
+        // one of the old pair's rejections still stood and none of the new pair's did, because
+        // then an old review is what blocks it. A direct rejection is never returned.
+        //
+        // The round's active reviews are read UNFILTERED, for the reason the dismissal reads them
+        // so: the flow runs as the reader, who may see none of them.
+        private async ValueTask<bool> IsRoundDecidedOnTheOldPairAsync(
+            Approval approval,
+            DateTimeOffset changedWhen,
+            CancellationToken cancellationToken)
+        {
+            bool isApproved = approval.ApprovalStatus is ApprovalStatus.Approved;
+
+            // What rejected the round is on the row: the workflow records a standing rejection
+            // under the system identity and a direct rejection under the person who took it
+            // (WorkflowAttribution, §APR9.7.5). A direct rejection counts no review, so it is
+            // never returned, whatever reviews stand beside it.
+            bool isStandingRejection =
+                approval.ApprovalStatus is ApprovalStatus.Rejected
+                    && approval.UpdatedBy == SystemIdentity.UserId;
+
+            if (isApproved is false && isStandingRejection is false)
+            {
+                return false;
+            }
+
+            if (approval.UpdatedWhen < changedWhen)
+            {
+                return true;
+            }
+
+            IReadOnlyList<DismissableApprovalReview> activeReviews =
+                await this.accessBroker.FindDismissableApprovalReviewsAsync(
+                    approvalId: approval.Id,
+                    cancellationToken: cancellationToken);
+
+            if (isApproved)
+            {
+                return activeReviews.Any(activeReview => activeReview.CreatedWhen < changedWhen);
+            }
+
+            // A rejection written since the change is the new pair's own verdict, and returning
+            // the round would erase it: the evaluation that follows can only approve or leave
+            // it open. So an old rejection returns the round only when no new one stands.
+            IEnumerable<DismissableApprovalReview> activeRejections =
+                activeReviews.Where(activeReview => activeReview.IsRejection);
+
+            return activeRejections.Any(activeRejection =>
+                    activeRejection.CreatedWhen < changedWhen)
+                && activeRejections.Any(activeRejection =>
+                    activeRejection.CreatedWhen >= changedWhen) is false;
+        }
+
+        // Written as the WORKFLOW: nobody asked for the round back, the change did. The bypass
+        // pair is cleared in the same write, because a round back at Submitted must not still
+        // claim a waiver for a decision it no longer holds (§APR9.7.5). The association follows
+        // as a sync, and is unpublished until the round is approved again (§APR9.8).
+        private async ValueTask<Approval> ReturnDecidedRoundToSubmittedAsync(
+            Approval approval,
+            CancellationToken cancellationToken)
+        {
+            approval.ApprovalStatus = ApprovalStatus.Submitted;
+            approval.IsApprovedByBypass = false;
+            approval.ApprovedByBypassReason = null;
+
+            Approval returnedApproval = await this.approvalService.ModifyApprovalAsync(
+                approval: approval,
+                attribution: WorkflowAttribution.System,
+                cancellationToken: cancellationToken);
+
+            await PublishEntityApprovalCommandAsync(
+                approval: returnedApproval,
+                cancellationToken: cancellationToken);
+
+            return returnedApproval;
         }
 
         public ValueTask<ApprovalOutcome> ProcessApprovalInputsChangedAsync(
@@ -306,8 +441,17 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
         // §9.7.4. Dismissed, not deleted: the review is a record that somebody looked, and the
         // audit trail keeps it. Dismissal is what stops it counting toward the threshold.
-        private async ValueTask DismissStaleApprovalReviewsAsync(
+        //
+        // BOUNDED FOR A CHANGED REACTION, and only for one. Its round starts with no reviews, so
+        // what goes is the old pair's: every active review written before the change. A review
+        // written since is the new pair's own and stands (§APR9.7.4). Every other caller passes
+        // no bound and dismisses every active review.
+        //
+        // Answers how many it dismissed, which is how a changed reaction tells a delivery that
+        // still had something to take back from one that found nothing left to do.
+        private async ValueTask<int> DismissStaleApprovalReviewsAsync(
             Guid approvalId,
+            DateTimeOffset? changedWhen,
             CancellationToken cancellationToken)
         {
             // Read UNFILTERED, through the gathering seam rather than the caller-facing service.
@@ -321,9 +465,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             //
             // What a round's reviews ARE is a fact about storage, not about who is asking. An
             // identity-filtered read must never be the input to an invariant.
-            List<Guid> staleReviewIds =
-                await this.accessBroker.FindDismissableApprovalReviewIdsAsync(
+            List<Guid> staleReviewIds = changedWhen is null
+                ? await this.accessBroker.FindDismissableApprovalReviewIdsAsync(
                     approvalId: approvalId,
+                    cancellationToken: cancellationToken)
+                : await FindOldPairReviewIdsAsync(
+                    approvalId: approvalId,
+                    changedWhen: changedWhen.Value,
                     cancellationToken: cancellationToken);
 
             // Each dismissal publishes ApprovalReview-Dismissed, and this service subscribes to
@@ -360,6 +508,26 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             {
                 suppressedDismissalApprovalId.Value = previouslySuppressedApprovalId;
             }
+
+            return staleReviewIds.Count;
+        }
+
+        // The old pair's reviews: those whose CreatedWhen precedes the change's (§APR9.7.4). The
+        // gather is not bounded by the time, so the comparison is made here.
+        private async ValueTask<List<Guid>> FindOldPairReviewIdsAsync(
+            Guid approvalId,
+            DateTimeOffset changedWhen,
+            CancellationToken cancellationToken)
+        {
+            IReadOnlyList<DismissableApprovalReview> activeReviews =
+                await this.accessBroker.FindDismissableApprovalReviewsAsync(
+                    approvalId: approvalId,
+                    cancellationToken: cancellationToken);
+
+            return activeReviews
+                .Where(activeReview => activeReview.CreatedWhen < changedWhen)
+                .Select(activeReview => activeReview.Id)
+                .ToList();
         }
 
         // Static because the handler is bound into the singleton broker as a method group while

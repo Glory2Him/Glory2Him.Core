@@ -2106,6 +2106,28 @@ namespace Glory2Him.Core.Registrations
                         service => service.OnAssociationModifiedAsync),
                 cancellationToken: cancellationToken);
 
+            // A reader's changed reaction goes back through approval as a modification whose
+            // round starts with no reviews (§ARC16.2.2). Association-Restored is published and
+            // deliberately not subscribed: a revive to the same reaction changes no content.
+            await this.eventBroker.SubscribeToAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnAssociationRepointedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnAssociationRepointedSubscriptionName,
+
+                    Description = "Puts a reader's changed reaction back through approval: " +
+                        "returns a round the old reaction decided to Submitted, dismisses the " +
+                        "reviews written before the change, then re-evaluates."
+                },
+                operation: AssociationEventOperation.Repointed,
+                associationEventHandler:
+                    Scoped<IApprovalOrchestrationService, Association>(
+                        service => service.OnAssociationRepointedAsync),
+                cancellationToken: cancellationToken);
+
             // -SUBMITTED, all seven on the FOUNDATION address. The submit verb is a foundation
             // transition on every entity, so unlike the Added/Modified pairs above there is no
             // processing tier to prefer for ContentItem and Link (§10.17 rule 1 picks the
@@ -2228,8 +2250,10 @@ namespace Glory2Him.Core.Registrations
                     Name = EventBrokerIdentifiers
                         .ApprovalOrchestrationOnAssociationSubmittedSubscriptionName,
 
-                    Description = "Moves the association's approval to Submitted when the submit " +
-                        "verb moves the association, then evaluates the round."
+                    Description = "Hears an association reaching Submitted and runs the Modified " +
+                        "flow for it. Association has no submit verb, so today the fact comes " +
+                        "only from the workflow's own approval commands, which carry the system " +
+                        "identity and are dropped."
                 },
                 operation: AssociationEventOperation.Submitted,
                 associationEventHandler:

@@ -141,6 +141,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 // already-dismissed REVIEW, which is a different rule.)
                 await DismissStaleApprovalReviewsAsync(
                     approvalId: resetApproval.Id,
+                    changedWhen: null,
                     cancellationToken: cancellationToken);
 
                 // The entity follows, as a SYNC rather than a second decision (§9.8). The

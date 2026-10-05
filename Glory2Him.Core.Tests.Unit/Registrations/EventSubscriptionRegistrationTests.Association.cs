@@ -182,5 +182,65 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             actualFoundationBindings.Should().HaveCount(7);
             actualFoundationBindings.Should().BeEquivalentTo(expectedFoundationBindings);
         }
+
+        // A READER'S CHANGED REACTION GOES BACK THROUGH APPROVAL (#727). Association-Repointed is
+        // bound to the approval workflow's ear and to nothing else (§ARC16.2.2). The id and the
+        // name are pinned as LITERALS for the reason the adding address's are: the id is what the
+        // substrate knows the subscription by, so a new one orphans it.
+        [Fact]
+        public async Task ShouldSubscribeTheApprovalWorkflowToAssociationRepointed()
+        {
+            // given: the delivery comes on a token of its own, distinct from the registration's,
+            // so the handler is seen to hand the service the token of the fact it is serving
+            var repointedSubscriptions = new List<EventSubscription>();
+            CancellationToken registrationCancellationToken = TestContext.Current.CancellationToken;
+            using var deliveryCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken deliveryCancellationToken = deliveryCancellationTokenSource.Token;
+
+            Func<EventEnvelope<Association>, CancellationToken,
+                ValueTask<EventEnvelope<Association>>> repointedHandler = null;
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.SubscribeToAssociationEventAsync(
+                    It.IsAny<EventSubscription>(),
+                    AssociationEventOperation.Repointed,
+                    It.IsAny<Func<EventEnvelope<Association>, CancellationToken,
+                        ValueTask<EventEnvelope<Association>>>>(),
+                    registrationCancellationToken))
+                        .Callback<EventSubscription, AssociationEventOperation,
+                            Func<EventEnvelope<Association>, CancellationToken,
+                                ValueTask<EventEnvelope<Association>>>,
+                            CancellationToken>((subscription, _, handler, _) =>
+                            {
+                                repointedSubscriptions.Add(subscription);
+                                repointedHandler = handler;
+                            });
+
+            var deliveredEnvelope = new EventEnvelope<Association>();
+
+            await this.eventSubscriptionRegistration.RegisterAsync(registrationCancellationToken);
+
+            EventSubscription repointedSubscription =
+                repointedSubscriptions.Should().ContainSingle().Subject;
+
+            // when
+            await repointedHandler(deliveredEnvelope, deliveryCancellationToken);
+
+            // then
+            repointedSubscription.Id.Should().Be(new Guid("01a0e17c-3a0f-7742-b50d-df70ca55b2fd"));
+
+            repointedSubscription.Name.Should()
+                .Be("ApprovalOrchestrationService.OnAssociationRepointed");
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.OnAssociationRepointedAsync(
+                    deliveredEnvelope,
+                    deliveryCancellationToken),
+                Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
     }
 }

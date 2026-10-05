@@ -122,6 +122,12 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default);
 
+        // A reader's changed reaction (§ARC16.2.2). It reacts as a modification that is told
+        // which change it is running for, so the round starts with no reviews (§APR9.7.4).
+        ValueTask<EventEnvelope<Association>?> OnAssociationRepointedAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default);
+
         /// <summary>
         /// Reacts to a recorded approval review by evaluating the round it belongs to
         /// (design §9.7.5).
