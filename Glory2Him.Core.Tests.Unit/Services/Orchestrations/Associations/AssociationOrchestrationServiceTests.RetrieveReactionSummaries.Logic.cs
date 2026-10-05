@@ -508,6 +508,377 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 options => options.WithStrictOrdering());
         }
 
+        [Fact]
+        public async Task ShouldCountTheSameForEveryCallerAsync()
+        {
+            // given: the same items asked about by an administrator who holds Joy on the first,
+            // and then by an anonymous caller. The second item hides reactions, so a count that
+            // widened for the administrator would show.
+            PublicContentItemGroup showingHost = CreatePublicContentItemGroup();
+            PublicContentItemGroup hidingHost = CreatePublicContentItemGroup();
+            Reaction love = CreatePublicReaction(name: "Love");
+            Reaction joy = CreatePublicReaction(name: "Joy");
+
+            var contentItemIds = new List<Guid>
+            {
+                showingHost.ContentItemId,
+                hidingHost.ContentItemId,
+            };
+
+            List<ContentItemSettingKey> settingKeys =
+                CreateSettingKeysFor([showingHost, hidingHost]);
+
+            SetupPublicContentItemGroups(contentItemIds, showingHost, hidingHost);
+            SetupPublicReactions(love, joy);
+
+            SetupWinningSettings(
+                hosts: [showingHost, hidingHost],
+                CreateWinningSetting(showingHost, showReactions: true),
+                CreateWinningSetting(hidingHost, showReactions: false));
+
+            SetupReactionCounts(
+                contentItemGroupIds: [showingHost.GroupId],
+                reactionIds: [love.Id, joy.Id],
+                CreatePairCount(showingHost, love, count: 2),
+                CreatePairCount(showingHost, joy, count: 1));
+
+            SetupCallerReactions(
+                contentItemGroupIds: [showingHost.GroupId, hidingHost.GroupId],
+                CreatePairKey(showingHost, joy));
+
+            var expectedReactions = new List<ContentItemReactionCount>
+            {
+                CreateReactionCount(love, count: 2),
+                CreateReactionCount(joy, count: 1),
+            };
+
+            var expectedAdministratorSummaries = new List<ContentItemReactionSummary>
+            {
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = showingHost.ContentItemId,
+                    Reactions = expectedReactions,
+                    ViewerReactionId = joy.Id,
+                    ViewerReactionName = joy.Name,
+                },
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = hidingHost.ContentItemId,
+                    Reactions = new List<ContentItemReactionCount>(),
+                    ViewerReactionId = null,
+                    ViewerReactionName = null,
+                },
+            };
+
+            var expectedAnonymousSummaries = new List<ContentItemReactionSummary>
+            {
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = showingHost.ContentItemId,
+                    Reactions = expectedReactions,
+                    ViewerReactionId = null,
+                    ViewerReactionName = null,
+                },
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = hidingHost.ContentItemId,
+                    Reactions = new List<ContentItemReactionCount>(),
+                    ViewerReactionId = null,
+                    ViewerReactionName = null,
+                },
+            };
+
+            // when
+            this.ambientSecurityContext =
+                CreateReaderSecurityContext(readerUserId: GetRandomString(), Roles.Administrators);
+
+            IReadOnlyList<ContentItemReactionSummary> administratorSummaries =
+                await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    contentItemIds,
+                    TestContext.Current.CancellationToken);
+
+            this.ambientSecurityContext = CreateAnonymousSecurityContext();
+
+            IReadOnlyList<ContentItemReactionSummary> anonymousSummaries =
+                await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    contentItemIds,
+                    TestContext.Current.CancellationToken);
+
+            // then: the same counts, and only the viewer members differ
+            administratorSummaries.Should().BeEquivalentTo(
+                expectedAdministratorSummaries,
+                options => options.WithStrictOrdering());
+
+            anonymousSummaries.Should().BeEquivalentTo(
+                expectedAnonymousSummaries,
+                options => options.WithStrictOrdering());
+
+            // and the hosts, the vocabulary, the settings and the counts were asked for
+            // identically, once for each caller
+            this.contentItemServiceMock.Verify(service =>
+                service.RetrievePublicContentItemGroupsAsync(
+                    It.Is(SameIdsAs(contentItemIds)),
+                    TestContext.Current.CancellationToken),
+                Times.Exactly(2));
+
+            this.reactionServiceMock.Verify(service =>
+                service.RetrievePublicReactionsAsync(TestContext.Current.CancellationToken),
+                Times.Exactly(2));
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(settingKeys)),
+                    TestContext.Current.CancellationToken),
+                Times.Exactly(2));
+
+            this.associationServiceMock.Verify(service =>
+                service.RetrieveContentItemReactionCountsAsync(
+                    It.Is(SameIdsAs(new List<Guid> { showingHost.GroupId })),
+                    It.Is(SameIdsAs(new List<Guid> { love.Id, joy.Id })),
+                    TestContext.Current.CancellationToken),
+                Times.Exactly(2));
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.reactionServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldAskForTheCountsOnceForEveryCountedHostAsync()
+        {
+            // given: several items whose winning settings show reactions
+            this.ambientSecurityContext = CreateAnonymousSecurityContext();
+            PublicContentItemGroup firstHost = CreatePublicContentItemGroup();
+            PublicContentItemGroup secondHost = CreatePublicContentItemGroup();
+            PublicContentItemGroup thirdHost = CreatePublicContentItemGroup();
+            Reaction love = CreatePublicReaction(name: "Love");
+            Reaction joy = CreatePublicReaction(name: "Joy");
+
+            var contentItemIds = new List<Guid>
+            {
+                firstHost.ContentItemId,
+                secondHost.ContentItemId,
+                thirdHost.ContentItemId,
+            };
+
+            var contentItemGroupIds = new List<Guid>
+            {
+                firstHost.GroupId,
+                secondHost.GroupId,
+                thirdHost.GroupId,
+            };
+
+            SetupPublicContentItemGroups(contentItemIds, firstHost, secondHost, thirdHost);
+            SetupPublicReactions(love, joy);
+
+            SetupWinningSettings(
+                hosts: [firstHost, secondHost, thirdHost],
+                CreateWinningSetting(firstHost, showReactions: true),
+                CreateWinningSetting(secondHost, showReactions: true),
+                CreateWinningSetting(thirdHost, showReactions: true));
+
+            SetupReactionCounts(
+                contentItemGroupIds,
+                reactionIds: [love.Id, joy.Id],
+                CreatePairCount(firstHost, love, count: 1),
+                CreatePairCount(thirdHost, joy, count: 2));
+
+            // when
+            await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                contentItemIds,
+                TestContext.Current.CancellationToken);
+
+            // then: one round trip over every counted host's group and the vocabulary's ids
+            this.associationServiceMock.Verify(service =>
+                service.RetrieveContentItemReactionCountsAsync(
+                    It.Is(SameIdsAs(contentItemGroupIds)),
+                    It.Is(SameIdsAs(new List<Guid> { love.Id, joy.Id })),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldAskForTheSettingsOnceKeyedOnEachHostsContentTypeAndSuppliedIdAsync()
+        {
+            // given: two items of different content types, set explicitly — the filler's default
+            // would give both one type, and a lookup that ignored it would still pass — whose
+            // winning settings differ: the first's shows reactions and the second's hides them
+            this.ambientSecurityContext = CreateAnonymousSecurityContext();
+
+            PublicContentItemGroup testimonyHost =
+                CreatePublicContentItemGroup(contentType: ContentType.Testimony);
+
+            PublicContentItemGroup devotionalHost =
+                CreatePublicContentItemGroup(contentType: ContentType.Devotional);
+
+            Reaction love = CreatePublicReaction(name: "Love");
+
+            var contentItemIds = new List<Guid>
+            {
+                testimonyHost.ContentItemId,
+                devotionalHost.ContentItemId,
+            };
+
+            var expectedSettingKeys = new List<ContentItemSettingKey>
+            {
+                new ContentItemSettingKey
+                {
+                    ContentType = ContentType.Testimony,
+                    ContentItemId = testimonyHost.ContentItemId,
+                },
+                new ContentItemSettingKey
+                {
+                    ContentType = ContentType.Devotional,
+                    ContentItemId = devotionalHost.ContentItemId,
+                },
+            };
+
+            SetupPublicContentItemGroups(contentItemIds, testimonyHost, devotionalHost);
+            SetupPublicReactions(love);
+
+            SetupWinningSettings(
+                hosts: [testimonyHost, devotionalHost],
+                CreateWinningSetting(testimonyHost, showReactions: true),
+                CreateWinningSetting(devotionalHost, showReactions: false));
+
+            SetupReactionCounts(
+                contentItemGroupIds: [testimonyHost.GroupId],
+                reactionIds: [love.Id],
+                CreatePairCount(testimonyHost, love, count: 3));
+
+            var expectedSummaries = new List<ContentItemReactionSummary>
+            {
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = testimonyHost.ContentItemId,
+                    Reactions = new List<ContentItemReactionCount> { CreateReactionCount(love, count: 3) },
+                    ViewerReactionId = null,
+                    ViewerReactionName = null,
+                },
+                new ContentItemReactionSummary
+                {
+                    ContentItemId = devotionalHost.ContentItemId,
+                    Reactions = new List<ContentItemReactionCount>(),
+                    ViewerReactionId = null,
+                    ViewerReactionName = null,
+                },
+            };
+
+            // when
+            IReadOnlyList<ContentItemReactionSummary> actualSummaries =
+                await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    contentItemIds,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualSummaries.Should().BeEquivalentTo(
+                expectedSummaries,
+                options => options.WithStrictOrdering());
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.accessBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldAskForTheVocabularyOnceAsync()
+        {
+            // given: several visible items
+            this.ambientSecurityContext = CreateAnonymousSecurityContext();
+            PublicContentItemGroup firstHost = CreatePublicContentItemGroup();
+            PublicContentItemGroup secondHost = CreatePublicContentItemGroup();
+            Reaction love = CreatePublicReaction(name: "Love");
+
+            var contentItemIds = new List<Guid>
+            {
+                firstHost.ContentItemId,
+                secondHost.ContentItemId,
+            };
+
+            SetupPublicContentItemGroups(contentItemIds, firstHost, secondHost);
+            SetupPublicReactions(love);
+
+            SetupWinningSettings(
+                hosts: [firstHost, secondHost],
+                CreateWinningSetting(firstHost, showReactions: true),
+                CreateWinningSetting(secondHost, showReactions: true));
+
+            SetupReactionCounts(
+                contentItemGroupIds: [firstHost.GroupId, secondHost.GroupId],
+                reactionIds: [love.Id],
+                CreatePairCount(secondHost, love, count: 1));
+
+            // when
+            await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                contentItemIds,
+                TestContext.Current.CancellationToken);
+
+            // then: one vocabulary for the whole page, not one per item
+            this.reactionServiceMock.Verify(service =>
+                service.RetrievePublicReactionsAsync(TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.reactionServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldAskForThePublicGroupsOnceAsync()
+        {
+            // given: several ids, one of them supplied twice, and one the read does not answer
+            this.ambientSecurityContext = CreateAnonymousSecurityContext();
+            PublicContentItemGroup firstHost = CreatePublicContentItemGroup();
+            PublicContentItemGroup secondHost = CreatePublicContentItemGroup();
+            Guid notVisibleContentItemId = Guid.NewGuid();
+            Reaction love = CreatePublicReaction(name: "Love");
+
+            var contentItemIds = new List<Guid>
+            {
+                firstHost.ContentItemId,
+                notVisibleContentItemId,
+                firstHost.ContentItemId,
+                secondHost.ContentItemId,
+            };
+
+            var distinctContentItemIds = new List<Guid>
+            {
+                firstHost.ContentItemId,
+                notVisibleContentItemId,
+                secondHost.ContentItemId,
+            };
+
+            SetupPublicContentItemGroups(distinctContentItemIds, firstHost, secondHost);
+            SetupPublicReactions(love);
+
+            SetupWinningSettings(
+                hosts: [firstHost, secondHost],
+                CreateWinningSetting(firstHost, showReactions: true),
+                CreateWinningSetting(secondHost, showReactions: true));
+
+            SetupReactionCounts(
+                contentItemGroupIds: [firstHost.GroupId, secondHost.GroupId],
+                reactionIds: [love.Id]);
+
+            // when
+            await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                contentItemIds,
+                TestContext.Current.CancellationToken);
+
+            // then: one round trip, over every distinct id
+            this.contentItemServiceMock.Verify(service =>
+                service.RetrievePublicContentItemGroupsAsync(
+                    It.Is(SameIdsAs(distinctContentItemIds)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+        }
+
         // A caller who is not signed in.
         private static SecurityContext CreateAnonymousSecurityContext() =>
             new SecurityContext { IsAuthenticated = false };
