@@ -257,7 +257,7 @@ page is a courtesy (§SEC14.6).
    `postDetail.test.tsx` — "should mark the reaction the reader chose for this visit", "should
    withdraw the reaction when the reader chooses it again"); the card redirects a signed-out
    reader itself (`UI/Components/ContentItemPanel.md §10 item 12`, which this item ships with).
-   Recording the reader's own reaction (§ARC16.8.1, served by #728) and withdrawing it (designed and not yet built) are this item's work, and so is the redirect, which uses the one
+   Recording the reader's own reaction (§ARC16.8.1, served by #728) and withdrawing it (its member built by #725, its route not yet) are this item's work, and so is the redirect, which uses the one
    reusable sign-in action (`UI/Pages/Home.md §6 item 3`), and must not fire while the reader's
    sign-in state is still being read. The same gap on `/` is `UI/Pages/Home.md §6 item 2`.
    **The card's counts are this item's work too** (the Likes feature, `DesignFeatures/Likes.md`).

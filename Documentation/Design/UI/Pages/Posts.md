@@ -226,7 +226,7 @@ Every write a card leads to is decided again by the service (§SEC14.6).
    `useContentItemEngagement`, which only toggles the choice in page state for the visit and reads
    no sign-in state (`src/hooks/useContentItemEngagement.ts`, lines 34-42); the card redirects a
    signed-out reader itself (`UI/Components/ContentItemPanel.md §10 item 12`, which this item ships
-   with). Recording the reader's own reaction (§ARC16.8.1, served by #728) and withdrawing it (designed and not yet built) are this item's work, and so is the redirect, which uses
+   with). Recording the reader's own reaction (§ARC16.8.1, served by #728) and withdrawing it (its member built by #725, its route not yet) are this item's work, and so is the redirect, which uses
    the one reusable sign-in action (`UI/Pages/Home.md §6 item 3`), and must not fire while the
    reader's sign-in state is still being read — the guard the card holds today. The same gap on
    `/` is `UI/Pages/Home.md §6 item 2`, whose evidence stands for this page too.

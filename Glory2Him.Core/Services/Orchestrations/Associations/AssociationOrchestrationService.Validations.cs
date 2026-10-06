@@ -32,10 +32,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         //
         // The UPSERT's composition: the two row-free leaves, and then — once both endpoints have
         // been resolved from storage — the endpoint half of the veto, which this member is the
-        // one write able to decide for itself (§SEC14.7 posture A′ rule 4, "the add is the
-        // exception that proves the rule"). A personal pair asks authentication alone: a
-        // reader's own reaction is not a contribution, so it asks none of the read-only roles,
-        // the global block here or the endpoint veto after resolution (posture A′ rule 1).
+        // one write to decide for itself (§SEC14.7 posture A′ rule 4, "the add is the exception
+        // that proves the rule"). A personal pair asks authentication alone: a reader's own
+        // reaction is not a contribution, so it asks none of the read-only roles, the global
+        // block here or the endpoint veto after resolution (posture A′ rule 1).
         private static void ValidateUserIsAllowedToContribute(
             SecurityContext securityContext,
             bool isPersonal)
@@ -47,6 +47,15 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 ValidateUserIsNotGloballyBlocked(securityContext);
             }
         }
+
+        // THE PAIR-KEYED WITHDRAWAL's composition: authentication alone. What it withdraws is the
+        // caller's own reaction, which is not a contribution, and the far end's type says the
+        // pair is personal before anything is read, so the exemption is decidable here and it
+        // asks none of the read-only roles (§SEC14.7 posture A′ rules 1 and 4). Its own method
+        // rather than the upsert's, which asks the global block of an editorial pair, or the
+        // remove's, which asks it of every caller.
+        private static void ValidateUserMayRemoveAssociationByPair(SecurityContext securityContext) =>
+            ValidateUserIsAuthenticated(securityContext);
 
         // ── ONE COMPOSITION PER OPERATION, over shared leaves ─────────────────────────
         //
@@ -220,6 +229,19 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 (Rule: IsInvalid(association.EntityAKeyId), Parameter: nameof(Association.EntityAKeyId)),
                 (Rule: IsInvalid(association.EntityBKeyId), Parameter: nameof(Association.EntityBKeyId)));
 
+        // THE PAIR-KEYED WITHDRAWAL's structural validation. It takes the upsert's caller shape —
+        // the raw endpoints and nothing else — so today it asks what the add asks, but over the
+        // shared leaves in a composition of its own: a rule later added to the add's caller shape,
+        // and so to its event door, must not bind the withdrawal unseen, nor a rule the
+        // withdrawal needs bind the add.
+        private static void ValidateOnRemoveAssociationByPair(Association association) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(association.EntityAType), Parameter: nameof(Association.EntityAType)),
+                (Rule: IsInvalid(association.EntityBType), Parameter: nameof(Association.EntityBType)),
+                (Rule: IsInvalid(association.EntityAKeyId), Parameter: nameof(Association.EntityAKeyId)),
+                (Rule: IsInvalid(association.EntityBKeyId), Parameter: nameof(Association.EntityBKeyId)));
+
         // THE DERIVATION, EXPRESSED AS A REFUSAL — the event path's arm, and the difference from
         // the method path is the signature, not the rule. Both paths run the same write flow and
         // let the derived value govern. On the method path the derived value simply overwrites
@@ -302,6 +324,25 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             {
                 throw new InvalidAssociationOrchestrationException(
                     message: "A personal content item association cannot be added through an event.");
+            }
+        }
+
+        // THE PAIR-KEYED WITHDRAWAL'S REFUSAL OF AN EDITORIAL PAIR (AssociationOrchestrationService.md
+        // §3 rule 2). A withdrawal is keyed on (content item, reaction, caller) (§ARC16.8), and
+        // only a personal row has a caller in its key: a pair is personal where either endpoint's
+        // type is (§DOM4.2), and that is the lookup's answer, never a test of this service's own
+        // (§DOM4.10 rule 4). Asked of the RAW endpoint types, so it refuses before anything is
+        // read, with ONE message for every editorial pair.
+        private static void ValidatePairIsPersonal(Association association)
+        {
+            bool isPersonal =
+                IsPersonalEndpoint(association.EntityAType)
+                || IsPersonalEndpoint(association.EntityBType);
+
+            if (isPersonal is false)
+            {
+                throw new InvalidAssociationOrchestrationException(
+                    message: "An editorial content item association cannot be withdrawn by its pair.");
             }
         }
 

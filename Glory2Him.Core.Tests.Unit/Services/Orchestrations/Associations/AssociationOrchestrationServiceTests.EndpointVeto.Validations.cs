@@ -83,10 +83,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             string pairing,
             string[] callerRoles)
         {
-            // given: the add is the one write that resolves BOTH endpoints from storage as its
-            // own first act, so the endpoint half of the veto is decidable here and is decided
-            // here — the orchestration's OWN refusal, mapped to its own validation exception
-            // (§SEC14.7 posture A′ rule 4, "the add is the exception that proves the rule").
+            // given: the add resolves BOTH endpoints from storage as its own first act, so the
+            // endpoint half of the veto is decidable here and is decided here — the
+            // orchestration's OWN refusal, mapped to its own validation exception (§SEC14.7
+            // posture A′ rule 4, "the add is the exception that proves the rule").
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(callerRoles);
 
             Association rawRequest = SetupPairingEndpointReads(pairing);

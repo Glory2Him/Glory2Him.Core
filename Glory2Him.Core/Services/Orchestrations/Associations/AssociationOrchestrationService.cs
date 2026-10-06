@@ -38,19 +38,21 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     /// primitive and touches only its own entity (design §SEC14.3 Layer, §SEC14.6). It resolves an
     /// association's endpoints against their foundation services, runs the facet gate on the
     /// write (§ARC16.2.1), runs an editorial pair's retrieve-or-add over the unfiltered
-    /// canonical-pair probe or hands a reader's reaction to the foundation's personal upsert, and
-    /// returns a status projection that never leaks the row body.
+    /// canonical-pair probe or hands a reader's reaction to the foundation's personal upsert,
+    /// withdraws a reader's reaction by its pair, and returns a status projection that never leaks
+    /// the row body.
     ///
     /// <para><b>It is also the layer an exposer binds to for the whole CRUD surface</b>, because
     /// §SEC14.3's composite spans both endpoints and so cannot live in the foundation's own-table
     /// read. The two reads carry that composite — one shared private evaluator, in
-    /// <c>.EndpointVisibility.cs</c>. The three writes carry <b>only</b> the half of the §SEC14.7
-    /// posture A′ gate that needs no row — authentication, the global <c>ReadOnly</c> block, and
-    /// <c>Administrators</c> on hard removal — and then forward; every rule that needs the stored
-    /// endpoints belongs to the foundation, and no second read duplicates it. The upsert is the
-    /// one write that resolves both endpoints as its own first act, so it is the one that decides
-    /// the endpoint veto for itself, on an editorial pair — a reader's own reaction is outside
-    /// it.</para>
+    /// <c>.EndpointVisibility.cs</c>. Modify, remove and hard remove carry <b>only</b> the half of
+    /// the §SEC14.7 posture A′ gate that needs no row — authentication, the global
+    /// <c>ReadOnly</c> block, and <c>Administrators</c> on hard removal — and then forward; every
+    /// rule that needs the stored endpoints belongs to the foundation, and no second read
+    /// duplicates it. The upsert and the pair-keyed withdrawal resolve both endpoints as their
+    /// own first act, and the upsert is the one that decides the endpoint veto for itself, on an
+    /// editorial pair — a reader's own reaction is outside it, and it is the only pair the
+    /// withdrawal takes.</para>
     ///
     /// <para>Whether the foundation in fact composes each of those from the stored row is its
     /// own business and is not uniform today: on <c>ModifyAssociationAsync</c> the four
@@ -324,11 +326,56 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext, isPersonal);
             ValidateOnAddAssociation(association);
 
-            // Resolve BOTH endpoints against their foundation services and DERIVE the scope,
-            // group id and content type onto the row, overwriting anything the caller supplied —
-            // the content type is an authorization input and a caller-set scope could claim
-            // AllVersions on an entity with no group (§7.4, §5). A non-existent or non-visible
-            // endpoint surfaces here as not-found. Each resolution is kept for the facet gate.
+            // Each resolution is kept for the facet gate.
+            (ResolvedEndpoint resolvedEntityA, ResolvedEndpoint resolvedEntityB) =
+                await ResolvePairEndpointsAsync(
+                    association: association,
+                    readEnvelope: readEnvelope,
+                    cancellationToken: cancellationToken);
+
+            // The endpoint half of the veto, decidable HERE above the foundation: the add resolves
+            // both endpoints from storage as its own first act, so §SEC14.7 posture A′ rule 4's
+            // split puts this half on the orchestration rather than below it. Asked before the
+            // pair probe, so a blocked caller cannot use the add to learn which pairings already
+            // exist. An editorial pair's alone: a reader's own reaction is outside the veto
+            // (posture A′ rule 1), which is why the pair-keyed withdrawal, the other write to
+            // resolve both endpoints, never asks it.
+            if (isPersonal is false)
+            {
+                ValidateUserIsNotBlockedFromEndpoints(inboundEnvelope.SecurityContext, association);
+            }
+
+            // UserId routes the row to one of the two unique indexes and selects its approval tier
+            // (§DOM4.10 rule 3), so a value the caller chose would file the row under a constraint
+            // that never sees it — and on an editorial pair would evade the canonical-pair probe,
+            // laundering an insert past a moderator's takedown.
+            association.UserId = DeriveUserId(inboundEnvelope.SecurityContext, isPersonal);
+
+            // THE FACET GATE (§ARC16.2.1), last in the flow: after both endpoints resolve and the
+            // UserId is derived, and before the method path's pair probe and the event path's
+            // claims check, so a refused pair reaches no row through either door.
+            await ValidateSettingsAllowTheFacetAsync(
+                association,
+                resolvedEntityA,
+                resolvedEntityB,
+                cancellationToken);
+
+            return isPersonal;
+        }
+
+        // WHICH PAIR THESE ENDPOINTS DENOTE: both endpoints resolved against their foundation
+        // services, and the scope, group id and content type DERIVED onto the row, overwriting
+        // anything the caller supplied — the content type is an authorization input and a
+        // caller-set scope could claim AllVersions on an entity with no group (§7.4, §5). A
+        // non-existent or non-visible endpoint surfaces here as not-found. Written once, for the
+        // add's write flow and for the pair-keyed withdrawal, so the two cannot drift apart on
+        // which pair a request names (§ARC16.8, "Which pair do these endpoints denote").
+        private async ValueTask<(ResolvedEndpoint EntityA, ResolvedEndpoint EntityB)>
+            ResolvePairEndpointsAsync(
+                Association association,
+                EventEnvelope<Association>? readEnvelope,
+                CancellationToken cancellationToken)
+        {
             ResolvedEndpoint resolvedEntityA = default;
             ResolvedEndpoint resolvedEntityB = default;
 
@@ -360,38 +407,18 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 readEnvelope: readEnvelope,
                 cancellationToken: cancellationToken);
 
-            // The endpoint half of the veto, decidable HERE and nowhere else above the foundation:
-            // the add is the one write that resolves both endpoints from storage as its own first
-            // act, so §SEC14.7 posture A′ rule 4's split puts this half on the orchestration
-            // rather than below it. Asked before the pair probe, so a blocked caller cannot use
-            // the add to learn which pairings already exist. An editorial pair's alone: a reader's
-            // own reaction is outside the veto (posture A′ rule 1).
-            if (isPersonal is false)
-            {
-                ValidateUserIsNotBlockedFromEndpoints(inboundEnvelope.SecurityContext, association);
-            }
-
-            // UserId is derived, never the caller's to set (§DOM4.10 rules 1 and 2): the caller's
-            // own, from the envelope, on a personal pair, and null on an editorial one, whatever
-            // the request carried. It routes the row to one of the two unique indexes and selects
-            // its approval tier (§DOM4.10 rule 3), so a value the caller chose would file the row
-            // under a constraint that never sees it — and on an editorial pair would evade the
-            // canonical-pair probe, laundering an insert past a moderator's takedown.
-            association.UserId = isPersonal
-                ? inboundEnvelope.SecurityContext.SubjectId
-                : null;
-
-            // THE FACET GATE (§ARC16.2.1), last in the flow: after both endpoints resolve and the
-            // UserId is derived, and before the method path's pair probe and the event path's
-            // claims check, so a refused pair reaches no row through either door.
-            await ValidateSettingsAllowTheFacetAsync(
-                association,
-                resolvedEntityA,
-                resolvedEntityB,
-                cancellationToken);
-
-            return isPersonal;
+            return (resolvedEntityA, resolvedEntityB);
         }
+
+        // THE UserId DERIVATION. UserId is derived, never the caller's to set (§DOM4.10 rules 1
+        // and 2): the caller's own, from the envelope, on a personal pair, and null on an
+        // editorial one, whatever the request carried. Written once, for the add's write flow and
+        // for the pair-keyed withdrawal (§ARC16.8, "UserId from the envelope"), so the withdrawal's
+        // lookup always keys on the id the add wrote.
+        private static string? DeriveUserId(SecurityContext securityContext, bool isPersonal) =>
+            isPersonal
+                ? securityContext.SubjectId
+                : null;
 
         // THE FLOW'S PERSONALITY, asked of the RAW endpoint types at its top, because its first
         // step needs it before anything is read (AssociationOrchestrationService.md §1 rule 1). A
