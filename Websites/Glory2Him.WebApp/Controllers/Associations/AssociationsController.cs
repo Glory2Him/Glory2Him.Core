@@ -9,6 +9,8 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.Associations;
@@ -103,5 +105,10 @@ namespace Glory2Him.WebApp.Controllers.Associations
                 return InternalServerError(associationOrchestrationServiceException);
             }
         }
+
+        public ValueTask<ActionResult<IReadOnlyList<ContentItemReactionSummary>>> GetReactionSummariesAsync(
+            [FromQuery] Guid[] contentItemIds,
+            CancellationToken cancellationToken) =>
+            throw new NotImplementedException();
     }
 }
