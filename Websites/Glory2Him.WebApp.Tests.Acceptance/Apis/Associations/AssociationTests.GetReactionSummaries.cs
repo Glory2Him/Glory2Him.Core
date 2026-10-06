@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
@@ -90,6 +91,49 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 actualSummary.Reactions.Should().BeEquivalentTo(expectedReactions);
                 actualSummary.ViewerReactionId.Should().Be(seededAmenReactionId);
                 actualSummary.ViewerReactionName.Should().Be("Amen");
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(reactedContentItem.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(reactedContentItem.Id);
+            }
+        }
+
+        [Fact]
+        public async Task ShouldIgnoreQueryOptionsOnReactionSummariesAsync()
+        {
+            // given
+            (CoreContentItem reactedContentItem, string _) =
+                await ArrangeAnItemTwoReadersReactedToAsync();
+
+            string contentItemIdsQuery = CreateContentItemIdsQuery(reactedContentItem.Id);
+
+            // Each option, applied, would change the answer: the filter matches no summary, the
+            // top keeps none, and the select drops the counts.
+            string queryOptions =
+                $"$filter={Uri.EscapeDataString($"contentItemId eq {Guid.NewGuid()}")}"
+                    + "&$top=0"
+                    + "&$select=contentItemId";
+
+            this.apiBroker.ActAsAnonymous();
+
+            try
+            {
+                HttpResponseMessage expectedResponse =
+                    await this.apiBroker.GetReactionSummariesAsync(contentItemIdsQuery);
+
+                string expectedBody = await expectedResponse.Content.ReadAsStringAsync();
+
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.GetReactionSummariesAsync(
+                        $"{contentItemIdsQuery}&{queryOptions}");
+
+                // then
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                string actualBody = await actualResponse.Content.ReadAsStringAsync();
+                actualBody.Should().Be(expectedBody);
             }
             finally
             {
