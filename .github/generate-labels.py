@@ -100,15 +100,16 @@ STATUS_LABELS = [
 ]
 
 # QA's verdicts: ready for development on an issue it clears, ready for review on a
-# PR it passes. ready for development is also the approval: the developer will not
-# start a task without it. .claude/agents/qa.md makes applying them mandatory, and
+# PR or design PR once no finding of any severity is open. ready for development
+# is also the approval: the developer will not start a task without it.
+# .claude/agents/qa.md makes applying them mandatory, and
 # gh --add-label fails outright on a label the repository does not have. There is no
 # separate merge-ready label: ready for review already carries QA's MERGE READY: YES.
-# Colours, and the ready for review description, are copied from the live
-# Glory2Him.Template labels.
+# Colours are copied from the live Glory2Him.Template labels. The ready for review
+# description is this file's own, and the label sync carries it to the live label.
 QA_LABELS = [
     ("ready for development", "0e8a16", "QA signed the task off; a developer may start once its design is on main"),
-    ("ready for review", "0e8a16", "QA passed with no blocking findings; ready for a human merge review"),
+    ("ready for review", "0e8a16", "QA passed the PR or design PR with no finding of any severity open; ready for a human merge review"),
 ]
 
 # One per design area, applied by the planner so an area has a live query that never
