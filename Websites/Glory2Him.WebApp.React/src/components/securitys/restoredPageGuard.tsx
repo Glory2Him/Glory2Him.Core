@@ -39,7 +39,7 @@ const resumePlaceOnThePage = (place: PlaceOnThePage): void => {
     window.scrollTo({ top: place.scrollPosition });
 
     if (place.focusedElement instanceof HTMLElement && place.focusedElement !== document.body) {
-        place.focusedElement.focus();
+        place.focusedElement.focus({ preventScroll: true });
     }
 };
 
