@@ -1582,6 +1582,17 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedHandler:
                     this.approvalOrchestrationServiceMock.Object.OnAssociationModifiedAsync);
 
+            // A reader's changed reaction, on the foundation's address: the personal upsert is a
+            // foundation transition and nothing above it publishes the fact (§ARC16.2.2).
+            VerifyAssociationSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnAssociationRepointedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnAssociationRepointedSubscriptionName,
+                expectedOperation: AssociationEventOperation.Repointed,
+                expectedHandler:
+                    this.approvalOrchestrationServiceMock.Object.OnAssociationRepointedAsync);
+
             // -Submitted, all seven on the FOUNDATION subscribe — ContentItem and Link included,
             // whose Added/Modified pairs go through the processing one. The helper chosen here IS
             // the assertion: a registration on the processing address would verify nothing.

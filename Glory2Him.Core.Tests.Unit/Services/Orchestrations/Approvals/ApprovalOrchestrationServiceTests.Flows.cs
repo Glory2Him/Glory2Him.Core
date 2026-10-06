@@ -19,14 +19,17 @@ using Force.DeepCloner;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Events.Processings;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments.Exceptions;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
+using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Securities;
+using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
@@ -1273,6 +1276,72 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         }
 
         /// <summary>
+        /// THE RESET IS ON AND NO REVIEW STANDS, and Berean's finished pass still goes back to
+        /// pending. Its assignment is keyed on the APPROVAL rather than on the round's reviews, so
+        /// an edit takes its verdict back whether or not a human review was there to dismiss.
+        ///
+        /// <para><b>What it catches.</b> A changed reaction skips Berean when its delivery
+        /// returned nothing and dismissed nothing — that is its redelivery check (§APR9.7.4).
+        /// An edit is handed no change time and has no such check: the setting decides, exactly
+        /// as before #727 (its criterion 10). Letting the check reach this flow would leave
+        /// Berean's pass standing on every edit to a round nobody has reviewed yet.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnBereanToPendingOnEditWhenNoReviewStoodToDismissAsync()
+        {
+            // given: a plain author revising their own submitted content, on a round that holds
+            // no active review at all
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            var approvalId = Guid.NewGuid();
+            var entityId = Guid.NewGuid();
+            var staleAssignmentId = Guid.NewGuid();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+            Approval storageApproval = CreateFlowApproval(
+                approvalId: approvalId,
+                entityId: entityId,
+                entityType: EntityType.Link,
+                approvalStatus: ApprovalStatus.Submitted);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
+            SetupFlowApprovalRow(storageApproval);
+            SetupDismissableReviews(approvalId);
+            SetupResettableAIReviewerAssignment(approvalId, staleAssignmentId);
+            SetupAIReviewerAssignmentReturnToPending();
+
+            SetupFlowConditionsReads(
+                firstConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true),
+
+                secondConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true));
+
+            // when
+            await this.approvalOrchestrationService.ProcessEntityModifiedAsync(
+                EntityType.Link,
+                entityId,
+                cancellationToken);
+
+            // then: the round was asked what it holds, and there was nothing to dismiss
+            this.accessBrokerMock.Verify(broker =>
+                broker.FindDismissableApprovalReviewIdsAsync(
+                    approvalId,
+                    cancellationToken),
+                Times.Once);
+
+            this.approvalReviewServiceMock.VerifyNoOtherCalls();
+
+            // and Berean's pass went back to pending all the same
+            this.aiReviewerAssignmentWorkflowServiceMock.Verify(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    staleAssignmentId,
+                    cancellationToken),
+                Times.Once);
+
+            this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
         /// THE RESET IS OFF, so nothing is dismissed and there is nothing stale — and the round is
         /// not asked about Berean either.
         ///
@@ -1612,5 +1681,1102 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // service published
             actualEnvelope.Should().BeNull();
         }
+
+        // ── A reader's changed reaction (§APR9.7.4, #727) ──────────────────────────────────
+        //
+        // The flow is reached through the Association-Repointed ear, the only caller that hands
+        // it the change's UpdatedWhen, so these tests drive the ear and read the flow's work.
+
+        [Fact]
+        public async Task ShouldReturnARoundDecidedBeforeTheChangeAndEvaluateItAsync()
+        {
+            // given: the reader's reaction was approved a day before they changed it, so the
+            // round is the old reaction's and the change has to be decided afresh (§APR9.7.4, the
+            // round "was decided before the change"). The seeded personal tier answers every read:
+            // nothing is required and the met conditions apply themselves, so the evaluation
+            // approves the round again in the same act (§DOM4.5 rule 4).
+            //
+            // The round arrives BYPASS-APPROVED. Returning it withdraws that outcome, and a round
+            // back at Submitted must not still claim a waiver for a decision it no longer holds
+            // (§APR9.7.5), so the return write carries the pair cleared.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Approved,
+                updatedWhen: changedWhen.AddDays(-1),
+                updatedBy: SystemIdentity.UserId);
+
+            storageApproval.IsApprovedByBypass = true;
+            storageApproval.ApprovedByBypassReason = "approved before the reader changed it";
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Approved, approvalId));
+            SetupRepointedReviews(approvalId, cancellationToken);
+            SetupFlowSystemEnvelope<Association>();
+
+            List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
+
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
+
+            SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
+                CreateFlowConditions(areConditionsMet: true, shouldAutoApprove: true),
+                flowSteps);
+
+            // when
+            await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                envelope: CreateRepointedEnvelope(
+                    CreateRepointedAssociation(entityId, changedWhen)),
+                cancellationToken: cancellationToken);
+
+            // then: returned first, as the workflow, with the waiver it no longer holds cleared
+            roundWrites.Should().HaveCount(2);
+
+            roundWrites[0].Approval.Id.Should().Be(approvalId);
+            roundWrites[0].Approval.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+            roundWrites[0].Approval.IsApprovedByBypass.Should().BeFalse();
+            roundWrites[0].Approval.ApprovedByBypassReason.Should().BeNull();
+            roundWrites[0].Attribution.Should().Be(WorkflowAttribution.System);
+
+            // the association followed its round to Submitted and was unpublished (§APR9.8)
+            associationCommands.Should().HaveCount(2);
+
+            associationCommands[0].Id.Should().Be(entityId);
+            associationCommands[0].ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+            associationCommands[0].IsPublished.Should().BeFalse();
+            associationCommands[0].PublishDate.Should().BeNull();
+            associationCommands[0].IsApprovedByBypass.Should().BeFalse();
+
+            // and the round was evaluated only after that: approved again, and published again
+            roundWrites[1].Approval.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
+            roundWrites[1].Attribution.Should().Be(WorkflowAttribution.System);
+            associationCommands[1].ApprovalStatus.Should().Be(ApprovalStatus.Approved);
+            associationCommands[1].IsPublished.Should().BeTrue();
+
+            flowSteps.Should().Equal(
+                "write:Submitted",
+                "command:Submitted",
+                "conditions-read",
+                "write:Approved",
+                "command:Approved");
+        }
+
+        [Fact]
+        public async Task ShouldReturnARoundApprovedAfterTheChangeOnAnOldReviewAsync()
+        {
+            // given: the round was approved a minute AFTER the reader changed their reaction,
+            // inside the window before this fact was heard, while a review written for the old
+            // reaction still stood. Nothing records which reviews an approval counted, so that
+            // approval may have counted the old pair's, and it is returned whatever reached it
+            // (§APR9.7.4, the second case). A review written since the change stands beside it.
+            //
+            // The tier asks for two approvals and the read after the return finds them unmet, so
+            // the round is evaluated and stays open for fresh reviews.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Approved,
+                updatedWhen: changedWhen.AddMinutes(1),
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Approved, approvalId));
+            SetupFlowSystemEnvelope<Association>();
+
+            SetupRepointedReviews(
+                approvalId,
+                cancellationToken,
+                CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen.AddHours(-1)),
+                CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen.AddSeconds(30)));
+
+            List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
+
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
+
+            SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
+                CreateFlowConditions(
+                    blockReasons: new List<AccessDenialReason>
+                    {
+                        AccessDenialReason.ApprovalThresholdNotMet,
+                    },
+                    approvalCount: 1,
+                    requiredNumberOfApprovals: 2),
+                flowSteps);
+
+            // when
+            await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                envelope: CreateRepointedEnvelope(
+                    CreateRepointedAssociation(entityId, changedWhen)),
+                cancellationToken: cancellationToken);
+
+            // then: returned as the workflow, and the association followed it off the public site
+            roundWrites.Should().ContainSingle();
+            roundWrites[0].Approval.Id.Should().Be(approvalId);
+            roundWrites[0].Approval.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+            roundWrites[0].Attribution.Should().Be(WorkflowAttribution.System);
+
+            associationCommands.Should().ContainSingle();
+            associationCommands[0].Id.Should().Be(entityId);
+            associationCommands[0].ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+            associationCommands[0].IsPublished.Should().BeFalse();
+
+            // and evaluated once it was back: unmet, so it stays open
+            flowSteps.Should().Equal("write:Submitted", "command:Submitted", "conditions-read");
+        }
+
+        [Fact]
+        public async Task ShouldReturnARoundAnOldRejectionRejectedAfterTheChangeAsync()
+        {
+            // given: the workflow rejected the round a minute AFTER the change, on a standing
+            // rejection, while a rejection written for the old reaction still stood and no review
+            // written since rejects. Then an old review is what blocks the round, so it is
+            // returned (§APR9.7.4, the third case).
+            //
+            // The review written since the change APPROVES. It is the new pair's own, and only a
+            // new pair's REJECTION would keep the round where it is.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Rejected,
+                updatedWhen: changedWhen.AddMinutes(1),
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Rejected, approvalId));
+            SetupFlowSystemEnvelope<Association>();
+
+            SetupRepointedReviews(
+                approvalId,
+                cancellationToken,
+                CreateRepointedReview(
+                    Guid.NewGuid(),
+                    createdWhen: changedWhen.AddHours(-1),
+                    isRejection: true),
+
+                CreateRepointedReview(
+                    Guid.NewGuid(),
+                    createdWhen: changedWhen.AddSeconds(30),
+                    isRejection: false));
+
+            List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
+
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
+
+            SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
+                CreateFlowConditions(
+                    blockReasons: new List<AccessDenialReason>
+                    {
+                        AccessDenialReason.ApprovalThresholdNotMet,
+                    },
+                    approvalCount: 1,
+                    requiredNumberOfApprovals: 2),
+                flowSteps);
+
+            // when
+            await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                envelope: CreateRepointedEnvelope(
+                    CreateRepointedAssociation(entityId, changedWhen)),
+                cancellationToken: cancellationToken);
+
+            // then: returned as the workflow, and the association followed it
+            roundWrites.Should().ContainSingle();
+            roundWrites[0].Approval.Id.Should().Be(approvalId);
+            roundWrites[0].Approval.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+            roundWrites[0].Attribution.Should().Be(WorkflowAttribution.System);
+
+            associationCommands.Should().ContainSingle();
+            associationCommands[0].Id.Should().Be(entityId);
+            associationCommands[0].ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+            associationCommands[0].IsPublished.Should().BeFalse();
+
+            // and evaluated once it was back
+            flowSteps.Should().Equal("write:Submitted", "command:Submitted", "conditions-read");
+        }
+
+        [Theory]
+        [InlineData(1, true)]
+        [InlineData(-1440, false)]
+        [InlineData(-1440, true)]
+        public async Task ShouldNeverReturnADirectRejectionAsync(
+            int minutesFromTheChangeToTheRejection,
+            bool isAnOldRejectionStanding)
+        {
+            // given: a publisher rejected the round directly, so the row records the person who
+            // took the decision and not the workflow (WorkflowAttribution, §APR9.7.5). A direct
+            // rejection counts no review, so no review can be what decided it, and returning it
+            // would erase a verdict nothing re-takes: the evaluation that follows can only approve
+            // or leave open (§APR9.7.4).
+            //
+            // Each row is a shape a STANDING rejection would be returned in: rejected after the
+            // change while an old rejection still stands, or rejected before the change, with or
+            // without its rejection still standing. The evaluation is armed to approve, so a round
+            // returned by mistake is written twice and published.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Rejected,
+                updatedWhen: changedWhen.AddMinutes(minutesFromTheChangeToTheRejection),
+                updatedBy: Guid.NewGuid().ToString());
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Rejected, approvalId));
+            SetupFlowSystemEnvelope<Association>();
+
+            DismissableApprovalReview[] standingReviews = isAnOldRejectionStanding
+                ? new[]
+                {
+                    CreateRepointedReview(
+                        Guid.NewGuid(),
+                        createdWhen: changedWhen.AddDays(-2),
+                        isRejection: true),
+                }
+                : Array.Empty<DismissableApprovalReview>();
+
+            SetupRepointedReviews(approvalId, cancellationToken, standingReviews);
+
+            List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
+
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
+
+            SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
+                CreateFlowConditions(areConditionsMet: true, shouldAutoApprove: true),
+                flowSteps);
+
+            // when
+            await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                envelope: CreateRepointedEnvelope(
+                    CreateRepointedAssociation(entityId, changedWhen)),
+                cancellationToken: cancellationToken);
+
+            // then: the round stays Rejected, and the association is not told anything — not even
+            // an envelope is minted for a command
+            roundWrites.Should().BeEmpty();
+            associationCommands.Should().BeEmpty();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldDismissTheOldPairsReviewsWhateverTheSettingSaysAsync()
+        {
+            // given: RequireReapprovalOnChange is OFF, which keeps every review standing on any
+            // other change (§APR8.8). A changed reaction's round starts with no reviews, so the old
+            // pair's are dismissed whatever the setting says — every active review written before
+            // the change, approvals and rejections alike — and Berean's finished pass goes back to
+            // pending with them (§APR8.8 regardless-rule 1, §APR9.7.4).
+            //
+            // The new pair's reviews stand: one written a minute after the change, and one stamped
+            // in the change's own tick, which does not precede it and so is not the old pair's.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            var oldApprovingReviewId = Guid.NewGuid();
+            var oldRejectingReviewId = Guid.NewGuid();
+            var staleAssignmentId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Submitted,
+                updatedWhen: changedWhen.AddDays(-1),
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
+            SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
+
+            List<Guid> dismissedReviewIds = SetupRepointedReviews(
+                approvalId,
+                cancellationToken,
+                flowSteps,
+                CreateRepointedReview(oldApprovingReviewId, createdWhen: changedWhen.AddDays(-1)),
+
+                CreateRepointedReview(
+                    oldRejectingReviewId,
+                    createdWhen: changedWhen.AddTicks(-1),
+                    isRejection: true),
+
+                CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen),
+                CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen.AddMinutes(1)));
+
+            SetupResettableAIReviewerAssignment(approvalId, staleAssignmentId);
+
+            this.aiReviewerAssignmentWorkflowServiceMock.Setup(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    staleAssignmentId,
+                    cancellationToken))
+                        .ReturnsAsync((Guid aiReviewerAssignmentId, CancellationToken _) =>
+                        {
+                            flowSteps.Add("ai-reset");
+
+                            return new AIReviewerAssignment { Id = aiReviewerAssignmentId };
+                        });
+
+            SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
+                CreateFlowConditions(shouldResetStaleReviewsOnChange: false),
+                flowSteps);
+
+            // when
+            await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                envelope: CreateRepointedEnvelope(
+                    CreateRepointedAssociation(entityId, changedWhen)),
+                cancellationToken: cancellationToken);
+
+            // then: the old pair's reviews went, and the new pair's stood
+            dismissedReviewIds.Should().BeEquivalentTo(
+                new[] { oldApprovingReviewId, oldRejectingReviewId });
+
+            // Berean's pass on the old reaction went back to pending with them
+            this.aiReviewerAssignmentWorkflowServiceMock.Verify(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    staleAssignmentId,
+                    cancellationToken),
+                Times.Once);
+
+            // and the round was evaluated on the reviews that were left: the dismissals come
+            // before the one conditions read, and Berean is the tidy-up after it
+            flowSteps.Should().Equal("dismiss", "dismiss", "conditions-read", "ai-reset");
+        }
+
+        [Fact]
+        public async Task ShouldDismissAndEvaluateAnOpenRoundWithoutReturningItAsync()
+        {
+            // given: the round is still OPEN — the tier wants a second approval — and was last
+            // written a day before the change. Only a DECIDED round goes back to Submitted, so an
+            // open one stays where it is, whenever it was last written; its old pair's review is
+            // still dismissed, and it is evaluated on what is left (§APR9.7.4). The read after
+            // the dismissal finds the threshold unmet, so nothing is written.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            var oldPairReviewId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Submitted,
+                updatedWhen: changedWhen.AddDays(-1),
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
+            SetupFlowSystemEnvelope<Association>();
+
+            List<Guid> dismissedReviewIds = SetupRepointedReviews(
+                approvalId,
+                cancellationToken,
+                flowSteps,
+                CreateRepointedReview(oldPairReviewId, createdWhen: changedWhen.AddHours(-2)),
+                CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen.AddMinutes(5)));
+
+            List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
+
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
+
+            SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
+                CreateFlowConditions(
+                    blockReasons: new List<AccessDenialReason>
+                    {
+                        AccessDenialReason.ApprovalThresholdNotMet,
+                    },
+                    approvalCount: 1,
+                    requiredNumberOfApprovals: 2),
+                flowSteps);
+
+            // when
+            await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                envelope: CreateRepointedEnvelope(
+                    CreateRepointedAssociation(entityId, changedWhen)),
+                cancellationToken: cancellationToken);
+
+            // then: it stayed Submitted — nothing written to the round, nothing sent to the
+            // association
+            roundWrites.Should().BeEmpty();
+            associationCommands.Should().BeEmpty();
+
+            // the old pair's review was dismissed, and the round evaluated after it
+            dismissedReviewIds.Should().Equal(new[] { oldPairReviewId });
+            flowSteps.Should().Equal("dismiss", "conditions-read");
+        }
+
+        [Fact]
+        public async Task ShouldFindNothingLeftToDoOnARedeliveredChangeAsync()
+        {
+            // given: the round as the FIRST delivery of this fact left it — returned, its old
+            // pair's reviews dismissed, and approved again seconds after the change — and a
+            // reviewer and Berean have both looked at the NEW reaction since. The substrate
+            // delivers the same fact again (§EVN20 rule 10).
+            //
+            // The return and the dismissal are deltas, so they carry the redelivery check
+            // §EVN20 rule 4 requires: no old-pair review stands and no round decided before the
+            // change is left decided, so there is nothing to take back (§APR9.7.4). Berean's
+            // return to pending rides with the return and the dismissal, and its pass on the new
+            // reaction must survive the redelivery like the reviewer's review.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Approved,
+                updatedWhen: changedWhen.AddSeconds(2),
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Approved, approvalId));
+            SetupFlowSystemEnvelope<Association>();
+
+            List<Guid> dismissedReviewIds = SetupRepointedReviews(
+                approvalId,
+                cancellationToken,
+                flowSteps,
+                CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen.AddMinutes(5)));
+
+            List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
+
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
+
+            // Berean's pass on the new reaction: finished, so a reset would have something to
+            // take back.
+            SetupResettableAIReviewerAssignment(approvalId, Guid.NewGuid());
+            SetupAIReviewerAssignmentReturnToPending();
+
+            SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
+                CreateFlowConditions(areConditionsMet: true, shouldAutoApprove: true),
+                flowSteps);
+
+            EventEnvelope<Association> redeliveredEnvelope =
+                CreateRepointedEnvelope(CreateRepointedAssociation(entityId, changedWhen));
+
+            // when
+            await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                envelope: redeliveredEnvelope,
+                cancellationToken: cancellationToken);
+
+            // then: no round returned, no review dismissed, and nothing sent to the association
+            roundWrites.Should().BeEmpty();
+            associationCommands.Should().BeEmpty();
+            dismissedReviewIds.Should().BeEmpty();
+
+            // Berean is not asked about, let alone taken back
+            this.accessBrokerMock.Verify(broker =>
+                broker.FindResettableAIReviewerAssignmentIdAsync(
+                    approvalId,
+                    cancellationToken),
+                Times.Never);
+
+            this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
+
+            // only the evaluation ran again
+            flowSteps.Should().Equal("conditions-read");
+        }
+
+        [Fact]
+        public async Task ShouldReturnBereanToPendingWhenAChangedReactionReturnsItsRoundAsync()
+        {
+            // given: the round was approved a day before the change, and no review was ever
+            // written on it — the seeded personal tier approves without one — but Berean finished
+            // a pass over the old reaction. Returning the round is work this delivery found to
+            // do, so it is no redelivery, and Berean's verdict on the old pair goes back to
+            // pending with the rest of the round's, though no review stood to dismiss beside it
+            // (§APR8.8 regardless-rule 1, §APR9.7.4).
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            var staleAssignmentId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Approved,
+                updatedWhen: changedWhen.AddDays(-1),
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Approved, approvalId));
+            SetupFlowSystemEnvelope<Association>();
+
+            List<Guid> dismissedReviewIds = SetupRepointedReviews(approvalId, cancellationToken);
+
+            List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
+
+            SetupRepointedAssociationCommands(entityId, flowSteps);
+            SetupResettableAIReviewerAssignment(approvalId, staleAssignmentId);
+            SetupAIReviewerAssignmentReturnToPending();
+
+            SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
+                CreateFlowConditions(areConditionsMet: true, shouldAutoApprove: true),
+                flowSteps);
+
+            // when
+            await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                envelope: CreateRepointedEnvelope(
+                    CreateRepointedAssociation(entityId, changedWhen)),
+                cancellationToken: cancellationToken);
+
+            // then: the round went back, with no review to dismiss
+            roundWrites.Should().NotBeEmpty();
+            roundWrites[0].Approval.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+            dismissedReviewIds.Should().BeEmpty();
+
+            // and Berean's pass over the old reaction went back to pending
+            this.aiReviewerAssignmentWorkflowServiceMock.Verify(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    staleAssignmentId,
+                    cancellationToken),
+                Times.Once);
+
+            this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [InlineData(nameof(IApprovalOrchestrationService.OnAssociationModifiedAsync), false)]
+        [InlineData(nameof(IApprovalOrchestrationService.OnAssociationModifiedAsync), true)]
+        [InlineData(nameof(IApprovalOrchestrationService.OnAssociationSubmittedAsync), false)]
+        [InlineData(nameof(IApprovalOrchestrationService.OnAssociationSubmittedAsync), true)]
+        public async Task ShouldHandTheFlowNoChangeTimeOnAnAssociationModifiedOrSubmittedFactAsync(
+            string handlerName,
+            bool shouldResetStaleReviewsOnChange)
+        {
+            // given: an Association-Modified or -Submitted fact. Only the Association-Repointed
+            // ear hands the flow a change time (§APR9.7.4); these two run it as every other ear
+            // does, exactly as before #727 (its criterion 10): no decided round is returned, and
+            // the round's reviews — all of them — are dismissed only when
+            // RequireReapprovalOnChange says so, with Berean's pass taken back alongside.
+            //
+            // Armed so that a change time would show. The round was approved a day before the
+            // fact's UpdatedWhen, which a bound would return, and its one active review was
+            // written between the two, which a bound would dismiss whatever the setting says.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            var activeReviewId = Guid.NewGuid();
+            var staleAssignmentId = Guid.NewGuid();
+            DateTimeOffset factUpdatedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Approved,
+                updatedWhen: factUpdatedWhen.AddDays(-1),
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Approved, approvalId));
+            SetupFlowSystemEnvelope<Association>();
+
+            List<Guid> dismissedReviewIds = SetupRepointedReviews(
+                approvalId,
+                cancellationToken,
+                CreateRepointedReview(activeReviewId, createdWhen: factUpdatedWhen.AddHours(-1)));
+
+            List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
+
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
+            SetupResettableAIReviewerAssignment(approvalId, staleAssignmentId);
+            SetupAIReviewerAssignmentReturnToPending();
+
+            SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
+                CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: shouldResetStaleReviewsOnChange),
+                flowSteps);
+
+            EventEnvelope<Association> inputEnvelope =
+                CreateRepointedEnvelope(CreateRepointedAssociation(entityId, factUpdatedWhen));
+
+            // when
+            EventEnvelope<Association> actualReply = handlerName switch
+            {
+                nameof(IApprovalOrchestrationService.OnAssociationModifiedAsync) =>
+                    await this.approvalOrchestrationService.OnAssociationModifiedAsync(
+                        envelope: inputEnvelope,
+                        cancellationToken: cancellationToken),
+
+                nameof(IApprovalOrchestrationService.OnAssociationSubmittedAsync) =>
+                    await this.approvalOrchestrationService.OnAssociationSubmittedAsync(
+                        envelope: inputEnvelope,
+                        cancellationToken: cancellationToken),
+
+                _ => throw new InvalidOperationException($"No ear is wired for {handlerName}.")
+            };
+
+            // then: no decided round was returned, and the association was told nothing
+            roundWrites.Should().BeEmpty();
+            associationCommands.Should().BeEmpty();
+
+            // the round's reviews were never read with a bound, because there is none
+            this.accessBrokerMock.Verify(broker =>
+                broker.FindDismissableApprovalReviewsAsync(
+                    approvalId,
+                    cancellationToken),
+                Times.Never);
+
+            // and the setting alone decided the dismissal, and Berean's pass with it
+            dismissedReviewIds.Should().Equal(
+                shouldResetStaleReviewsOnChange
+                    ? new[] { activeReviewId }
+                    : Array.Empty<Guid>());
+
+            this.aiReviewerAssignmentWorkflowServiceMock.Verify(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    staleAssignmentId,
+                    cancellationToken),
+                shouldResetStaleReviewsOnChange ? Times.Once() : Times.Never());
+
+            actualReply.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task ShouldReturnARoundRejectedBeforeTheChangeAndEvaluateItAsync()
+        {
+            // given: the workflow rejected the round on a standing rejection a day BEFORE the
+            // reader changed their reaction, so the round is the old reaction's, decided on the
+            // old pair's terms, and goes back like any round decided before the change
+            // (§APR9.7.4, the first case). The rejection that blocked it has since been withdrawn,
+            // so no review stands behind it: what returns it is when it was decided, not which
+            // reviews are left.
+            //
+            // The tier asks for an approval, so the round is evaluated and stays open.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Rejected,
+                updatedWhen: changedWhen.AddDays(-1),
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Rejected, approvalId));
+            SetupFlowSystemEnvelope<Association>();
+            SetupRepointedReviews(approvalId, cancellationToken);
+
+            List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
+
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
+
+            SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
+                CreateFlowConditions(
+                    blockReasons: new List<AccessDenialReason>
+                    {
+                        AccessDenialReason.ApprovalThresholdNotMet,
+                    },
+                    approvalCount: 0,
+                    requiredNumberOfApprovals: 1),
+                flowSteps);
+
+            // when
+            await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                envelope: CreateRepointedEnvelope(
+                    CreateRepointedAssociation(entityId, changedWhen)),
+                cancellationToken: cancellationToken);
+
+            // then: returned as the workflow
+            roundWrites.Should().ContainSingle();
+            roundWrites[0].Approval.Id.Should().Be(approvalId);
+            roundWrites[0].Approval.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+            roundWrites[0].Attribution.Should().Be(WorkflowAttribution.System);
+
+            // the association followed it to Submitted and is unpublished
+            associationCommands.Should().ContainSingle();
+            associationCommands[0].Id.Should().Be(entityId);
+            associationCommands[0].ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+            associationCommands[0].IsPublished.Should().BeFalse();
+            associationCommands[0].PublishDate.Should().BeNull();
+
+            // and the round was evaluated once it was back
+            flowSteps.Should().Equal("write:Submitted", "command:Submitted", "conditions-read");
+        }
+
+        [Theory]
+        [InlineData(0L)]
+        [InlineData(300_000_000L)]
+        public async Task ShouldKeepARejectionTheNewPairAlsoStandsBehindAsync(
+            long ticksFromTheChangeToTheNewRejection)
+        {
+            // given: the workflow rejected the round a minute after the change on a standing
+            // rejection, and a rejection of the old reaction and one of the new reaction both
+            // still stand. A new review's rejection is the new pair's own verdict, so the round is
+            // not returned: the evaluation that would follow can only approve or leave it open,
+            // and returning it would erase a verdict nothing re-takes (§APR9.7.4, the third case).
+            //
+            // The new pair's rejection is written thirty seconds after the change, or in the
+            // change's own tick, which does not precede it. The evaluation is armed to approve, so
+            // a round returned by mistake is written and published.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Rejected,
+                updatedWhen: changedWhen.AddMinutes(1),
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Rejected, approvalId));
+            SetupFlowSystemEnvelope<Association>();
+
+            SetupRepointedReviews(
+                approvalId,
+                cancellationToken,
+                CreateRepointedReview(
+                    Guid.NewGuid(),
+                    createdWhen: changedWhen.AddHours(-1),
+                    isRejection: true),
+
+                CreateRepointedReview(
+                    Guid.NewGuid(),
+                    createdWhen: changedWhen.AddTicks(ticksFromTheChangeToTheNewRejection),
+                    isRejection: true));
+
+            List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
+
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
+
+            SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
+                CreateFlowConditions(areConditionsMet: true, shouldAutoApprove: true),
+                flowSteps);
+
+            // when
+            await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                envelope: CreateRepointedEnvelope(
+                    CreateRepointedAssociation(entityId, changedWhen)),
+                cancellationToken: cancellationToken);
+
+            // then: the round stays Rejected, and the association is not told anything
+            roundWrites.Should().BeEmpty();
+            associationCommands.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task ShouldKeepARejectionNoOldRejectionStandsBehindAsync()
+        {
+            // given: the workflow rejected the round a minute after the change on a standing
+            // rejection, and the only review of the old reaction still standing APPROVES. Only one
+            // of the old pair's REJECTIONS still standing makes an old review what blocks the
+            // round (§APR9.7.4, the third case), so an old approval beside a rejection returns
+            // nothing: no review written since rejects, and the round still stays Rejected.
+            //
+            // The evaluation is armed to approve, so a round returned by mistake is written and
+            // published.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Rejected,
+                updatedWhen: changedWhen.AddMinutes(1),
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Rejected, approvalId));
+            SetupFlowSystemEnvelope<Association>();
+
+            SetupRepointedReviews(
+                approvalId,
+                cancellationToken,
+                CreateRepointedReview(
+                    Guid.NewGuid(),
+                    createdWhen: changedWhen.AddHours(-1),
+                    isRejection: false));
+
+            List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
+
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
+
+            SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
+                CreateFlowConditions(areConditionsMet: true, shouldAutoApprove: true),
+                flowSteps);
+
+            // when
+            await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                envelope: CreateRepointedEnvelope(
+                    CreateRepointedAssociation(entityId, changedWhen)),
+                cancellationToken: cancellationToken);
+
+            // then: the round stays Rejected, and the association is not told anything
+            roundWrites.Should().BeEmpty();
+            associationCommands.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task ShouldNotReturnARoundDecidedInTheChangesOwnTickAsync()
+        {
+            // given: the round was approved in the change's own tick, and no review of the old
+            // reaction stands. A round goes back for being decided BEFORE the change, and a time
+            // equal to the change's does not precede it, as a review stamped in that tick is not
+            // the old pair's (§APR9.7.4, the first case). With no old review standing beside the
+            // approval the second case is not met either, so the round stays where it is.
+            //
+            // The evaluation is armed to approve, so a round returned by mistake is written and
+            // published.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Approved,
+                updatedWhen: changedWhen,
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Approved, approvalId));
+            SetupFlowSystemEnvelope<Association>();
+            SetupRepointedReviews(approvalId, cancellationToken);
+
+            List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
+
+            List<Association> associationCommands = SetupRepointedAssociationCommands(entityId, flowSteps);
+
+            SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
+                CreateFlowConditions(areConditionsMet: true, shouldAutoApprove: true),
+                flowSteps);
+
+            // when
+            await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                envelope: CreateRepointedEnvelope(
+                    CreateRepointedAssociation(entityId, changedWhen)),
+                cancellationToken: cancellationToken);
+
+            // then: the round stays Approved, and the association is not told anything
+            roundWrites.Should().BeEmpty();
+            associationCommands.Should().BeEmpty();
+
+            // only the evaluation ran, on the round as it stands
+            flowSteps.Should().Equal("conditions-read");
+        }
+
+        [Fact]
+        public async Task ShouldNotReturnAnApprovalBesideOnlyAReviewOfTheChangesOwnTickAsync()
+        {
+            // given: the round was approved a minute after the change, and the only review
+            // standing beside the approval was stamped in the change's own tick. It does not
+            // precede the change, so it is the new pair's (§APR9.7.4), and an approval with no
+            // old-pair review standing beside it is not returned (the second case). The review is
+            // not dismissed either.
+            //
+            // The evaluation is armed to approve, so a round returned by mistake is written and
+            // published.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var flowSteps = new List<string>();
+
+            Approval storageApproval = CreateRepointedRound(
+                approvalId: approvalId,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Approved,
+                updatedWhen: changedWhen.AddMinutes(1),
+                updatedBy: SystemIdentity.UserId);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Approved, approvalId));
+            SetupFlowSystemEnvelope<Association>();
+
+            List<Guid> dismissedReviewIds = SetupRepointedReviews(
+                approvalId,
+                cancellationToken,
+                flowSteps,
+                CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen));
+
+            List<(Approval Approval, WorkflowAttribution Attribution)> roundWrites =
+                SetupRepointedRoundWrites(storageApproval, cancellationToken, flowSteps);
+
+            List<Association> associationCommands =
+                SetupRepointedAssociationCommands(entityId, flowSteps);
+
+            SetupRepointedConditions(
+                approvalId,
+                cancellationToken,
+                CreateFlowConditions(areConditionsMet: true, shouldAutoApprove: true),
+                flowSteps);
+
+            // when
+            await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                envelope: CreateRepointedEnvelope(
+                    CreateRepointedAssociation(entityId, changedWhen)),
+                cancellationToken: cancellationToken);
+
+            // then: the round stays Approved, its review stands, and the association is not told
+            // anything
+            roundWrites.Should().BeEmpty();
+            associationCommands.Should().BeEmpty();
+            dismissedReviewIds.Should().BeEmpty();
+
+            // only the evaluation ran, on the round as it stands
+            flowSteps.Should().Equal("conditions-read");
+        }
+
+        private static Approval CreateRepointedRound(
+            Guid approvalId,
+            Guid entityId,
+            ApprovalStatus approvalStatus,
+            DateTimeOffset updatedWhen,
+            string updatedBy) =>
+            new Approval
+            {
+                Id = approvalId,
+                EntityType = EntityType.Association,
+                EntityId = entityId,
+                ApprovalStatus = approvalStatus,
+                UpdatedWhen = updatedWhen,
+                UpdatedBy = updatedBy,
+                IsDeleted = false,
+            };
+
+        // The round as the resolution reads it, and every write to it captured as a SNAPSHOT with
+        // the attribution it was written under: the flow mutates the row it holds and hands the
+        // same object on, so the instance alone would show only its last state.
+        //
+        // Both are answered only for THIS round, written as the workflow, on the delivery's own
+        // token. Any other write finds no setup and comes back null, and the flow faults where it
+        // next uses the row, so a test that expects no write still sees one.
+        private List<(Approval Approval, WorkflowAttribution Attribution)> SetupRepointedRoundWrites(
+            Approval storageApproval,
+            CancellationToken cancellationToken,
+            List<string> flowSteps)
+        {
+            var roundWrites = new List<(Approval Approval, WorkflowAttribution Attribution)>();
+
+            this.approvalServiceMock.Setup(service =>
+                service.RetrieveApprovalByIdAsync(
+                    storageApproval.Id,
+                    cancellationToken))
+                        .ReturnsAsync(storageApproval);
+
+            this.approvalServiceMock.Setup(service =>
+                service.ModifyApprovalAsync(
+                    It.Is<Approval>(approval => approval.Id == storageApproval.Id),
+                    WorkflowAttribution.System,
+                    cancellationToken))
+                        .Returns((Approval approval,
+                            WorkflowAttribution attribution,
+                            CancellationToken cancellationToken) =>
+                        {
+                            Approval savedApproval = approval.DeepClone();
+                            roundWrites.Add((savedApproval, attribution));
+                            flowSteps.Add($"write:{savedApproval.ApprovalStatus}");
+
+                            return new ValueTask<Approval>(savedApproval.DeepClone());
+                        });
+
+            return roundWrites;
+        }
+
+        // Every entity command the flow sends THIS association, in order. A command for any other
+        // row finds no setup, and the flow faults on the publish result it never got.
+        private List<Association> SetupRepointedAssociationCommands(
+            Guid entityId,
+            List<string> flowSteps)
+        {
+            var associationCommands = new List<Association>();
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishAssociationAsync(
+                    It.Is<EventEnvelope<Association>>(envelope => envelope.Content.Id == entityId),
+                    AssociationEventOperation.Approving))
+                        .Returns((EventEnvelope<Association> envelope,
+                            AssociationEventOperation operation) =>
+                        {
+                            associationCommands.Add(envelope.Content);
+                            flowSteps.Add($"command:{envelope.Content.ApprovalStatus}");
+
+                            return new ValueTask<EventPublishResult<Association>>(
+                                new EventPublishResult<Association>());
+                        });
+
+            return associationCommands;
+        }
+
+        // The same verdict for every read of THIS round on the delivery's own token, each one
+        // recorded where it happened.
+        private void SetupRepointedConditions(
+            Guid approvalId,
+            CancellationToken cancellationToken,
+            ApprovalConditionsVerdict conditionsVerdict,
+            List<string> flowSteps) =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.EvaluateApprovalConditionsByIdAsync(
+                    approvalId,
+                    cancellationToken))
+                        .Returns(() =>
+                        {
+                            flowSteps.Add("conditions-read");
+
+                            return new ValueTask<ApprovalConditionsVerdict>(conditionsVerdict);
+                        });
     }
 }

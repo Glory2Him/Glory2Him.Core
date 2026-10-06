@@ -82,7 +82,7 @@ The rest of the UI is already designed in the documents the presentation compone
 
 ## Risks
 
-**Reversible.** Everything here is code but one column, `Reactions.SortOrder`, whose migration's `Down` drops it; there is no new index and no new constraint. `AddAssociationAsync` is renamed `UpsertAssociationAsync` on the orchestration (§ARC16.8.1), and nothing outside the solution calls it — no controller serves it yet.
+**Reversible.** Everything here is code but one column, `Reactions.SortOrder`, whose migration's `Down` drops it; there is no new index and no new constraint. `AddAssociationAsync` is renamed `UpsertAssociationAsync` on the orchestration (§ARC16.8.1), and nothing outside the solution calls it — its one caller, `AssociationsController` (#728), is inside it.
 
 **Not reversible.** The two new event names, `Association-Restored` and `Association-Repointed`, and their stable identifiers: an event name sits inside the envelope's signature, and an identifier never changes once deployed (`EventBrokerIdentifiers.cs`). The new `AssociationSuggestionStatus` member crosses the wire as a number, so it is appended and never renumbered.
 

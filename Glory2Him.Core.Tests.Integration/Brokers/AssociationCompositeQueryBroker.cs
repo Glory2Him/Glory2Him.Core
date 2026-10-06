@@ -100,6 +100,9 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                     (storage, dateTime, identifier, events, envelopes, audit, access, integrity, logging) =>
                         new LinkService(
                             storage, dateTime, identifier, events, envelopes, audit, access, integrity, logging)),
+
+                // left bare: a collection read runs no facet gate
+                accessBroker: new Mock<IAccessBroker>().Object,
                 eventEnvelopeBroker: EventEnvelopeBrokerMock.Object,
                 envelopeIntegrityBroker: new Mock<IEnvelopeIntegrityBroker>().Object,
                 loggingBroker: new Mock<ILoggingBroker>().Object);

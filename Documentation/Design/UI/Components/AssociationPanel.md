@@ -298,9 +298,9 @@ Every page renders the family through its stories. No page renders `AssociationP
 
 | Purpose | Endpoint | State |
 | --- | --- | --- |
-| Read the associations for an entity — "associations for this entity", keyed on the effective id (§DOM4.6 rule 1) | `GET /api/associations` (§ARC17.4) | designed; `AssociationsController` does not exist yet (section 10, item 21) |
-| Suggest an association (`onAdd`) | `POST /api/associations` (§ARC17.4, §ARC16.8.1) | designed; not yet exposed (section 10, item 21) |
-| Remove an association (`onRemove`) | `DELETE /api/associations/{id}` (§ARC17.4) — owner or `Administrators` | designed; not yet exposed (section 10, item 21) |
+| Read the associations for an entity — "associations for this entity", keyed on the effective id (§DOM4.6 rule 1) | `GET /api/associations` (§ARC17.4) | designed; not yet served (section 10, item 21) |
+| Suggest an association (`onAdd`) | `POST /api/associations` (§ARC17.4, §ARC16.8.1) | served for a reader's reaction alone (#728); an editorial suggestion waits on #871 (section 10, item 21) |
+| Remove an association (`onRemove`) | `DELETE /api/associations/{id}` (§ARC17.4) — owner or `Administrators` | designed; not yet exposed (section 10, item 22) |
 | Approve or reject (`onApprove`, `onReject`) | not ruled — see section 10 | — |
 
 No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `contentItemModerationDetailPage.tsx` pass empty collections and answer `onAdd` with a "coming soon" toast; `postSingle.tsx`, `bibleReference.tsx` and the magazine sample hold suggestions in local state only. *(code: those files — suggestTag, asSuggestion)*
@@ -353,7 +353,7 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
 7. (needs issue) **Magazine sample suggestions cannot be withdrawn.** `postSingleMagazineSample.tsx` projects each suggestion with `asSuggestedAssociation(value, undefined)`, so the owner rule never fires and the `onRemove` it wires is unreachable. `postSingle.tsx` and `bibleReference.tsx` pass `user?.userId`.
 8. **Note — a button with no listener, ruled.** Remove, Reject and Approve render whenever their gate passes, whether or not `onRemove`, `onReject` or `onApprove` is supplied; clicking one then does nothing. For example, `postDetail.tsx` supplies no `onRemove`, so an owner's own pending chip would carry a dead Remove. Asked whether a button should show only when the page connects its hook, the user ruled on 2026-09-27 that there must never be a dead action, that a component may be built before the page that wires it, and that every dead action is planned end to end, down to the API (§UI20.6.6 rule 4). The panel's gates therefore stay as sections 3.2 and 3.3 state them, and a button whose hook nothing handles is closed by wiring it. Where a page leaves one unwired, that is the page's to record.
 9. **Note — which endpoint answers Approve and Reject, settled.** This item asked which route decides an association from this panel: the design named none, and nothing maps `onApprove` or `onReject` to one. It was settled on 2026-09-27 in the redesign of `/Admin/Posts/{id}`, #698 (https://github.com/Glory2Him/Glory2Him.Core/issues/698). A suggestion is an association with its own approval round, so it is decided through the same generic approval routes as the post, addressed by the round's id: `GET api/Approvals/{approvalId}/Verdict`, `PUT` or `POST api/Approvals/{approvalId}` with the decision in the body, and `POST api/Approvals/{approvalId}/Reset` (§ARC17.5; ruled under #699, https://github.com/Glory2Him/Glory2Him.Core/issues/699, not yet built). Every item that implements `IApproval`, an association among them, stores its approval id (§APR7.4 item 6), so the page reads it off each association. The panel raises the hooks and calls nothing; mapping them to those routes is the page's (§UI20.6.4), and the page that will do it is the one #698 redesigns.
-10. **Note — the admin moderation detail page and associations, ruled.** This item asked whether `/Admin/Posts/:contentItemId` is a moderation surface for associations. It renders both stories without `showModerationActions`, `onRemove`, `onApprove` or `onReject`, and without the counterpart `ContentItem-Reviewers` / `ContentItem-Publishers` tier in `moderationRoles` that `associationRoles.ts` says a host-aware surface passes, while rule 2.15 says a moderation surface turns the actions on; its collections stay empty until associations are exposed over HTTP (item 21). The user ruled on 2026-09-27 that the page needs a design session, and it is redesigned under #698 (https://github.com/Glory2Him/Glory2Him.Core/issues/698), from the product owner's mocks in the design session of #705 (https://github.com/Glory2Him/Glory2Him.Core/issues/705; user ruling 2026-09-28). Every tag and Bible reference is an approvable association with its own round, and the redesign settles where each one's round appears, what a moderator can do on each — see its reviews, cast a review, decide it, reset it, request reviewers and take it down — and whether the suggest box shows there. The page's document records the page as built (`UI/Pages/ContentItemModerationDetailPage.md`).
+10. **Note — the admin moderation detail page and associations, ruled.** This item asked whether `/Admin/Posts/:contentItemId` is a moderation surface for associations. It renders both stories without `showModerationActions`, `onRemove`, `onApprove` or `onReject`, and without the counterpart `ContentItem-Reviewers` / `ContentItem-Publishers` tier in `moderationRoles` that `associationRoles.ts` says a host-aware surface passes, while rule 2.15 says a moderation surface turns the actions on; its collections stay empty until the association read is exposed over HTTP (item 21). The user ruled on 2026-09-27 that the page needs a design session, and it is redesigned under #698 (https://github.com/Glory2Him/Glory2Him.Core/issues/698), from the product owner's mocks in the design session of #705 (https://github.com/Glory2Him/Glory2Him.Core/issues/705; user ruling 2026-09-28). Every tag and Bible reference is an approvable association with its own round, and the redesign settles where each one's round appears, what a moderator can do on each — see its reviews, cast a review, decide it, reset it, request reviewers and take it down — and whether the suggest box shows there. The page's document records the page as built (`UI/Pages/ContentItemModerationDetailPage.md`).
 11. (needs issue) **Global correction — the `AllowSelfApproval` setting is to be removed.** The panel never offers Approve to the owner (rule 2.16), while the server admits self-approval where `AllowSelfApproval` permits, and an `Administrators` bypass over their own submission (§APR8.6 HR-2). The user ruled on 2026-09-26 that the panel stays strict, whatever the setting says, and that the setting itself is to be removed. The panel already behaves so, and no marker sits on its rules. The removal is the global correction (§UI20.6.4 case 1): `Approval.md` describes the setting as live (§APR8.6 HR-2, §APR8.2), and removing it is neither designed nor built. The issue that tracked it, #697 ("DESIGN: Remove The AllowSelfApproval Setting"), was closed as not planned when the older issues were closed on 2026-09-27, so this item is where the sweep finds the work.
 12. **Note — the server's removal rule agrees; its gate is not yet built to it.** The owner may withdraw (soft-delete) their suggestion only while it is Draft or Submitted; once it has been reviewed it is locked (user rulings 2026-09-26 and 2026-09-27). Rule 2.18 is that rule, and the panel already follows it. On 2026-09-27 the user ruled that the same holds for everything subject to approval, with an `Administrators` takedown at any status kept as a separate moderation action; that global rule is §APR9.9. §SEC14.7 posture A rule 3 now says it for removal — the owner only while the stored row is `Draft` or `Submitted`, `Administrators` at any status — and posture A′ rule 4 asks the owner test with its status bound in the foundation, once the row is loaded. The server's gate is not yet built to it: `AssociationService.Validations.cs` — `ValidateUserCanRemoveStorageAssociationAsync` asks ownership or `Administrators`, never the status. §APR9.9 rule 8 records that server work as not yet built, so this document carries no marker for it, as `UI/Components/ContentItemPanel.md §10 item 19` does for the same work on content items.
 13. **Note — login prompt versus `addRoles`, ruled.** A signed-out reader is invited to sign in even when `addRoles` would then refuse them the box (rule 3.3.5). Asked whether every signed-out reader should be invited even where suggestions are limited to roles, the user ruled on 2026-09-27 that every signed-out reader who would contribute is sent to the sign-in page (§UI20.6.6 rule 2). Rules 2.20 and 3.3.5 state it, and the panel already behaves so.
@@ -375,10 +375,53 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
     property through their rest spread
     (`UI/Components/AssociationPanel.TagAssociationPanel.md §4.3`), so the property reaches them
     with the panel's. The panel's own end's roles, which it does not compose either, are item 1.
-21. (needs issue) **Gap — associations are not exposed over HTTP.** The reads and writes the
+21. (#857) **Gap — this family cannot read or write its associations over HTTP.** The reads and writes the
     page calls for this family — reading an entity's associations, suggesting one and removing
-    one (section 7; §ARC17.4) — are designed and not built: no `AssociationsController` exists at
-    70dc72e7, so no product page can read or write an association through the family, and every
+    one (section 7; §ARC17.4) — are designed and not built: `AssociationsController` serves only a reader's
+    reaction (#728), so no product page can read or write an association through the family, and every
     page in section 6 passes an empty collection or holds suggestions in its own state. A page
-    list narrowed by tag or Bible reference waits on the same read
-    (`UI/Components/ContentItemListPanel.md §8`). The work was filed as #318 (closed).
+    list narrowed by tag or Bible reference waits on the same read, and the narrowing itself is
+    not this item's: it is `UI/Components/ContentItemListPanel.md §10 item 15`, since #857 plans
+    only the read (user ruling 2026-10-05). The work was filed as #318 (closed). Suggesting
+    one is item 24. Reading an entity's associations is #857's, which
+    designs §ARC17.4's two reads with §SEC14.7 posture A′ rule 7 ahead of them (user ruling
+    2026-10-02). Removing one is item 22.
+22. (#700) **Gap — an association cannot be removed over HTTP.** Removing one, the third part of
+    item 21's gap, `DELETE /api/associations/{id}` (section 7; §ARC17.4), is held by a design task
+    other than item 21's: #700's point 6 plans the remove by id and the two gates beneath it.
+23. (needs issue) **Gap — code comments still send a reader to #318.** #318 was closed as not
+    planned on 2026-09-27, yet 39 lines in 20 files at 45db6477 still name it as the work that
+    exposes associations over HTTP — reading, writing or counting them — or that narrows a list by
+    tag or Bible reference. Evidence (`git grep -n "#318" -- Websites Glory2Him.Core`), under
+    `Websites/Glory2Him.WebApp.React/src/`:
+    `components/contentItems/contentItemDefaultPanel.tsx` lines 128 and 145;
+    `hooks/useContentItemEngagement.ts` lines 18 and 20;
+    `models/components/contentItems/contentItemSearchItem.ts` lines 76, 157 and 166;
+    `pages/admin/contentItemModerationDetailPage.tsx` lines 640 and 735;
+    `pages/admin/contentItemModerationPage.tsx` line 39; `pages/contentItemFeedPages.test.tsx` line
+    169; `pages/home.tsx` line 166; `pages/myPostDetail.tsx` lines 38, 142 and 201;
+    `pages/postDetail.test.tsx` lines 42, 307, 359, 416, 448 and 471; `pages/postDetail.tsx` lines
+    30, 60, 133 and 189; `pages/posts.test.tsx` lines 200 and 215; `pages/posts.tsx` line 151;
+    `pages/samplePages/components/contentItemListPanelDoc.tsx` lines 89, 633 and 835;
+    `pages/samplePages/components/shared/contentItemShapeSamples.ts` line 42;
+    `services/views/contentItems/contentItemFeedScope.ts` line 23;
+    `services/views/contentItems/toContentItemSearchItem.test.ts` line 114; and
+    `services/views/contentItems/toContentItemSearchItem.ts` lines 77 and 80. Beyond the React app:
+    `Glory2Him.Core/Services/Orchestrations/Associations/AssociationOrchestrationService.Writes.cs`
+    line 67, `Websites/Glory2Him.WebApp/Infrastructure/CoreRegistration.cs` line 237 and
+    `Websites/Glory2Him.WebApp.Tests.Unit/Infrastructure/CoreRegistrationTests.cs` line 87. Each
+    sends a reader to a closed issue. Where that work now has a holder, it is recorded in items 21
+    and 22, in `UI/Components/ContentItemListPanel.md §10 item 15`, or, for the reaction
+    summaries, in #730 (§ARC16.8). Saving a reader's reaction — giving, changing or withdrawing
+    it — is #739's (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2`), whose writes go
+    through #728's upsert and #729's withdrawal by pair. Rewriting three of these lines is #738's:
+    under its *Constraints* it rewrites `useContentItemEngagement.ts`'s header comment, lines
+    14-21, which holds lines 18 and 20, and `toContentItemSearchItem.ts`'s comment at lines 71-83
+    to say that the counts arrive through its hook, which rewrites line 80. The task carved from
+    this item leaves those three lines to #738, and takes up any of them that still names #318
+    once #738 has merged.
+24. (#871) **Gap — an editorial association cannot be suggested over HTTP.** Suggesting one, the
+    second part of item 21's gap, `POST /api/associations` (section 7; §ARC16.8.1), is held by a
+    design task other than item 21's. The route is #728's, which serves a reader's reaction alone
+    (user ruling 2026-10-05). Its editorial arm refuses the two-endpoint body until #871 rules
+    where an editorial row's `Id` is minted (§APR9.7.1 rule 2), and #871 plans the work.

@@ -224,7 +224,7 @@ panel follows the item's facet switches (item 9), and neither is handed the post
 | Hook | Raised when | What the page does | Built today |
 | --- | --- | --- | --- |
 | `onAdd` | A suggestion is committed | Toasts "Suggesting tags is coming soon." or "Suggesting bible references is coming soon.", and sends nothing. Whether a moderator is offered the box at all belongs to #698. | ❌ No — #698 |
-| `chipOnClick` | A chip's label is pressed | Opens `/Admin/Posts` handed the tag or the reference, as the card's type chip (rule 2.26). Today unreachable: each story's default link wins, and no chip renders while the lists are empty, until associations are exposed over HTTP (§ARC17.4, not yet built). ≠ item 17 | ❌ No — item 17; the panels themselves await #698 |
+| `chipOnClick` | A chip's label is pressed | Opens `/Admin/Posts` handed the tag or the reference, as the card's type chip (rule 2.26). Today unreachable: each story's default link wins, and no chip renders while the lists are empty, until the association read is exposed over HTTP (§ARC17.4, not yet built). ≠ item 17 | ❌ No — item 17; the panels themselves await #698 |
 | `onRemove`, `onReject`, `onApprove` | Remove, Reject or Approve is pressed | Not wired, and `showModerationActions` is off. Moderating tags and Bible references here belongs to #698 (`UI/Components/AssociationPanel.md §10 item 10`). A decision on one goes through the approval routes addressed by the association's own approval id (#698, #699; `UI/Components/AssociationPanel.md §10 item 9`). | ❌ No — #698 |
 | `loginButtonOnClick` | The login prompt is pressed | — | *Never raised*: the route admits no signed-out reader, so the prompt does not render |
 
@@ -375,7 +375,7 @@ access matrices: `UI/Components/ContentItemPanel.md §5`, `UI/Components/Content
    page's share of it. `UI/Components/ContentItemSettingsPanel.md §10 item 5` points to it.
 3. (#747) **Page gap — `/Admin/Posts/{id}`: a chosen reaction is not persisted.** The page
    takes `onReactionSelected` from `useContentItemEngagement`, which toggles the choice in page state
-   for the visit only. Recording and withdrawing the reader's own reaction (§ARC16.8.1, designed and not yet built) are this item's work. The sign-in half does
+   for the visit only. Recording the reader's own reaction (§ARC16.8.1, served by #728) and withdrawing it (designed and not yet built) are this item's work. The sign-in half does
    not arise, because `SecuredRoute` admits no signed-out reader. Copied from
    `UI/Components/ContentItemPanel.md §10 item 17`, this page's share of it.
    **The card's counts are this item's work too** (the Likes feature, `DesignFeatures/Likes.md`).
@@ -520,7 +520,7 @@ access matrices: `UI/Components/ContentItemPanel.md §5`, `UI/Components/Content
     (`admin/contentItemModerationDetailPage.tsx` lines 738-748 at 70dc72e7, the two panel
     elements), so a tag chip would follow the tag story's own `/Search?q=<tag>` and a reference
     chip the reference story's own `/BibleReferences/{USFM}`, or `/Search?q=<reference>` for a
-    reference it cannot read. No chip renders while the lists are empty (associations are not yet
+    reference it cannot read. No chip renders while the lists are empty (the association read is not yet
     exposed over HTTP, §ARC17.4). The page is to be redesigned under #698, from the product owner's
     mocks `Admin Post Detail.dc.html` and `Admin Association Detail.dc.html` in the design session of
     #705 (user ruling 2026-09-28), which replaces these two panels (section 4.3) and settles where a

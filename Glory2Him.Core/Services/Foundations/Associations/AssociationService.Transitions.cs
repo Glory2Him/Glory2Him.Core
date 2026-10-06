@@ -468,14 +468,16 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     operation: operation);
 
             // §EVN23. Delivery is contained, so a subscriber that failed says so HERE and
-            // nowhere else, and nothing redelivers it. Association-Submitted reaches the
-            // approval round; dropping it diverges the round from the row permanently, because
-            // the read-triggered repair only opens a MISSING round (§16.7.2). Unconditional
-            // because an unsubscribed address reports no deliveries at all — the subscription
-            // list answers this, and a copy of it does not belong in a service. That matters
-            // more here than elsewhere: Association reaches Submitted only as the fallback arm
-            // of the decision switch above, so a condition written on the operation would have
-            // to re-derive that arm to stay correct.
+            // nowhere else, and nothing redelivers it. Association-Submitted has a state-writing
+            // subscriber in the approval workflow, so it is a required delivery, even though that
+            // ear drops this fact today: the workflow sends the association every approval
+            // command itself, and has already moved the round to Submitted when it does, so the
+            // fact carries the system identity and a failed delivery leaves nothing diverged.
+            // Unconditional because an unsubscribed address reports no deliveries at all — the
+            // subscription list answers this, and a copy of it does not belong in a service.
+            // That matters more here than elsewhere: Association reaches Submitted only as the
+            // fallback arm of the decision switch above, so a condition written on the operation
+            // would have to re-derive that arm to stay correct.
             //
             // Logged, never thrown: the row is already committed above, and failing the caller
             // now would report a completed write as a failed one. What guarantees that is the

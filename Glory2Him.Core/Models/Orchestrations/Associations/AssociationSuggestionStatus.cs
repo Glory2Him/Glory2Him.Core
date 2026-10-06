@@ -14,24 +14,34 @@ using Glory2Him.Core.Models.Enums;
 namespace Glory2Him.Core.Models.Orchestrations.Associations
 {
     /// <summary>
-    /// The outcome of a retrieve-or-add suggestion (design §7.4). It is deliberately the whole
-    /// of what the flow tells the caller — a status and the row id, never the row body — because
-    /// the row may belong to another user and the read posture reports non-public rows to
-    /// non-owners as not-found. <see cref="AlreadyPending"/> covers both a pending and a
-    /// rejected row on purpose, so a contributor cannot infer a rejection by resubmitting.
+    /// The outcome of an upsert (§ARC16.8.1): an editorial pair's retrieve-or-add suggestion
+    /// (design §7.4), or a reader's reaction given, changed or brought back (§DOM4.10). It is
+    /// deliberately the whole of what the flow tells the caller — a status and the row id, never
+    /// the row body — because the row may belong to another user and the read posture reports
+    /// non-public rows to non-owners as not-found. <see cref="AlreadyPending"/> covers a pending,
+    /// a rejected and a taken-down row on purpose, so a caller cannot infer a rejection or a
+    /// takedown by trying again. The numbers cross the wire, so a member is appended and none
+    /// moves.
     /// </summary>
     public enum AssociationSuggestionStatus
     {
-        /// <summary>The pair was unoccupied; a new row was inserted.</summary>
+        /// <summary>
+        /// A new row was inserted: the editorial pair was free, or the reader had no reaction on
+        /// the item.
+        /// </summary>
         Created,
 
         /// <summary>
-        /// A row already occupies the pair and is not yet approved (pending OR rejected — the
-        /// two are indistinguishable to the caller by design). Nothing was inserted.
+        /// A row already occupies the pair but is not a live, approved one: pending, rejected or
+        /// soft-deleted, a reaction taken down by somebody else included. The caller cannot tell
+        /// which, by design. Nothing was written.
         /// </summary>
         AlreadyPending,
 
-        /// <summary>An approved row already occupies the pair and is already visible. Nothing was inserted.</summary>
+        /// <summary>
+        /// An approved row already occupies the pair, and is already visible: the editorial pair,
+        /// or the reaction the reader already holds. Nothing was written.
+        /// </summary>
         AlreadyApproved,
 
         /// <summary>
@@ -44,10 +54,18 @@ namespace Glory2Him.Core.Models.Orchestrations.Associations
         OverlapsExisting,
 
         /// <summary>
-        /// The caller's own soft-deleted row was resurrected — deletion cleared and approval
-        /// status reset to Draft (never inherited). A row soft-deleted by a moderator is never
-        /// resurrected, so this can only follow the contributor's own earlier removal.
+        /// The reader's own withdrawn row was revived to the reaction they gave again. It comes
+        /// back at the status it was withdrawn at, because a revive writes no status of its own
+        /// (§DOM4.10 rule 8). A row somebody else took down is never revived (§DOM4.10 rule 7), so
+        /// this follows only the reader's own withdrawal.
         /// </summary>
-        Restored
+        Restored,
+
+        /// <summary>
+        /// The reader's row was repointed to the reaction they gave, from another one they held
+        /// or from one they had withdrawn, in one write (§DOM4.10). Appended rather than placed
+        /// beside <see cref="Restored"/>, because the number crosses the wire and no member moves.
+        /// </summary>
+        Repointed
     }
 }
