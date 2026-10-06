@@ -61,6 +61,7 @@ qa                reviews the design and the tasks, fresh — coverage, complete
    ↕              findings go back to the planner, who corrects them and hands back
                   `ready for development` on each task it signs off,
                   `ready for review` on the design PR once all of them are
+                  and QA's round on it reports no finding
    ↓
 YOU               merge the design PR, if the work had one
    ↓
@@ -68,7 +69,7 @@ developer         test first, one criterion at a time → commits, branch, then 
    ↓
 qa                adversarial verification against the criteria, fresh
    ↕              findings go back to the developer, who fixes them as commits on the PR
-                  `ready for review` on the PR once it passes
+                  `ready for review` on the PR once no finding is open against it
    ↓
 YOU               merge
 ```
@@ -81,16 +82,25 @@ session did. Either way, the artifact each role leaves behind is the whole of
 the handoff. Where QA cannot post its round or apply its labels itself, the
 session that launched it posts the round as QA wrote it and applies the labels
 QA's verdict carries, as `.claude/agents/qa.md` defines them; the ruling stays
-QA's. QA's BLOCKING findings go back to the role whose work it reviewed the same
-way: to the agent that launched QA, through the session that launched the role,
-or through you where no session did; an ADVISORY finding is fixed only when you
-ask for it. These arrows stay yours: you start the planner and the developer on
-a task, you start a role a session relaunched on an ADVISORY finding of its own
-that you want fixed, only once QA has passed the work, and a finding QA names as
-another role's comes to you, with QA's brief for its owner. Two of the rows are
-decisions only you can make: merging the design, and merging the work. Approving
-the criteria is QA's: its `ready for development` label is what the developer
-starts on.
+QA's. QA's findings, BLOCKING and ADVISORY alike, on a FAIL as on a PASS, go to
+the role that owns each without you, as `CLAUDE.md` has them go: through the
+agent that launched QA, or through the session that launched the role. So do a
+question the developer or QA hands to the planner, a finding the developer
+disputes about a task or the design, and your ruling or action, once you have
+acted, to the role waiting on it. These come through you only where no session
+launched the role. The loop runs until QA passes the work with no finding open.
+These arrows stay yours: you start the planner and the developer on a task;
+what the planner cannot rule on comes to you — an owner ruling it returns as a
+question, and a finding it disputes about its own work; so does a finding the
+developer disputes that is not about the task or the design; so does anything
+else a role's agent file hands to you, or stops on for you to answer or decide,
+such as a deviation the planner proposes, which only your approval grants, or a
+signed-in journey the developer must drive in a real browser; and you carry a
+handover where no session launched the role. The list is open. A failure QA
+reports as looking unrelated or pre-existing is not one of them: it is a
+finding with its owner. Two of the rows are decisions only you can make:
+merging the design, and merging the work. Approving the criteria is QA's: its
+`ready for development` label is what the developer starts on.
 
 **Every handover to QA is fresh.** QA starts with an empty context and a brief
 that points — the tasks, the design PR, the PR — never the other agent's summary
@@ -99,22 +109,24 @@ and the developer are the opposite: QA's findings go back to them with context,
 as its round comment. The work comes to QA on a PR — the design on its design
 PR, the code on the PR the developer opens before handing over — and every
 correction is a further commit on that same PR, or an edit to a task. The loop
-repeats until QA signs the work off, and each round is smaller than the last:
-after round 1, QA reviews only what changed since its previous round and what
-that touches. The developer or QA may hand a question to the planner, with
-context. A planner change to anything an open, signed-off task depends on — the
-task, or the design it cites — takes `ready for development` off until QA has
-agreed it, and the developer waits for any design change to reach `main`, so it
-never acts on criteria QA has not seen. When a round has findings for both the
-planner and the developer, route the planner's first: the developer's fix round
-waits only on the planner's BLOCKING findings and on an ADVISORY one you have
-asked to be fixed, since an ADVISORY one you have not asked for counts as
-settled without changing the task. It waits until the changed task is signed off
-again — or, when the planner settles its findings without changing the task,
-until your brief says so. A disputed finding comes to you: the planner rules
-when the developer disputes one about a task or the design, and anything else —
-including a finding the planner disputes about its own work — is yours to
-decide.
+repeats until QA passes the work with no finding open, and each round is
+smaller than the last: after round 1, QA reviews only what changed since its
+previous round and what that touches. The developer or QA may hand a question
+to the planner, with context. A planner change to anything an open, signed-off
+task depends on — the task, or the design it cites — takes
+`ready for development` off until QA has agreed it, and the developer waits for
+any design change to reach `main`, so it never acts on criteria QA has not
+seen. When a round has findings for both the planner and the developer, route
+the planner's first: the developer's fix round waits on every finding of the
+planner's, BLOCKING and ADVISORY alike. It waits until the changed task is
+signed off again — or, when the planner settles its findings without changing
+the task, until the brief sending the developer back says so. A finding the
+developer disputes about a task or the design goes to the planner, who rules on
+it, carried like any other handover. Anything else — including a finding the
+planner disputes about its own work — is still yours to decide, and your ruling
+goes back into the loop through the session that carries it. A finding that
+your ruling or the planner's leaves unfixed closes once the planner has
+recorded that ruling in the task or the design.
 
 **The planner pushes back when the design is too high-level.** It goes straight
 from the design to tasks when the change is simple, but it will not invent the
@@ -170,7 +182,7 @@ ends.
 | planner | for tier 1, the design | feature and user story documents under `Documentation/DesignFeatures/` (a presentation component's under `Documentation/Design/UI/Components/`, a page's under `Documentation/Design/UI/Pages/`), and any epic-level rule in `Documentation/Design/`, listed in `design.md` |
 | planner | the tasks — one issue per operation, each naming its user story, with the tier and a sign-off checklist | the GitHub issue body, under `## Acceptance criteria` |
 | developer | commits, a branch, a PR, a handoff report | the PR and its diff |
-| qa | BLOCKING / ADVISORY findings, each naming its owner | a numbered round comment — on the PR, on the design PR, or on each task when a task review has no design PR — and its labels: `ready for development` on each task it signs off, `ready for review` on a PR or design PR it passes |
+| qa | BLOCKING / ADVISORY findings, each naming its owner | a numbered round comment — on the PR, on the design PR, or on each task when a task review has no design PR — and its labels: `ready for development` on each task it signs off, `ready for review` on a PR once no finding is open against it, and on a design PR only on a round that reports no finding, as `CLAUDE.md` gates it |
 
 ### How to brief a fresh session
 
@@ -417,15 +429,16 @@ cover every business rule, does every level name its parent, is any task too
 big, can every criterion become a test name. That review is never skipped: it
 signs off each task it clears with `ready for development`, the approval the
 developer starts on, and labels the design PR `ready for review` once every task
-it carries is signed off — and where a feature has more than one task, nothing
-else in the pipeline ever asks whether the set is complete.
+it carries is signed off and its round on the design PR reports no finding — and
+where a feature has more than one task, nothing else in the pipeline ever asks
+whether the set is complete.
 
 The brief names the mode; verifying a diff is the default.
 
-**Route failures by owner** — QA names one on every finding: implementation
-defects to the developer, including code that departs from a sound design;
-missing or contradictory criteria, or a design that got a boundary or a layer
-wrong, to the planner.
+**Route every finding by owner**, on a FAIL or a PASS — QA names one on every
+finding: implementation defects to the developer, including code that departs
+from a sound design; missing or contradictory criteria, or a design that got a
+boundary or a layer wrong, to the planner.
 
 ---
 
@@ -720,7 +733,7 @@ step 4 happens while the task sits there. On each task it clears, QA applies
 judgement a PR approval would have expressed, as a label instead of a merge. It
 is QA's ruling, so it stays on the task while that ruling stands: the `status:`
 labels after it track the work and never replace it, and if a later task review
-finds a BLOCKING defect in the task, QA takes the label off and returns it to
+finds any defect in the task, QA takes the label off and returns it to
 `status: needs-scoping`. The planner does the same before it changes an open,
 signed-off task or the design it cites, so the change goes back through QA
 before the developer acts on it.
@@ -728,16 +741,17 @@ before the developer acts on it.
 The design is approved the way any change is: a design task's documents reach
 `main` through its PR, which you merge. The planner carves the feature's tasks
 on that same branch, so the PR carries the design and the tasks' tags together
-and QA reviews the tasks against it. Merge the design PR once QA has passed it —
-it carries `ready for review` — and before the developer starts any of its
-tasks: the developer reads the design from `main`, and waits while an open PR
-is still changing it. Merge any PR only when its head is the commit QA's latest
+and QA reviews the tasks against it. Merge the design PR once it carries
+`ready for review` — which QA applies only on a round that reports no finding,
+as `CLAUDE.md` gates it — and before the developer starts any of its tasks: the
+developer reads the design from `main`, and waits while an open PR is still
+changing it. Merge any PR only when its head is the commit QA's latest
 round names (`at`): a commit pushed after QA passed it has not been reviewed.
 
 **The developer's hard rule: never start without `ready for development`.** The
 `status:` labels after it are yours to move, and QA's verdict on the work says
-which comes next — `status: done`, or back to `status: in-progress` on a
-BLOCKING finding.
+which comes next — `status: done`, or back to `status: in-progress` on any
+finding.
 
 **The honest trade-off:** a label has a thinner audit trail than a PR review. To
 see who changed a status and when, read the task's timeline:
