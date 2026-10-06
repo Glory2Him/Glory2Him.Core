@@ -216,16 +216,25 @@ const scrollPositionProperty: PropertyDescriptor = {
     set: (top: number) => scrollPageTo(top)
 };
 
+// Each property replaced on an object is put back as that object had it, its own or none, so no
+// test after the model reads what the model left behind.
+const replacedProperties: Array<[object, string, PropertyDescriptor | undefined]> = [];
+
+const replaceProperty = (target: object, name: string, descriptor: PropertyDescriptor): void => {
+    replacedProperties.push([target, name, Object.getOwnPropertyDescriptor(target, name)]);
+    Object.defineProperty(target, name, descriptor);
+};
+
 const modelHowABrowserScrollsAndFocuses = (): void => {
     scrollPosition = 0;
     followTheHidingAfterEachCallTo(CSSStyleDeclaration.prototype, 'setProperty');
     followTheHidingAfterEachCallTo(Element.prototype, 'setAttribute');
     followTheHidingAfterEachCallTo(Element.prototype, 'setAttributeNS');
     followTheHidingAfterEachCallTo(Element.prototype, 'toggleAttribute');
-    Object.defineProperty(window, 'scrollY', scrollPositionProperty);
-    Object.defineProperty(window, 'pageYOffset', scrollPositionProperty);
-    Object.defineProperty(document.documentElement, 'scrollTop', scrollPositionProperty);
-    Object.defineProperty(document.body, 'scrollTop', scrollPositionProperty);
+    replaceProperty(window, 'scrollY', scrollPositionProperty);
+    replaceProperty(window, 'pageYOffset', scrollPositionProperty);
+    replaceProperty(document.documentElement, 'scrollTop', scrollPositionProperty);
+    replaceProperty(document.body, 'scrollTop', scrollPositionProperty);
 
     vi.spyOn(window, 'scrollTo').mockImplementation(
         (xOrOptions?: ScrollToOptions | number, y?: number) => scrollPageTo(topAskedFor(xOrOptions, y)));
@@ -255,12 +264,13 @@ const modelHowABrowserScrollsAndFocuses = (): void => {
 };
 
 const stopModellingABrowser = (): void => {
-    for (const target of [document.documentElement, document.body]) {
-        delete (target as unknown as Record<string, unknown>).scrollTop;
+    for (const [target, name, original] of replacedProperties.splice(0).reverse()) {
+        if (original === undefined) {
+            delete (target as Record<string, unknown>)[name];
+        } else {
+            Object.defineProperty(target, name, original);
+        }
     }
-
-    delete (window as unknown as Record<string, unknown>).scrollY;
-    delete (window as unknown as Record<string, unknown>).pageYOffset;
 };
 
 const fieldBeingTypedIn = (): HTMLInputElement =>
