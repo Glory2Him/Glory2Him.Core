@@ -572,5 +572,23 @@ describe('RestoredPageGuard', () => {
             expect(placeAsFirstShown?.focusedElement).toBe(field);
             expect(placeAsFirstShown?.caret).toEqual([5, 5]);
         });
+
+        it('should put the focus back without scrolling the page to the field', async () => {
+            // given
+            mocks.currentUser = readerA;
+            render(<Page />);
+            const field = fieldBeingTypedIn();
+            field.focus();
+            window.scrollTo(0, 600);
+            dispatchPageTransition('pagehide', true);
+            answerFreshRead(freshCopyOf(readerA));
+
+            // when
+            const placeAsFirstShown = await restoreAndNoteThePlaceAsFirstShown();
+
+            // then
+            expect(placeAsFirstShown?.focusedElement).toBe(field);
+            expect(placeAsFirstShown?.scrollPosition).toBe(600);
+        });
     });
 });
