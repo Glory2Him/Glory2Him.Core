@@ -1,14 +1,14 @@
 # Likes
 Epic: [INTENT.md](../../INTENT.md)
 Inherits: §DOM4.2, §DOM4.4–§DOM4.6, §DOM4.10, §DOM5.2, §DOM6.4, §DOM6.10, §SEC14.1, §SEC14.3, §SEC14.5, §SEC14.6, §SEC14.7 posture A′, §SEC18.6, §APR7.5.1, §APR8.4, §APR8.8, §APR9.7.4, §APR9.8, §APR9.9, §ARC12.2.1, §ARC12.3.1, §ARC16.2.1, §ARC16.2.2, §ARC16.8, §ARC16.8.1, §ARC17.4, §EVN2, §EVN13, §UI20.6.6
-Mockups: none. The card's Like control is built and documented (`UI/Components/ContentItemPanel.md rule 3.1.8`, `UI/Components/ContentItemPanel.Default.md rule 3.1.7`); what it lacks is the write behind it and the counts it shows.
+Mockups: none. The card's Like control is built and documented (`UI/Components/ContentItemPanel.md rule 3.1.8`, `UI/Components/ContentItemPanel.Default.md rule 3.1.7`). When this feature was designed (#706), it lacked the write behind it and the counts it shows; the *Problem* records that state.
 Design task: #706
 
 A reader's *like* is their reaction to a content item. The card's **Like** control offers the approved reaction vocabulary (§DOM5.2) — seeded as Amen, Love, Joy, Moved and Praying (`ReactionSeedData.cs`) — and the reaction the reader chooses is theirs, recorded as a personal association between the item and the reaction (§DOM4.10). *Like* is the control's name, not a reaction's.
 
 ## Problem
 
-Every card on the site offers Like, and nothing stands behind it. A chosen reaction lives in page state for the visit and is gone on reload (`src/hooks/useContentItemEngagement.ts`), no card shows the reactions an item has actually been given (`toContentItemSearchItem.ts` leaves `reactionSummary` unset), and no route records, changes or withdraws a reaction: the write surface and the summary read are designed and not built (§ARC16.8, §ARC16.8.1). A reader cannot say how a post moved them, and nobody can see that it did.
+When this feature was designed (#706), every card on the site offered Like, and nothing stood behind it. A chosen reaction lived in page state for the visit and was gone on reload (`src/hooks/useContentItemEngagement.ts`), no card showed the reactions an item had actually been given (`toContentItemSearchItem.ts` left `reactionSummary` unset), and no route recorded, changed or withdrew a reaction. A reader could not say how a post moved them, and nobody could see that it did. This is the state the feature set out from, and it is not kept current as tasks merge. What has been built since is recorded beside each piece's design: `AssociationOrchestrationService`'s members, the summary read (§ARC16.8) and the write surface (§ARC16.8.1) among them, in §ARC12.5 entry 1; `AssociationsController`, which serves their routes, in §ARC12.6 row 14; and the write surface's routes in §ARC16.8.1.
 
 ## Business rules
 
@@ -82,7 +82,7 @@ The rest of the UI is already designed in the documents the presentation compone
 
 ## Risks
 
-**Reversible.** Everything here is code but one column, `Reactions.SortOrder`, whose migration's `Down` drops it; there is no new index and no new constraint. `AddAssociationAsync` is renamed `UpsertAssociationAsync` on the orchestration (§ARC16.8.1), and nothing outside the solution calls it — no controller serves it yet.
+**Reversible.** Everything here is code but one column, `Reactions.SortOrder`, whose migration's `Down` drops it; there is no new index and no new constraint. `AddAssociationAsync` is renamed `UpsertAssociationAsync` on the orchestration (§ARC16.8.1), and nothing outside the solution calls it — when this feature was designed (#706), no controller served it.
 
 **Not reversible.** The two new event names, `Association-Restored` and `Association-Repointed`, and their stable identifiers: an event name sits inside the envelope's signature, and an identifier never changes once deployed (`EventBrokerIdentifiers.cs`). The new `AssociationSuggestionStatus` member crosses the wire as a number, so it is appended and never renumbered.
 
