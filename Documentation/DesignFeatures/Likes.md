@@ -8,7 +8,7 @@ A reader's *like* is their reaction to a content item. The card's **Like** contr
 
 ## Problem
 
-Every card on the site offers Like, and nothing stands behind it. A chosen reaction lives in page state for the visit and is gone on reload (`src/hooks/useContentItemEngagement.ts`), no card shows the reactions an item has actually been given (`toContentItemSearchItem.ts` leaves `reactionSummary` unset), and no route records, changes or withdraws a reaction: the write surface and the summary read are designed and not built (§ARC16.8, §ARC16.8.1). A reader cannot say how a post moved them, and nobody can see that it did.
+Every card on the site offers Like, and nothing stands behind it. A chosen reaction lives in page state for the visit and is gone on reload (`src/hooks/useContentItemEngagement.ts`), no card shows the reactions an item has actually been given (`toContentItemSearchItem.ts` leaves `reactionSummary` unset), and no route records, changes or withdraws a reaction: the write surface's members are built and its routes are not, and the summary read is designed and not built (§ARC16.8, §ARC16.8.1). A reader cannot say how a post moved them, and nobody can see that it did.
 
 ## Business rules
 

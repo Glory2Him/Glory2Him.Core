@@ -212,7 +212,7 @@ The read-only roles each action answers to are those components' security and ac
    `onReactionSelected` is the page's: a signed-in reader's reaction is persisted or cleared
    (`UI/Components/ContentItemPanel.md rule 3.2.4`). The page takes the hook from
    `useContentItemEngagement`, which only toggles the choice in page state for the visit, so a
-   refresh loses it. Recording and withdrawing the reader's own reaction (§ARC16.8.1, designed and not yet built) are this item's work. The sign-in half of the
+   refresh loses it. Recording and withdrawing the reader's own reaction (§ARC16.8.1: its two members are built, and their routes are not yet) are this item's work. The sign-in half of the
    same page gap does not arise here, because `SecuredRoute` admits no signed-out reader. Evidence:
    `src/hooks/useContentItemEngagement.ts` — `onReactionSelected`. Copied from
    `UI/Components/ContentItemPanel.md §10 item 17`, this page's share of it.

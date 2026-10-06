@@ -250,7 +250,7 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
    `UI/Components/ContentItemPanel.md §10 item 15`, this page's share of it.
 4. (#745) **Page gap — `/myposts/{id}`: a chosen reaction is not persisted.** The page takes
    `onReactionSelected` from `useContentItemEngagement`, which toggles the choice in page state for
-   the visit only. Recording and withdrawing the reader's own reaction (§ARC16.8.1, designed and not yet built) are this item's work. The sign-in half of the
+   the visit only. Recording and withdrawing the reader's own reaction (§ARC16.8.1: its two members are built, and their routes are not yet) are this item's work. The sign-in half of the
    same page gap does not arise, because `SecuredRoute` admits no signed-out reader. Copied from
    `UI/Components/ContentItemPanel.md §10 item 17`, this page's share of it.
    **The card's counts are this item's work too** (the Likes feature, `DesignFeatures/Likes.md`).
