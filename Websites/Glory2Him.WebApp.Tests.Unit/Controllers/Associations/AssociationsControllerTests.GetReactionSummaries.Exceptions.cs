@@ -14,9 +14,11 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Orchestrations.Associations;
+using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using RESTFulSense.Clients.Extensions;
+using RESTFulSense.Models;
 using Xeptions;
 
 namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
@@ -44,6 +46,50 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
                     someContentItemIds,
                     cancellationToken))
                         .ThrowsAsync(validationException);
+
+            // when
+            ActionResult<IReadOnlyList<ContentItemReactionSummary>> actualActionResult =
+                await this.associationsController.GetReactionSummariesAsync(
+                    someContentItemIds,
+                    cancellationToken);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.associationOrchestrationServiceMock.Verify(service =>
+                service.RetrieveContentItemReactionSummariesAsync(
+                    someContentItemIds,
+                    cancellationToken),
+                        Times.Once);
+
+            this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldReturnFailedDependencyOnReactionSummariesIfDependencyErrorOccurredAsync()
+        {
+            // given
+            Guid[] someContentItemIds = CreateRandomContentItemIds();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var someInnerException = new Xeption();
+
+            var associationOrchestrationDependencyException =
+                new AssociationOrchestrationDependencyException(
+                    message: GetRandomString(),
+                    innerException: someInnerException);
+
+            FailedDependencyObjectResult expectedFailedDependencyObjectResult =
+                FailedDependency(someInnerException);
+
+            var expectedActionResult =
+                new ActionResult<IReadOnlyList<ContentItemReactionSummary>>(
+                    expectedFailedDependencyObjectResult);
+
+            this.associationOrchestrationServiceMock.Setup(service =>
+                service.RetrieveContentItemReactionSummariesAsync(
+                    someContentItemIds,
+                    cancellationToken))
+                        .ThrowsAsync(associationOrchestrationDependencyException);
 
             // when
             ActionResult<IReadOnlyList<ContentItemReactionSummary>> actualActionResult =
