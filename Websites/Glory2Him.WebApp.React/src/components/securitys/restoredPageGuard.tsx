@@ -25,23 +25,29 @@ const showPage = (): void => {
 
 type PlaceOnThePage = {
     scrollPosition: number;
+    focusedElement: Element | null;
 };
 
 const notePlaceOnThePage = (): PlaceOnThePage => ({
-    scrollPosition: window.scrollY
+    scrollPosition: window.scrollY,
+    focusedElement: document.activeElement
 });
 
-// A browser does not scroll a page taken out of the render, so the place is put back only once
-// the page is shown again.
+// A browser does not scroll a page taken out of the render, nor focus a field out of reach of
+// input, so the place is put back only once the page is shown again.
 const resumePlaceOnThePage = (place: PlaceOnThePage): void => {
     window.scrollTo({ top: place.scrollPosition });
+
+    if (place.focusedElement instanceof HTMLElement && place.focusedElement !== document.body) {
+        place.focusedElement.focus();
+    }
 };
 
 export const RestoredPageGuard = (): ReactElement => {
     const { data: currentUser, refetch } = accountService.useGetCurrentUser();
     const currentUserReference = useRef(currentUser);
     const cachedReaderReference = useRef<string | undefined>(undefined);
-    const cachedPlaceReference = useRef<PlaceOnThePage>({ scrollPosition: 0 });
+    const cachedPlaceReference = useRef<PlaceOnThePage>({ scrollPosition: 0, focusedElement: null });
 
     useEffect(() => {
         currentUserReference.current = currentUser;
