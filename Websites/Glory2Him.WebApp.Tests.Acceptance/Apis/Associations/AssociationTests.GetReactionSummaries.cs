@@ -59,5 +59,44 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(reactedContentItem.Id);
             }
         }
+
+        [Fact]
+        public async Task ShouldNameTheCallersOwnReactionOverHttpAsync()
+        {
+            // given
+            (CoreContentItem reactedContentItem, string firstReaderId) =
+                await ArrangeAnItemTwoReadersReactedToAsync();
+
+            List<ContentItemReactionCount> expectedReactions = CreateOneAmenAndOneLoveCounts();
+            this.apiBroker.ActAs(firstReaderId);
+
+            try
+            {
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.GetReactionSummariesAsync(
+                        CreateContentItemIdsQuery(reactedContentItem.Id));
+
+                // then
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                List<ContentItemReactionSummary> actualSummaries =
+                    await ReadSummariesAsync(actualResponse);
+
+                ContentItemReactionSummary actualSummary =
+                    actualSummaries.Should().ContainSingle().Subject;
+
+                actualSummary.ContentItemId.Should().Be(reactedContentItem.Id);
+                actualSummary.Reactions.Should().BeEquivalentTo(expectedReactions);
+                actualSummary.ViewerReactionId.Should().Be(seededAmenReactionId);
+                actualSummary.ViewerReactionName.Should().Be("Amen");
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(reactedContentItem.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(reactedContentItem.Id);
+            }
+        }
     }
 }
