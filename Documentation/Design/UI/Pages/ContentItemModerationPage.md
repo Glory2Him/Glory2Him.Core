@@ -64,7 +64,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.15 [Must]** A card is rendered only once its setting has loaded: until the effective settings read lands, the page holds the cards back and shows the list's loading state, announced (§UI20.6.6 rule 5). If the settings read fails, the page shows its error, announced, with a Retry, in the cards' place — never the cards without their settings. *(user, 2026-09-27)* ≠ item 1
 
-**2.16 [Must]** A change to an item's setting reaches the open page without a reload: comments switched off for an item, say, take the comments control off its card (§ARC12.5.2 business rule 12). How the page learns of the change is designed under #702, *Push Live Updates To Open Pages*; until it is designed and built, nothing pushes a change to the page. *(user, 2026-09-27; §ARC12.5.2 business rule 12)* ≠ item 10
+**2.16 [Must]** A change to an item's setting reaches the open page without a reload: comments switched off for an item, say, take the comments control off its card (§ARC12.5.2 business rule 12). How the page learns of the change is §UI20.10's: the live connection makes the page's settings read stale, and the page reads it again, with no code of its own (`DesignFeatures/LiveUpdates.md` rule 1, #702). *(user, 2026-09-27; §ARC12.5.2 business rule 12)* ≠ item 10
 
 ## 3. Layout
 
@@ -272,12 +272,13 @@ below are what the page adds: who reaches it, and the card's actions for those w
    an item that is not approved. As on `/myposts`, the list offers one `showShareSection` for every
    card, so the page cannot offer Share on one item and not another through the list today
    (`UI/Pages/MyPosts.md §6 item 5`).
-10. (#702) **Page gap — `/Admin/Posts`: a changed setting does not reach the open page.** Rule
+10. (#910) **Page gap — `/Admin/Posts`: a changed setting does not reach the open page.** Rule
     2.16 (user rulings 2026-09-27; §ARC12.5.2 business rule 12). Nothing pushes a change to an open
     page: the page reads its settings through
     `contentItemSettingService.useGetEffectiveSettingsFor`, as `/` does, so a setting another
     person changes reaches it only on the query library's own triggers or on a reload. The live
-    connection is designed under #702, *Push Live Updates To Open Pages* (user ruling 2026-09-27);
-    this page's share — hearing of a change to a setting that governs an item it shows, and
-    updating what it shows — is carved from that design. The same gap on `/` is
+    connection was designed under #702 (`DesignFeatures/LiveUpdates.md`, user rulings 2026-09-27
+    and 2026-10-06): this page's share — hearing of a change to a setting that governs an item it
+    shows, and updating what it shows — needs no code of its own (§UI20.10 rule 2), and is built
+    when `Root` opens the connection (§UI20.10 item 1), the task this item carries. The same gap on `/` is
     `UI/Pages/Home.md §6 item 11`, whose evidence stands for this page too.

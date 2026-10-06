@@ -2344,8 +2344,12 @@ Avoiding event spaghetti:
    (§APR9.7.4's residual). A handler added above the foundation that applies
    a delta owns the check that makes it safe.
 5. Do not rely on the relative order of two subscribers on one address, or on
-   the order of two publishes. No address carries two subscriptions today, so
-   the first half constrains future wiring; the second bites now.
+   the order of two publishes. `ApprovalReview-Added` and `Approval-Modified`
+   each carry two subscriptions, and neither pair relies on its order (§EVN18).
+   The live-update forwarder, designed under #702, shares two more addresses
+   with the approval workflow's ears, `Association-Submitted` and
+   `Association-Repointed`, and relies on no order either (§EVN26 rule 5). The
+   second half bites now.
 6. Do not use events to avoid a service boundary. An event whose only purpose is
    to let a service reach past its declared dependencies is the boundary being
    dodged rather than honoured, which is why a command over the substrate has to
@@ -2528,3 +2532,15 @@ Receiver names are a closed, compile-time set — `public const string` members 
 **Migration shape and risk.** Drop the unique index, `ALTER COLUMN [ReceiverName] nvarchar(255) COLLATE Latin1_General_BIN2 NOT NULL`, recreate the unique index over `([EventId], [ReceiverName])` — three statements in one batch, in a new migration, since applied migrations are never edited. The direction is the safe one: moving from a case-insensitive collation to a binary one **relaxes** uniqueness, so keys that collided before stay distinct and no existing row can violate the recreated index; the reverse change would be the dangerous one. Reversible. #639 carries the migration and the case tests, which mean nothing until the collation is pinned.
 
 **Nothing else changes.** No event address, no envelope field, no receiver name, no subscription and no handler behaviour. With no case-only pair in the identifier set, no delivery was decided differently before this ruling than after it — this is a determinism and portability fix, not a repair of a live defect.
+
+## EVN26. A Live Update Forwards A Fact *(new)*
+
+A live update tells open pages that something they show has changed (§SEC14.8, `DesignFeatures/LiveUpdates.md`). This section rules how the event substrate feeds it. It was designed under #702 on 2026-10-06; the service that applies it is `DesignFeatures/Backend/Orchestrations/LiveUpdateOrchestrationService.md`, the forwarder.
+
+1. **A live update is caused only by a fact a service already publishes.** Nothing is published for a page's sake: no fact, no address and no request is minted for a live update, and a change that no fact announces is not pushed. A publish date that passes is the standing case. An item or an association becomes visible once its `PublishDate` passes (§SEC14.1, §SEC14.3 rule 5), and nothing is published when it does (§EVN11), so what it makes visible reaches an open page only on a reload or on the page's own refresh triggers. `UI/Components/ReviewPanel.md rule 2.10` states this rule for the review round, and this rule extends it to every live update.
+2. **The forwarder subscribes at the foundation tier.** A foundation fact fires for every write to its entity, whatever path made it (§EVN2 rule 6), and the forwarder needs the row as it now stands, not a guarantee a higher layer added. It subscribes to no higher layer's fact for the same change (§EVN2 rule 6).
+3. **It forwards the workflow's own writes.** The approval workflow's ears drop a fact that carries the system identity, so that the workflow does not react to its own writes (§SEC14.6 rule 4). The forwarder does not drop it. The workflow's decisions reach the entity under the system identity, the seeded tier's automatic approval included (§EVN17 rule 3, §EVN18 rule 8), and an approval is exactly the change a page has to hear.
+4. **It writes no state and publishes nothing.** A redelivered fact sends its message again, which costs a page one more read and changes nothing (§EVN20 rule 10). It keeps no `ProcessedEvents` record, as nothing above the foundation does (§SEC14.6 rule 4).
+5. **It relies on no order.** Its subscription may share an address with another subscriber's. `Association-Submitted` and `Association-Repointed` carry the approval workflow's ears too, and neither subscriber relies on which runs first (§EVN20 rule 5). Every later fact sends a later message, so the page's last read answers the last state.
+6. **A message reaches only the connections that the publishing process holds,** because a publish dispatches inline to that process's own handlers (§EVN11). That is why the host runs one instance (§ARC12.12 rule 5).
+7. **A failed forward is contained like any other delivery** (§EVN11). Nothing retries it (§EVN23 rule 6), and the page catches up when its connection comes back, or on its own refresh triggers (§UI20.10). Where a publisher inspects its deliveries (§EVN23 rule 7), a failed forward is reported as any failed delivery is.

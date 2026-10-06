@@ -73,5 +73,8 @@ Inherits: §ARC3, §EVN2–§EVN7, StudentRegistration.md rules 1–4
 - **One section per operation**, since each operation is one task. Each carries
   exactly one tag — the task that delivers it, or `(needs issue)` — and that task
   names this section as its parent on its `User story:` line.
+- **A second feature's work on a component** goes in a document of its own beside
+  the first, `<Component>.<Feature>.md`, naming that feature as its parent
+  ([design.md](../Design/design.md), *How the work breaks down*).
 
 List every new document in [design.md](../Design/design.md)'s map.

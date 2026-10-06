@@ -47,7 +47,7 @@ level has in code, so a story is found where its code is:
 
 | Side | Folders |
 | --- | --- |
-| `Backend/` | `Brokers`, `Foundations`, `Processings`, `Orchestrations`, `Coordinations`, `Controllers`, `Clients`, and `Models` for a story that changes a model alone |
+| `Backend/` | `Brokers`, `Foundations`, `Processings`, `Orchestrations`, `Coordinations`, `Controllers`, `Hubs` for a SignalR hub, the exposer a live connection reaches (§ARC12.12), `Clients`, and `Models` for a story that changes a model alone |
 | `UI/` | `Brokers`, `Foundations`, `Views`, `Hooks` |
 
 Any other level takes the name The Standard gives its folder, and a folder is created
@@ -55,6 +55,13 @@ with its first user story. This repository documents its presentation components
 its pages elsewhere — under `Design/UI/Components/` and `Design/UI/Pages/` (§UI20.6.4,
 §UI20.5.1) — so `UI/` has no `Components` or `Pages` folder, and a citation such as
 `UI/Pages/Home.md` can only mean the page document.
+
+**A component that a second feature adds operations to gets a second user story document.** A
+user story is one component's work for one feature, and names one parent. So the second
+feature's work on a component that already has a user story document goes in a document of its
+own, in the same level folder, named `<Component>.<Feature>.md` and naming that feature as its
+parent. `Backend/Foundations/ContentItemService.LiveUpdates.md` stands beside the Likes feature's
+`Backend/Foundations/ContentItemService.md`, and each feature lists its own.
 
 Writing or changing design documents is work too, tracked as a **design task** — a
 `DESIGN:` issue.
@@ -92,6 +99,7 @@ stories beside it:
 | --- | --- | --- |
 | [Likes.md](../DesignFeatures/Likes.md) | none | [Backend/Clients/StorageClient.md](../DesignFeatures/Backend/Clients/StorageClient.md), [Backend/Brokers/StorageBroker.md](../DesignFeatures/Backend/Brokers/StorageBroker.md), [Backend/Brokers/AccessBroker.md](../DesignFeatures/Backend/Brokers/AccessBroker.md), [Backend/Models/EntityTypePersonalisation.md](../DesignFeatures/Backend/Models/EntityTypePersonalisation.md), [Backend/Models/Reaction.md](../DesignFeatures/Backend/Models/Reaction.md), [Backend/Foundations/ContentItemService.md](../DesignFeatures/Backend/Foundations/ContentItemService.md), [Backend/Foundations/ReactionService.md](../DesignFeatures/Backend/Foundations/ReactionService.md), [Backend/Foundations/AssociationService.md](../DesignFeatures/Backend/Foundations/AssociationService.md), [Backend/Orchestrations/AssociationOrchestrationService.md](../DesignFeatures/Backend/Orchestrations/AssociationOrchestrationService.md), [Backend/Orchestrations/ApprovalOrchestrationService.md](../DesignFeatures/Backend/Orchestrations/ApprovalOrchestrationService.md), [Backend/Controllers/AssociationsController.md](../DesignFeatures/Backend/Controllers/AssociationsController.md), [UI/Brokers/AssociationBroker.md](../DesignFeatures/UI/Brokers/AssociationBroker.md), [UI/Foundations/AssociationService.md](../DesignFeatures/UI/Foundations/AssociationService.md), [UI/Brokers/ReactionBroker.md](../DesignFeatures/UI/Brokers/ReactionBroker.md), [UI/Views/ContentItemReactionOption.md](../DesignFeatures/UI/Views/ContentItemReactionOption.md), [UI/Views/ChosenReactionSummary.md](../DesignFeatures/UI/Views/ChosenReactionSummary.md), [UI/Hooks/SignIn.md](../DesignFeatures/UI/Hooks/SignIn.md), [UI/Hooks/ContentItemEngagement.md](../DesignFeatures/UI/Hooks/ContentItemEngagement.md) |
 | [UI.md §UI20.8](UI.md), authentication, designed before feature documents | none | [UI/Hooks/SignInReturn.md](../DesignFeatures/UI/Hooks/SignInReturn.md) |
+| [LiveUpdates.md](../DesignFeatures/LiveUpdates.md) | none | [Backend/Models/LiveUpdate.md](../DesignFeatures/Backend/Models/LiveUpdate.md), [Backend/Brokers/LiveUpdateBroker.md](../DesignFeatures/Backend/Brokers/LiveUpdateBroker.md), [Backend/Foundations/LiveUpdateService.md](../DesignFeatures/Backend/Foundations/LiveUpdateService.md), [Backend/Foundations/ContentItemService.LiveUpdates.md](../DesignFeatures/Backend/Foundations/ContentItemService.LiveUpdates.md), [Backend/Orchestrations/LiveUpdateOrchestrationService.md](../DesignFeatures/Backend/Orchestrations/LiveUpdateOrchestrationService.md), [Backend/Hubs/LiveUpdatesHub.md](../DesignFeatures/Backend/Hubs/LiveUpdatesHub.md), [UI/Brokers/LiveUpdateBroker.md](../DesignFeatures/UI/Brokers/LiveUpdateBroker.md), [UI/Foundations/LiveUpdateService.md](../DesignFeatures/UI/Foundations/LiveUpdateService.md) |
 
 ### Presentation components
 
@@ -222,11 +230,12 @@ example: `(#698)`, *Redesign The Post Moderation Page For Association Approvals*
 `UI/Pages/ContentItemModerationDetailPage.md §6 items 9, 10, 12 and 17`; `(#700)`, *Design The
 Bible Reference Page*, on `UI/Pages/BibleReference.md §6 items 1–4, 6 and 7` and on the
 unreadable-reference gap of five other page documents (`UI/Pages/Home.md §6 item 14` and the items
-it names); `(#701)`, *Record Who Amended An
-Item's Content*, on `UI/Components/ReviewPanel.md §10 item 10`; and `(#702)`, *Push Live Updates To
-Open Pages*, on the live-update gap of seven page documents (`UI/Pages/Home.md §6 item 11` and the
-items it names). When the design issue closes, its designed work gets tasks, and anything it leaves
-unbuilt goes back to `(needs issue)`, so the sweep finds it again.
+it names); and `(#701)`, *Record Who Amended An Item's Content*, on
+`UI/Components/ReviewPanel.md §10 item 10`. When the design issue closes, its designed work gets
+tasks, and anything it leaves unbuilt goes back to `(needs issue)`, so the sweep finds it again.
+`(#702)`, *Push Live Updates To Open Pages*, held the live-update gap of seven page documents until
+its design carved the task that builds it, which those items now carry
+(`UI/Pages/Home.md §6 item 11` and the items it names).
 
 **Relocations.** §IDX1.5 rules how a relocated section is annotated, so that a
 citation of its old number still resolves by grep, and where a retired number

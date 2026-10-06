@@ -67,7 +67,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.23 [Must]** A card is rendered only once its setting has loaded: until the effective settings read lands, the page holds the cards back and shows the list's loading state, announced (§UI20.6.6 rule 5). If the settings read fails, the page shows its error, announced, with a Retry, in the cards' place — never the cards without their settings. *(user, 2026-09-27)* ≠ item 1
 
-**2.24 [Must]** A change to an item's setting reaches the open page without a reload: comments switched off for an item, say, take the comments control off its card (§ARC12.5.2 business rule 12). How the page learns of the change is designed under #702, *Push Live Updates To Open Pages*; until it is designed and built, nothing pushes a change to the page. *(user, 2026-09-27; §ARC12.5.2 business rule 12)* ≠ item 11
+**2.24 [Must]** A change to an item's setting reaches the open page without a reload: comments switched off for an item, say, take the comments control off its card (§ARC12.5.2 business rule 12). How the page learns of the change is §UI20.10's: the live connection makes the page's settings read stale, and the page reads it again, with no code of its own (`DesignFeatures/LiveUpdates.md` rule 1, #702). *(user, 2026-09-27; §ARC12.5.2 business rule 12)* ≠ item 11
 
 **2.25 [Could]** A Bible reference that cannot be read as a passage leads to the Bible reference page all the same, which says it could not be found and offers the search (`UI/Pages/BibleReference.md rule 2.18`). *(user, 2026-09-28)* ≠ item 14
 
@@ -393,17 +393,19 @@ write a card leads to is decided again by the service (§SEC14.6).
     `UI/Components/SharingPanel.md §10 item 5`. The same gap stands on `/posts/{id}`
     (`UI/Pages/PostDetail.md §6 item 10`), and on `/posts` for its own contribution link
     (`UI/Pages/Posts.md §6 item 8`).
-11. (#702) **Page gap — a changed setting does not reach the open page.** Rule 2.24 (user rulings
+11. (#910) **Page gap — a changed setting does not reach the open page.** Rule 2.24 (user rulings
     2026-09-27; §ARC12.5.2 business rule 12). Nothing pushes a change to an open page. The page
     reads its settings through `contentItemSettingService.useGetEffectiveSettingsFor`, a read that
     goes stale after 60 seconds (`staleTime`) and is read again only on the query library's own
     triggers — the tab regaining focus, the connection returning, the page remounting — or when a
     settings write in the same browser invalidates it (`invalidateContentItemSettingReads`). So a
     setting another person changes reaches the page only then, or on a reload. The live connection
-    that tells an open page of a change is designed under #702, *Push Live Updates To Open Pages*
-    (user ruling 2026-09-27). The page's share — hearing of a change to a setting that governs an
-    item it shows, and updating what it shows — is carved from that design. The card's half is
-    `UI/Components/ContentItemPanel.md rule 2.44`. The same share stands on `/posts`
+    that tells an open page of a change was designed under #702 (`DesignFeatures/LiveUpdates.md`,
+    user rulings 2026-09-27 and 2026-10-06). A setting message makes the page's effective-settings
+    read stale, and the page reads it again as it already does, so the page's share — hearing of a
+    change to a setting that governs an item it shows, and updating what it shows — needs no code
+    of its own (§UI20.10 rule 2). It is built when `Root` opens the connection (§UI20.10 item 1),
+    the task this item carries. The card's half is `UI/Components/ContentItemPanel.md rule 2.44`. The same share stands on `/posts`
     (`UI/Pages/Posts.md §6 item 11`), `/posts/{id}` (`UI/Pages/PostDetail.md §6 item 14`),
     `/myposts` (`UI/Pages/MyPosts.md §6 item 10`), `/myposts/{id}`
     (`UI/Pages/MyPostDetail.md §6 item 16`), `/Admin/Posts`

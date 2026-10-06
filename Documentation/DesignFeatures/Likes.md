@@ -25,7 +25,7 @@ Every card on the site offers Like, and nothing stands behind it. A chosen react
 10. **A withdrawn reaction given again comes back at the status it was withdrawn at; a reaction a moderator took down is never revived**, and the attempt looks to the reader like a reaction already pending (§DOM4.10 rules 7 and 8).
 11. **The Like control works on every page that renders the card with it**: `/`, `/posts`, `/posts/{id}`, `/myposts`, `/myposts/{id}`, `/Admin/Posts` and `/Admin/Posts/{id}` (user, 2026-09-28: *"The UI work includes all pages that has this ContentItemPanel"*). `/posts/contribute` renders the card's add face only, which has no Like (`UI/Components/ContentItemPanel.md §1`). The sample pages under `/SamplePages` are excluded (user, 2026-09-28: *"exclude sample pages, they are just mockups"*). The Bible reference page's reaction bar is not the card, and is held for #700 (`UI/Pages/BibleReference.md §6 item 3`).
 11a. **Like is offered on an item that is not public yet**, on the setting alone, as on any other item (the owner, 2026-09-28: *"Yes, I don't mind it being available there"*). By design only `/myposts`, `/myposts/{id}`, `/Admin/Posts` and `/Admin/Posts/{id}` show such an item (*"General users will NEVER see things that are not approved so they have zero scope to see this"*). `/posts/{id}` shows one today only through a gap its own document records (`UI/Pages/PostDetail.md rule 2.1`, §6 item 12). The reaction is recorded, because the write is bound to an endpoint the caller may see (§ARC12.3.1 rule 5a, as §SEC14.3 recalls it). Neither its count nor the reader's own mark shows on that card until the item is public, because the summary answers only for publicly visible items (§ARC16.8, *Anonymity*), so the reader sees their press take effect and then disappear when the read that follows their write lands.
-12. (#702) **Counts update live.** A page already showing an item comes to show another reader's reaction without a reload (user, 2026-09-28: *"We will need to consider #702 as well since this mechanism will be required to update like counts in real time on the UI"*). The mechanism is #702's to design (§ARC12.5.2 business rule 12), and its tasks are carved from that design. Until it is built, a reaction moves the counts on the reacting reader's own page only (§ARC16.8, *Where each shared rule lives*).
+12. (#910) **Counts update live.** A page already showing an item comes to show another reader's reaction without a reload (user, 2026-09-28: *"We will need to consider #702 as well since this mechanism will be required to update like counts in real time on the UI"*). #702 designed the mechanism in `LiveUpdates.md` (rules 2, 6 and 8): the live connection tells every open page whose counts may have moved, and the page reads its summaries again, with no page code of its own (§UI20.10 rule 2). `Root` opening the connection closes this rule (§UI20.10 item 1). When it was designed (2026-10-06), a reaction moved the counts on the reacting reader's own page only (§ARC16.8, *Where each shared rule lives*).
 
 ## User stories
 
@@ -70,9 +70,9 @@ The rest of the UI is already designed in the documents the presentation compone
 | Address | Published by | Heard by |
 | --- | --- | --- |
 | `Association-Added` *(exists)* | the upsert's create arm, and the add | `ApprovalOrchestrationService` (exists) |
-| `Association-Restored` *(new)* | the upsert's revive to the same reaction | nobody, deliberately (§ARC16.2.2) |
-| `Association-Repointed` *(new)* | the upsert's repoint, live or revived | `ApprovalOrchestrationService.OnAssociationRepointedAsync` *(new)* |
-| `Association-Removed` *(exists)* | the foundation's soft delete the withdrawal ends in | nobody (§APR9.7.6) |
+| `Association-Restored` *(new)* | the upsert's revive to the same reaction | not the approval workflow, deliberately (§ARC16.2.2); the live-update forwarder, designed under #702 (`LiveUpdates.md` rule 6) |
+| `Association-Repointed` *(new)* | the upsert's repoint, live or revived | `ApprovalOrchestrationService.OnAssociationRepointedAsync` *(new)*; the live-update forwarder, designed under #702 (`LiveUpdates.md` rule 6) |
+| `Association-Removed` *(exists)* | the foundation's soft delete the withdrawal ends in | not the approval workflow (§APR9.7.6); the live-update forwarder, designed under #702 (`LiveUpdates.md` rule 6) |
 
 `Association-Upserting` is **not minted** (§ARC16.2.2), so the upsert has no event path. `Association-Adding` keeps its address and its binding (#631), and refuses a reader's reaction (`Backend/Orchestrations/AssociationOrchestrationService.md §2`).
 
@@ -92,7 +92,7 @@ The rest of the UI is already designed in the documents the presentation compone
 
 ## Out of scope
 
-- **Live counts on other readers' pages** — rule 12, held for #702.
+- **Live counts on other readers' pages** — rule 12, designed in `LiveUpdates.md` (#702).
 - **The Bible reference page's reaction bar** — held for #700; it needs `BibleReferenceSetting` (§DOM6.9), which is not built.
 - **Save, Share and Comments** — §UI20.6.6 rule 4 plans each end to end after Likes.
 - **The association routes this feature does not need**: the collection read, the read by id, modify, the remove by id and the hard remove (§ARC17.4). The two reads must not ship before §SEC14.7 posture A′ rule 7 is built, which keeps a personal row from every caller but its owner and the review tier (§ARC17.4, *The reads*); this feature serves neither and builds neither.
