@@ -106,9 +106,16 @@ namespace Glory2Him.WebApp.Controllers.Associations
             }
         }
 
-        public ValueTask<ActionResult<IReadOnlyList<ContentItemReactionSummary>>> GetReactionSummariesAsync(
+        public async ValueTask<ActionResult<IReadOnlyList<ContentItemReactionSummary>>> GetReactionSummariesAsync(
             [FromQuery] Guid[] contentItemIds,
-            CancellationToken cancellationToken) =>
-            throw new NotImplementedException();
+            CancellationToken cancellationToken)
+        {
+            IReadOnlyList<ContentItemReactionSummary> contentItemReactionSummaries =
+                await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                    contentItemIds,
+                    cancellationToken);
+
+            return Ok(contentItemReactionSummaries);
+        }
     }
 }
