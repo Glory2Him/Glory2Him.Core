@@ -637,7 +637,7 @@
   {
     "name": "ready for review",
     "color": "0e8a16",
-    "description": "QA passed with no blocking findings; ready for a human merge review"
+    "description": "QA passed the PR or design PR with no finding of any severity open; ready for a human merge review"
   },
   {
     "name": "design: architecture",
