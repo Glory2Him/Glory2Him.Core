@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
@@ -24,6 +25,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 {
     internal partial class AssociationOrchestrationService
     {
+        private const int MaxContentItemReactionSummaryIds = 25;
+
         // The orchestration enforces the contribution gate itself (§SEC14.6): an exposer may bind
         // to it directly, so it never assumes an upstream layer already gated the caller.
         //
@@ -318,6 +321,44 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             Validate(
                 message: "Content item association is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(associationId), Parameter: nameof(Association.Id)));
+
+        // THE SUMMARY'S OWN VALIDATION (AssociationOrchestrationService.md §4 rule 1), asked before
+        // any read.
+        private static void ValidateOnRetrieveContentItemReactionSummaries(
+            IReadOnlyList<Guid> contentItemIds) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentItemIds), Parameter: nameof(contentItemIds)),
+                (Rule: IsEmpty(contentItemIds), Parameter: nameof(contentItemIds)),
+                (Rule: IsOverTheSummaryBound(contentItemIds), Parameter: nameof(contentItemIds)),
+                (Rule: HoldsAnEmptyId(contentItemIds), Parameter: nameof(contentItemIds)));
+
+        private static dynamic IsInvalid(IReadOnlyList<Guid> ids) => new
+        {
+            Condition = ids is null,
+            Message = "List is required"
+        };
+
+        private static dynamic IsEmpty(IReadOnlyList<Guid> ids) => new
+        {
+            Condition = ids is not null && ids.Count is 0,
+            Message = "List must hold at least one id"
+        };
+
+        // The bound guards a public read against a hand-formed request, and it counts DISTINCT ids,
+        // because duplicates are answered once rather than refused (§ARC16.8, The set, its
+        // bounds).
+        private static dynamic IsOverTheSummaryBound(IReadOnlyList<Guid> ids) => new
+        {
+            Condition = ids is not null && ids.Distinct().Count() > MaxContentItemReactionSummaryIds,
+            Message = $"List must hold no more than {MaxContentItemReactionSummaryIds} distinct ids"
+        };
+
+        private static dynamic HoldsAnEmptyId(IReadOnlyList<Guid> ids) => new
+        {
+            Condition = ids is not null && ids.Contains(Guid.Empty),
+            Message = "Every id is required"
+        };
 
         private static dynamic IsInvalid(Guid id) => new
         {

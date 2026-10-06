@@ -212,7 +212,7 @@ are decided under §SEC14.7 posture A′, and a reaction under posture A′ rule
    `isCuratedReference`, lines 66-72). Each suggestion is held on the page, as the reader's own,
    until they navigate away, and nothing is written (the comment above the suggestion state,
    lines 54-60; the two panels' `onAdd` and `onRemove`). The association read and the two writes
-   are designed (§ARC17.4) and wait on the association HTTP exposer, which is not yet built. One step before them
+   are designed (§ARC17.4) and not yet served: `AssociationsController` serves a reader's reaction alone (#728), and an editorial suggestion waits on #871. One step before them
    is not designed: the association read is keyed on the host's id (§DOM4.6 rule 1), while this
    page is addressed by the passage's USFM (rule 2.2), which §DOM5.4 makes the `BibleReference`
    row's unique key, and no section says how the page finds the passage's row from its address,
@@ -289,7 +289,7 @@ are decided under §SEC14.7 posture A′, and a reaction under posture A′ rule
    for #700 (item 5). Rule 2.17 (user ruling 2026-09-27): a button leads to `/posts` with the
    passage in its Bible references box, listing every item associated with the passage. The page has
    none: its one link beneath the passage is *Show Full Chapter* (`bibleReference.tsx`, line 108). A
-   reference narrows `/posts` only once associations are exposed over HTTP (§ARC17.4, not yet
+   reference narrows `/posts` only once the association read is exposed over HTTP (§ARC17.4, not yet
    built) and a read narrows on it (`UI/Components/ContentItemListPanel.md §10 item 15`, not yet
    designed), so until then the search shows the whole journal, the reference in its box. #700's
    mockup places the button.
