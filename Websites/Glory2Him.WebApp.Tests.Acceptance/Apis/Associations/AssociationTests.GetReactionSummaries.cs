@@ -214,5 +214,23 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
             // then
             actualResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         }
+
+        [Fact]
+        public async Task ShouldReturnBadRequestOnReactionSummariesIfAnIdIsEmptyAsync()
+        {
+            // given
+            // Guid.Empty is a well-formed id, so it binds and reaches the orchestration's rule; a
+            // blank value would be refused by model binding instead, before the rule is asked.
+            Guid[] contentItemIdsWithAnEmptyId = new[] { Guid.NewGuid(), Guid.Empty };
+            this.apiBroker.ActAsAnonymous();
+
+            // when
+            HttpResponseMessage actualResponse =
+                await this.apiBroker.GetReactionSummariesAsync(
+                    CreateContentItemIdsQuery(contentItemIdsWithAnEmptyId));
+
+            // then
+            actualResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
     }
 }
