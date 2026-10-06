@@ -106,6 +106,8 @@ namespace Glory2Him.WebApp.Controllers.Associations
             }
         }
 
+        [HttpGet("ReactionSummaries")]
+        [AllowAnonymous]
         public async ValueTask<ActionResult<IReadOnlyList<ContentItemReactionSummary>>> GetReactionSummariesAsync(
             [FromQuery] Guid[] contentItemIds,
             CancellationToken cancellationToken)
