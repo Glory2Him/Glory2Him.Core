@@ -298,8 +298,8 @@ Every page renders the family through its stories. No page renders `AssociationP
 
 | Purpose | Endpoint | State |
 | --- | --- | --- |
-| Read the associations for an entity — "associations for this entity", keyed on the effective id (§DOM4.6 rule 1) | `GET /api/associations` (§ARC17.4) | designed; `AssociationsController` does not exist yet (section 10, item 21) |
-| Suggest an association (`onAdd`) | `POST /api/associations` (§ARC17.4, §ARC16.8.1) | built (#728); no page calls it yet (section 10, item 21) |
+| Read the associations for an entity — "associations for this entity", keyed on the effective id (§DOM4.6 rule 1) | `GET /api/associations` (§ARC17.4) | designed; not yet served (section 10, item 21) |
+| Suggest an association (`onAdd`) | `POST /api/associations` (§ARC17.4, §ARC16.8.1) | served for a reader's reaction alone (#728); an editorial suggestion waits on #871 (section 10, item 21) |
 | Remove an association (`onRemove`) | `DELETE /api/associations/{id}` (§ARC17.4) — owner or `Administrators` | designed; not yet exposed (section 10, item 22) |
 | Approve or reject (`onApprove`, `onReject`) | not ruled — see section 10 | — |
 
