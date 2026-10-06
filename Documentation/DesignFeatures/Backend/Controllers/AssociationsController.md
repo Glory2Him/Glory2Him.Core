@@ -3,7 +3,7 @@ Parent: [Likes.md](../../Likes.md)
 Level: exposer — `AssociationsController` (`Websites/Glory2Him.WebApp/Controllers/Associations/`), new
 Inherits: §ARC17.2 (shape versus served literal), §ARC17.4, §ARC16.8 (*The route*), §ARC16.8.1, §EVN13 rule 3, §SEC14.5, `the-standard-exposers`
 
-The association resource's exposer. It is built with §1's route alone (#728) — §ARC12.6's controller table records it as entry 14 — and that entry rules that its routes are added **by the work that needs them rather than all at once**: the Likes feature needs three, and adds them. The CRUD six stay unserved, and the two reads among them must not ship before §SEC14.7 posture A′ rule 7 is built (§ARC17.4, *The reads*).
+The association resource's exposer. It is built with §1's route (#728) and §3's (#730) — §ARC12.6's controller table records it as entry 14 — and that entry rules that its routes are added **by the work that needs them rather than all at once**: the Likes feature needs three, and adds them. The CRUD six stay unserved, and the two reads among them must not ship before §SEC14.7 posture A′ rule 7 is built (§ARC17.4, *The reads*).
 
 It carries `[ApiController]` and `[Route("api/[controller]")]`, derives from `RESTFulController`, and takes `IAssociationOrchestrationService` and nothing else (§EVN13 rule 3: an entity's exposer binds its top-layer service; `the-standard-exposers` ts-exposers-001). It holds no logic: every rule is the orchestration's, and each action maps the orchestration's exception families to status codes the way the solution's other controllers do (`ContentItemSettingsController`).
 
