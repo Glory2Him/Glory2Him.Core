@@ -130,8 +130,15 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 HttpResponseMessage actualResponse =
                     await this.apiBroker.PostAssociationAsync(inputPair);
 
+                string actualBody = await actualResponse.Content.ReadAsStringAsync();
+
                 // then
                 actualResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+                // The attribute's challenge answers with no body. The orchestration's own refusal
+                // also maps to 401, but carries a problem-details body, so an empty body is what
+                // shows the attribute turned the caller away before the orchestration was asked.
+                actualBody.Should().BeEmpty();
             }
             finally
             {
