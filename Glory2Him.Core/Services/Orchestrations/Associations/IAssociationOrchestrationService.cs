@@ -73,12 +73,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         /// <summary>
         /// Withdraws a reader's reaction by naming its pair — the item and the reaction, never a
         /// row id — and can only ever withdraw the caller's own (§ARC16.8.1). It takes the
-        /// upsert's caller shape and runs its flow up to the pair: authentication, the same
-        /// structural validation, the same endpoint resolution, and the caller's <c>UserId</c>
-        /// from the envelope, whatever the request carried. It asks none of the read-only roles
-        /// and runs no facet gate: a reader's own reaction is not a contribution (§SEC14.7
-        /// posture A′ rule 1), and withdrawing is never gated (§ARC16.2.1). An editorial pair is
-        /// refused as invalid before anything is read.
+        /// upsert's caller shape and validates it with the upsert's rules in a composition of
+        /// its own, then shares the upsert's endpoint resolution and its <c>UserId</c>
+        /// derivation: the caller's own, from the envelope, whatever the request carried. It
+        /// asks authentication and none of the read-only roles, and runs no facet gate: a
+        /// reader's own reaction is not a contribution (§SEC14.7 posture A′ rule 1), and
+        /// withdrawing is never gated (§ARC16.2.1). An editorial pair is refused as invalid
+        /// before anything is read.
         ///
         /// <para>The reader's row is found by the foundation's personal-key lookup and, where it
         /// is live and holds the reaction the caller named, soft-deleted by its id, which

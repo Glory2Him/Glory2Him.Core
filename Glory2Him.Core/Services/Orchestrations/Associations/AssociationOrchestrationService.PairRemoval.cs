@@ -22,10 +22,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     {
         // THE PAIR-KEYED WITHDRAWAL (§ARC16.8.1; AssociationOrchestrationService.md §3). A reader
         // names the item and the reaction, never a row id, so it can only ever reach the row the
-        // personal key gives it — its own. It takes the upsert's caller shape and runs that flow
-        // up to the pair: the same structural validation, the same endpoint resolution, and the
-        // caller's UserId from the envelope. It runs no facet gate, because withdrawing is never
-        // gated (§ARC16.2.1).
+        // personal key gives it — its own. It takes the upsert's caller shape and validates it with
+        // the upsert's rules in a composition of its own, then shares the upsert's endpoint
+        // resolution and its UserId derivation. It runs no facet gate, because withdrawing is
+        // never gated (§ARC16.2.1).
         public ValueTask<AssociationRemovalResult> RemoveAssociationByPairAsync(
             Association association,
             CancellationToken cancellationToken = default) =>

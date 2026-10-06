@@ -130,9 +130,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         public async Task ShouldThrowValidationExceptionOnRemoveByPairIfAnEndpointIsInvalidAndLogItAsync(
             string invalidEndpoint)
         {
-            // given: the withdrawal takes the upsert's caller shape and its structural validation
-            // and endpoint resolution, so a malformed pair is refused with the upsert's own
-            // validation exception, and no row is looked up
+            // given: the withdrawal validates the upsert's caller shape with the upsert's rules
+            // and shares its endpoint resolution, so a malformed pair is refused with the same
+            // validation exception the upsert throws, and no row is looked up
             this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString());
 
             Association removalRequest =
