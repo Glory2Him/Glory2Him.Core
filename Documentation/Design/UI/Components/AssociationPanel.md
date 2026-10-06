@@ -375,7 +375,7 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
     property through their rest spread
     (`UI/Components/AssociationPanel.TagAssociationPanel.md §4.3`), so the property reaches them
     with the panel's. The panel's own end's roles, which it does not compose either, are item 1.
-21. (#857) **Gap — associations are not exposed over HTTP.** The reads and writes the
+21. (#857) **Gap — this family cannot read or write its associations over HTTP.** The reads and writes the
     page calls for this family — reading an entity's associations, suggesting one and removing
     one (section 7; §ARC17.4) — are designed and not built: `AssociationsController` serves only a reader's
     reaction (#728), so no product page can read or write an association through the family, and every
