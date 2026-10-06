@@ -26,12 +26,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     internal partial class AssociationOrchestrationService
     {
         /// <summary>
-        /// The resolved endpoint visibility the composite takes as an <b>input</b>. It does not
-        /// decide how the sets were obtained, and that is the whole of why one evaluator serves
-        /// two readers: §ARC16.8's reaction summary read resolves its hosts caller-INDEPENDENTLY,
-        /// because it returns an aggregate whose counts must not move when a reader signs in,
-        /// while the association reads resolve theirs through each endpoint's own caller-filtered
-        /// collection read. One rule, two resolvers (§SEC14.3).
+        /// The resolved endpoint visibility the composite takes as an <b>input</b>, which the
+        /// association reads resolve through each endpoint's own caller-filtered collection read.
+        /// §ARC16.8's reaction summary read does not use it: it answers the same rule through
+        /// caller-INDEPENDENT reads of its own, because it returns an aggregate whose counts must
+        /// not move when a reader signs in. One rule, two resolvers (§SEC14.3).
         /// </summary>
         private readonly struct ResolvedEndpointVisibility
         {
@@ -83,8 +82,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         /// <summary>
         /// §SEC14.3's composite, written <b>once</b> — rules 3 and 4, composed above the
         /// foundation's self-only filter over rules 1, 2 and 5. This is the single private
-        /// evaluator §ARC16.8 records: both this service's association reads and #616's reaction
-        /// summary read call it, and neither writes its own.
+        /// evaluator §ARC16.8 records: this service's association reads call it, and none writes
+        /// its own. The reaction summary read does not call it; it is §SEC14.3's second resolver
+        /// (§ARC16.8, the §SEC14.3 rules 3, 4 and 6 row).
         ///
         /// <para><b>Rules 1, 2 and 5 are NOT re-tested here.</b> The shaping function
         /// <c>AssociationService</c> authors has already applied them, and re-testing them in

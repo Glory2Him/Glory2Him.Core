@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -140,6 +141,23 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         /// </summary>
         ValueTask<Association> RetrieveAssociationByIdAsync(
             Guid associationId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// For the cards a page is showing, which reactions each item has been given, how many of
+        /// each, and which one the calling reader holds (§ARC16.8). It takes 1 to 25 distinct ids,
+        /// and answers each once, under the id it was supplied.
+        ///
+        /// <para><b>The counts are the same whoever asks.</b> The hosts, the vocabulary and the
+        /// winning settings are read caller-independently, so an id nobody may see is absent from
+        /// the answer rather than refused, and an item whose winning setting does not show
+        /// reactions — or resolves none — is answered with no counts. Only the viewer members
+        /// depend on the caller: the reaction a signed-in reader holds, counted or not, where it
+        /// is of the public vocabulary; <c>null</c> otherwise, and for an anonymous
+        /// caller.</para>
+        /// </summary>
+        ValueTask<IReadOnlyList<ContentItemReactionSummary>> RetrieveContentItemReactionSummariesAsync(
+            IReadOnlyList<Guid> contentItemIds,
             CancellationToken cancellationToken = default);
 
         /// <summary>
