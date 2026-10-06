@@ -383,7 +383,7 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
     list narrowed by tag or Bible reference waits on the same read, and the narrowing itself is
     not this item's: it is `UI/Components/ContentItemListPanel.md §10 item 15`, since #857 plans
     only the read (user ruling 2026-10-05). The work was filed as #318 (closed). Suggesting
-    one is #728's (`POST /api/associations`). Reading an entity's associations is #857's, which
+    one is item 24. Reading an entity's associations is #857's, which
     designs §ARC17.4's two reads with §SEC14.7 posture A′ rule 7 ahead of them (user ruling
     2026-10-02). Removing one is item 22.
 22. (#700) **Gap — an association cannot be removed over HTTP.** Removing one, the third part of
@@ -420,3 +420,8 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
     to say that the counts arrive through its hook, which rewrites line 80. The task carved from
     this item leaves those three lines to #738, and takes up any of them that still names #318
     once #738 has merged.
+24. (#871) **Gap — an editorial association cannot be suggested over HTTP.** Suggesting one, the
+    second part of item 21's gap, `POST /api/associations` (section 7; §ARC16.8.1), is held by a
+    design task other than item 21's. The route is #728's, which serves a reader's reaction alone
+    (user ruling 2026-10-05). Its editorial arm refuses the two-endpoint body until #871 rules
+    where an editorial row's `Id` is minted (§APR9.7.1 rule 2), and #871 plans the work.
