@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -140,6 +141,42 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 this.apiBroker.ActAsSeededAdministrator();
                 await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(reactedContentItem.Id);
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(reactedContentItem.Id);
+            }
+        }
+
+        [Fact]
+        public async Task ShouldBindRepeatedContentItemIdsFromTheQueryStringAsync()
+        {
+            // given
+            CoreContentItem firstContentItem = await InsertPublishedContentItemAsync();
+            CoreContentItem secondContentItem = await InsertPublishedContentItemAsync();
+
+            Guid[] expectedContentItemIds =
+                new[] { firstContentItem.Id, secondContentItem.Id };
+
+            this.apiBroker.ActAsAnonymous();
+
+            try
+            {
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.GetReactionSummariesAsync(
+                        CreateContentItemIdsQuery(firstContentItem.Id, secondContentItem.Id));
+
+                // then
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                List<ContentItemReactionSummary> actualSummaries =
+                    await ReadSummariesAsync(actualResponse);
+
+                actualSummaries.Select(summary => summary.ContentItemId)
+                    .Should().BeEquivalentTo(expectedContentItemIds);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(firstContentItem.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(secondContentItem.Id);
             }
         }
     }
