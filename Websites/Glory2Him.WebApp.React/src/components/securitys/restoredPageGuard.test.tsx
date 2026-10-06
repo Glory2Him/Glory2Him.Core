@@ -138,12 +138,13 @@ const isShown = (): boolean => {
 };
 
 // happy-dom scrolls and focuses under a hidden root, and never scrolls on focus. A browser takes
-// the page out of the render while any part of the hiding remains: its scroll position reads as
-// the top from the moment the page is hidden until something sets it once the page is shown, the
-// focus moves to `body`, and nothing under it is scrolled or focused meanwhile. Once the page is
-// shown, `focus()` scrolls a field that is out of view to its top unless asked not to.
+// the page out of the render while any part of the hiding remains: both its scroll offsets read as
+// the top left from the moment the page is hidden until something sets them once the page is
+// shown, the focus moves to `body`, and nothing under it is scrolled or focused meanwhile. Once
+// the page is shown, `focus()` scrolls a field that is out of view to its top unless asked not to.
 const topOfTheField = 40;
 let scrollPosition = 0;
+let horizontalScrollPosition = 0;
 let isFollowingTheHiding = false;
 
 const anyPartOfTheHidingRemains = (): boolean =>
@@ -167,6 +168,7 @@ const followTheHiding = (): void => {
     try {
         if (anyPartOfTheHidingRemains()) {
             scrollPosition = 0;
+            horizontalScrollPosition = 0;
 
             if (document.activeElement instanceof HTMLElement
                 && document.activeElement !== document.body) {
@@ -178,18 +180,26 @@ const followTheHiding = (): void => {
     }
 };
 
-const scrollPageTo = (top: number): void => {
+const scrollPageTo = (left: number, top: number): void => {
     followTheHiding();
 
     if (!anyPartOfTheHidingRemains()) {
+        horizontalScrollPosition = left;
         scrollPosition = top;
     }
 };
 
-const topAskedFor = (xOrOptions?: ScrollToOptions | number, y?: number): number =>
+const scrollPageAsAskedBy = (xOrOptions?: ScrollToOptions | number, y?: number): void =>
     typeof xOrOptions === 'object'
-        ? xOrOptions.top ?? scrollPosition
-        : y ?? scrollPosition;
+        ? scrollPageTo(xOrOptions.left ?? horizontalScrollPosition, xOrOptions.top ?? scrollPosition)
+        : scrollPageTo(xOrOptions ?? horizontalScrollPosition, y ?? scrollPosition);
+
+const scrollPageByAsAskedBy = (xOrOptions?: ScrollToOptions | number, y?: number): void =>
+    typeof xOrOptions === 'object'
+        ? scrollPageTo(
+            horizontalScrollPosition + (xOrOptions.left ?? 0),
+            scrollPosition + (xOrOptions.top ?? 0))
+        : scrollPageTo(horizontalScrollPosition + (xOrOptions ?? 0), scrollPosition + (y ?? 0));
 
 type Prototype = Record<string, (...args: Array<unknown>) => unknown>;
 
@@ -213,7 +223,17 @@ const scrollPositionProperty: PropertyDescriptor = {
 
         return scrollPosition;
     },
-    set: (top: number) => scrollPageTo(top)
+    set: (top: number) => scrollPageTo(horizontalScrollPosition, top)
+};
+
+const horizontalScrollPositionProperty: PropertyDescriptor = {
+    configurable: true,
+    get: () => {
+        followTheHiding();
+
+        return horizontalScrollPosition;
+    },
+    set: (left: number) => scrollPageTo(left, scrollPosition)
 };
 
 // Each property replaced on an object is put back as that object had it, its own or none, so no
@@ -227,6 +247,7 @@ const replaceProperty = (target: object, name: string, descriptor: PropertyDescr
 
 const modelHowABrowserScrollsAndFocuses = (): void => {
     scrollPosition = 0;
+    horizontalScrollPosition = 0;
     followTheHidingAfterEachCallTo(CSSStyleDeclaration.prototype, 'setProperty');
     followTheHidingAfterEachCallTo(Element.prototype, 'setAttribute');
     followTheHidingAfterEachCallTo(Element.prototype, 'setAttributeNS');
@@ -235,16 +256,13 @@ const modelHowABrowserScrollsAndFocuses = (): void => {
     replaceProperty(window, 'pageYOffset', scrollPositionProperty);
     replaceProperty(document.documentElement, 'scrollTop', scrollPositionProperty);
     replaceProperty(document.body, 'scrollTop', scrollPositionProperty);
-
-    vi.spyOn(window, 'scrollTo').mockImplementation(
-        (xOrOptions?: ScrollToOptions | number, y?: number) => scrollPageTo(topAskedFor(xOrOptions, y)));
-
-    vi.spyOn(window, 'scroll').mockImplementation(
-        (xOrOptions?: ScrollToOptions | number, y?: number) => scrollPageTo(topAskedFor(xOrOptions, y)));
-
-    vi.spyOn(window, 'scrollBy').mockImplementation(
-        (xOrOptions?: ScrollToOptions | number, y?: number) =>
-            scrollPageTo(scrollPosition + (typeof xOrOptions === 'object' ? xOrOptions.top ?? 0 : y ?? 0)));
+    replaceProperty(window, 'scrollX', horizontalScrollPositionProperty);
+    replaceProperty(window, 'pageXOffset', horizontalScrollPositionProperty);
+    replaceProperty(document.documentElement, 'scrollLeft', horizontalScrollPositionProperty);
+    replaceProperty(document.body, 'scrollLeft', horizontalScrollPositionProperty);
+    vi.spyOn(window, 'scrollTo').mockImplementation(scrollPageAsAskedBy);
+    vi.spyOn(window, 'scroll').mockImplementation(scrollPageAsAskedBy);
+    vi.spyOn(window, 'scrollBy').mockImplementation(scrollPageByAsAskedBy);
 
     const focusAsHappyDomDoes = HTMLElement.prototype.focus;
 
@@ -278,6 +296,7 @@ const fieldBeingTypedIn = (): HTMLInputElement =>
 
 type PlaceOnThePage = {
     scrollPosition: number;
+    horizontalScrollPosition: number;
     focusedElement: Element | null;
     caret: [number | null, number | null];
 };
@@ -293,6 +312,7 @@ const restoreAndNoteThePlaceAsFirstShown = async (): Promise<PlaceOnThePage | un
 
             return {
                 scrollPosition: window.scrollY,
+                horizontalScrollPosition: window.scrollX,
                 focusedElement: document.activeElement,
                 caret: [field.selectionStart, field.selectionEnd]
             };
@@ -599,6 +619,21 @@ describe('RestoredPageGuard', () => {
             // then
             expect(placeAsFirstShown?.focusedElement).toBe(field);
             expect(placeAsFirstShown?.scrollPosition).toBe(600);
+        });
+
+        it('should resume a restored page at the horizontal scroll position it had', async () => {
+            // given
+            mocks.currentUser = readerA;
+            render(<Page />);
+            window.scrollTo(300, 600);
+            dispatchPageTransition('pagehide', true);
+            answerFreshRead(freshCopyOf(readerA));
+
+            // when
+            const placeAsFirstShown = await restoreAndNoteThePlaceAsFirstShown();
+
+            // then
+            expect(placeAsFirstShown?.horizontalScrollPosition).toBe(300);
         });
     });
 });
