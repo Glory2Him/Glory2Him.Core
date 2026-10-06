@@ -78,6 +78,7 @@ const Page = (): ReactElement => (
         <RestoredPageGuard />
         <div data-testid="part-inside-the-app" ref={showItself} />
         <div data-testid="part-with-no-visibility" />
+        <input aria-label="Draft title" defaultValue="A draft in progress" />
     </>
 );
 
@@ -134,6 +135,163 @@ const isShown = (): boolean => {
         !isNotDrawn(part) && !isNotExposed(part) && !isOutOfReach(part))
         && visibilityOfAPartWithNone !== 'hidden'
         && visibilityOfAPartWithNone !== 'collapse';
+};
+
+// happy-dom scrolls and focuses under a hidden root, and never scrolls on focus. A browser takes
+// the page out of the render while any part of the hiding remains: its scroll position reads as
+// the top from the moment the page is hidden until something sets it once the page is shown, the
+// focus moves to `body`, and nothing under it is scrolled or focused meanwhile. Once the page is
+// shown, `focus()` scrolls a field that is out of view to its top unless asked not to.
+const topOfTheField = 40;
+let scrollPosition = 0;
+let isFollowingTheHiding = false;
+
+const anyPartOfTheHidingRemains = (): boolean =>
+    [document.documentElement, document.body].some(element => {
+        const style = getComputedStyle(element);
+
+        return style.display === 'none'
+            || style.visibility === 'hidden'
+            || style.visibility === 'collapse'
+            || style.opacity === '0'
+            || element.hasAttribute('inert');
+    });
+
+const followTheHiding = (): void => {
+    if (isFollowingTheHiding) {
+        return;
+    }
+
+    isFollowingTheHiding = true;
+
+    try {
+        if (anyPartOfTheHidingRemains()) {
+            scrollPosition = 0;
+
+            if (document.activeElement instanceof HTMLElement
+                && document.activeElement !== document.body) {
+                document.activeElement.blur();
+            }
+        }
+    } finally {
+        isFollowingTheHiding = false;
+    }
+};
+
+const scrollPageTo = (top: number): void => {
+    followTheHiding();
+
+    if (!anyPartOfTheHidingRemains()) {
+        scrollPosition = top;
+    }
+};
+
+const topAskedFor = (xOrOptions?: ScrollToOptions | number, y?: number): number =>
+    typeof xOrOptions === 'object'
+        ? xOrOptions.top ?? scrollPosition
+        : y ?? scrollPosition;
+
+type Prototype = Record<string, (...args: Array<unknown>) => unknown>;
+
+// Every way the page can be hidden passes through one of these, so the page is taken out of the
+// render in the same task it is hidden in.
+const followTheHidingAfterEachCallTo = (prototype: object, method: string): void => {
+    const callAsHappyDomDoes = (prototype as Prototype)[method];
+
+    vi.spyOn(prototype as Prototype, method).mockImplementation(function (this: unknown, ...args) {
+        const result = callAsHappyDomDoes.apply(this, args);
+        followTheHiding();
+
+        return result;
+    });
+};
+
+const scrollPositionProperty: PropertyDescriptor = {
+    configurable: true,
+    get: () => {
+        followTheHiding();
+
+        return scrollPosition;
+    },
+    set: (top: number) => scrollPageTo(top)
+};
+
+const modelHowABrowserScrollsAndFocuses = (): void => {
+    scrollPosition = 0;
+    followTheHidingAfterEachCallTo(CSSStyleDeclaration.prototype, 'setProperty');
+    followTheHidingAfterEachCallTo(Element.prototype, 'setAttribute');
+    followTheHidingAfterEachCallTo(Element.prototype, 'setAttributeNS');
+    followTheHidingAfterEachCallTo(Element.prototype, 'toggleAttribute');
+    Object.defineProperty(window, 'scrollY', scrollPositionProperty);
+    Object.defineProperty(window, 'pageYOffset', scrollPositionProperty);
+    Object.defineProperty(document.documentElement, 'scrollTop', scrollPositionProperty);
+    Object.defineProperty(document.body, 'scrollTop', scrollPositionProperty);
+
+    vi.spyOn(window, 'scrollTo').mockImplementation(
+        (xOrOptions?: ScrollToOptions | number, y?: number) => scrollPageTo(topAskedFor(xOrOptions, y)));
+
+    vi.spyOn(window, 'scroll').mockImplementation(
+        (xOrOptions?: ScrollToOptions | number, y?: number) => scrollPageTo(topAskedFor(xOrOptions, y)));
+
+    vi.spyOn(window, 'scrollBy').mockImplementation(
+        (xOrOptions?: ScrollToOptions | number, y?: number) =>
+            scrollPageTo(scrollPosition + (typeof xOrOptions === 'object' ? xOrOptions.top ?? 0 : y ?? 0)));
+
+    const focusAsHappyDomDoes = HTMLElement.prototype.focus;
+
+    vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (this: HTMLElement, options) {
+        followTheHiding();
+
+        if (anyPartOfTheHidingRemains()) {
+            return;
+        }
+
+        focusAsHappyDomDoes.call(this, options);
+
+        if (options?.preventScroll !== true && scrollPosition > topOfTheField) {
+            scrollPosition = topOfTheField;
+        }
+    });
+};
+
+const stopModellingABrowser = (): void => {
+    for (const target of [document.documentElement, document.body]) {
+        delete (target as unknown as Record<string, unknown>).scrollTop;
+    }
+
+    delete (window as unknown as Record<string, unknown>).scrollY;
+    delete (window as unknown as Record<string, unknown>).pageYOffset;
+};
+
+const fieldBeingTypedIn = (): HTMLInputElement =>
+    screen.getByRole('textbox', { name: 'Draft title' });
+
+type PlaceOnThePage = {
+    scrollPosition: number;
+    focusedElement: Element | null;
+    caret: [number | null, number | null];
+};
+
+// Steps through the resume one microtask at a time and notes where the page is at the first step
+// that finds it shown, so nothing the guard does after showing it counts.
+const restoreAndNoteThePlaceAsFirstShown = async (): Promise<PlaceOnThePage | undefined> => {
+    dispatchPageTransition('pageshow', true);
+
+    for (let step = 0; step < 100; step += 1) {
+        if (isShown()) {
+            const field = fieldBeingTypedIn();
+
+            return {
+                scrollPosition: window.scrollY,
+                focusedElement: document.activeElement,
+                caret: [field.selectionStart, field.selectionEnd]
+            };
+        }
+
+        await Promise.resolve();
+    }
+
+    return undefined;
 };
 
 describe('RestoredPageGuard', () => {
@@ -371,5 +529,30 @@ describe('RestoredPageGuard', () => {
         // then
         expect(reload).toHaveBeenCalledTimes(1);
         expect(isHidden()).toBe(true);
+    });
+
+    describe('in a browser that takes a hidden page out of the render', () => {
+        beforeEach(() => {
+            modelHowABrowserScrollsAndFocuses();
+        });
+
+        afterEach(() => {
+            stopModellingABrowser();
+        });
+
+        it('should resume a restored page at the scroll position it had', async () => {
+            // given
+            mocks.currentUser = readerA;
+            render(<Page />);
+            window.scrollTo(0, 600);
+            dispatchPageTransition('pagehide', true);
+            answerFreshRead(freshCopyOf(readerA));
+
+            // when
+            const placeAsFirstShown = await restoreAndNoteThePlaceAsFirstShown();
+
+            // then
+            expect(placeAsFirstShown?.scrollPosition).toBe(600);
+        });
     });
 });
