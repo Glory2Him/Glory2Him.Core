@@ -194,5 +194,25 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
             // then
             actualResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         }
+
+        [Fact]
+        public async Task ShouldReturnBadRequestOnReactionSummariesIfMoreThan25IdsAreGivenAsync()
+        {
+            // given
+            Guid[] overTheBoundContentItemIds =
+                Enumerable.Range(start: 0, count: 26)
+                    .Select(_ => Guid.NewGuid())
+                    .ToArray();
+
+            this.apiBroker.ActAsAnonymous();
+
+            // when
+            HttpResponseMessage actualResponse =
+                await this.apiBroker.GetReactionSummariesAsync(
+                    CreateContentItemIdsQuery(overTheBoundContentItemIds));
+
+            // then
+            actualResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
     }
 }
