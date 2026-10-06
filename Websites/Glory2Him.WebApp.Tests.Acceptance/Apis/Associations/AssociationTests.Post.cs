@@ -29,7 +29,6 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
             // given
             CoreContentItem publishedContentItem = await InsertPublishedContentItemAsync();
             Association inputPair = CreateReactionPair(publishedContentItem.Id, seededAmenReactionId);
-            AssociationSuggestionResult actualResult = null;
             this.apiBroker.ActAsContributor();
 
             try
@@ -38,21 +37,20 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 HttpResponseMessage actualResponse =
                     await this.apiBroker.PostAssociationAsync(inputPair);
 
-                actualResult = await ReadResultAsync(actualResponse);
+                AssociationSuggestionResult actualResult = await ReadResultAsync(actualResponse);
 
                 // then
                 actualResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+
+                // Created is the enum's default, so the status alone would also pass on a body
+                // that carries no result at all; the id is what a missing result cannot fake.
                 actualResult.Status.Should().Be(AssociationSuggestionStatus.Created);
+                actualResult.AssociationId.Should().NotBeEmpty();
             }
             finally
             {
                 this.apiBroker.ActAsSeededAdministrator();
-
-                if (actualResult is not null)
-                {
-                    await this.apiBroker.RemoveCoreAssociationByIdAsync(actualResult.AssociationId);
-                }
-
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(publishedContentItem.Id);
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
             }
         }
@@ -64,15 +62,11 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
             CoreContentItem publishedContentItem = await InsertPublishedContentItemAsync();
             Association givenPair = CreateReactionPair(publishedContentItem.Id, seededAmenReactionId);
             Association inputPair = CreateReactionPair(publishedContentItem.Id, seededLoveReactionId);
-            AssociationSuggestionResult givenResult = null;
             this.apiBroker.ActAsContributor();
 
             try
             {
-                HttpResponseMessage givenResponse =
-                    await this.apiBroker.PostAssociationAsync(givenPair);
-
-                givenResult = await ReadResultAsync(givenResponse);
+                await this.apiBroker.PostAssociationAsync(givenPair);
 
                 // when
                 HttpResponseMessage actualResponse =
@@ -87,12 +81,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
             finally
             {
                 this.apiBroker.ActAsSeededAdministrator();
-
-                if (givenResult is not null)
-                {
-                    await this.apiBroker.RemoveCoreAssociationByIdAsync(givenResult.AssociationId);
-                }
-
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(publishedContentItem.Id);
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
             }
         }
@@ -103,15 +92,11 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
             // given
             CoreContentItem publishedContentItem = await InsertPublishedContentItemAsync();
             Association inputPair = CreateReactionPair(publishedContentItem.Id, seededAmenReactionId);
-            AssociationSuggestionResult givenResult = null;
             this.apiBroker.ActAsContributor();
 
             try
             {
-                HttpResponseMessage givenResponse =
-                    await this.apiBroker.PostAssociationAsync(inputPair);
-
-                givenResult = await ReadResultAsync(givenResponse);
+                await this.apiBroker.PostAssociationAsync(inputPair);
 
                 // when
                 HttpResponseMessage actualResponse =
@@ -126,12 +111,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
             finally
             {
                 this.apiBroker.ActAsSeededAdministrator();
-
-                if (givenResult is not null)
-                {
-                    await this.apiBroker.RemoveCoreAssociationByIdAsync(givenResult.AssociationId);
-                }
-
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(publishedContentItem.Id);
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
             }
         }

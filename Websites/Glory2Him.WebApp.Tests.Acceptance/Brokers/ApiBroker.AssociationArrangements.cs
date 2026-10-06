@@ -10,9 +10,12 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Approvals;
+using Microsoft.EntityFrameworkCore;
 using CoreAssociation = Glory2Him.Core.Models.Foundations.Associations.Association;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
@@ -47,6 +50,31 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             if (storedAssociation is not null)
             {
                 await this.storageBroker.DeleteAssociationAsync(storedAssociation);
+            }
+        }
+
+        /// <summary>
+        /// Removes every association either of whose endpoints is the given content item, with
+        /// their approval rounds. A test that posts more than once, or whose response body is
+        /// not the result it expects, cannot name every row its posts wrote, so it tears down by
+        /// the item it arranged instead. Either endpoint, because the foundation writes the pair
+        /// in canonical order rather than the order it was posted in.
+        /// </summary>
+        public async ValueTask RemoveCoreAssociationsOnContentItemAsync(Guid contentItemId)
+        {
+            IQueryable<CoreAssociation> allAssociations =
+                await this.storageBroker.SelectAllAssociationsAsync();
+
+            List<Guid> associationIds = await allAssociations
+                .Where(association =>
+                    association.EntityAKeyId == contentItemId
+                    || association.EntityBKeyId == contentItemId)
+                .Select(association => association.Id)
+                .ToListAsync();
+
+            foreach (Guid associationId in associationIds)
+            {
+                await RemoveCoreAssociationByIdAsync(associationId);
             }
         }
     }
