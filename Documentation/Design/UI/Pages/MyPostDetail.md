@@ -250,7 +250,7 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
    `UI/Components/ContentItemPanel.md §10 item 15`, this page's share of it.
 4. (#745) **Page gap — `/myposts/{id}`: a chosen reaction is not persisted.** The page takes
    `onReactionSelected` from `useContentItemEngagement`, which toggles the choice in page state for
-   the visit only. Recording and withdrawing the reader's own reaction (§ARC16.8.1, designed and not yet built) are this item's work. The sign-in half of the
+   the visit only. Recording the reader's own reaction (§ARC16.8.1, served by #728) and withdrawing it (designed and not yet built) are this item's work. The sign-in half of the
    same page gap does not arise, because `SecuredRoute` admits no signed-out reader. Copied from
    `UI/Components/ContentItemPanel.md §10 item 17`, this page's share of it.
    **The card's counts are this item's work too** (the Likes feature, `DesignFeatures/Likes.md`).
@@ -262,9 +262,9 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
 5. (needs issue) **Page gap — `/myposts/{id}`: suggesting a tag or a Bible reference sends
    nothing.** The page answers each panel's `onAdd` with a "coming soon" toast and reads no
    associations, so both lists are always empty (`myPostDetail.tsx` — `suggestTag`,
-   `suggestBibleReference`, `associationCollection={[]}`). The server work is not yet built: the association HTTP exposer (§ARC17.4), with the association
-   read `GET /api/associations` and the suggestion `POST /api/associations`
-   (`UI/Components/AssociationPanel.md §7`). The page's half is to read the item's associations, project
+   `suggestBibleReference`, `associationCollection={[]}`). The server work is not yet built: the association read `GET /api/associations` is not served,
+   and the suggestion, an editorial pairing sent to `POST /api/associations` (#728), waits on #871
+   (§ARC17.4; `UI/Components/AssociationPanel.md §7`). The page's half is to read the item's associations, project
    them to the panels, and send each suggestion with the viewer as its owner
    (`UI/Components/AssociationPanel.md §7`, the note on `asSuggestedAssociation`).
 6. (needs issue) **Page gap — `/myposts/{id}`: the tag and Bible reference facet switches are not
