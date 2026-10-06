@@ -197,7 +197,7 @@ below are what the page adds: who reaches it, and the card's actions for those w
    `UI/Components/ContentItemPanel.md §10 item 15`, this page's share of it.
 2. (#746) **Page gap — `/Admin/Posts`: a chosen reaction is not persisted.** The page takes
    `onReactionSelected` from `useContentItemEngagement`, which toggles the choice in page state for
-   the visit only. Recording the reader's own reaction (§ARC16.8.1, served by #728) and withdrawing it (designed and not yet built) are this item's work. The sign-in half does not
+   the visit only. Recording the reader's own reaction (§ARC16.8.1, served by #728) and withdrawing it (its member built by #725, its route not yet) are this item's work. The sign-in half does not
    arise, because `SecuredRoute` admits no signed-out reader. Copied from
    `UI/Components/ContentItemPanel.md §10 item 17`, this page's share of it.
    **The cards' counts are this item's work too** (the Likes feature, `DesignFeatures/Likes.md`).

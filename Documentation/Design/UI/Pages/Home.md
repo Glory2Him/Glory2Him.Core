@@ -253,8 +253,9 @@ write a card leads to is decided again by the service (§SEC14.6).
    (`src/hooks/useContentItemEngagement.ts`, lines 34-42). No page sends a signed-out reader to
    sign in — the card does it itself (`UI/Components/ContentItemPanel.md §10 item 12`) — and no
    page records or clears a reaction: of the reaction write surface (§ARC16.8.1), recording is
-   served (#728) and clearing is designed and not yet built. Recording and withdrawing the reader's own reaction are this item's work, and so
-   is the redirect; it uses the one reusable sign-in action (item 3). The page that takes over the
+   served (#728), and clearing has its member built (#725) and its route not yet. Recording and
+   withdrawing the reader's own reaction are this item's work, and so is the redirect; it uses
+   the one reusable sign-in action (item 3). The page that takes over the
    redirect must not send a reader whose sign-in state has not been read back:
    `isAuthenticated` reports false both for a reader with no session and for one whose session is
    still being read, and every full page load passes through the second with the cards already on

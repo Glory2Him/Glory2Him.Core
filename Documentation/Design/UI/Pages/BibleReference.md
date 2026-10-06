@@ -237,8 +237,10 @@ are decided under §SEC14.7 posture A′, and a reaction under posture A′ rule
    (`bibleReference.tsx`, lines 84-85 and 122-131). Its counts are the sample reactions' on the
    default passage and zero on every other (lines 74-76). It renders on every passage and accepts
    every reaction, since no `BibleReferenceSetting` exists to switch it (§DOM6.9 rule 7;
-   §ARC16.2.1). Recording and withdrawing a reader's reaction are designed for a content item and not yet
-   built (§ARC16.8.1); what a reaction to a passage records is #700's (rule 2.11). The sign-in half uses the
+   §ARC16.2.1). Recording and withdrawing a reader's reaction are designed for a content item: their
+   two members are built, recording is served (#728) and withdrawing's route is not yet
+   (§ARC16.8.1); what a reaction to a passage
+   records is #700's (rule 2.11). The sign-in half uses the
    one reusable sign-in action (`UI/Pages/Home.md §6 item 3`). Likes are the first feature in the
    user's order under §UI20.6.6 rule 4.
 4. (#700) **Page gap — `/BibleReferences`: the page supplies no chip destination and no
