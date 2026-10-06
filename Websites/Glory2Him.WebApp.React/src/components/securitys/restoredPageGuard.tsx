@@ -23,10 +23,25 @@ const showPage = (): void => {
     document.body.removeAttribute('inert');
 };
 
+type PlaceOnThePage = {
+    scrollPosition: number;
+};
+
+const notePlaceOnThePage = (): PlaceOnThePage => ({
+    scrollPosition: window.scrollY
+});
+
+// A browser does not scroll a page taken out of the render, so the place is put back only once
+// the page is shown again.
+const resumePlaceOnThePage = (place: PlaceOnThePage): void => {
+    window.scrollTo({ top: place.scrollPosition });
+};
+
 export const RestoredPageGuard = (): ReactElement => {
     const { data: currentUser, refetch } = accountService.useGetCurrentUser();
     const currentUserReference = useRef(currentUser);
     const cachedReaderReference = useRef<string | undefined>(undefined);
+    const cachedPlaceReference = useRef<PlaceOnThePage>({ scrollPosition: 0 });
 
     useEffect(() => {
         currentUserReference.current = currentUser;
@@ -35,6 +50,7 @@ export const RestoredPageGuard = (): ReactElement => {
     useEffect(() => {
         const handlePageHide = () => {
             cachedReaderReference.current = signedInReaderOf(currentUserReference.current);
+            cachedPlaceReference.current = notePlaceOnThePage();
         };
 
         const handlePageShow = async (event: PageTransitionEvent) => {
@@ -57,6 +73,7 @@ export const RestoredPageGuard = (): ReactElement => {
                 && cachedReader !== undefined
                 && signedInReaderOf(freshRead.data) === cachedReader) {
                 showPage();
+                resumePlaceOnThePage(cachedPlaceReference.current);
             } else {
                 window.location.reload();
             }
