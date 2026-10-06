@@ -33,6 +33,7 @@ The shared mapping for this controller's actions: a validation exception whose i
 1. **`200 OK` with the summaries**, one per answerable distinct id — an anonymous caller and a signed-in one alike, the viewer's two members `null` for the anonymous one (§ARC16.8, *What a signed-out caller receives*).
 2. **A set that is empty, larger than 25 distinct ids, or carrying an empty id is `400`** (§ARC16.8, *The set, its bounds*).
 3. **No `[EnableQuery]`**: any `$`-prefixed option is off the surface and changes nothing (§ARC16.8, *The route*).
+4. **The shared mapping applies without its `401`, `404` and `409` arms**, so a validation or dependency validation exception is `400` whatever its inner exception. The read raises none of the inner exceptions those three arms name: it refuses no caller, being anonymous (§ARC16.8, *Anonymity*); it leaves out an id it cannot answer rather than answering not-found (`Backend/Orchestrations/AssociationOrchestrationService.md §4` rule 2); and it writes no row, so nothing beneath it can already exist. Its one refusal is the set's bounds (rule 2).
 
 ## Deviations
 
