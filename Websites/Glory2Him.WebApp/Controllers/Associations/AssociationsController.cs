@@ -112,12 +112,20 @@ namespace Glory2Him.WebApp.Controllers.Associations
             [FromQuery] Guid[] contentItemIds,
             CancellationToken cancellationToken)
         {
-            IReadOnlyList<ContentItemReactionSummary> contentItemReactionSummaries =
-                await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
-                    contentItemIds,
-                    cancellationToken);
+            try
+            {
+                IReadOnlyList<ContentItemReactionSummary> contentItemReactionSummaries =
+                    await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                        contentItemIds,
+                        cancellationToken);
 
-            return Ok(contentItemReactionSummaries);
+                return Ok(contentItemReactionSummaries);
+            }
+            catch (AssociationOrchestrationValidationException
+                associationOrchestrationValidationException)
+            {
+                return BadRequest(associationOrchestrationValidationException.InnerException);
+            }
         }
     }
 }
