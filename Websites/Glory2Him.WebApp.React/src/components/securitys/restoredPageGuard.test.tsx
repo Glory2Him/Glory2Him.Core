@@ -554,5 +554,23 @@ describe('RestoredPageGuard', () => {
             // then
             expect(placeAsFirstShown?.scrollPosition).toBe(600);
         });
+
+        it('should resume a restored page with the focus where it was', async () => {
+            // given
+            mocks.currentUser = readerA;
+            render(<Page />);
+            const field = fieldBeingTypedIn();
+            field.focus();
+            field.setSelectionRange(5, 5);
+            dispatchPageTransition('pagehide', true);
+            answerFreshRead(freshCopyOf(readerA));
+
+            // when
+            const placeAsFirstShown = await restoreAndNoteThePlaceAsFirstShown();
+
+            // then
+            expect(placeAsFirstShown?.focusedElement).toBe(field);
+            expect(placeAsFirstShown?.caret).toEqual([5, 5]);
+        });
     });
 });
