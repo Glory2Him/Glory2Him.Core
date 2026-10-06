@@ -989,13 +989,12 @@ The controller should:
    and `TagsController` binds `ITagService` directly. The publication model does
    not decide that — `Association` is Single-Row and carries an orchestration
    above its foundation (§EVN18), and `ContentItemSetting` carries one too. Of the
-   **thirteen** controllers built today, **four** bind an orchestration
+   **fourteen** controllers built today, **five** bind an orchestration
    (`ApprovalsController`, `ApprovalReviewersController`, `AIReviewersController`,
-   `ContentItemSettingsController`), two a processing service and seven a
-   foundation. *(This sentence read "twelve … three" and was wrong on both
-   numbers; counted against `Websites/Glory2Him.WebApp/Controllers/`.
-   `AssociationsController` — §ARC12.6 row 14, designed and not built — makes it
-   fourteen and five when it lands.)*
+   `AssociationsController`, `ContentItemSettingsController`), two a processing
+   service and seven a foundation. *(This sentence read "twelve … three" and was
+   wrong on both numbers; counted against `Websites/Glory2Him.WebApp/Controllers/`.
+   `AssociationsController` — §ARC12.6 row 14 — landed with #728.)*
 4. Map the result and domain exceptions to HTTP responses.
 
 `TagsController.PostTagAsync`, whole — the exception mapping is most of what a

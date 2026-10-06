@@ -8,7 +8,7 @@ A reader's *like* is their reaction to a content item. The card's **Like** contr
 
 ## Problem
 
-Every card on the site offers Like, and nothing stands behind it. A chosen reaction lives in page state for the visit and is gone on reload (`src/hooks/useContentItemEngagement.ts`), no card shows the reactions an item has actually been given (`toContentItemSearchItem.ts` leaves `reactionSummary` unset), and no route records, changes or withdraws a reaction: the write surface's members are built and its routes are not, and the summary read is designed and not built (§ARC16.8, §ARC16.8.1). A reader cannot say how a post moved them, and nobody can see that it did.
+Every card on the site offers Like, and nothing stands behind it. A chosen reaction lives in page state for the visit and is gone on reload (`src/hooks/useContentItemEngagement.ts`), no card shows the reactions an item has actually been given (`toContentItemSearchItem.ts` leaves `reactionSummary` unset), and no card records, changes or withdraws a reaction: the write surface's two members are built, recording and changing are served (#728) and withdrawing's route is not, and the summary read is designed and not built (§ARC16.8, §ARC16.8.1). A reader cannot say how a post moved them, and nobody can see that it did.
 
 ## Business rules
 
@@ -82,7 +82,7 @@ The rest of the UI is already designed in the documents the presentation compone
 
 ## Risks
 
-**Reversible.** Everything here is code but one column, `Reactions.SortOrder`, whose migration's `Down` drops it; there is no new index and no new constraint. `AddAssociationAsync` is renamed `UpsertAssociationAsync` on the orchestration (§ARC16.8.1), and nothing outside the solution calls it — no controller serves it yet.
+**Reversible.** Everything here is code but one column, `Reactions.SortOrder`, whose migration's `Down` drops it; there is no new index and no new constraint. `AddAssociationAsync` is renamed `UpsertAssociationAsync` on the orchestration (§ARC16.8.1), and nothing outside the solution calls it — its one caller, `AssociationsController` (#728), is inside it.
 
 **Not reversible.** The two new event names, `Association-Restored` and `Association-Repointed`, and their stable identifiers: an event name sits inside the envelope's signature, and an identifier never changes once deployed (`EventBrokerIdentifiers.cs`). The new `AssociationSuggestionStatus` member crosses the wire as a number, so it is appended and never renumbered.
 
