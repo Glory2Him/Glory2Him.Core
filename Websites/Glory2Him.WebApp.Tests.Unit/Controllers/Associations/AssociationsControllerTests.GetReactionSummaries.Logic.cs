@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Force.DeepCloner;
@@ -60,6 +61,48 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
             associationOrchestrationServiceMock
                 .Verify(service => service.RetrieveContentItemReactionSummariesAsync(
                     inputContentItemIds,
+                    cancellationToken),
+                        Times.Once);
+
+            associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldHandTheOrchestrationEveryContentItemIdItIsGivenAsync()
+        {
+            // given
+            Guid[] randomContentItemIds = CreateRandomContentItemIds();
+
+            // A repeated id rides along, because the set is de-duplicated by the orchestration
+            // (§ARC16.8, The set, its bounds) and never by the exposer.
+            Guid[] inputContentItemIds =
+                randomContentItemIds.Append(randomContentItemIds[0]).ToArray();
+
+            // A copy, so the match below compares the ids themselves rather than the array the
+            // action happened to be handed.
+            Guid[] expectedContentItemIds = inputContentItemIds.DeepClone();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+            List<ContentItemReactionSummary> retrievedSummaries =
+                CreateRandomContentItemReactionSummaries(randomContentItemIds);
+
+            associationOrchestrationServiceMock
+                .Setup(service => service.RetrieveContentItemReactionSummariesAsync(
+                    It.Is<IReadOnlyList<Guid>>(contentItemIds =>
+                        contentItemIds.SequenceEqual(expectedContentItemIds)),
+                    cancellationToken))
+                        .ReturnsAsync(retrievedSummaries);
+
+            // when
+            await associationsController.GetReactionSummariesAsync(
+                inputContentItemIds,
+                cancellationToken);
+
+            // then
+            associationOrchestrationServiceMock
+                .Verify(service => service.RetrieveContentItemReactionSummariesAsync(
+                    It.Is<IReadOnlyList<Guid>>(contentItemIds =>
+                        contentItemIds.SequenceEqual(expectedContentItemIds)),
                     cancellationToken),
                         Times.Once);
 
