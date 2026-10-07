@@ -215,7 +215,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given: a reaction on a Bible reference. "BibleReference" sorts before "Reaction", so
             // the host is endpoint A and is not personal; a refusal written as "no content item
-            // endpoint" rather than "a personal type on A" would refuse it (§7 rule 1).
+            // endpoint" rather than "a personal type on A" would refuse it
+            // (Backend/Foundations/AssociationService.md §7 rule 1).
             string readerUserId = GetRandomString();
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
             Association lookupRequest = CreateBibleReferenceLookupRequest(readerUserId);
@@ -764,7 +765,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given: a reaction paired with a tag, which has no host on endpoint A. The caller
             // check comes first, so a denied read answers not found whatever pair it names rather
-            // than telling the caller the pair is invalid (§7 rule 2; ts-foundations-012).
+            // than telling the caller the pair is invalid
+            // (Backend/Foundations/AssociationService.md §7 rule 2; ts-foundations-012).
             string callerUserId = GetRandomString();
             string anotherReaderUserId = GetRandomString();
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();

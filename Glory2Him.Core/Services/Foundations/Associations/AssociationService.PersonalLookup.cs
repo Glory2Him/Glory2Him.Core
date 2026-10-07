@@ -116,8 +116,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 (Rule: IsInvalid(association.EntityBScope), Parameter: nameof(Association.EntityBScope)));
 
         // Asked once canonical order is restored, and after the caller check, so a denied read
-        // still answers not found whatever pair it names (§7 rules 1 and 2). A reaction paired
-        // with a tag, either way round, or with another reaction, lands on A and has no host.
+        // still answers not found whatever pair it names
+        // (Backend/Foundations/AssociationService.md §7 rules 1 and 2). A reaction paired with a
+        // tag, either way round, or with another reaction, lands on A and has no host.
         private static void ValidatePersonalLookupHasHostOnEndpointA(Association association) =>
             Validate(
                 message: "Content item association is invalid, fix the errors and try again.",

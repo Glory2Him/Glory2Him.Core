@@ -172,7 +172,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             string pair)
         {
             // given: the reader's own lookup, so the caller check lets it through to the refusal,
-            // which is asked once canonical order is restored (§7 rule 1; §DOM4.10 rule 9)
+            // which is asked once canonical order is restored
+            // (Backend/Foundations/AssociationService.md §7 rule 1; §DOM4.10 rule 9)
             string readerUserId = GetRandomString();
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
             Association noHostRequest = CreatePairWithNoHostOnEndpointA(readerUserId, pair);
