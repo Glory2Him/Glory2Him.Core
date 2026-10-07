@@ -25,6 +25,7 @@ The shared mapping for this controller's actions: a validation exception whose i
 1. **`204 No Content` on both outcomes**, `Removed` and `NothingToRemove` alike, with no body (§ARC16.8.1).
 2. **An anonymous caller is refused `401` by the attribute.**
 3. **An editorial pair is `400`**, and an endpoint that does not exist or is not visible is `404`, as on §1.
+4. **The shared mapping applies without its `409` arm**, so a dependency validation exception is `400` whatever its inner exception. Its `401` and `404` arms stand, for the caller the withdrawal refuses and the endpoint it cannot find (`Backend/Orchestrations/AssociationOrchestrationService.md §3` rule 1; rule 3 above). Nothing the withdrawal writes can already exist. The one association row it writes is the reader's own, soft-deleted (that document's §3 rule 3): its key does not change, and the soft delete takes it out of the one pair index a personal row is in (§DOM4.6 rule 2). The two `ProcessedEvent` records written beside it are keyed on the ids of envelopes minted for the call, since a direct call starts a chain of its own (§EVN9; §EVN19 rule 1).
 
 ## 3. GetReactionSummariesAsync (#730)
 
@@ -33,6 +34,7 @@ The shared mapping for this controller's actions: a validation exception whose i
 1. **`200 OK` with the summaries**, one per answerable distinct id — an anonymous caller and a signed-in one alike, the viewer's two members `null` for the anonymous one (§ARC16.8, *What a signed-out caller receives*).
 2. **A set that is empty, larger than 25 distinct ids, or carrying an empty id is `400`** (§ARC16.8, *The set, its bounds*).
 3. **No `[EnableQuery]`**: any `$`-prefixed option is off the surface and changes nothing (§ARC16.8, *The route*).
+4. **The shared mapping applies without its `401`, `404` and `409` arms**, so a validation or dependency validation exception is `400` whatever its inner exception. The read raises none of the inner exceptions those three arms name: it refuses no caller, being anonymous (§ARC16.8, *Anonymity*); it leaves out an id it cannot answer rather than answering not-found (`Backend/Orchestrations/AssociationOrchestrationService.md §4` rule 2); and it writes no row, so nothing beneath it can already exist. Its one refusal is the set's bounds (rule 2).
 
 ## Deviations
 
