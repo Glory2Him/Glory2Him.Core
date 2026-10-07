@@ -27,7 +27,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.3 [Must]** Both reads are caller-independent: a privileged visitor sees the rows an anonymous one sees, so no role change anywhere can put a draft on the front page. Unreviewed content is never shown on a public page. *(code: home.tsx — header comment; user, 2026-09-27)*
 
-**2.4 [Should]** A tag or a Bible reference alone keeps the feed read, because no read narrows on either (`UI/Components/ContentItemListPanel.md §10 item 15`), and none can until associations are exposed over HTTP (§ARC17.4, not yet built). *(test: contentItemFeedPages.test.tsx — "should stay on the feed when the reader supplied only %s")*
+**2.4 [Should]** A tag or a Bible reference alone keeps the feed read, because no read narrows on either (`UI/Components/ContentItemListPanel.md §10 item 15`), and none can until the association read is exposed over HTTP (§ARC17.4, not yet built). *(test: contentItemFeedPages.test.tsx — "should stay on the feed when the reader supplied only %s")*
 
 **2.5 [Must]** The committed criteria live in the URL, so a shared link and the back button land with the results showing. The header's *Search* leads to `/posts`, not to this page (§UI20.7 rule 4). *(code: home.tsx — header comment, `search`; user, 2026-09-27)* ≠ item 12
 
@@ -45,7 +45,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.12 [Must]** A Bible reference click leads to a page showing the passage, `/BibleReferences/{reference}`, addressed as that route parses it (`UI/Pages/BibleReference.md`). A reference that cannot be read as a passage is rule 2.25. *(user, 2026-09-27; code: contentItemFeedNavigation.ts — `onBibleReferenceClick`; code: toUsfmReference.ts — `bibleReferenceHref`)* ≠ `UI/Components/ContentItemListPanel.md §10 item 8`
 
-**2.13 [Must]** A click on a card's tag, type chip, *Submitted by* or *Author* raises its hook, and the page opens the journal's search, `/posts`, handed the value: its search bar shows the value in the matching box — Tags, Category, Submitted by or Author, each one of the bar's advanced boxes — with the advanced section expanded (`UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md rule 2.23`). A tag narrows the list there only once associations are exposed over HTTP (§ARC17.4, not yet built) and a read narrows on it (`UI/Components/ContentItemListPanel.md §10 item 15`, not yet designed). *(user, 2026-09-27; `UI/Components/ContentItemListPanel.md rules 2.8–2.12 and 2.24`)* ≠ item 9
+**2.13 [Must]** A click on a card's tag, type chip, *Submitted by* or *Author* raises its hook, and the page opens the journal's search, `/posts`, handed the value: its search bar shows the value in the matching box — Tags, Category, Submitted by or Author, each one of the bar's advanced boxes — with the advanced section expanded (`UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md rule 2.23`). A tag narrows the list there only once the association read is exposed over HTTP (§ARC17.4, not yet built) and a read narrows on it (`UI/Components/ContentItemListPanel.md §10 item 15`, not yet designed). *(user, 2026-09-27; `UI/Components/ContentItemListPanel.md rules 2.8–2.12 and 2.24`)* ≠ item 9
 
 **2.14 [Must]** The comments control leads to the item's comments on its detail view, `/posts/{id}#comments`. *(code: contentItemFeedNavigation.ts — `onCommentsClick`)* ≠ item 6
 
@@ -120,8 +120,8 @@ nothing stacks on a narrow screen: the column is already one.
 | --- | --- | --- | --- |
 | `onSearch` | The bar commits, or a type chip or *Author* on a card is clicked. *Submitted by* and the tag and reference pills do not render on a listed card today: the projection leaves the submitter's name, the tags and the references unset (`toContentItemSearchItem.ts`, lines 62-80) | Writes the criteria into the URL; the read follows the URL (rules 2.2 and 2.5) | ✅ Yes (`home.tsx`, lines 95-96 and 147) |
 | `onContentTypeClick`, `onSubmittedByClick`, `onAuthorClick` ≠ item 9 | A type chip, *Submitted by* or *Author* on a card is clicked — today after the list has rewritten the criteria and raised `onSearch` (`UI/Components/ContentItemListPanel.md §10 item 11`). *Submitted by* does not render on a listed card today (section 4.1, `onSearch`) | Opens `/posts` handed the value, its search bar showing it in the matching box with the advanced section expanded (rule 2.13) | ❌ No — the page wires none of the three; the list's rewrite narrows this page's own list instead, so the reader stays on `/`; item 9 |
-| `onTagClick` ≠ item 9 | A tag pill on a card is clicked, after the list's rewrite. No pill renders today: the projection carries no tags until associations are exposed over HTTP (§ARC17.4, not yet built) | Opens `/posts` handed the tag, as the three above (rule 2.13) | ❌ No — the page wires none; the list toggles the tag criterion itself (`UI/Components/ContentItemListPanel.md §10 item 8`), and no read narrows on a tag until associations are exposed over HTTP (rule 2.4), so the list does not change; item 9 |
-| `onBibleReferenceClick` ≠ item 14 | A reference pill on a card is clicked, after the list's rewrite. No pill renders today: the projection carries no references until associations are exposed over HTTP (§ARC17.4, not yet built) | Navigates to `/BibleReferences/{reference}`, or, for a reference it cannot read, to that page all the same, which says it could not be found, carrying `from` (rules 2.12 and 2.25) | For a readable reference ✅ Yes (`contentItemFeedNavigation.ts`, lines 45-46; `toUsfmReference.ts`, lines 67-73); for one it cannot read ❌ No — it goes to `/Search?q=<reference>` (`toUsfmReference.ts`, line 72); item 14. The list rewrites the criteria first (`UI/Components/ContentItemListPanel.md §10 item 8`) |
+| `onTagClick` ≠ item 9 | A tag pill on a card is clicked, after the list's rewrite. No pill renders today: the projection carries no tags until the association read is exposed over HTTP (§ARC17.4, not yet built) | Opens `/posts` handed the tag, as the three above (rule 2.13) | ❌ No — the page wires none; the list toggles the tag criterion itself (`UI/Components/ContentItemListPanel.md §10 item 8`), and no read narrows on a tag until the association read is exposed over HTTP (rule 2.4), so the list does not change; item 9 |
+| `onBibleReferenceClick` ≠ item 14 | A reference pill on a card is clicked, after the list's rewrite. No pill renders today: the projection carries no references until the association read is exposed over HTTP (§ARC17.4, not yet built) | Navigates to `/BibleReferences/{reference}`, or, for a reference it cannot read, to that page all the same, which says it could not be found, carrying `from` (rules 2.12 and 2.25) | For a readable reference ✅ Yes (`contentItemFeedNavigation.ts`, lines 45-46; `toUsfmReference.ts`, lines 67-73); for one it cannot read ❌ No — it goes to `/Search?q=<reference>` (`toUsfmReference.ts`, line 72); item 14. The list rewrites the criteria first (`UI/Components/ContentItemListPanel.md §10 item 8`) |
 
 ### 4.2 ContentItemSearchBarPanel, through the list
 
@@ -252,9 +252,10 @@ write a card leads to is decided again by the service (§SEC14.6).
    chosen reaction in page state for the visit and reads no sign-in state
    (`src/hooks/useContentItemEngagement.ts`, lines 34-42). No page sends a signed-out reader to
    sign in — the card does it itself (`UI/Components/ContentItemPanel.md §10 item 12`) — and no
-   page records or clears a reaction: the reaction write surface is designed and not yet built
-   (§ARC16.8.1). Recording and withdrawing the reader's own reaction are this item's work, and so
-   is the redirect; it uses the one reusable sign-in action (item 3). The page that takes over the
+   page records or clears a reaction: of the reaction write surface (§ARC16.8.1), recording is
+   served (#728), and clearing has its member built (#725) and its route not yet. Recording and
+   withdrawing the reader's own reaction are this item's work, and so is the redirect; it uses
+   the one reusable sign-in action (item 3). The page that takes over the
    redirect must not send a reader whose sign-in state has not been read back:
    `isAuthenticated` reports false both for a reader with no session and for one whose session is
    still being read, and every full page load passes through the second with the cards already on
@@ -337,7 +338,7 @@ write a card leads to is decided again by the service (§SEC14.6).
    card's tag, content type, *Submitted by* or *Author* raises its hook, and the page opens
    `/posts` handed the value, its search bar showing it in the matching box with the advanced
    section expanded where the box is an advanced one; on `/posts` itself the page applies the
-   value to its own list the same way. Tags narrow the list only once associations are exposed
+   value to its own list the same way. Tags narrow the list only once the association read is exposed
    over HTTP (§ARC17.4, not yet built) and a read narrows on them
    (`UI/Components/ContentItemListPanel.md §10 item 15`, not yet designed). Rule 2.13 says so
    here; the pages' halves are item 9 and the items it names. In the admin section the same
@@ -368,7 +369,7 @@ write a card leads to is decided again by the service (§SEC14.6).
    `/`, the value in this page's search bar and the advanced section folded. *Submitted by* and the
    tag pills do not render on a listed card today: the projection leaves the submitter's name and
    the tags unset (`toContentItemSearchItem.ts`, lines 62-80), so those two hooks wait on the name
-   and on associations being exposed over HTTP (§ARC17.4, not yet built). The page's half is to wire the
+   and on the association read being exposed over HTTP (§ARC17.4, not yet built). The page's half is to wire the
    four hooks to open `/posts` handed the value; `/posts` reads its criteria off its URL
    (`UI/Pages/Posts.md rule 2.3`), and opens its advanced section whenever the address carries one
    of its criteria (`UI/Pages/Posts.md rule 2.22`), which needs the list and the bar to accept it
@@ -453,7 +454,7 @@ write a card leads to is decided again by the service (§SEC14.6).
     (`contentItemFeedNavigation.ts`, lines 45-46), which is `/Search?q=<reference>` for a reference
     it cannot read (`toUsfmReference.ts`, line 72): the demo search page, sample material
     (§UI20.5.1). No pill renders on a listed card today (section 4.1), so a reader meets it only
-    once associations are exposed over HTTP (§ARC17.4, not yet built). The page's half is to send
+    once the association read is exposed over HTTP (§ARC17.4, not yet built). The page's half is to send
     an unreadable reference to the Bible reference page. The same helper is the
     reference panel's default link, the component's half
     (`UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 5`). The same gap
@@ -473,7 +474,7 @@ write a card leads to is decided again by the service (§SEC14.6).
     `/SamplePages` (`src/components/layouts/footer.tsx`, lines 95-102; §UI20.5.1, its item 2).
     §UI20.7 rule 4 (user rulings 2026-09-27) sends each to `/posts` with its word as a tag, in the
     search bar's Tags box with the advanced section expanded (`UI/Pages/Posts.md rule 2.22`). A tag
-    narrows nothing until associations are exposed over HTTP (§ARC17.4, not yet built) and a read
+    narrows nothing until the association read is exposed over HTTP (§ARC17.4, not yet built) and a read
     narrows on it (`UI/Components/ContentItemListPanel.md §10 item 15`, not yet designed;
     `UI/Pages/Posts.md rule 2.12`), so until then a topic link shows the whole journal, its tag in
     the Tags box. The links are to move before `/Categories` does, or with it: once §UI20.5.1 item 2

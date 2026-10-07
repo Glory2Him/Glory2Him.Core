@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -67,6 +68,29 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         /// leak another user's authorship.</para>
         /// </summary>
         ValueTask<AssociationSuggestionResult> UpsertAssociationAsync(
+            Association association,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Withdraws a reader's reaction by naming its pair — the item and the reaction, never a
+        /// row id — and can only ever withdraw the caller's own (§ARC16.8.1). It takes the
+        /// upsert's caller shape and validates it with the upsert's rules in a composition of
+        /// its own, then shares the upsert's endpoint resolution and its <c>UserId</c>
+        /// derivation: the caller's own, from the envelope, whatever the request carried. It
+        /// asks authentication and none of the read-only roles, and runs no facet gate: a
+        /// reader's own reaction is not a contribution (§SEC14.7 posture A′ rule 1), and
+        /// withdrawing is never gated (§ARC16.2.1). An editorial pair is refused as invalid
+        /// before anything is read.
+        ///
+        /// <para>The reader's row is found by the foundation's personal-key lookup and, where it
+        /// is live and holds the reaction the caller named, soft-deleted by its id, which
+        /// publishes <c>Association-Removed</c>; this service mints no address (§ARC16.8). The
+        /// answer is <c>Removed</c> with that row's id. Anything else — no row, a withdrawn row,
+        /// or a row holding a different reaction, which stays as it is — is
+        /// <c>NothingToRemove</c> with no id: the member is idempotent and never answers
+        /// not-found.</para>
+        /// </summary>
+        ValueTask<AssociationRemovalResult> RemoveAssociationByPairAsync(
             Association association,
             CancellationToken cancellationToken = default);
 
@@ -140,6 +164,23 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         /// </summary>
         ValueTask<Association> RetrieveAssociationByIdAsync(
             Guid associationId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// For the cards a page is showing, which reactions each item has been given, how many of
+        /// each, and which one the calling reader holds (§ARC16.8). It takes 1 to 25 distinct ids,
+        /// and answers each once, under the id it was supplied.
+        ///
+        /// <para><b>The counts are the same whoever asks.</b> The hosts, the vocabulary and the
+        /// winning settings are read caller-independently, so an id nobody may see is absent from
+        /// the answer rather than refused, and an item whose winning setting does not show
+        /// reactions — or resolves none — is answered with no counts. Only the viewer members
+        /// depend on the caller: the reaction a signed-in reader holds, counted or not, where it
+        /// is of the public vocabulary; <c>null</c> otherwise, and for an anonymous
+        /// caller.</para>
+        /// </summary>
+        ValueTask<IReadOnlyList<ContentItemReactionSummary>> RetrieveContentItemReactionSummariesAsync(
+            IReadOnlyList<Guid> contentItemIds,
             CancellationToken cancellationToken = default);
 
         /// <summary>

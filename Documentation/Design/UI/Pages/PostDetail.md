@@ -134,7 +134,7 @@ beneath it. While the item loads, or when it cannot be read, a single centred co
 
 | Property | Value | Why |
 | --- | --- | --- |
-| `associationCollection` | `[]` | The association read has no HTTP exposer yet (§ARC17.4, not yet built); the page hands an honest empty set rather than an invented one. Item 4. |
+| `associationCollection` | `[]` | The association read is not yet served over HTTP (§ARC17.4, not yet built); the page hands an honest empty set rather than an invented one. Item 4. |
 | `onAdd` | `suggestTag` | Rule 2.7. |
 | `showBorder`, `cssClass` | `true`, `mb-4` | Frames the panel in the sidebar. |
 | The post's content type (`UI/Components/AssociationPanel.md rule 2.30`) | Not passed; the panel has no such property yet (`UI/Components/AssociationPanel.md §10 item 20`) | Rule 2.19; item 11. |
@@ -257,7 +257,7 @@ page is a courtesy (§SEC14.6).
    `postDetail.test.tsx` — "should mark the reaction the reader chose for this visit", "should
    withdraw the reaction when the reader chooses it again"); the card redirects a signed-out
    reader itself (`UI/Components/ContentItemPanel.md §10 item 12`, which this item ships with).
-   Recording and withdrawing the reader's own reaction (§ARC16.8.1, designed and not yet built) are this item's work, and so is the redirect, which uses the one
+   Recording the reader's own reaction (§ARC16.8.1, served by #728) and withdrawing it (its member built by #725, its route not yet) are this item's work, and so is the redirect, which uses the one
    reusable sign-in action (`UI/Pages/Home.md §6 item 3`), and must not fire while the reader's
    sign-in state is still being read. The same gap on `/` is `UI/Pages/Home.md §6 item 2`.
    **The card's counts are this item's work too** (the Likes feature, `DesignFeatures/Likes.md`).
@@ -276,7 +276,7 @@ page is a courtesy (§SEC14.6).
    soon* notice, and wires no `onRemove` (`postDetail.tsx`, lines 135-138 and 195-205; test:
    `postDetail.test.tsx` — "should answer a suggested tag honestly rather than dropping it",
    "should answer a suggested bible reference honestly rather than dropping it"). The read and the
-   two writes are designed (§ARC17.4) and wait on the association HTTP exposer, which is not yet built; the page's
+   two writes are designed (§ARC17.4) and not yet served: `AssociationsController` serves a reader's reaction alone (#728), and an editorial suggestion waits on #871; the page's
    wiring is its own work on top of it. With the collection empty, no chip renders, so the missing
    `onRemove` would surface as a dead withdrawal only once the read is wired
    (`UI/Components/AssociationPanel.md §10 item 8`).

@@ -125,3 +125,19 @@ An existing member, unchanged: the handler for `Association-RemovingById`. §5 r
 2. **No envelope is minted on this path.** The `Association-Removed` fact and the reply are each made next from the inbound envelope, which carries its security context forward (§EVN17 rule 3; §EVN20 rule 9). Neither can carry the ambient caller.
 3. **An envelope with no content or no metadata, or one whose signature does not verify for `Association-RemovingById` in the request direction, is refused before anything else is asked** (§SEC14.6 rule 4).
 4. **Its tests are pins.** The handler already does all of this, so they pass as soon as they are written, and they are committed as pins. The order of the gate's steps among themselves belongs to the shared body, so its pins belong to §5.
+
+## 7. FindPersonalAssociationAsync — a pair with no host on A (#878)
+
+An existing member, changed: §1's lookup gains one refusal, §DOM4.10 rule 9's. Its signature, its answer and its other rules are unchanged.
+
+1. **A lookup whose endpoint A is of a personal type, once canonical order is restored (§1 rule 2), is refused as invalid**, naming `EntityAType`, the field the stored row would hold it in, and storage is never asked. Personal is `EntityTypePersonalisation`'s answer (§DOM4.10 rule 4). Today that is a `Reaction` paired with a `Tag`, named in either order, or with another `Reaction`.
+2. **It is asked after §1 rule 3's caller check.** An anonymous caller and a lookup carrying another reader's `UserId` still answer `null`, whatever pair they name, as every denied read does, and a `null` `UserId` is still refused as invalid naming `UserId`.
+3. **Its caller is unchanged.** The pair-keyed withdrawal (`Backend/Orchestrations/AssociationOrchestrationService.md §3`) answers the refusal as its dependency validation exception, through the arm every `IAssociationService` refusal reaches (that document's §4 rule 9).
+
+## 8. UpsertPersonalAssociationAsync — a pair with no host on A (#879)
+
+An existing member, changed: §2's write gains one refusal, §DOM4.10 rule 9's. Its signature, its outcomes, its facts and its other rules are unchanged.
+
+1. **A write whose endpoint A is of a personal type, once canonical order is restored (§2 rule 1), is refused as invalid**, naming `EntityAType`, and before the reader's row is resolved: storage is never asked, nothing is written and no fact is published. Personal is `EntityTypePersonalisation`'s answer (§DOM4.10 rule 4). Today that is a `Reaction` paired with a `Tag`, named in either order, or with another `Reaction`.
+2. **It is asked after §2 rule 2's and rule 9's refusals**: an anonymous caller, a `null` `UserId`, another reader's `UserId` and an endpoint field §2 rule 9 refuses are refused as they are today, whatever pair they name.
+3. **Its caller is unchanged.** The upsert's personal arm (`Backend/Orchestrations/AssociationOrchestrationService.md §1` rule 4) answers the refusal as its dependency validation exception, through the arm every `IAssociationService` refusal reaches (that document's §4 rule 9).

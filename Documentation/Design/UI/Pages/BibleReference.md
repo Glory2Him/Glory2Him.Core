@@ -212,7 +212,7 @@ are decided under §SEC14.7 posture A′, and a reaction under posture A′ rule
    `isCuratedReference`, lines 66-72). Each suggestion is held on the page, as the reader's own,
    until they navigate away, and nothing is written (the comment above the suggestion state,
    lines 54-60; the two panels' `onAdd` and `onRemove`). The association read and the two writes
-   are designed (§ARC17.4) and wait on the association HTTP exposer, which is not yet built. One step before them
+   are designed (§ARC17.4) and not yet served: `AssociationsController` serves a reader's reaction alone (#728), and an editorial suggestion waits on #871. One step before them
    is not designed: the association read is keyed on the host's id (§DOM4.6 rule 1), while this
    page is addressed by the passage's USFM (rule 2.2), which §DOM5.4 makes the `BibleReference`
    row's unique key, and no section says how the page finds the passage's row from its address,
@@ -237,8 +237,10 @@ are decided under §SEC14.7 posture A′, and a reaction under posture A′ rule
    (`bibleReference.tsx`, lines 84-85 and 122-131). Its counts are the sample reactions' on the
    default passage and zero on every other (lines 74-76). It renders on every passage and accepts
    every reaction, since no `BibleReferenceSetting` exists to switch it (§DOM6.9 rule 7;
-   §ARC16.2.1). Recording and withdrawing a reader's reaction are designed for a content item and not yet
-   built (§ARC16.8.1); what a reaction to a passage records is #700's (rule 2.11). The sign-in half uses the
+   §ARC16.2.1). Recording and withdrawing a reader's reaction are designed for a content item: their
+   two members are built, recording is served (#728) and withdrawing's route is not yet
+   (§ARC16.8.1); what a reaction to a passage
+   records is #700's (rule 2.11). The sign-in half uses the
    one reusable sign-in action (`UI/Pages/Home.md §6 item 3`). Likes are the first feature in the
    user's order under §UI20.6.6 rule 4.
 4. (#700) **Page gap — `/BibleReferences`: the page supplies no chip destination and no
@@ -289,7 +291,7 @@ are decided under §SEC14.7 posture A′, and a reaction under posture A′ rule
    for #700 (item 5). Rule 2.17 (user ruling 2026-09-27): a button leads to `/posts` with the
    passage in its Bible references box, listing every item associated with the passage. The page has
    none: its one link beneath the passage is *Show Full Chapter* (`bibleReference.tsx`, line 108). A
-   reference narrows `/posts` only once associations are exposed over HTTP (§ARC17.4, not yet
+   reference narrows `/posts` only once the association read is exposed over HTTP (§ARC17.4, not yet
    built) and a read narrows on it (`UI/Components/ContentItemListPanel.md §10 item 15`, not yet
    designed), so until then the search shows the whole journal, the reference in its box. #700's
    mockup places the button.
