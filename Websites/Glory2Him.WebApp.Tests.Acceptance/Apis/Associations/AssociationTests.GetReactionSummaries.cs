@@ -1,0 +1,241 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Threading.Tasks;
+using FluentAssertions;
+using Glory2Him.WebApp.Tests.Acceptance.Models.Associations;
+using CoreContentItem = Glory2Him.Core.Models.Foundations.ContentItems.ContentItem;
+
+namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
+{
+    public partial class AssociationApiTests
+    {
+        [Fact]
+        public async Task ShouldServeTheCountsToAnAnonymousCallerAsync()
+        {
+            // given
+            CoreContentItem reactedContentItem = await InsertPublishedContentItemAsync();
+            List<ContentItemReactionCount> expectedReactions = CreateOneAmenAndOneLoveCounts();
+
+            try
+            {
+                await GiveAmenAndLoveFromTwoReadersAsync(reactedContentItem.Id);
+                this.apiBroker.ActAsAnonymous();
+
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.GetReactionSummariesAsync(
+                        CreateContentItemIdsQuery(reactedContentItem.Id));
+
+                // then
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                List<ContentItemReactionSummary> actualSummaries =
+                    await ReadSummariesAsync(actualResponse);
+
+                ContentItemReactionSummary actualSummary =
+                    actualSummaries.Should().ContainSingle().Subject;
+
+                actualSummary.ContentItemId.Should().Be(reactedContentItem.Id);
+                actualSummary.Reactions.Should().BeEquivalentTo(expectedReactions);
+                actualSummary.ViewerReactionId.Should().BeNull();
+                actualSummary.ViewerReactionName.Should().BeNull();
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(reactedContentItem.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(reactedContentItem.Id);
+            }
+        }
+
+        [Fact]
+        public async Task ShouldNameTheCallersOwnReactionOverHttpAsync()
+        {
+            // given
+            CoreContentItem reactedContentItem = await InsertPublishedContentItemAsync();
+            List<ContentItemReactionCount> expectedReactions = CreateOneAmenAndOneLoveCounts();
+
+            try
+            {
+                string firstReaderId = await GiveAmenAndLoveFromTwoReadersAsync(reactedContentItem.Id);
+                this.apiBroker.ActAs(firstReaderId);
+
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.GetReactionSummariesAsync(
+                        CreateContentItemIdsQuery(reactedContentItem.Id));
+
+                // then
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                List<ContentItemReactionSummary> actualSummaries =
+                    await ReadSummariesAsync(actualResponse);
+
+                ContentItemReactionSummary actualSummary =
+                    actualSummaries.Should().ContainSingle().Subject;
+
+                actualSummary.ContentItemId.Should().Be(reactedContentItem.Id);
+                actualSummary.Reactions.Should().BeEquivalentTo(expectedReactions);
+                actualSummary.ViewerReactionId.Should().Be(seededAmenReactionId);
+                actualSummary.ViewerReactionName.Should().Be("Amen");
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(reactedContentItem.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(reactedContentItem.Id);
+            }
+        }
+
+        [Fact]
+        public async Task ShouldIgnoreQueryOptionsOnReactionSummariesAsync()
+        {
+            // given
+            CoreContentItem reactedContentItem = await InsertPublishedContentItemAsync();
+            string contentItemIdsQuery = CreateContentItemIdsQuery(reactedContentItem.Id);
+
+            // Each option, applied, would change the answer: the filter matches no summary, the
+            // top keeps none, and the select drops the counts.
+            string queryOptions =
+                $"$filter={Uri.EscapeDataString($"contentItemId eq {Guid.NewGuid()}")}"
+                    + "&$top=0"
+                    + "&$select=contentItemId";
+
+            try
+            {
+                await GiveAmenAndLoveFromTwoReadersAsync(reactedContentItem.Id);
+                this.apiBroker.ActAsAnonymous();
+
+                HttpResponseMessage expectedResponse =
+                    await this.apiBroker.GetReactionSummariesAsync(contentItemIdsQuery);
+
+                string expectedBody = await expectedResponse.Content.ReadAsStringAsync();
+
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.GetReactionSummariesAsync(
+                        $"{contentItemIdsQuery}&{queryOptions}");
+
+                // then
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                string actualBody = await actualResponse.Content.ReadAsStringAsync();
+                actualBody.Should().Be(expectedBody);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(reactedContentItem.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(reactedContentItem.Id);
+            }
+        }
+
+        [Fact]
+        public async Task ShouldBindRepeatedContentItemIdsFromTheQueryStringAsync()
+        {
+            // given
+            CoreContentItem firstContentItem = await InsertPublishedContentItemAsync();
+            CoreContentItem secondContentItem = null;
+
+            try
+            {
+                secondContentItem = await InsertPublishedContentItemAsync();
+
+                Guid[] expectedContentItemIds =
+                    new[] { firstContentItem.Id, secondContentItem.Id };
+
+                this.apiBroker.ActAsAnonymous();
+
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.GetReactionSummariesAsync(
+                        CreateContentItemIdsQuery(firstContentItem.Id, secondContentItem.Id));
+
+                // then
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                List<ContentItemReactionSummary> actualSummaries =
+                    await ReadSummariesAsync(actualResponse);
+
+                actualSummaries.Select(summary => summary.ContentItemId)
+                    .Should().BeEquivalentTo(expectedContentItemIds);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(firstContentItem.Id);
+
+                if (secondContentItem is not null)
+                {
+                    await this.apiBroker.RemoveCoreContentItemByIdAsync(secondContentItem.Id);
+                }
+            }
+        }
+
+        [Fact]
+        public async Task ShouldReturnBadRequestOnReactionSummariesIfNoIdIsGivenAsync()
+        {
+            // given
+            string noQueryString = string.Empty;
+            this.apiBroker.ActAsAnonymous();
+
+            // when
+            HttpResponseMessage actualResponse =
+                await this.apiBroker.GetReactionSummariesAsync(noQueryString);
+
+            // then
+            actualResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+
+        [Fact]
+        public async Task ShouldReturnBadRequestOnReactionSummariesIfMoreThan25IdsAreGivenAsync()
+        {
+            // given
+            Guid[] overTheBoundContentItemIds =
+                Enumerable.Range(start: 0, count: 26)
+                    .Select(_ => Guid.NewGuid())
+                    .ToArray();
+
+            this.apiBroker.ActAsAnonymous();
+
+            // when
+            HttpResponseMessage actualResponse =
+                await this.apiBroker.GetReactionSummariesAsync(
+                    CreateContentItemIdsQuery(overTheBoundContentItemIds));
+
+            // then
+            actualResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+
+        [Fact]
+        public async Task ShouldReturnBadRequestOnReactionSummariesIfAnIdIsEmptyAsync()
+        {
+            // given
+            // Guid.Empty is a well-formed id, so it binds and reaches the orchestration's rule; a
+            // blank value would be refused by model binding instead, before the rule is asked.
+            Guid[] contentItemIdsWithAnEmptyId = new[] { Guid.NewGuid(), Guid.Empty };
+            this.apiBroker.ActAsAnonymous();
+
+            // when
+            HttpResponseMessage actualResponse =
+                await this.apiBroker.GetReactionSummariesAsync(
+                    CreateContentItemIdsQuery(contentItemIdsWithAnEmptyId));
+
+            // then
+            actualResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+    }
+}

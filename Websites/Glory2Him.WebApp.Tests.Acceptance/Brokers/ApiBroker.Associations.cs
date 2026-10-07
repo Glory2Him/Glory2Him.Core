@@ -25,5 +25,17 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         // body on any success and throws on any failure.
         public async ValueTask<HttpResponseMessage> PostAssociationAsync(Association association) =>
             await this.httpClient.PostAsJsonAsync(associationsRelativeUrl, association);
+
+        // The raw response, because the status code is the assertion on the validation arms and
+        // a typed read throws on them. The query string is the caller's, whole, because how the
+        // ids bind from it — and what the read does with options beside them — is under test.
+        public async ValueTask<HttpResponseMessage> GetReactionSummariesAsync(string queryString)
+        {
+            string url = string.IsNullOrEmpty(queryString)
+                ? $"{associationsRelativeUrl}/ReactionSummaries"
+                : $"{associationsRelativeUrl}/ReactionSummaries?{queryString}";
+
+            return await this.httpClient.GetAsync(url);
+        }
     }
 }

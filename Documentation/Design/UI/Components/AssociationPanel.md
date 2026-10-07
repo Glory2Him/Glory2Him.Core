@@ -378,7 +378,8 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
 21. (#857) **Gap — this family cannot read or write its associations over HTTP.** The reads and writes the
     page calls for this family — reading an entity's associations, suggesting one and removing
     one (section 7; §ARC17.4) — are designed and not built: `AssociationsController` serves only a reader's
-    reaction (#728), so no product page can read or write an association through the family, and every
+    reaction (#728) and the reaction summaries (#730), so no product page can read or write an
+    association through the family, and every
     page in section 6 passes an empty collection or holds suggestions in its own state. A page
     list narrowed by tag or Bible reference waits on the same read, and the narrowing itself is
     not this item's: it is `UI/Components/ContentItemListPanel.md §10 item 15`, since #857 plans
