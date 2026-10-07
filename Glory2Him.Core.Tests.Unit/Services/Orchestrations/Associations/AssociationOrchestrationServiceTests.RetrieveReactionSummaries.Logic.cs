@@ -408,10 +408,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 options => options.WithStrictOrdering());
 
             this.associationServiceMock.Verify(service =>
-                service.RetrieveCallerContentItemReactionsAsync(
-                    It.IsAny<IReadOnlyList<Guid>>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
+                service.RetrieveContentItemReactionCountsAsync(
+                    It.Is(SameIdsAs(new List<Guid> { firstHost.GroupId, secondHost.GroupId })),
+                    It.Is(SameIdsAs(new List<Guid> { love.Id })),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
         }
 
         [Fact]
