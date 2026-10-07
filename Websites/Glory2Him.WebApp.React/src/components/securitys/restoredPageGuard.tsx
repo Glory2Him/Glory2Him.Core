@@ -16,8 +16,15 @@ const hidePage = (): void => {
     document.body.setAttribute('inert', '');
 };
 
+// A page that goes into the cache hidden is hidden in the first frame the browser may draw of it
+// as it is restored, which the hide on the restore cannot reach.
+const hidePageAsItGoesIntoTheCache = (): void => {
+    document.documentElement.style.display = 'none';
+};
+
 const showPage = (): void => {
     const rootStyle = document.documentElement.style;
+    rootStyle.removeProperty('display');
     rootStyle.removeProperty('visibility');
     rootStyle.removeProperty('opacity');
     document.body.removeAttribute('inert');
@@ -63,6 +70,7 @@ export const RestoredPageGuard = (): ReactElement => {
         const handlePageHide = () => {
             cachedReaderReference.current = signedInReaderOf(currentUserReference.current);
             cachedPlaceReference.current = notePlaceOnThePage();
+            hidePageAsItGoesIntoTheCache();
         };
 
         const handlePageShow = async (event: PageTransitionEvent) => {
