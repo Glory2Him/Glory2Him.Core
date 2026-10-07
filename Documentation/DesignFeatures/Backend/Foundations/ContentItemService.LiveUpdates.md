@@ -5,7 +5,7 @@ Inherits: §SEC14.1, §SEC14.5 rules 1, 3 and 4, §ARC12.2.1 rules 3–6, §ARC1
 
 A count message names the canonically visible version of the reaction's host (LiveUpdates.md rule 8). The forwarder holds the host's group, from the association row, and no read on this service tells it which of the group's versions everyone may see. `RetrievePublicContentItemGroupsAsync` is keyed on version ids (`Backend/Foundations/ContentItemService.md §1`), and the group read, `RetrieveContentItemsByGroupIdAsync`, widens with the caller. This user story adds that read.
 
-## 1. FindPublicContentItemGroupAsync (#T04)
+## 1. FindPublicContentItemGroupAsync (#896)
 
 ```csharp
 ValueTask<PublicContentItemGroup?> FindPublicContentItemGroupAsync(

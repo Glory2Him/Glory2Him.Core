@@ -14,39 +14,39 @@ The forwarder. It hears the facts that change what an open page shows, and sends
 
 **Wiring.** Each ear's subscription is registered in `EventSubscriptionRegistration` under a stable identifier and name (`EventBrokerIdentifiers.LiveUpdateOrchestration.cs`). The service is registered scoped, by hand, in the host's `CoreRegistration.AddCoreServices`. It composes `IContentItemService`, whose envelope broker captures identity, so a singleton would be the §SEC14.6.1 defect, and no `ServiceRegistration.Add*Service()` helper is added for it.
 
-## 1. OnContentItemSettingAddedAsync (#T05)
+## 1. OnContentItemSettingAddedAsync (#897)
 
-Hears `ContentItemSetting-Added` and runs the settings body. This ear builds the service, its settings body and its wiring.
+Hears `ContentItemSetting-Added` and runs the settings body. This ear builds the settings body, on the service §4 builds.
 
-## 2. OnContentItemSettingModifiedAsync (#T06)
+## 2. OnContentItemSettingModifiedAsync (#898)
 
 Hears `ContentItemSetting-Modified` and runs the settings body.
 
-## 3. OnContentItemSettingRemovedAsync (#T07)
+## 3. OnContentItemSettingRemovedAsync (#899)
 
 Hears `ContentItemSetting-Removed`, and accepts both names its address carries, `ContentItemSettingRemoved` and `ContentItemSettingHardRemoved` (§EVN2 rule 4). Runs the settings body.
 
-## 4. OnAssociationApprovedAsync (#T08)
+## 4. OnAssociationApprovedAsync (#900)
 
-Hears `Association-Approved` and runs the reactions body. This ear builds the reactions body.
+Hears `Association-Approved` and runs the reactions body. This ear builds the service, with both its foundation services, its wiring and the reactions body, so the forwarder spans its two entities from the task that creates it (§ARC12.1 rule 2). The other ears follow it.
 
-## 5. OnAssociationRejectedAsync (#T09)
+## 5. OnAssociationRejectedAsync (#901)
 
 Hears `Association-Rejected` and runs the reactions body.
 
-## 6. OnAssociationSubmittedAsync (#T10)
+## 6. OnAssociationSubmittedAsync (#902)
 
 Hears `Association-Submitted`, the address the approval workflow's ear also hears, and runs the reactions body. Neither relies on which runs first (§EVN26 rule 5).
 
-## 7. OnAssociationRemovedAsync (#T11)
+## 7. OnAssociationRemovedAsync (#903)
 
 Hears `Association-Removed`, and accepts both names its address carries, `AssociationRemoved` and `AssociationHardRemoved` (§EVN2 rule 4). Runs the reactions body.
 
-## 8. OnAssociationRestoredAsync (#T12)
+## 8. OnAssociationRestoredAsync (#904)
 
 Hears `Association-Restored`, which the approval workflow deliberately does not hear (§ARC16.2.2), and runs the reactions body.
 
-## 9. OnAssociationRepointedAsync (#T13)
+## 9. OnAssociationRepointedAsync (#905)
 
 Hears `Association-Repointed`, the address the approval workflow's ear also hears, and runs the reactions body. Neither relies on which runs first (§EVN26 rule 5).
 

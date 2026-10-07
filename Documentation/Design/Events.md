@@ -1896,7 +1896,10 @@ than something this design should solve locally.
    `Submitted` through this same verb, so the fact lands on the address the
    submit ear listens to. The re-entry is a single hop: the handler re-tests a
    round whose active reviews the reset has already dismissed, and whatever it
-   decides leaves on `-Approved` or `-Rejected`, which nothing subscribes to.
+   decides leaves on `-Approved` or `-Rejected`, which no ear of the workflow
+   hears. The live-update forwarder, designed under #702, hears
+   `Association-Approved` and `Association-Rejected`, and publishes nothing
+   (§EVN26 rule 4), so no loop closes through it either.
 
    Two further facts follow a Versioned approval, and neither closes a loop. The
    publication swap publishes `<Entity>-Unpublished` when it clears the

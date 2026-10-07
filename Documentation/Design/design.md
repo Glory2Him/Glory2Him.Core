@@ -215,8 +215,9 @@ straight after the item's number, before anything else on the line:
 question for the user carries no tag: it becomes work, and takes one, only once it
 is answered. A page document (§UI20.5.1) tags the items of its section 6 the same
 way, and so does `UI.md` its gaps — the list of building-block gaps under §UI20.6.4, the
-ported blog's under §UI20.5.1, and the account pages' under §UI20.8.1. One sweep
-covers the component documents, the page documents and `UI.md`:
+ported blog's under §UI20.5.1, the account pages' under §UI20.8.1, and the live
+connection's under §UI20.10. One sweep covers the component documents, the page
+documents and `UI.md`:
 
 ```bash
 grep -rnE --include=*.md "^[0-9]+\. \(needs issue\)" Documentation/Design/UI/Components Documentation/Design/UI/Pages Documentation/Design/UI.md

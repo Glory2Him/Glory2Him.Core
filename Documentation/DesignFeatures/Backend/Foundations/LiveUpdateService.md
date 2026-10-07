@@ -5,7 +5,7 @@ Inherits: §SEC14.8 rules 1, 3 and 5, §ARC12.12, `Backend/Models/LiveUpdate.md 
 
 The one way into the live connection. It refuses an update whose shape could tell more than its type says, and sends the rest through `ILiveUpdateBroker` (`Backend/Brokers/LiveUpdateBroker.md §1`). It is single-entity — `LiveUpdate` — and reads nothing.
 
-## 1. SendLiveUpdateAsync (#T03)
+## 1. SendLiveUpdateAsync (#895)
 
 ```csharp
 ValueTask SendLiveUpdateAsync(

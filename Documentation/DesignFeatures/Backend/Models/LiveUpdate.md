@@ -5,7 +5,7 @@ Inherits: §SEC14.8 rule 1, LiveUpdates.md rules 4, 5 and 8
 
 What the server tells an open page: that a read it may be holding is stale. It carries nothing a page would show (§SEC14.8 rule 1), and the page reads the rest again itself (LiveUpdates.md rule 4). No table stores one and no fact announces one: it is sent and forgotten (§EVN26 rule 4).
 
-## 1. LiveUpdate and LiveUpdateType (#T01)
+## 1. LiveUpdate and LiveUpdateType (#893)
 
 ```csharp
 public class LiveUpdate

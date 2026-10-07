@@ -44,13 +44,14 @@ The feature's own user stories, bottom up. Each names this document as its paren
 | [UI/Brokers/LiveUpdateBroker.md](UI/Brokers/LiveUpdateBroker.md) | broker — `LiveUpdateBroker` (React) |
 | [UI/Foundations/LiveUpdateService.md](UI/Foundations/LiveUpdateService.md) | foundation service — `liveUpdateService` (React) |
 
-The rest of the UI is the root's, and the gaps this feature closes are recorded in the documents that own them:
+The rest of the work is recorded in the documents that own it:
 
-| Document and gap | What it is |
+| Where it is recorded | What it is |
 | --- | --- |
 | `UI.md` §UI20.10 item 1 | `Root` opens the tab's one connection |
 | `UI/Pages/Home.md §6 item 11`, `UI/Pages/Posts.md §6 item 11`, `UI/Pages/PostDetail.md §6 item 14`, `UI/Pages/MyPosts.md §6 item 10`, `UI/Pages/MyPostDetail.md §6 item 16`, `UI/Pages/ContentItemModerationPage.md §6 item 10`, `UI/Pages/ContentItemModerationDetailPage.md §6 item 16` | each page's share of rule 1, which needs no page code (§UI20.10 rule 2) |
 | `Likes.md` rule 12 | rule 2, which needs no page code either |
+| `Architecture.md` §ARC12.12 rules 5 and 6 | the deploy job switches Web sockets on for `g2h-dev` and refuses to deploy to more than one instance (#914) |
 
 **Why the forwarder sits on an orchestration.** A count message spans two entities: the `LiveUpdate` it sends, and the `ContentItem` whose canonically visible version it names. That is an orchestration's definition (§ARC12.1 rule 2). The `ContentItemSetting` it asks for the host's winning setting arrives through `IAccessBroker`, and leaves the count where it is (§APR8.6.1 rule 3), as it does for the reaction summary read (§ARC16.8, *Why the read sits on the orchestration*). Its two service dependencies are both foundation services, `IContentItemService` and `ILiveUpdateService`, so they are the same kind and within two-to-three.
 
@@ -76,7 +77,7 @@ The rest of the UI is the root's, and the gaps this feature closes are recorded 
 
 **Not reversible.** Nothing: no event name, no schema and no stored data.
 
-**The send is part of the writer's request.** A publish dispatches inline (§EVN11), so the forwarder's reads and its send run inside the request that wrote the row. A count message costs one content item read and one settings gather. SignalR buffers up to 64 KB for each connection before a send waits on it (`TransportMaxBufferSize`), and it drops a connection that has been silent for 30 seconds (`ClientTimeoutInterval`). A message is about a hundred bytes, so a connection must fall several hundred messages behind before a writer waits on it.
+**The send is part of the writer's request, and no reader can hold it.** A publish dispatches inline (§EVN11), so the forwarder's reads and its send run inside the request that wrote the row. A count message costs one content item read and one settings gather. SignalR's send completes only once every connection has taken the message, and a connection that has stopped reading holds it until SignalR closes that connection, after `TransportSendTimeout`, 10 seconds by default. Anyone may open such a connection. So the broker starts the send and does not wait for it (`Backend/Brokers/LiveUpdateBroker.md §1` rule 2): a reader who is reading has the message at once, the writer's request goes on, and the stalled connection is SignalR's to close. The hub's acceptance tests prove it (`Backend/Hubs/LiveUpdatesHub.md §1` rule 5).
 
 **A message can be lost.** A forward that fails is contained (§EVN11), and so is a host restart or a dropped connection. Nothing retries a message (§EVN23 rule 6). The page catches up when its connection comes back (rule 10), or on the query library's own triggers.
 
@@ -84,7 +85,7 @@ The rest of the UI is the root's, and the gaps this feature closes are recorded 
 
 **An open connection holds memory on the host,** and nothing limits how many one client opens. The connection accepts nothing from a reader (§SEC14.8 rule 6), so a connection can only listen. Limiting connections per client is out of scope.
 
-**A second instance would split the audience without saying so** (§ARC12.12 rule 5). The rule is recorded where a decision to scale out would be made.
+**A second instance would split the audience without saying so** (§ARC12.12 rule 5), so the deploy job refuses to deploy to more than one (#914). An app scaled out between two deploys is caught by the next.
 
 **Failure midway.** The forwarder writes nothing, so there is no midway. A failure after its reads and before its send loses that one message and nothing else.
 
@@ -104,7 +105,7 @@ The rest of the UI is the root's, and the gaps this feature closes are recorded 
 
 ## Open questions
 
-None. The owner ruled on all five on 2026-10-06, choosing in each case the option put to them as recommended: settings and Like counts as what is pushed, SignalR as the transport, one instance for the host, the React broker's departure approved, and nothing shown to the reader while the connection is down.
+None. The owner ruled on all five on 2026-10-06, choosing in each case the option put to them as recommended: settings and Like counts as what is pushed, SignalR as the transport, one instance for the host, the React broker's departure approved, and nothing shown to the reader while the connection is down. QA's first round on the design PR raised two more, and the owner ruled on both on 2026-10-07, again choosing the option recommended: the React hub broker follows the app's layout (`UI/Brokers/LiveUpdateBroker.md`), and the deploy job switches Web sockets on and refuses a second instance (§ARC12.12 rules 5 and 6).
 
 ## Deviations
 
