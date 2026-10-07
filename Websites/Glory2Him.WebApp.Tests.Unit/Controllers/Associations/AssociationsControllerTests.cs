@@ -10,14 +10,18 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations;
+using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Glory2Him.Core.Services.Orchestrations.Associations;
 using Glory2Him.WebApp.Controllers.Associations;
 using Moq;
 using RESTFulSense.Controllers;
 using Tynamix.ObjectFiller;
+using Xeptions;
 
 namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
 {
@@ -53,6 +57,51 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
                 EntityBType = EntityType.Reaction,
                 EntityBKeyId = Guid.NewGuid()
             };
+
+        public static TheoryData<Xeption> ValidationExceptions()
+        {
+            var someInnerException = new Xeption();
+            string someMessage = GetRandomString();
+
+            return new TheoryData<Xeption>
+            {
+                new AssociationOrchestrationValidationException(
+                    message: someMessage,
+                    innerException: someInnerException),
+
+                new AssociationOrchestrationDependencyValidationException(
+                    message: someMessage,
+                    innerException: someInnerException)
+            };
+        }
+
+        private static Guid[] CreateRandomContentItemIds() =>
+            Enumerable.Range(start: 0, count: GetRandomNumber())
+                .Select(_ => Guid.NewGuid())
+                .ToArray();
+
+        private static List<ContentItemReactionSummary> CreateRandomContentItemReactionSummaries(
+            IEnumerable<Guid> contentItemIds) =>
+            contentItemIds
+                .Select(contentItemId => new ContentItemReactionSummary
+                {
+                    ContentItemId = contentItemId,
+
+                    Reactions = new List<ContentItemReactionCount>
+                    {
+                        new ContentItemReactionCount
+                        {
+                            ReactionId = Guid.NewGuid(),
+                            Name = GetRandomString(),
+                            UnicodeEmoji = GetRandomString(),
+                            Count = GetRandomNumber()
+                        }
+                    },
+
+                    ViewerReactionId = Guid.NewGuid(),
+                    ViewerReactionName = GetRandomString()
+                })
+                .ToList();
 
         private static AssociationSuggestionResult CreateAssociationSuggestionResult(
             AssociationSuggestionStatus status) =>

@@ -9,6 +9,8 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.Associations;
@@ -26,7 +28,8 @@ namespace Glory2Him.WebApp.Controllers.Associations
     /// The association exposure point (§ARC12.6 row 14). It binds
     /// <see cref="IAssociationOrchestrationService"/> alone (§EVN13 rule 3), holds no logic, and
     /// maps the orchestration's exception families onto status codes. Its routes are added by the
-    /// work that needs them rather than all at once: today it serves only the upsert.
+    /// work that needs them rather than all at once: today it serves the upsert and the reaction
+    /// summary read.
     ///
     /// <para><b>The upsert answers <c>201</c> only when a row was created, and <c>200</c>
     /// otherwise</b>, with the result rather than the row as the body. Both depart from
@@ -34,6 +37,11 @@ namespace Glory2Him.WebApp.Controllers.Associations
     /// <c>Documentation/DesignFeatures/Backend/Controllers/AssociationsController.md</c>,
     /// <i>Deviations</i>, records why: five of the six outcomes create nothing, and the row
     /// would leak its author (§ARC16.8.1).</para>
+    ///
+    /// <para><b>The summary read is open to every caller and takes no query options.</b> Its
+    /// counts are the same whoever asks, so a signed-out reader is served rather than refused;
+    /// and with no <c>[EnableQuery]</c>, no <c>$</c>-prefixed option can reshape the answer
+    /// (§ARC16.8, <i>The route</i>).</para>
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -86,6 +94,43 @@ namespace Glory2Him.WebApp.Controllers.Associations
                     is AlreadyExistsAssociationException)
             {
                 return Conflict(associationOrchestrationDependencyValidationException.InnerException);
+            }
+            catch (AssociationOrchestrationDependencyValidationException
+                associationOrchestrationDependencyValidationException)
+            {
+                return BadRequest(associationOrchestrationDependencyValidationException.InnerException);
+            }
+            catch (AssociationOrchestrationDependencyException
+                associationOrchestrationDependencyException)
+            {
+                return FailedDependency(associationOrchestrationDependencyException.InnerException);
+            }
+            catch (AssociationOrchestrationServiceException
+                associationOrchestrationServiceException)
+            {
+                return InternalServerError(associationOrchestrationServiceException);
+            }
+        }
+
+        [HttpGet("ReactionSummaries")]
+        [AllowAnonymous]
+        public async ValueTask<ActionResult<IReadOnlyList<ContentItemReactionSummary>>> GetReactionSummariesAsync(
+            [FromQuery] Guid[] contentItemIds,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                IReadOnlyList<ContentItemReactionSummary> contentItemReactionSummaries =
+                    await this.associationOrchestrationService.RetrieveContentItemReactionSummariesAsync(
+                        contentItemIds,
+                        cancellationToken);
+
+                return Ok(contentItemReactionSummaries);
+            }
+            catch (AssociationOrchestrationValidationException
+                associationOrchestrationValidationException)
+            {
+                return BadRequest(associationOrchestrationValidationException.InnerException);
             }
             catch (AssociationOrchestrationDependencyValidationException
                 associationOrchestrationDependencyValidationException)
