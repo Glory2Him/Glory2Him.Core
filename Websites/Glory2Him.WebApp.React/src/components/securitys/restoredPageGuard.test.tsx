@@ -693,5 +693,27 @@ describe('RestoredPageGuard', () => {
             // then
             expect(placeAsFirstShown?.horizontalScrollPosition).toBe(300);
         });
+
+        it('should resume a page hidden as it went into the cache where the reader left it', async () => {
+            // given
+            mocks.currentUser = readerA;
+            render(<Page />);
+            const field = fieldBeingTypedIn();
+            field.focus();
+            field.setSelectionRange(5, 5);
+
+            // Scrolled down from the top, with the field still in view.
+            window.scrollTo(0, topOfTheField - 10);
+            dispatchPageTransition('pagehide', true);
+            answerFreshRead(freshCopyOf(readerA));
+
+            // when
+            const placeAsFirstShown = await restoreAndNoteThePlaceAsFirstShown();
+
+            // then
+            expect(placeAsFirstShown?.scrollPosition).toBe(topOfTheField - 10);
+            expect(placeAsFirstShown?.focusedElement).toBe(field);
+            expect(placeAsFirstShown?.caret).toEqual([5, 5]);
+        });
     });
 });
