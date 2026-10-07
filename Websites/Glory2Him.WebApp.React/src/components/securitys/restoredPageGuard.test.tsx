@@ -370,7 +370,9 @@ describe('RestoredPageGuard', () => {
         // given
         mocks.currentUser = readerA;
         render(<Page />);
-        dispatchPageTransition('pagehide', true);
+
+        // A page goes into the cache hidden, so this one reaches the restore unhidden, and only the
+        // restore's own hide can hide it.
         mocks.refetch.mockReturnValue(new Promise(() => { }));
 
         // when
