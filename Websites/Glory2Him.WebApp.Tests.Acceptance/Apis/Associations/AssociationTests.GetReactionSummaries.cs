@@ -27,14 +27,14 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
         public async Task ShouldServeTheCountsToAnAnonymousCallerAsync()
         {
             // given
-            (CoreContentItem reactedContentItem, string _) =
-                await ArrangeAnItemTwoReadersReactedToAsync();
-
+            CoreContentItem reactedContentItem = await InsertPublishedContentItemAsync();
             List<ContentItemReactionCount> expectedReactions = CreateOneAmenAndOneLoveCounts();
-            this.apiBroker.ActAsAnonymous();
 
             try
             {
+                await GiveAmenAndLoveFromTwoReadersAsync(reactedContentItem.Id);
+                this.apiBroker.ActAsAnonymous();
+
                 // when
                 HttpResponseMessage actualResponse =
                     await this.apiBroker.GetReactionSummariesAsync(
@@ -66,14 +66,14 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
         public async Task ShouldNameTheCallersOwnReactionOverHttpAsync()
         {
             // given
-            (CoreContentItem reactedContentItem, string firstReaderId) =
-                await ArrangeAnItemTwoReadersReactedToAsync();
-
+            CoreContentItem reactedContentItem = await InsertPublishedContentItemAsync();
             List<ContentItemReactionCount> expectedReactions = CreateOneAmenAndOneLoveCounts();
-            this.apiBroker.ActAs(firstReaderId);
 
             try
             {
+                string firstReaderId = await GiveAmenAndLoveFromTwoReadersAsync(reactedContentItem.Id);
+                this.apiBroker.ActAs(firstReaderId);
+
                 // when
                 HttpResponseMessage actualResponse =
                     await this.apiBroker.GetReactionSummariesAsync(
@@ -105,9 +105,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
         public async Task ShouldIgnoreQueryOptionsOnReactionSummariesAsync()
         {
             // given
-            (CoreContentItem reactedContentItem, string _) =
-                await ArrangeAnItemTwoReadersReactedToAsync();
-
+            CoreContentItem reactedContentItem = await InsertPublishedContentItemAsync();
             string contentItemIdsQuery = CreateContentItemIdsQuery(reactedContentItem.Id);
 
             // Each option, applied, would change the answer: the filter matches no summary, the
@@ -117,10 +115,11 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                     + "&$top=0"
                     + "&$select=contentItemId";
 
-            this.apiBroker.ActAsAnonymous();
-
             try
             {
+                await GiveAmenAndLoveFromTwoReadersAsync(reactedContentItem.Id);
+                this.apiBroker.ActAsAnonymous();
+
                 HttpResponseMessage expectedResponse =
                     await this.apiBroker.GetReactionSummariesAsync(contentItemIdsQuery);
 
@@ -149,15 +148,17 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
         {
             // given
             CoreContentItem firstContentItem = await InsertPublishedContentItemAsync();
-            CoreContentItem secondContentItem = await InsertPublishedContentItemAsync();
-
-            Guid[] expectedContentItemIds =
-                new[] { firstContentItem.Id, secondContentItem.Id };
-
-            this.apiBroker.ActAsAnonymous();
+            CoreContentItem secondContentItem = null;
 
             try
             {
+                secondContentItem = await InsertPublishedContentItemAsync();
+
+                Guid[] expectedContentItemIds =
+                    new[] { firstContentItem.Id, secondContentItem.Id };
+
+                this.apiBroker.ActAsAnonymous();
+
                 // when
                 HttpResponseMessage actualResponse =
                     await this.apiBroker.GetReactionSummariesAsync(
@@ -176,7 +177,11 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
             {
                 this.apiBroker.ActAsSeededAdministrator();
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(firstContentItem.Id);
-                await this.apiBroker.RemoveCoreContentItemByIdAsync(secondContentItem.Id);
+
+                if (secondContentItem is not null)
+                {
+                    await this.apiBroker.RemoveCoreContentItemByIdAsync(secondContentItem.Id);
+                }
             }
         }
 

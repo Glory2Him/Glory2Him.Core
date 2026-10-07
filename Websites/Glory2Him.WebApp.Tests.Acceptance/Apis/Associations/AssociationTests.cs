@@ -70,26 +70,24 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
             await response.Content.ReadFromJsonAsync<AssociationSuggestionResult>();
 
         /// <summary>
-        /// Arranges a published item that two readers reacted to — the first with Amen, the
-        /// second with Love — through the upsert route, as a reader gives one. Returns the item
-        /// and the first reader's id, so a test can ask as that reader.
+        /// Has two readers react to the item — the first with Amen, the second with Love —
+        /// through the upsert route, as a reader gives one. Returns the first reader's id, so a
+        /// test can ask as that reader. A test calls it inside the try its teardown closes, so a
+        /// post that throws still leaves nothing behind.
         /// </summary>
-        private async ValueTask<(CoreContentItem ContentItem, string FirstReaderId)>
-            ArrangeAnItemTwoReadersReactedToAsync()
+        private async ValueTask<string> GiveAmenAndLoveFromTwoReadersAsync(Guid contentItemId)
         {
-            CoreContentItem publishedContentItem = await InsertPublishedContentItemAsync();
-
             string firstReaderId = this.apiBroker.ActAsContributor();
 
             await this.apiBroker.PostAssociationAsync(
-                CreateReactionPair(publishedContentItem.Id, seededAmenReactionId));
+                CreateReactionPair(contentItemId, seededAmenReactionId));
 
             this.apiBroker.ActAsContributor();
 
             await this.apiBroker.PostAssociationAsync(
-                CreateReactionPair(publishedContentItem.Id, seededLoveReactionId));
+                CreateReactionPair(contentItemId, seededLoveReactionId));
 
-            return (publishedContentItem, firstReaderId);
+            return firstReaderId;
         }
 
         // ReactionSeedData's two rows, as the summary projects them.
