@@ -1894,12 +1894,13 @@ than something this design should solve locally.
    `<Entity>-Submitted` is the one subscribed address the workflow can also
    cause, and it is deliberate. An administrator reset drives the entity back to
    `Submitted` through this same verb, so the fact lands on the address the
-   submit ear listens to. The re-entry is a single hop: the handler re-tests a
-   round whose active reviews the reset has already dismissed, and whatever it
-   decides leaves on `-Approved` or `-Rejected`, which no ear of the workflow
-   hears. The live-update forwarder, designed under #702, hears
-   `Association-Approved` and `Association-Rejected`, and publishes nothing
-   (§EVN26 rule 4), so no loop closes through it either.
+   submit ear listens to. Nothing re-enters: the entity writes it under the
+   workflow identity, and the workflow's ears return on a fact that carries it
+   (§SEC14.6 rule 4; `ApprovalOrchestrationService.Substrate.cs`), so the
+   reset is not undone inside its own request. `-Approved` and `-Rejected` have
+   no ear of the workflow either. The live-update forwarder, designed under
+   #702, hears `Association-Submitted`, `-Approved` and `-Rejected`, and
+   publishes nothing (§EVN26 rule 4), so no loop closes through it.
 
    Two further facts follow a Versioned approval, and neither closes a loop. The
    publication swap publishes `<Entity>-Unpublished` when it clears the

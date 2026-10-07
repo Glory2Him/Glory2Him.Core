@@ -19,7 +19,8 @@ An open page shows the world as it stood at the page's last read. A setting anot
 5. **A setting message is sent for every `ContentItemSetting-Added`, `-Modified` and `-Removed`, `-HardRemoved` included**, whether the row is a content type's default or an item's override: either can change what an item renders under (§ARC12.5.2 business rules 1–2). Every setting row is public-read (§SEC14.7 posture C rule 2), so a message about one tells nobody anything they could not read.
 6. **A count message is sent for every `Association` fact that can move a row into or out of a reaction count, or from one reaction to another, on a row pairing a content item with a reaction** — endpoint A a `ContentItem` and endpoint B a `Reaction`, the pair §ARC16.8's predicate counts. A row is counted only once it is `Approved` (§ARC16.8, *Which rows are counted*, rule 2), so six facts can move one:
    - `-Approved` brings a row in.
-   - `-Rejected` and `-Submitted` take an approved row out: an administrator's override, or the approval workflow returning a changed reaction's round (§EVN18 rule 1).
+   - `-Submitted` takes an approved row out: an administrator's reset (§APR8.6 HR-4), or the approval workflow returning a changed reaction's round (§EVN18 rule 1).
+   - `-Rejected` takes one out where the entity's transition moves an `Approved` row to `Rejected`, which it admits only as an override (§SEC14.7 posture A′, the transition table). The decision route decides only an open round (§ARC16.7.1), so a rejection made over HTTP decides a `Submitted` row, which no count includes, and moves nothing. The forwarder hears every rejection all the same: it hears the transitions the entity admits, whatever reaches them.
    - `-Removed`, `-HardRemoved` included, takes a row out.
    - `-Restored` brings a withdrawn row back at the status it was withdrawn at (§DOM4.10 rule 8), with no `-Approved` behind it (§ARC16.2.2).
    - `-Repointed` moves a row from one reaction to another (§ARC16.2.2).
@@ -51,7 +52,8 @@ The rest of the work is recorded in the documents that own it:
 | `UI.md` §UI20.10 item 1 | `Root` opens the tab's one connection |
 | `UI/Pages/Home.md §6 item 11`, `UI/Pages/Posts.md §6 item 11`, `UI/Pages/PostDetail.md §6 item 14`, `UI/Pages/MyPosts.md §6 item 10`, `UI/Pages/MyPostDetail.md §6 item 16`, `UI/Pages/ContentItemModerationPage.md §6 item 10`, `UI/Pages/ContentItemModerationDetailPage.md §6 item 16` | each page's share of rule 1, which needs no page code (§UI20.10 rule 2) |
 | `Likes.md` rule 12 | rule 2, which needs no page code either |
-| `Architecture.md` §ARC12.12 rules 5 and 6 | the deploy job switches Web sockets on for `g2h-dev` and refuses to deploy to more than one instance (#914) |
+| `Architecture.md` §ARC12.12 rule 6 | the deploy job switches Web sockets on for `g2h-dev` (#914) |
+| `Architecture.md` §ARC12.12 rule 5 | the deploy job refuses to deploy to more than one instance (#918) |
 
 **Why the forwarder sits on an orchestration.** A count message spans two entities: the `LiveUpdate` it sends, and the `ContentItem` whose canonically visible version it names. That is an orchestration's definition (§ARC12.1 rule 2). The `ContentItemSetting` it asks for the host's winning setting arrives through `IAccessBroker`, and leaves the count where it is (§APR8.6.1 rule 3), as it does for the reaction summary read (§ARC16.8, *Why the read sits on the orchestration*). Its two service dependencies are both foundation services, `IContentItemService` and `ILiveUpdateService`, so they are the same kind and within two-to-three.
 
@@ -85,7 +87,7 @@ The rest of the work is recorded in the documents that own it:
 
 **An open connection holds memory on the host,** and nothing limits how many one client opens. The connection accepts nothing from a reader (§SEC14.8 rule 6), so a connection can only listen. Limiting connections per client is out of scope.
 
-**A second instance would split the audience without saying so** (§ARC12.12 rule 5), so the deploy job refuses to deploy to more than one (#914). An app scaled out between two deploys is caught by the next.
+**A second instance would split the audience without saying so** (§ARC12.12 rule 5), so the deploy job refuses to deploy to more than one (#918). An app scaled out between two deploys is caught by the next.
 
 **Failure midway.** The forwarder writes nothing, so there is no midway. A failure after its reads and before its send loses that one message and nothing else.
 
