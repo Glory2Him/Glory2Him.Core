@@ -78,6 +78,7 @@ const Page = (): ReactElement => (
         <RestoredPageGuard />
         <div data-testid="part-inside-the-app" ref={showItself} />
         <div data-testid="part-with-no-visibility" />
+        <input aria-label="Draft title" defaultValue="A draft in progress" />
     </>
 );
 
@@ -134,6 +135,193 @@ const isShown = (): boolean => {
         !isNotDrawn(part) && !isNotExposed(part) && !isOutOfReach(part))
         && visibilityOfAPartWithNone !== 'hidden'
         && visibilityOfAPartWithNone !== 'collapse';
+};
+
+// happy-dom scrolls and focuses under a hidden root, and never scrolls on focus. A browser takes
+// the page out of the render while any part of the hiding remains: both its scroll offsets read as
+// the top left from the moment the page is hidden until something sets them once the page is
+// shown, the focus moves to `body`, and nothing under it is scrolled or focused meanwhile. Once
+// the page is shown, `focus()` scrolls a field that is out of view to its top unless asked not to.
+const topOfTheField = 40;
+let scrollPosition = 0;
+let horizontalScrollPosition = 0;
+let isFollowingTheHiding = false;
+
+const anyPartOfTheHidingRemains = (): boolean =>
+    [document.documentElement, document.body].some(element => {
+        const style = getComputedStyle(element);
+
+        return style.display === 'none'
+            || style.visibility === 'hidden'
+            || style.visibility === 'collapse'
+            || style.opacity === '0'
+            || element.hasAttribute('inert');
+    });
+
+const followTheHiding = (): void => {
+    if (isFollowingTheHiding) {
+        return;
+    }
+
+    isFollowingTheHiding = true;
+
+    try {
+        if (anyPartOfTheHidingRemains()) {
+            scrollPosition = 0;
+            horizontalScrollPosition = 0;
+
+            if (document.activeElement instanceof HTMLElement
+                && document.activeElement !== document.body) {
+                document.activeElement.blur();
+            }
+        }
+    } finally {
+        isFollowingTheHiding = false;
+    }
+};
+
+const scrollPageTo = (left: number, top: number): void => {
+    followTheHiding();
+
+    if (!anyPartOfTheHidingRemains()) {
+        horizontalScrollPosition = left;
+        scrollPosition = top;
+    }
+};
+
+const scrollPageAsAskedBy = (xOrOptions?: ScrollToOptions | number, y?: number): void =>
+    typeof xOrOptions === 'object'
+        ? scrollPageTo(xOrOptions.left ?? horizontalScrollPosition, xOrOptions.top ?? scrollPosition)
+        : scrollPageTo(xOrOptions ?? horizontalScrollPosition, y ?? scrollPosition);
+
+const scrollPageByAsAskedBy = (xOrOptions?: ScrollToOptions | number, y?: number): void =>
+    typeof xOrOptions === 'object'
+        ? scrollPageTo(
+            horizontalScrollPosition + (xOrOptions.left ?? 0),
+            scrollPosition + (xOrOptions.top ?? 0))
+        : scrollPageTo(horizontalScrollPosition + (xOrOptions ?? 0), scrollPosition + (y ?? 0));
+
+type Prototype = Record<string, (...args: Array<unknown>) => unknown>;
+
+// Every way the page can be hidden passes through one of these, so the page is taken out of the
+// render in the same task it is hidden in.
+const followTheHidingAfterEachCallTo = (prototype: object, method: string): void => {
+    const callAsHappyDomDoes = (prototype as Prototype)[method];
+
+    vi.spyOn(prototype as Prototype, method).mockImplementation(function (this: unknown, ...args) {
+        const result = callAsHappyDomDoes.apply(this, args);
+        followTheHiding();
+
+        return result;
+    });
+};
+
+const scrollPositionProperty: PropertyDescriptor = {
+    configurable: true,
+    get: () => {
+        followTheHiding();
+
+        return scrollPosition;
+    },
+    set: (top: number) => scrollPageTo(horizontalScrollPosition, top)
+};
+
+const horizontalScrollPositionProperty: PropertyDescriptor = {
+    configurable: true,
+    get: () => {
+        followTheHiding();
+
+        return horizontalScrollPosition;
+    },
+    set: (left: number) => scrollPageTo(left, scrollPosition)
+};
+
+// Each property replaced on an object is put back as that object had it, its own or none, so no
+// test after the model reads what the model left behind.
+const replacedProperties: Array<[object, string, PropertyDescriptor | undefined]> = [];
+
+const replaceProperty = (target: object, name: string, descriptor: PropertyDescriptor): void => {
+    replacedProperties.push([target, name, Object.getOwnPropertyDescriptor(target, name)]);
+    Object.defineProperty(target, name, descriptor);
+};
+
+const modelHowABrowserScrollsAndFocuses = (): void => {
+    scrollPosition = 0;
+    horizontalScrollPosition = 0;
+    followTheHidingAfterEachCallTo(CSSStyleDeclaration.prototype, 'setProperty');
+    followTheHidingAfterEachCallTo(Element.prototype, 'setAttribute');
+    followTheHidingAfterEachCallTo(Element.prototype, 'setAttributeNS');
+    followTheHidingAfterEachCallTo(Element.prototype, 'toggleAttribute');
+    replaceProperty(window, 'scrollY', scrollPositionProperty);
+    replaceProperty(window, 'pageYOffset', scrollPositionProperty);
+    replaceProperty(document.documentElement, 'scrollTop', scrollPositionProperty);
+    replaceProperty(document.body, 'scrollTop', scrollPositionProperty);
+    replaceProperty(window, 'scrollX', horizontalScrollPositionProperty);
+    replaceProperty(window, 'pageXOffset', horizontalScrollPositionProperty);
+    replaceProperty(document.documentElement, 'scrollLeft', horizontalScrollPositionProperty);
+    replaceProperty(document.body, 'scrollLeft', horizontalScrollPositionProperty);
+    vi.spyOn(window, 'scrollTo').mockImplementation(scrollPageAsAskedBy);
+    vi.spyOn(window, 'scroll').mockImplementation(scrollPageAsAskedBy);
+    vi.spyOn(window, 'scrollBy').mockImplementation(scrollPageByAsAskedBy);
+
+    const focusAsHappyDomDoes = HTMLElement.prototype.focus;
+
+    vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (this: HTMLElement, options) {
+        followTheHiding();
+
+        if (anyPartOfTheHidingRemains()) {
+            return;
+        }
+
+        focusAsHappyDomDoes.call(this, options);
+
+        if (options?.preventScroll !== true && scrollPosition > topOfTheField) {
+            scrollPosition = topOfTheField;
+        }
+    });
+};
+
+const stopModellingABrowser = (): void => {
+    for (const [target, name, original] of replacedProperties.splice(0).reverse()) {
+        if (original === undefined) {
+            delete (target as Record<string, unknown>)[name];
+        } else {
+            Object.defineProperty(target, name, original);
+        }
+    }
+};
+
+const fieldBeingTypedIn = (): HTMLInputElement =>
+    screen.getByRole('textbox', { name: 'Draft title' });
+
+type PlaceOnThePage = {
+    scrollPosition: number;
+    horizontalScrollPosition: number;
+    focusedElement: Element | null;
+    caret: [number | null, number | null];
+};
+
+// Steps through the resume one microtask at a time and notes where the page is at the first step
+// that finds it shown, so nothing the guard does after showing it counts.
+const restoreAndNoteThePlaceAsFirstShown = async (): Promise<PlaceOnThePage | undefined> => {
+    dispatchPageTransition('pageshow', true);
+
+    for (let step = 0; step < 100; step += 1) {
+        if (isShown()) {
+            const field = fieldBeingTypedIn();
+
+            return {
+                scrollPosition: window.scrollY,
+                horizontalScrollPosition: window.scrollX,
+                focusedElement: document.activeElement,
+                caret: [field.selectionStart, field.selectionEnd]
+            };
+        }
+
+        await Promise.resolve();
+    }
+
+    return undefined;
 };
 
 describe('RestoredPageGuard', () => {
@@ -371,5 +559,81 @@ describe('RestoredPageGuard', () => {
         // then
         expect(reload).toHaveBeenCalledTimes(1);
         expect(isHidden()).toBe(true);
+    });
+
+    describe('in a browser that takes a hidden page out of the render', () => {
+        beforeEach(() => {
+            modelHowABrowserScrollsAndFocuses();
+        });
+
+        afterEach(() => {
+            stopModellingABrowser();
+        });
+
+        it('should resume a restored page at the scroll position it had', async () => {
+            // given
+            mocks.currentUser = readerA;
+            render(<Page />);
+            window.scrollTo(0, 600);
+            dispatchPageTransition('pagehide', true);
+            answerFreshRead(freshCopyOf(readerA));
+
+            // when
+            const placeAsFirstShown = await restoreAndNoteThePlaceAsFirstShown();
+
+            // then
+            expect(placeAsFirstShown?.scrollPosition).toBe(600);
+        });
+
+        it('should resume a restored page with the focus where it was', async () => {
+            // given
+            mocks.currentUser = readerA;
+            render(<Page />);
+            const field = fieldBeingTypedIn();
+            field.focus();
+            field.setSelectionRange(5, 5);
+            dispatchPageTransition('pagehide', true);
+            answerFreshRead(freshCopyOf(readerA));
+
+            // when
+            const placeAsFirstShown = await restoreAndNoteThePlaceAsFirstShown();
+
+            // then
+            expect(placeAsFirstShown?.focusedElement).toBe(field);
+            expect(placeAsFirstShown?.caret).toEqual([5, 5]);
+        });
+
+        it('should put the focus back without scrolling the page to the field', async () => {
+            // given
+            mocks.currentUser = readerA;
+            render(<Page />);
+            const field = fieldBeingTypedIn();
+            field.focus();
+            window.scrollTo(0, 600);
+            dispatchPageTransition('pagehide', true);
+            answerFreshRead(freshCopyOf(readerA));
+
+            // when
+            const placeAsFirstShown = await restoreAndNoteThePlaceAsFirstShown();
+
+            // then
+            expect(placeAsFirstShown?.focusedElement).toBe(field);
+            expect(placeAsFirstShown?.scrollPosition).toBe(600);
+        });
+
+        it('should resume a restored page at the horizontal scroll position it had', async () => {
+            // given
+            mocks.currentUser = readerA;
+            render(<Page />);
+            window.scrollTo(300, 600);
+            dispatchPageTransition('pagehide', true);
+            answerFreshRead(freshCopyOf(readerA));
+
+            // when
+            const placeAsFirstShown = await restoreAndNoteThePlaceAsFirstShown();
+
+            // then
+            expect(placeAsFirstShown?.horizontalScrollPosition).toBe(300);
+        });
     });
 });

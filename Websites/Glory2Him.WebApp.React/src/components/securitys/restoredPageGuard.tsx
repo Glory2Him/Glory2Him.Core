@@ -23,10 +23,37 @@ const showPage = (): void => {
     document.body.removeAttribute('inert');
 };
 
+type PlaceOnThePage = {
+    scrollPosition: number;
+    horizontalScrollPosition: number;
+    focusedElement: Element | null;
+};
+
+const notePlaceOnThePage = (): PlaceOnThePage => ({
+    scrollPosition: window.scrollY,
+    horizontalScrollPosition: window.scrollX,
+    focusedElement: document.activeElement
+});
+
+// A browser does not scroll a page taken out of the render, nor focus a field out of reach of
+// input, so the place is put back only once the page is shown again.
+const resumePlaceOnThePage = (place: PlaceOnThePage): void => {
+    window.scrollTo({ left: place.horizontalScrollPosition, top: place.scrollPosition });
+
+    if (place.focusedElement instanceof HTMLElement && place.focusedElement !== document.body) {
+        place.focusedElement.focus({ preventScroll: true });
+    }
+};
+
 export const RestoredPageGuard = (): ReactElement => {
     const { data: currentUser, refetch } = accountService.useGetCurrentUser();
     const currentUserReference = useRef(currentUser);
     const cachedReaderReference = useRef<string | undefined>(undefined);
+    const cachedPlaceReference = useRef<PlaceOnThePage>({
+        scrollPosition: 0,
+        horizontalScrollPosition: 0,
+        focusedElement: null
+    });
 
     useEffect(() => {
         currentUserReference.current = currentUser;
@@ -35,6 +62,7 @@ export const RestoredPageGuard = (): ReactElement => {
     useEffect(() => {
         const handlePageHide = () => {
             cachedReaderReference.current = signedInReaderOf(currentUserReference.current);
+            cachedPlaceReference.current = notePlaceOnThePage();
         };
 
         const handlePageShow = async (event: PageTransitionEvent) => {
@@ -57,6 +85,7 @@ export const RestoredPageGuard = (): ReactElement => {
                 && cachedReader !== undefined
                 && signedInReaderOf(freshRead.data) === cachedReader) {
                 showPage();
+                resumePlaceOnThePage(cachedPlaceReference.current);
             } else {
                 window.location.reload();
             }
