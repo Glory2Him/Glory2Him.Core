@@ -68,7 +68,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.24 [Must]** A card is rendered only once its setting has loaded: until the effective settings read lands, the page holds the cards back and shows the list's loading state, announced (§UI20.6.6 rule 5). If the settings read fails, the page shows its error, announced, with a Retry, in the cards' place — never the cards without their settings. *(user, 2026-09-27)* ≠ item 1
 
-**2.25 [Must]** A change to an item's setting reaches the open page without a reload: comments switched off for an item, say, take the comments control off its card (§ARC12.5.2 business rule 12). How the page learns of the change is designed under #702, *Push Live Updates To Open Pages*; until it is designed and built, nothing pushes a change to the page. *(user, 2026-09-27; §ARC12.5.2 business rule 12)* ≠ item 11
+**2.25 [Must]** A change to an item's setting reaches the open page without a reload: comments switched off for an item, say, take the comments control off its card (§ARC12.5.2 business rule 12). How the page learns of the change is §UI20.10's: the live connection makes the page's settings read stale, and the page reads it again, with no code of its own (`DesignFeatures/LiveUpdates.md` rule 1, #702). *(user, 2026-09-27; §ARC12.5.2 business rule 12)* ≠ item 11
 
 **2.26 [Could]** A Bible reference that cannot be read as a passage leads to the Bible reference page all the same, which says it could not be found and offers the search (`UI/Pages/BibleReference.md rule 2.18`). *(user, 2026-09-28)* ≠ item 13
 
@@ -321,13 +321,14 @@ Every write a card leads to is decided again by the service (§SEC14.6).
    `UI/Pages/PostDetail.md rules 2.13 and 2.18`, `UI/Pages/MyPosts.md rule 2.14`,
    `UI/Pages/MyPostDetail.md rule 2.15`). The admin
    section's queue follows the same two rules (`UI/Pages/ContentItemModerationPage.md §6 item 6`).
-11. (#702) **Page gap — a changed setting does not reach the open page.** Rule 2.25 (user rulings
+11. (#910) **Page gap — a changed setting does not reach the open page.** Rule 2.25 (user rulings
     2026-09-27; §ARC12.5.2 business rule 12). Nothing pushes a change to an open page: the page
     reads its settings through `contentItemSettingService.useGetEffectiveSettingsFor`, as `/` does,
     so a setting another person changes reaches it only on the query library's own triggers or on a
-    reload. The live connection is designed under #702, *Push Live Updates To Open Pages* (user
-    ruling 2026-09-27); this page's share — hearing of a change to a setting that governs an item
-    it shows, and updating what it shows — is carved from that design. The same gap on `/` is
+    reload. The live connection was designed under #702 (`DesignFeatures/LiveUpdates.md`, user
+    rulings 2026-09-27 and 2026-10-06): this page's share — hearing of a change to a setting that
+    governs an item it shows, and updating what it shows — needs no code of its own (§UI20.10 rule
+    2), and is built when `Root` opens the connection (§UI20.10 item 1), the task this item carries. The same gap on `/` is
     `UI/Pages/Home.md §6 item 11`, whose evidence stands for this page too.
 12. (needs issue) **Page gap — the contribution link carries no origin.** Rule 2.13 (user ruling
     2026-09-27): every link to `/posts/contribute` passes its own address as the origin, this

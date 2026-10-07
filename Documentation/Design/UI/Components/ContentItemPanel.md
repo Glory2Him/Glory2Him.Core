@@ -122,7 +122,7 @@ has a story of its own; the rules that belong to one face live there, and sectio
 
 **2.43 [Must]** Handed no item, the panel shows the restricted face, `ContentItemRestrictedPanel` ([ContentItemPanel.Restricted.md](ContentItemPanel.Restricted.md)), instead of the add face when the reader has no content type left to contribute, whatever the reason none remains: no content type is on offer, or the reader's read-only roles leave no tile (`UI/Components/ContentItemPanel.Add.md rules 2.6 and 3.2.4`). It takes the place of the add face's two refusals and is asked where they were — after the loading line and after sign-in — so a signed-out reader still gets the add face's login link (`UI/Components/ContentItemPanel.Add.md rule 3.3.1`). *(user, 2026-09-27)* ≠ `UI/Components/ContentItemPanel.Restricted.md §10 item 1`
 
-**2.44 [Must]** A setting may change while an item is shown — comments switched off for one item, for example — and the card is to reflect the change without the reader reloading (§ARC12.5.2 business rule 12). The card takes the change when the page hands it the new setting, as it takes any change (rule 2.30): the parts that setting governs then show or go under it (rules 2.29, 3.1.8 and 3.1.12). How the page learns of the change is the page's: the user ruled on 2026-09-27 that live updates across the site — a live connection pushing changes to open pages, potentially driven by the `-Added`, `-Modified` and `-Removed` facts — get their own design, #702 (`DESIGN: Push Live Updates To Open Pages`), and until it is designed and built nothing pushes a change to an open page (§ARC12.5.2 business rule 12). *(user, 2026-09-27; §ARC12.5.2 business rule 12)*
+**2.44 [Must]** A setting may change while an item is shown — comments switched off for one item, for example — and the card is to reflect the change without the reader reloading (§ARC12.5.2 business rule 12). The card takes the change when the page hands it the new setting, as it takes any change (rule 2.30): the parts that setting governs then show or go under it (rules 2.29, 3.1.8 and 3.1.12). How the page learns of the change is the page's: the user ruled on 2026-09-27 that live updates across the site — a live connection pushing changes to open pages, potentially driven by the `-Added`, `-Modified` and `-Removed` facts — get their own design, #702 (`DESIGN: Push Live Updates To Open Pages`). That design is `DesignFeatures/LiveUpdates.md`, and §UI20.10 rules how every page hears a change: a setting message makes the page's settings read stale, and the page hands the card the setting it reads again (§ARC12.5.2 business rule 12). *(user, 2026-09-27; §ARC12.5.2 business rule 12)*
 
 ## 3. Presentation / Behaviour rules
 
@@ -638,8 +638,8 @@ signed-out reader to sign in itself, which rule 3.2.4 leaves to the page (sectio
     one that updates the reaction counts after a vote. Rule 2.44 is the card's half: it takes the
     change when the page hands it the new setting. How the page learns of the change was then
     ruled too: live updates across the site get their own design, #702 (`DESIGN: Push Live
-    Updates To Open Pages`), which §ARC12.5.2 business rule 12 points at; until it is designed and
-    built, nothing pushes a change to an open page.
+    Updates To Open Pages`), which §ARC12.5.2 business rule 12 points at, and which was written as
+    `DesignFeatures/LiveUpdates.md` on 2026-10-06.
 19. **Note — the server's removal rule agrees; its gate is not yet built to it.** §SEC14.7
     posture A rule 3 confines the owner's removal to a stored row that is `Draft` or `Submitted`
     and keeps `Administrators` at any status (§APR9.9), as rule 2.17 now does. The foundation's
