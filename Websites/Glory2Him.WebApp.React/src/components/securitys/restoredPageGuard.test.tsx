@@ -715,5 +715,20 @@ describe('RestoredPageGuard', () => {
             expect(placeAsFirstShown?.focusedElement).toBe(field);
             expect(placeAsFirstShown?.caret).toEqual([5, 5]);
         });
+
+        it('should resume a page hidden as it went into the cache at the horizontal scroll position it had', async () => {
+            // given
+            mocks.currentUser = readerA;
+            render(<Page />);
+            window.scrollTo(300, 0);
+            dispatchPageTransition('pagehide', true);
+            answerFreshRead(freshCopyOf(readerA));
+
+            // when
+            const placeAsFirstShown = await restoreAndNoteThePlaceAsFirstShown();
+
+            // then
+            expect(placeAsFirstShown?.horizontalScrollPosition).toBe(300);
+        });
     });
 });
