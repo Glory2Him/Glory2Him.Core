@@ -7,9 +7,11 @@ import { RestoredPageGuard } from './restoredPageGuard';
 
 // The guard reads the current user through accountService. Each render hands it a NEW result
 // object, as React Query does, so a guard that keeps the result of its first render cannot
-// pass by having the shared state mutated under it.
+// pass by having the shared state mutated under it. A read with no answer yet is loading unless a
+// test says otherwise, as React Query counts a paused read as pending but not loading.
 const mocks = vi.hoisted(() => ({
     currentUser: undefined as unknown,
+    isLoading: undefined as boolean | undefined,
     refetch: vi.fn()
 }));
 
@@ -17,7 +19,7 @@ vi.mock('../../services/foundations/accountService', () => ({
     accountService: {
         useGetCurrentUser: () => ({
             data: mocks.currentUser,
-            isLoading: mocks.currentUser === undefined,
+            isLoading: mocks.isLoading ?? mocks.currentUser === undefined,
             refetch: mocks.refetch
         })
     }
@@ -329,6 +331,7 @@ describe('RestoredPageGuard', () => {
 
     beforeEach(() => {
         mocks.currentUser = undefined;
+        mocks.isLoading = undefined;
         mocks.refetch.mockReset();
         reload = vi.fn();
         vi.spyOn(window.location, 'reload').mockImplementation(reload);
@@ -592,6 +595,20 @@ describe('RestoredPageGuard', () => {
     it('should hide a page as it goes into the cache while the current user is being read', () => {
         // given
         mocks.currentUser = undefined;
+        render(<Page />);
+
+        // when
+        dispatchPageTransition('pagehide', true);
+
+        // then
+        expect(isHidden()).toBe(true);
+        expect(getComputedStyle(document.documentElement).display).toBe('none');
+    });
+
+    it("should hide a page as it goes into the cache while the current user's read is paused", () => {
+        // given
+        mocks.currentUser = undefined;
+        mocks.isLoading = false;
         render(<Page />);
 
         // when
