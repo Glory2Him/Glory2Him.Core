@@ -759,6 +759,60 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldFindNothingForAnotherReadersPairWithNoHostOnEndpointAAsync()
+        {
+            // given: a reaction paired with a tag, which has no host on endpoint A. The caller
+            // check comes first, so a denied read answers not found whatever pair it names rather
+            // than telling the caller the pair is invalid (§7 rule 2; ts-foundations-012).
+            string callerUserId = GetRandomString();
+            string anotherReaderUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association lookupRequest = CreateNoHostLookupRequest(anotherReaderUserId);
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            string expectedWarning =
+                "Personal content item association lookup denied. User " +
+                $"\"{callerUserId}\" asked for another user's row; reported to the caller as " +
+                "not found.";
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(callerUserId);
+
+            // when
+            PersonalAssociationMatch? actualMatch =
+                await this.associationService.FindPersonalAssociationAsync(
+                    lookupRequest,
+                    inputCancellationToken);
+
+            // then: not found, no validation exception, and storage never asked
+            actualMatch.Should().BeNull();
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(lookupRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(expectedWarning),
+                    Times.Once);
+
+            VerifyPersonalLookupAsked(inputCancellationToken, Times.Never());
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // the lookup serves the owner alone, so no role lets a caller find another reader's row —
         // the review tier's audit reads another reader's row by other means (§SEC14.7 posture A′
         // rule 7)
@@ -835,6 +889,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             lookupRequest.EntityAContentType = null;
             lookupRequest.EntityAScope = Scope.ThisVersionOnly;
             lookupRequest.EntityAGroupId = lookupRequest.EntityAKeyId;
+
+            return lookupRequest;
+        }
+
+        // A reader's reaction paired with a tag, in canonical order: "Reaction" sorts before
+        // "Tag", so the reaction is endpoint A and the pair has no host to key on. Neither type is
+        // versioned, so each is named under ThisVersionOnly with its group id its own key id.
+        private static Association CreateNoHostLookupRequest(string readerUserId)
+        {
+            Association lookupRequest = CreatePersonalLookupRequest(readerUserId);
+            lookupRequest.EntityAType = EntityType.Reaction;
+            lookupRequest.EntityAContentType = null;
+            lookupRequest.EntityAScope = Scope.ThisVersionOnly;
+            lookupRequest.EntityAGroupId = lookupRequest.EntityAKeyId;
+            lookupRequest.EntityBType = EntityType.Tag;
+            lookupRequest.EntityBScope = Scope.ThisVersionOnly;
 
             return lookupRequest;
         }
