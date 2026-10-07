@@ -69,6 +69,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 // orientation: a request naming the reaction first would otherwise key the lookup
                 // off the reaction (§DOM4.4 rule 4)
                 association = NormalizeEndpointOrder(association);
+                ValidatePersonalLookupHasHostOnEndpointA(association);
 
                 Guid entityAEffectiveId = ResolveEffectiveId(
                     association.EntityAScope,
@@ -113,6 +114,14 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 (Rule: IsInvalid(association.EntityBGroupId), Parameter: nameof(Association.EntityBGroupId)),
                 (Rule: IsInvalid(association.EntityAScope), Parameter: nameof(Association.EntityAScope)),
                 (Rule: IsInvalid(association.EntityBScope), Parameter: nameof(Association.EntityBScope)));
+
+        // Asked once canonical order is restored, and after the caller check, so a denied read
+        // still answers not found whatever pair it names (§7 rules 1 and 2). A reaction paired
+        // with a tag, either way round, or with another reaction, lands on A and has no host.
+        private static void ValidatePersonalLookupHasHostOnEndpointA(Association association) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsPersonalOnEndpointA(association.EntityAType), Parameter: nameof(Association.EntityAType)));
 
         // The personal-key condition, written once (§DOM4.6 rule 2; the user story's preamble):
         // the key UX_Associations_PersonalPair holds — the host's type and effective id, the far
