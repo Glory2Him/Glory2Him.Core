@@ -589,6 +589,19 @@ describe('RestoredPageGuard', () => {
         expect(getComputedStyle(document.documentElement).display).toBe('none');
     });
 
+    it('should hide a page as it goes into the cache while the current user is being read', () => {
+        // given
+        mocks.currentUser = undefined;
+        render(<Page />);
+
+        // when
+        dispatchPageTransition('pagehide', true);
+
+        // then
+        expect(isHidden()).toBe(true);
+        expect(getComputedStyle(document.documentElement).display).toBe('none');
+    });
+
     describe('in a browser that takes a hidden page out of the render', () => {
         beforeEach(() => {
             modelHowABrowserScrollsAndFocuses();
