@@ -210,6 +210,69 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldFindTheReadersRowOnAHostThatIsNotAContentItemAsync()
+        {
+            // given: a reaction on a Bible reference. "BibleReference" sorts before "Reaction", so
+            // the host is endpoint A and is not personal; a refusal written as "no content item
+            // endpoint" rather than "a personal type on A" would refuse it (§7 rule 1).
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association lookupRequest = CreateBibleReferenceLookupRequest(readerUserId);
+
+            // the Bible reference has one row, so the stored host is the one the request names
+            Association readersRow = lookupRequest.DeepClone();
+            readersRow.Id = Guid.NewGuid();
+            readersRow.EntityBKeyId = Guid.NewGuid();
+            readersRow.EntityBGroupId = readersRow.EntityBKeyId;
+            readersRow = WithDatabaseComputedEffectiveIds(readersRow);
+
+            List<Association> storageAssociations =
+                CreateRandomAssociations().Append(readersRow).ToList();
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            var expectedMatch = new PersonalAssociationMatch
+            {
+                Id = readersRow.Id,
+                EntityBKeyId = readersRow.EntityBKeyId,
+                IsDeleted = false
+            };
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalLookupOver(storageAssociations, inputCancellationToken);
+
+            // when
+            PersonalAssociationMatch? actualMatch =
+                await this.associationService.FindPersonalAssociationAsync(
+                    lookupRequest,
+                    inputCancellationToken);
+
+            // then
+            actualMatch.Should().BeEquivalentTo(expectedMatch);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(lookupRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalLookupAsked(inputCancellationToken, Times.Once());
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         [Theory]
         [MemberData(nameof(PersonalKeyTerms))]
         public async Task ShouldFindNoRowThatMissesATermOfThePersonalKeyAsync(string missedTerm)
@@ -759,6 +822,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             lookupRequest.EntityAGroupId = Guid.NewGuid();
             lookupRequest.EntityBKeyId = Guid.NewGuid();
             lookupRequest.EntityBGroupId = lookupRequest.EntityBKeyId;
+
+            return lookupRequest;
+        }
+
+        // A reader's reaction on a Bible reference: a host that is not a content item, and is not
+        // versioned, so it is named under ThisVersionOnly with its group id its own key id.
+        private static Association CreateBibleReferenceLookupRequest(string readerUserId)
+        {
+            Association lookupRequest = CreatePersonalLookupRequest(readerUserId);
+            lookupRequest.EntityAType = EntityType.BibleReference;
+            lookupRequest.EntityAContentType = null;
+            lookupRequest.EntityAScope = Scope.ThisVersionOnly;
+            lookupRequest.EntityAGroupId = lookupRequest.EntityAKeyId;
 
             return lookupRequest;
         }
