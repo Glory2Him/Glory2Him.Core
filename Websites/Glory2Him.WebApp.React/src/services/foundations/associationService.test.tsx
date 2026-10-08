@@ -636,3 +636,137 @@ describe('associationService.useGetReactionSummaries', () => {
         expect(result.current.isError).toBe(false);
     });
 });
+
+describe('associationService.useReadReactionSummariesAgain', () => {
+    let queryClient: QueryClient;
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const summaryFor = (contentItemId: string, count = 1): ContentItemReactionSummary => ({
+        contentItemId,
+        reactions: [{ reactionId: 'reaction-1', name: 'Like', unicodeEmoji: '👍', count }],
+        viewerReactionId: null,
+        viewerReactionName: null
+    });
+
+    // EVERY READ IS HELD OPEN until the test lands it, so which read ends the wait is the
+    // test's to decide, in the order it chooses, rather than the order the broker happens to
+    // answer in.
+    interface HeldRead {
+        contentItemIds: ReadonlyArray<string>;
+        answer: (summaries: ContentItemReactionSummary[]) => void;
+        fail: (error: Error) => void;
+    }
+
+    let heldReads: HeldRead[];
+
+    const answer = (heldRead: HeldRead, count = 1) => act(async () => {
+        heldRead.answer(heldRead.contentItemIds.map(contentItemId => summaryFor(contentItemId, count)));
+    });
+
+    const fail = (heldRead: HeldRead) => act(async () => {
+        heldRead.fail(new Error('refused'));
+    });
+
+    // Long enough for every read that has landed to have been seen, so a wait that would end
+    // on it has ended.
+    const letTheLandedReadsBeSeen = () => act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    const watch = (wait: Promise<void>) => {
+        const watched = { hasResolved: false, wait };
+        wait.then(() => { watched.hasResolved = true; });
+
+        return watched;
+    };
+
+    const summaryKey = (page: ReadonlyArray<string>) => ['ReactionSummaries', 'reader-1', page];
+
+    const renderTheSummariesAndTheReadAgain = (pages: ReadonlyArray<ReadonlyArray<string>>) =>
+        renderHook(
+            () => ({
+                read: associationService.useGetReactionSummaries(pages, 'reader-1'),
+                readAgain: associationService.useReadReactionSummariesAgain()
+            }),
+            { wrapper });
+
+    const readAgain = (readAgainOf: () => () => Promise<void>) => {
+        let wait: Promise<void> = Promise.resolve();
+        act(() => { wait = readAgainOf()(); });
+
+        return watch(wait);
+    };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        getReactionSummariesAsync.mockReset();
+        heldReads = [];
+
+        getReactionSummariesAsync.mockImplementation(
+            (contentItemIds: ReadonlyArray<string>) => new Promise((resolve, reject) => {
+                heldReads.push({ contentItemIds, answer: resolve, fail: reject });
+            }));
+
+        queryClient = new QueryClient({
+            defaultOptions: { queries: { retry: false } }
+        });
+    });
+
+    // A page whose only read failed holds no answer and has no read in flight. It is read
+    // afresh at the call, never waited on for a read nobody sent.
+    it.each([
+        ['both pages hold answers', false],
+        ['a page holds no answer because its only read failed', true]
+    ])('should resolve once a fresh read of every summaries page has landed (%s)',
+        async (_, secondPageFailed) => {
+            // given
+            const firstPage = ['quote-1', 'quote-2'];
+            const secondPage = ['quote-3', 'quote-4'];
+            const { result } = renderTheSummariesAndTheReadAgain([firstPage, secondPage]);
+
+            await waitFor(() => expect(heldReads).toHaveLength(2));
+            await answer(heldReads[0]);
+
+            if (secondPageFailed) {
+                await fail(heldReads[1]);
+                await waitFor(() => expect(result.current.read.isError).toBe(true));
+            } else {
+                await answer(heldReads[1]);
+            }
+
+            await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+
+            // when
+            const watched = readAgain(() => result.current.readAgain);
+
+            // then
+            await waitFor(() => expect(heldReads).toHaveLength(4));
+            expect(heldReads[2].contentItemIds).toEqual(firstPage);
+            expect(heldReads[3].contentItemIds).toEqual(secondPage);
+
+            await letTheLandedReadsBeSeen();
+            expect(watched.hasResolved).toBe(false);
+
+            // when
+            await answer(heldReads[2], 2);
+            await letTheLandedReadsBeSeen();
+
+            // then
+            expect(watched.hasResolved).toBe(false);
+
+            // when
+            await answer(heldReads[3], 2);
+
+            // then
+            await act(async () => { await watched.wait; });
+
+            expect(queryClient.getQueryData(summaryKey(firstPage)))
+                .toEqual(firstPage.map(contentItemId => summaryFor(contentItemId, 2)));
+
+            expect(queryClient.getQueryData(summaryKey(secondPage)))
+                .toEqual(secondPage.map(contentItemId => summaryFor(contentItemId, 2)));
+        });
+});

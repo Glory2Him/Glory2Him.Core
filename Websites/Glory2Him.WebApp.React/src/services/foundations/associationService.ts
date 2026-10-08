@@ -89,5 +89,7 @@ export const associationService = {
         const isError = pageReads.some(pageRead => pageRead.isError);
 
         return { summaries, isLoading, isError };
-    }
+    },
+
+    useReadReactionSummariesAgain: (() => async () => undefined) as () => () => Promise<void>
 };
