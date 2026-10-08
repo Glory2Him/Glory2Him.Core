@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { toastSuccess } from '../brokers/toastBroker.success';
+import { associationService } from '../services/foundations/associationService';
 import { reactionService } from '../services/foundations/reactionService';
 
 import {
@@ -19,8 +20,11 @@ import {
 // this visit (the picker marks it, a second click withdraws it) and Save says so honestly.
 // Share is real: it copies the item's address. When #318 lands, the handlers here grow a write
 // each and no page or component changes shape.
-export const useContentItemEngagement = () => {
+export const useContentItemEngagement = (
+    contentItemIdPages?: ReadonlyArray<ReadonlyArray<string>>) => {
     const { data: reactions } = reactionService.useGetApprovedReactions();
+
+    associationService.useGetReactionSummaries(contentItemIdPages ?? [], undefined);
 
     // What this visitor has chosen, per item, for THIS VISIT. Merged into the projection below
     // so the picker shows the choice; nothing is persisted yet.
