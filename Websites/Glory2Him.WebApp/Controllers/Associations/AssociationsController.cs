@@ -28,8 +28,8 @@ namespace Glory2Him.WebApp.Controllers.Associations
     /// The association exposure point (§ARC12.6 row 14). It binds
     /// <see cref="IAssociationOrchestrationService"/> alone (§EVN13 rule 3), holds no logic, and
     /// maps the orchestration's exception families onto status codes. Its routes are added by the
-    /// work that needs them rather than all at once: today it serves the upsert and the reaction
-    /// summary read.
+    /// work that needs them rather than all at once: today it serves the upsert, the pair-keyed
+    /// withdrawal and the reaction summary read.
     ///
     /// <para><b>The upsert answers <c>201</c> only when a row was created, and <c>200</c>
     /// otherwise</b>, with the result rather than the row as the body. Both depart from
@@ -37,6 +37,13 @@ namespace Glory2Him.WebApp.Controllers.Associations
     /// <c>Documentation/DesignFeatures/Backend/Controllers/AssociationsController.md</c>,
     /// <i>Deviations</i>, records why: five of the six outcomes create nothing, and the row
     /// would leak its author (§ARC16.8.1).</para>
+    ///
+    /// <para><b>The withdrawal answers <c>204</c> on both of its outcomes</b>, with no body —
+    /// another departure from <c>the-standard-exposers</c>, ts-exposers-006, recorded beside the
+    /// first. The reader holds nothing on the pair either way, a <c>404</c> when there was nothing
+    /// to withdraw would make the route a probe for which reactions exist, and the deleted row
+    /// would leak its author (§ARC16.8.1). It has no <c>409</c> arm: nothing it writes can
+    /// already exist.</para>
     ///
     /// <para><b>The summary read is open to every caller and takes no query options.</b> Its
     /// counts are the same whoever asks, so a signed-out reader is served rather than refused;
