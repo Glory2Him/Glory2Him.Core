@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import AssociationBroker from '../../brokers/apiBroker.associations';
 import { AssociationRequest } from '../../models/foundations/associations/associationRequest';
 import { AssociationSuggestionResult } from '../../models/foundations/associations/associationSuggestionResult';
@@ -31,8 +31,19 @@ export const associationService = {
         });
     },
 
-    useGetReactionSummaries: ((): ReactionSummariesRead =>
-        ({ summaries: {}, isLoading: false, isError: false })) as (
-            contentItemIdPages: ReadonlyArray<ReadonlyArray<string>>,
-            readerId: string | null | undefined) => ReactionSummariesRead
+    useGetReactionSummaries: (
+        contentItemIdPages: ReadonlyArray<ReadonlyArray<string>>,
+        readerId: string | null | undefined): ReactionSummariesRead => {
+        const associationBroker = new AssociationBroker();
+
+        useQueries({
+            queries: contentItemIdPages.map(contentItemIds => ({
+                queryKey: ['ReactionSummaries', readerId, contentItemIds],
+                queryFn: async () =>
+                    await associationBroker.GetReactionSummariesAsync(contentItemIds)
+            }))
+        });
+
+        return { summaries: {}, isLoading: false, isError: false };
+    }
 };
