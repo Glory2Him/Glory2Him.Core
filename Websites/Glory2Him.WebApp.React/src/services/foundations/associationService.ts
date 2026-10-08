@@ -108,6 +108,10 @@ export const associationService = {
         return { summaries, isLoading, isError };
     },
 
+    // Reads the summaries the page is showing again, and resolves once a read sent at or after
+    // the call has landed for each, so the engagement hook knows the server's answer is in, even
+    // when it did not change. Only the active reads: one cached from another screen or disabled
+    // for an empty page would hold the caller for a read that never comes.
     useReadReactionSummariesAgain: () => {
         const queryClient = useQueryClient();
 
