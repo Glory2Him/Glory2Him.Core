@@ -59,5 +59,44 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
 
             this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldReturnNotFoundOnDeletePairIfAnEndpointIsNotFoundAsync()
+        {
+            // given
+            Association someAssociation = CreateRandomAssociation();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            string someMessage = GetRandomString();
+
+            var notFoundAssociationOrchestrationException =
+                new NotFoundAssociationOrchestrationException(
+                    message: someMessage);
+
+            var associationOrchestrationValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: someMessage,
+                    innerException: notFoundAssociationOrchestrationException);
+
+            NotFoundObjectResult expectedNotFoundObjectResult =
+                NotFound(notFoundAssociationOrchestrationException);
+
+            this.associationOrchestrationServiceMock.Setup(service =>
+                service.RemoveAssociationByPairAsync(someAssociation, cancellationToken))
+                    .ThrowsAsync(associationOrchestrationValidationException);
+
+            // when
+            ActionResult actualActionResult =
+                await this.associationsController.DeleteAssociationPairAsync(someAssociation, cancellationToken);
+
+            // then
+            actualActionResult.Should().BeOfType<NotFoundObjectResult>()
+                .Which.Should().BeEquivalentTo(expectedNotFoundObjectResult);
+
+            this.associationOrchestrationServiceMock.Verify(service =>
+                service.RemoveAssociationByPairAsync(someAssociation, cancellationToken),
+                    Times.Once);
+
+            this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
     }
 }
