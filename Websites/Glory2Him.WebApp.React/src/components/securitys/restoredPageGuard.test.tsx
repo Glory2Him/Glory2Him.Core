@@ -152,10 +152,12 @@ const expectHiddenAsItGoesIntoTheCache = (): void => {
     expect(rootStyle.display).not.toBe('none');
 };
 
-// happy-dom scrolls and focuses under a hidden root, and never scrolls on focus. A browser takes
-// the page out of the render while any part of the hiding remains: both its scroll offsets read as
-// the top left from the moment the page is hidden until something sets them once the page is
-// shown, the focus moves to `body`, and nothing under it is scrolled or focused meanwhile. Once
+// happy-dom scrolls and focuses under a hidden root, and never scrolls on focus. This models a
+// browser stricter than a real one: while any part of the hiding remains, both scroll offsets read
+// as the top left from the moment the page is hidden until something sets them once the page is
+// shown, the focus moves to `body`, and nothing under it is scrolled or focused meanwhile. A real
+// browser does this under `display: none`, but keeps the scroll position under the hiding the guard
+// uses, so a guard that passes this model resumes the page where the reader left it in either. Once
 // the page is shown, `focus()` scrolls a field that is out of view to its top unless asked not to.
 const topOfTheField = 40;
 let scrollPosition = 0;
@@ -628,7 +630,7 @@ describe('RestoredPageGuard', () => {
         expectHiddenAsItGoesIntoTheCache();
     });
 
-    describe('in a browser that takes a hidden page out of the render', () => {
+    describe('in a browser modelled as moving the scroll position and the focus under any hiding', () => {
         beforeEach(() => {
             modelHowABrowserScrollsAndFocuses();
         });
