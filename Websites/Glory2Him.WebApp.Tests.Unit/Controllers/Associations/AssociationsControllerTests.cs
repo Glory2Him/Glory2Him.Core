@@ -12,8 +12,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
+using System.Text.Json;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Glory2Him.Core.Services.Orchestrations.Associations;
@@ -58,6 +61,16 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
                 EntityBKeyId = Guid.NewGuid()
             };
 
+        /// <summary>
+        /// Every member compared, serialised, so an association carrying anything beyond what the
+        /// expected one carries — a member set, or two endpoints swapped — does not match.
+        /// </summary>
+        private static Expression<Func<Association, bool>> SameAssociationAs(
+            Association expectedAssociation) =>
+            actualAssociation =>
+                JsonSerializer.Serialize(actualAssociation, (JsonSerializerOptions)null)
+                    == JsonSerializer.Serialize(expectedAssociation, (JsonSerializerOptions)null);
+
         public static TheoryData<Xeption> ValidationExceptions()
         {
             var someInnerException = new Xeption();
@@ -72,6 +85,37 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
                 new AssociationOrchestrationDependencyValidationException(
                     message: someMessage,
                     innerException: someInnerException)
+            };
+        }
+
+        /// <summary>
+        /// One case per family, the dependency validation case carrying the inner exception the
+        /// upsert answers <c>409</c> for, so a withdrawal that borrowed that arm would not answer
+        /// <c>400</c> (<c>AssociationsController.md</c> §2 rule 4).
+        /// </summary>
+        public static TheoryData<Xeption> DeletePairValidationExceptions()
+        {
+            var someInnerException = new Xeption();
+            var someException = new Exception();
+            string someMessage = GetRandomString();
+
+            // A message of its own, so a 400 carrying the outer exception rather than this one
+            // does not compare equal.
+            var alreadyExistsAssociationException =
+                new AlreadyExistsAssociationException(
+                    message: GetRandomString(),
+                    innerException: someException,
+                    data: someException.Data);
+
+            return new TheoryData<Xeption>
+            {
+                new AssociationOrchestrationValidationException(
+                    message: someMessage,
+                    innerException: someInnerException),
+
+                new AssociationOrchestrationDependencyValidationException(
+                    message: someMessage,
+                    innerException: alreadyExistsAssociationException)
             };
         }
 
@@ -102,6 +146,14 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
                     ViewerReactionName = GetRandomString()
                 })
                 .ToList();
+
+        private static AssociationRemovalResult CreateAssociationRemovalResult(
+            AssociationRemovalStatus status) =>
+            new AssociationRemovalResult
+            {
+                Status = status,
+                AssociationId = status is AssociationRemovalStatus.Removed ? Guid.NewGuid() : null
+            };
 
         private static AssociationSuggestionResult CreateAssociationSuggestionResult(
             AssociationSuggestionStatus status) =>
