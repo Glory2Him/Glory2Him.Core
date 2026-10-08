@@ -8,7 +8,7 @@ import { ContentItemSearchItem } from '../models/components/contentItems/content
 import { ContentType } from '../models/foundations/contentItemSettings/contentType';
 import { Reaction } from '../models/foundations/reactions/reaction';
 import { ReactionSummariesRead } from '../services/foundations/associationService';
-import { createAuthState, signInAs } from '../tests/testAuth';
+import { createAuthState, setLoading, signInAs, signOut } from '../tests/testAuth';
 
 // The hook's own business is which summaries it asks for, for whom, and what it puts on each
 // card. The foundation services below it are mocked as the page tests mock them, so each test
@@ -225,5 +225,29 @@ describe('useContentItemEngagement', () => {
         const cards = [cardFor('item-1'), { ...cardFor('item-2'), commentCount: 2 }];
 
         expect(result.current.withReactions(cards)).toStrictEqual(cards);
+    });
+
+    it('should read the summaries for the reader the sign-in state names', () => {
+        const readersBySignInState: ReadonlyArray<[() => void, string | null | undefined]> = [
+            [() => setLoading(authState), undefined],
+            [() => { authState.data = undefined; authState.isLoading = false; }, undefined],
+            [() => signInAs(authState), 'user-1'],
+            [() => signOut(authState), null]
+        ];
+
+        for (const [enterSignInState, expectedReaderId] of readersBySignInState) {
+            enterSignInState();
+            useGetReactionSummaries.mockClear();
+
+            const { unmount } = renderEngagement([['item-1']]);
+
+            expect(useGetReactionSummaries).toHaveBeenCalled();
+
+            for (const [, handedReaderId] of useGetReactionSummaries.mock.calls) {
+                expect(handedReaderId).toBe(expectedReaderId);
+            }
+
+            unmount();
+        }
     });
 });
