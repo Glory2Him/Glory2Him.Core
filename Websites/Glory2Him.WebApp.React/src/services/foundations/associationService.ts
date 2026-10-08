@@ -47,6 +47,10 @@ export const associationService = {
         });
     },
 
+    // The reaction summaries of the cards a list has delivered: one query per delivered page,
+    // never one over the accumulated list, so a newly loaded page asks for its own ids alone
+    // (§ARC16.8). Keyed on the reader too, because a summary carries the reader's own reaction;
+    // the id only separates the cached answers and is never sent.
     useGetReactionSummaries: (
         contentItemIdPages: ReadonlyArray<ReadonlyArray<string>>,
         readerId: string | null | undefined): ReactionSummariesRead => {
