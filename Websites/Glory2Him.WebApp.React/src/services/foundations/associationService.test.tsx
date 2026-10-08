@@ -781,7 +781,7 @@ describe('associationService.useReadReactionSummariesAgain', () => {
         async (_, pageBeforeTheReadInFlight) => {
             // given
             const page = ['quote-1', 'quote-2'];
-            const { result } = renderTheSummariesAndTheReadAgain([page]);
+            const { result, rerender } = renderTheSummariesAndTheReadAgain([page]);
 
             await waitFor(() => expect(heldReads).toHaveLength(1));
 
@@ -801,6 +801,13 @@ describe('associationService.useReadReactionSummariesAgain', () => {
 
             // when
             const watched = readAgain(() => result.current.readAgain);
+
+            // The page re-renders while the read is in flight, as it does in the app, so the
+            // query cache tells the wait of a change before that read lands: a wait that took a
+            // failure landed before the call for a read landed after it ends here.
+            rerender();
+            await letTheLandedReadsBeSeen();
+
             await answer(readInFlight, 2);
             await letTheLandedReadsBeSeen();
 
