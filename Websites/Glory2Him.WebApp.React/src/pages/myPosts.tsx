@@ -97,7 +97,7 @@ export function MyPosts() {
     const feedNavigation = buildContentItemFeedNavigation(
         navigate, location, (item) => `/myposts/${item.id}`);
 
-    const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withViewerReactions } =
+    const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withReactions } =
         useContentItemEngagement();
 
     // Straight to the item; the detail surface's edit mode is its own work, so for now Edit
@@ -139,7 +139,7 @@ export function MyPosts() {
                         ) : (
                             <ContentItemListPanel
                                 ariaLabel="My posts"
-                                contentItemCollection={withViewerReactions(contentItems)}
+                                contentItemCollection={withReactions(contentItems)}
                                 categorySettingCollection={contentItemSettings ?? []}
                                 criteria={criteria}
                                 onSearch={search}

@@ -24,7 +24,8 @@ export const useContentItemEngagement = (
     contentItemIdPages?: ReadonlyArray<ReadonlyArray<string>>) => {
     const { data: reactions } = reactionService.useGetApprovedReactions();
 
-    associationService.useGetReactionSummaries(contentItemIdPages ?? [], undefined);
+    const { summaries } =
+        associationService.useGetReactionSummaries(contentItemIdPages ?? [], undefined);
 
     // What this visitor has chosen, per item, for THIS VISIT. Merged into the projection below
     // so the picker shows the choice; nothing is persisted yet.
@@ -54,12 +55,26 @@ export const useContentItemEngagement = (
 
     const onSaveClick = () => toastSuccess('Saving posts is coming soon.');
 
-    const withViewerReactions = (
+    const withReactions = (
         contentItems: ReadonlyArray<ContentItemSearchItem>): ReadonlyArray<ContentItemSearchItem> =>
-        contentItems.map((contentItem) =>
-            (viewerReactions[contentItem.id] ?? '').length > 0
-                ? { ...contentItem, viewerReactionLabel: viewerReactions[contentItem.id] }
-                : contentItem);
+        contentItems.map((contentItem) => {
+            const summary = summaries[contentItem.id];
 
-    return { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withViewerReactions };
+            const summarisedItem = summary === undefined
+                ? contentItem
+                : {
+                    ...contentItem,
+                    reactionSummary: summary.reactions.map((reaction) => ({
+                        label: reaction.name,
+                        glyph: reaction.unicodeEmoji,
+                        count: reaction.count
+                    }))
+                };
+
+            return (viewerReactions[contentItem.id] ?? '').length > 0
+                ? { ...summarisedItem, viewerReactionLabel: viewerReactions[contentItem.id] }
+                : summarisedItem;
+        });
+
+    return { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withReactions };
 };

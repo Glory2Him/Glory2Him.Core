@@ -63,7 +63,7 @@ export function PostDetail() {
         onReactionSelected,
         onShareClick,
         onSaveClick,
-        withViewerReactions
+        withReactions
     } = useContentItemEngagement();
 
     // WHO SUBMITTED IT. The item carries CreatedBy — an account id — so the byline needs a second
@@ -90,11 +90,11 @@ export function PostDetail() {
         [contentItem, contentItemSettings, contributor]);
 
     // The visit's chosen reaction, folded over the projection — and deliberately NOT memoised.
-    // withViewerReactions closes over the choices and is rebuilt every render, so a memo listing
+    // withReactions closes over the choices and is rebuilt every render, so a memo listing
     // it recomputes every render and buys nothing, while a memo keyed on readItem alone would go
     // stale the moment the reader chose. The fold is a map over one item; a plain call is the
     // honest shape.
-    const searchItem = readItem == null ? undefined : withViewerReactions([readItem])[0];
+    const searchItem = readItem == null ? undefined : withReactions([readItem])[0];
 
     // What the page is called, on screen and in the tab.
     //

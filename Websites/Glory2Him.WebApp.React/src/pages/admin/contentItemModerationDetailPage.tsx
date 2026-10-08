@@ -122,7 +122,7 @@ export const ContentItemModerationDetailPage = () => {
     // that passes no handler is a second switch no ShowReactions setting can reach (§DOM6.5).
     // Share and Save are deliberately NOT taken: an item under moderation is by definition not
     // approved, so the /posts/{id} address Share copies answers nothing for it.
-    const { reactionOptions, onReactionSelected, withViewerReactions } =
+    const { reactionOptions, onReactionSelected, withReactions } =
         useContentItemEngagement();
 
     const readItem = useMemo(
@@ -136,10 +136,10 @@ export const ContentItemModerationDetailPage = () => {
         [contentItem, contentItemSettings, contributor]);
 
     // The visit's chosen reaction, folded over the projection — and deliberately NOT memoised,
-    // for the reason postDetail records: withViewerReactions closes over the choices and is
+    // for the reason postDetail records: withReactions closes over the choices and is
     // rebuilt every render, so a memo listing it recomputes every render and buys nothing,
     // while a memo keyed on readItem alone would go stale the moment the moderator chose.
-    const searchItem = readItem == null ? undefined : withViewerReactions([readItem])[0];
+    const searchItem = readItem == null ? undefined : withReactions([readItem])[0];
 
     // The same resolver the panel asks, against the same rows: a type whose effective setting
     // carries no title must not have one shouted as the heading while the panel hides it.

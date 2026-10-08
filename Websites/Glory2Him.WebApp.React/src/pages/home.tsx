@@ -97,7 +97,7 @@ export const Home = () => {
 
     const feedNavigation = buildContentItemFeedNavigation(navigate, location);
 
-    const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withViewerReactions } =
+    const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withReactions } =
         useContentItemEngagement();
 
     // Edit renders only for the item's own submitter and Moderate only for the moderation
@@ -141,7 +141,7 @@ export const Home = () => {
                             ) : (
                                 <ContentItemListPanel
                                     ariaLabel="The journal"
-                                    contentItemCollection={withViewerReactions(contentItems)}
+                                    contentItemCollection={withReactions(contentItems)}
                                     categorySettingCollection={contentItemSettings ?? []}
                                     criteria={criteria}
                                     onSearch={search}
