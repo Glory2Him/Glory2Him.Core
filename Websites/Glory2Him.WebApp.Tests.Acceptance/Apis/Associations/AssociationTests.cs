@@ -25,7 +25,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
     [Collection(nameof(ApiTestCollection))]
     public partial class AssociationApiTests
     {
-        // Two of the five reactions ReactionSeedData ships, by the deterministic ids it seeds
+        // Three of the five reactions ReactionSeedData ships, by the deterministic ids it seeds
         // them under. They are configuration rather than fixtures — approved, published, and
         // present in every host — so a test reacts with them rather than arranging its own.
         private static readonly Guid seededAmenReactionId =
@@ -33,6 +33,9 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
 
         private static readonly Guid seededLoveReactionId =
             new Guid("7b2d90c1-4e6a-4f3b-8d21-000000000002");
+
+        private static readonly Guid seededJoyReactionId =
+            new Guid("7b2d90c1-4e6a-4f3b-8d21-000000000003");
 
         private readonly ApiBroker apiBroker;
 
