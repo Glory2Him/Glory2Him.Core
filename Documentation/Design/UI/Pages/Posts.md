@@ -160,8 +160,8 @@ list's per-surface defaults (section 4.1).
 | `onEditClick` ≠ item 3 | The owner's Edit is clicked — labelled *View* today | Navigates to `/myposts/{id}`, opened in edit mode (rule 2.9) | ❌ No — it navigates to `/posts/{id}` with `edit: true`, which that page never reads (`posts.tsx`, lines 99-102); item 3 |
 | `onModerateClick` ≠ `UI/Pages/ContentItemModerationDetailPage.md §6 item 1` | Moderate is clicked | Navigates to `/Admin/Posts/{id}`, carrying `from` and `moderate: true` (rule 2.10) | ✅ Yes (`posts.tsx`, lines 104-107) |
 | `onReactionSelected` ≠ item 2 | A reaction is chosen, whatever the sign-in state | Sends a signed-out reader to sign in; records, changes or clears a signed-in reader's own reaction (rule 2.15) | ❌ No — the choice is held in page state for the visit; the card redirects a signed-out reader itself (`UI/Components/ContentItemPanel.md §10 item 12`); item 2 |
-| `onShareClick` | Share is clicked | Copies `/posts/{id}` and says so (rule 2.16) | ✅ Yes (`useContentItemEngagement.ts`, lines 44-49) |
-| `onSaveClick` ≠ item 4 | Save is clicked | Nothing designed yet (rule 2.17) | ❌ No — it says *Saving posts is coming soon.* (`useContentItemEngagement.ts`, line 51); item 4 |
+| `onShareClick` | Share is clicked | Copies `/posts/{id}` and says so (rule 2.16) | ✅ Yes (`useContentItemEngagement.ts` — `onShareClick`) |
+| `onSaveClick` ≠ item 4 | Save is clicked | Nothing designed yet (rule 2.17) | ❌ No — it says *Saving posts is coming soon.* (`useContentItemEngagement.ts` — `onSaveClick`); item 4 |
 | `onTagClick`, `onBibleReferenceClick`, `onContentTypeClick`, `onSubmittedByClick`, `onAuthorClick` | A pill or a meta segment is clicked | The list wraps them (section 4.1) | As section 4.1 |
 | `onAdded`, `onModified`, `onRemoved`, `onCancelled` | Never on a listed card | — | *Not wired — switched off*: the list carries none of the writing faces' properties (rule 2.20) |
 
@@ -223,9 +223,9 @@ Every write a card leads to is decided again by the service (§SEC14.6).
    chooses a reaction is to be sent to sign in, with return information that brings them back
    afterwards, and a signed-in reader's reaction recorded or cleared
    (`UI/Components/ContentItemPanel.md rule 3.2.4`). The page takes `onReactionSelected` from
-   `useContentItemEngagement`, which only toggles the choice in page state for the visit and reads
-   no sign-in state (`src/hooks/useContentItemEngagement.ts`, lines 34-42); the card redirects a
-   signed-out reader itself (`UI/Components/ContentItemPanel.md §10 item 12`, which this item ships
+   `useContentItemEngagement`, which only toggles the choice in page state for the visit, whatever
+   the reader's sign-in state (`src/hooks/useContentItemEngagement.ts` — `onReactionSelected`);
+   the card redirects a signed-out reader itself (`UI/Components/ContentItemPanel.md §10 item 12`, which this item ships
    with). Recording the reader's own reaction (§ARC16.8.1, served by #728) and withdrawing it (its member built by #725, its route not yet) are this item's work, and so is the redirect, which uses
    the one reusable sign-in action (`UI/Pages/Home.md §6 item 3`), and must not fire while the
    reader's sign-in state is still being read — the guard the card holds today. The same gap on
@@ -244,9 +244,9 @@ Every write a card leads to is decided again by the service (§SEC14.6).
    which `/posts/{id}` never reads (`UI/Pages/PostDetail.md rule 2.9`). The same gap on `/` is
    `UI/Pages/Home.md §6 item 4`.
 4. (needs issue) **Save has nothing behind it.** Every card offers Save (rule 2.17), and the
-   handler only says *Saving posts is coming soon.* (`useContentItemEngagement.ts`, line 51), to a
-   signed-out reader too. Save has no design yet. The same gap, and its plan under §UI20.6.6 rule 4, is
-   `UI/Pages/Home.md §6 item 5`: one handler serves both pages.
+   handler only says *Saving posts is coming soon.* (`useContentItemEngagement.ts` —
+   `onSaveClick`), to a signed-out reader too. Save has no design yet. The same gap, and its plan
+   under §UI20.6.6 rule 4, is `UI/Pages/Home.md §6 item 5`: one handler serves both pages.
 5. (needs issue) **The comments control leads to a detail view with no comments.** The page
    sends it to `/posts/{id}#comments` (rule 2.14), and `/posts/{id}` renders no comments and no
    element with that id. The same gap on `/` is `UI/Pages/Home.md §6 item 6`.

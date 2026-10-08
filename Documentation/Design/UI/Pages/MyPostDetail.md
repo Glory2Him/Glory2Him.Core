@@ -140,7 +140,7 @@ owned-basis prefill falls back to, and only the owner reaches the editor here.
 | `onAdded` | The add face submits | — | *Never raised*: the panel is always handed an item (`UI/Components/ContentItemPanel.md rule 2.6`) |
 | `onEditClick` | The owner's Edit is pressed and the editor does not open in place | The edit intent `/myposts` sends is not acted on. ≠ item 1 | *Never raised*: the editor opens in place (`UI/Components/ContentItemPanel.md rule 3.1.4`) |
 | `onModerateClick` | Moderate is pressed by an owner who also holds the moderation tier | Navigates to `/Admin/Posts/{id}` (rule 2.20). ≠ item 11 | ❌ No — the page wires no `onModerateClick`, so Moderate does not render here; item 11 |
-| `onReactionSelected` | The reader chooses a reaction | Records, changes or clears the reader's own reaction. ≠ item 4 | ❌ No — the choice is held in page state for the visit, and nothing is recorded (`useContentItemEngagement.ts`, lines 34-42); item 4 |
+| `onReactionSelected` | The reader chooses a reaction | Records, changes or clears the reader's own reaction. ≠ item 4 | ❌ No — the choice is held in page state for the visit, and nothing is recorded (`useContentItemEngagement.ts` — `onReactionSelected`); item 4 |
 | `onShareClick`, `onSaveClick` | *Share* or *Save* is pressed | Not offered (rule 2.7). | *Not wired — switched off* (`myPostDetail.tsx`, the comment above `useContentItemEngagement`) |
 | `onTitleClick` | The title is pressed | The title is plain heading text: this page is the detail surface. | *Not wired — switched off* (`UI/Components/ContentItemPanel.md rule 3.1.10`) |
 | `onReadMore`, `onExpandCollapse` | *read more* is pressed | Never offered: the content stands whole (rule 2.9). | *Not wired — switched off* |
