@@ -149,9 +149,15 @@ namespace Glory2Him.WebApp.Controllers.Associations
             }
         }
 
-        public ValueTask<ActionResult> DeleteAssociationPairAsync(
+        public async ValueTask<ActionResult> DeleteAssociationPairAsync(
             [FromQuery] Association association,
-            CancellationToken cancellationToken) =>
-            throw new NotImplementedException();
+            CancellationToken cancellationToken)
+        {
+            await this.associationOrchestrationService.RemoveAssociationByPairAsync(
+                association,
+                cancellationToken);
+
+            return NoContent();
+        }
     }
 }
