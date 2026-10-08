@@ -13,14 +13,18 @@ import {
     ContentItemSearchItem
 } from '../models/components/contentItems/contentItemSearchItem';
 
-// The engagement wiring the feed pages share, so the cards RENDER their full row — Like with the
-// real reaction vocabulary, Share, Save — while the writes behind them are still to come.
+// The engagement wiring every page that renders the card shares, so each card RENDERS its full
+// row — Like with the real reaction vocabulary, Share, Save — and every page decides it the
+// same way.
 //
-// DELIBERATELY THIN. Persisting a reaction or a saved post is a ContentItem association, and
-// associations have no HTTP exposer yet (#318) — so a chosen reaction lives in page state for
-// this visit (the picker marks it, a second click withdraws it) and Save says so honestly.
-// Share is real: it copies the item's address. When #318 lands, the handlers here grow a write
-// each and no page or component changes shape.
+// THE COUNTS ARE THE SERVER'S. A page hands the hook the ids of each page of cards it has
+// delivered, and withReactions puts each card's reaction summary on it: the reactions its item
+// has been given, and the reader's own. A card the read has no summary for carries neither and
+// still offers Like; a page that hands no pages reads nothing.
+//
+// Choosing writes nothing yet: a chosen reaction lives in page state for this visit, laid over
+// the summary (the picker marks it, a second click withdraws it), and Save says so honestly.
+// Share is real: it copies the item's address.
 export const useContentItemEngagement = (
     contentItemIdPages?: ReadonlyArray<ReadonlyArray<string>>) => {
     const { data: reactions } = reactionService.useGetApprovedReactions();
