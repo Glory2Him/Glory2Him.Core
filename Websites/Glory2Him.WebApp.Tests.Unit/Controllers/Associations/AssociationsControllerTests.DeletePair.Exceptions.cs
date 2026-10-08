@@ -16,6 +16,7 @@ using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
+using Xeptions;
 
 namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
 {
@@ -91,6 +92,37 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
             // then
             actualActionResult.Should().BeOfType<NotFoundObjectResult>()
                 .Which.Should().BeEquivalentTo(expectedNotFoundObjectResult);
+
+            this.associationOrchestrationServiceMock.Verify(service =>
+                service.RemoveAssociationByPairAsync(someAssociation, cancellationToken),
+                    Times.Once);
+
+            this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ValidationExceptions))]
+        public async Task ShouldReturnBadRequestOnDeletePairIfValidationErrorOccurredAsync(
+            Xeption validationException)
+        {
+            // given
+            Association someAssociation = CreateRandomAssociation();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+            BadRequestObjectResult expectedBadRequestObjectResult =
+                BadRequest(validationException.InnerException);
+
+            this.associationOrchestrationServiceMock.Setup(service =>
+                service.RemoveAssociationByPairAsync(someAssociation, cancellationToken))
+                    .ThrowsAsync(validationException);
+
+            // when
+            ActionResult actualActionResult =
+                await this.associationsController.DeleteAssociationPairAsync(someAssociation, cancellationToken);
+
+            // then
+            actualActionResult.Should().BeOfType<BadRequestObjectResult>()
+                .Which.Should().BeEquivalentTo(expectedBadRequestObjectResult);
 
             this.associationOrchestrationServiceMock.Verify(service =>
                 service.RemoveAssociationByPairAsync(someAssociation, cancellationToken),
