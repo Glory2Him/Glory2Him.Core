@@ -769,4 +769,54 @@ describe('associationService.useReadReactionSummariesAgain', () => {
             expect(queryClient.getQueryData(summaryKey(secondPage)))
                 .toEqual(secondPage.map(contentItemId => summaryFor(contentItemId, 2)));
         });
+
+    // A READ IN FLIGHT AT THE CALL never ends the wait. On a query holding an answer, the call's
+    // fresh read supersedes it. On a query holding none, TanStack Query joins it rather than
+    // cancelling it, so it is let land and a fresh read follows it.
+    it.each([
+        ['a re-read of a query holding an answer', 'answered'],
+        ["the query's first read", 'first read'],
+        ['a re-read of a page whose first read failed', 'first read failed']
+    ])('should not resolve on a read that was in flight when it was called (%s)',
+        async (_, pageBeforeTheReadInFlight) => {
+            // given
+            const page = ['quote-1', 'quote-2'];
+            const { result } = renderTheSummariesAndTheReadAgain([page]);
+
+            await waitFor(() => expect(heldReads).toHaveLength(1));
+
+            if (pageBeforeTheReadInFlight !== 'first read') {
+                if (pageBeforeTheReadInFlight === 'answered') {
+                    await answer(heldReads[0]);
+                } else {
+                    await fail(heldReads[0]);
+                }
+
+                await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+                act(() => { void queryClient.invalidateQueries({ queryKey: ['ReactionSummaries'] }); });
+                await waitFor(() => expect(heldReads).toHaveLength(2));
+            }
+
+            const readInFlight = heldReads[heldReads.length - 1];
+
+            // when
+            const watched = readAgain(() => result.current.readAgain);
+            await answer(readInFlight, 2);
+            await letTheLandedReadsBeSeen();
+
+            // then
+            expect(watched.hasResolved).toBe(false);
+            const freshRead = heldReads[heldReads.length - 1];
+            expect(freshRead).not.toBe(readInFlight);
+            expect(freshRead.contentItemIds).toEqual(page);
+
+            // when
+            await answer(freshRead, 3);
+
+            // then
+            await act(async () => { await watched.wait; });
+
+            expect(queryClient.getQueryData(summaryKey(page)))
+                .toEqual(page.map(contentItemId => summaryFor(contentItemId, 3)));
+        });
 });
