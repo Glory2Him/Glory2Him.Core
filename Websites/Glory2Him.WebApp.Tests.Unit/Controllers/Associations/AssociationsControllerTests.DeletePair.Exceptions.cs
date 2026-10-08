@@ -16,6 +16,7 @@ using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
+using RESTFulSense.Models;
 using Xeptions;
 
 namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
@@ -123,6 +124,41 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
             // then
             actualActionResult.Should().BeOfType<BadRequestObjectResult>()
                 .Which.Should().BeEquivalentTo(expectedBadRequestObjectResult);
+
+            this.associationOrchestrationServiceMock.Verify(service =>
+                service.RemoveAssociationByPairAsync(someAssociation, cancellationToken),
+                    Times.Once);
+
+            this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldReturnFailedDependencyOnDeletePairIfDependencyErrorOccurredAsync()
+        {
+            // given
+            Association someAssociation = CreateRandomAssociation();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var someInnerException = new Xeption();
+
+            var associationOrchestrationDependencyException =
+                new AssociationOrchestrationDependencyException(
+                    message: GetRandomString(),
+                    innerException: someInnerException);
+
+            FailedDependencyObjectResult expectedFailedDependencyObjectResult =
+                FailedDependency(someInnerException);
+
+            this.associationOrchestrationServiceMock.Setup(service =>
+                service.RemoveAssociationByPairAsync(someAssociation, cancellationToken))
+                    .ThrowsAsync(associationOrchestrationDependencyException);
+
+            // when
+            ActionResult actualActionResult =
+                await this.associationsController.DeleteAssociationPairAsync(someAssociation, cancellationToken);
+
+            // then
+            actualActionResult.Should().BeOfType<FailedDependencyObjectResult>()
+                .Which.Should().BeEquivalentTo(expectedFailedDependencyObjectResult);
 
             this.associationOrchestrationServiceMock.Verify(service =>
                 service.RemoveAssociationByPairAsync(someAssociation, cancellationToken),
