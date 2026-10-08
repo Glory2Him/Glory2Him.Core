@@ -139,6 +139,12 @@ const isShown = (): boolean => {
         && visibilityOfAPartWithNone !== 'collapse';
 };
 
+// Every page goes into the cache hidden by the same means, whoever is signed in.
+const expectHiddenAsItGoesIntoTheCache = (): void => {
+    expect(isHidden()).toBe(true);
+    expect(getComputedStyle(document.documentElement).display).toBe('none');
+};
+
 // happy-dom scrolls and focuses under a hidden root, and never scrolls on focus. A browser takes
 // the page out of the render while any part of the hiding remains: both its scroll offsets read as
 // the top left from the moment the page is hidden until something sets them once the page is
@@ -575,8 +581,7 @@ describe('RestoredPageGuard', () => {
         dispatchPageTransition('pagehide', true);
 
         // then
-        expect(isHidden()).toBe(true);
-        expect(getComputedStyle(document.documentElement).display).toBe('none');
+        expectHiddenAsItGoesIntoTheCache();
     });
 
     it('should hide a page as it goes into the cache when nobody is signed in', () => {
@@ -588,8 +593,7 @@ describe('RestoredPageGuard', () => {
         dispatchPageTransition('pagehide', true);
 
         // then
-        expect(isHidden()).toBe(true);
-        expect(getComputedStyle(document.documentElement).display).toBe('none');
+        expectHiddenAsItGoesIntoTheCache();
     });
 
     it('should hide a page as it goes into the cache while the current user is being read', () => {
@@ -601,8 +605,7 @@ describe('RestoredPageGuard', () => {
         dispatchPageTransition('pagehide', true);
 
         // then
-        expect(isHidden()).toBe(true);
-        expect(getComputedStyle(document.documentElement).display).toBe('none');
+        expectHiddenAsItGoesIntoTheCache();
     });
 
     it("should hide a page as it goes into the cache while the current user's read is paused", () => {
@@ -615,8 +618,7 @@ describe('RestoredPageGuard', () => {
         dispatchPageTransition('pagehide', true);
 
         // then
-        expect(isHidden()).toBe(true);
-        expect(getComputedStyle(document.documentElement).display).toBe('none');
+        expectHiddenAsItGoesIntoTheCache();
     });
 
     describe('in a browser that takes a hidden page out of the render', () => {
