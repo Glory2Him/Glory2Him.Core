@@ -55,7 +55,7 @@ export const associationService = {
             mutationFn: async (association: AssociationRequest) =>
                 await associationBroker.DeleteAssociationPairAsync(association),
 
-            onSuccess: () => {
+            onSettled: () => {
                 queryClient.invalidateQueries({ queryKey: ['ReactionSummaries'] });
             }
         });
