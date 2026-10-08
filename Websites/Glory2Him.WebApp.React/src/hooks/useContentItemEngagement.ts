@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { toastSuccess } from '../brokers/toastBroker.success';
+import { useAuth } from '../components/securitys/authProvider';
 import { associationService } from '../services/foundations/associationService';
 import { reactionService } from '../services/foundations/reactionService';
 
@@ -24,8 +25,16 @@ export const useContentItemEngagement = (
     contentItemIdPages?: ReadonlyArray<ReadonlyArray<string>>) => {
     const { data: reactions } = reactionService.useGetApprovedReactions();
 
+    const { user } = useAuth();
+
+    // The reader the summaries are read for: not yet known while there is no current user,
+    // whether its read is still loading or failed, and signed out only once it has been read.
+    const readerId = user === undefined
+        ? undefined
+        : user.isAuthenticated ? user.userId : null;
+
     const { summaries } =
-        associationService.useGetReactionSummaries(contentItemIdPages ?? [], undefined);
+        associationService.useGetReactionSummaries(contentItemIdPages ?? [], readerId);
 
     // What this visitor has chosen, per item, for THIS VISIT. Merged into the projection below
     // so the picker shows the choice; nothing is persisted yet.
