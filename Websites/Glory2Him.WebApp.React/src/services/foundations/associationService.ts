@@ -126,8 +126,9 @@ export const associationService = {
                     await waitForAReadToLand(queryClient, summaryRead, readsLandedOn(summaryRead));
                 }
 
-                // Waits on the reads that land rather than on the refetch's promise: a superseded
-                // read's promise returns before the read that superseded it has landed.
+                // Waits on the reads that land rather than on the refetch's promise. A read
+                // superseded once hands its promise the superseding read's, but one superseded
+                // again rejects with the cancellation, before any read sent after the call lands.
                 const readsLandedBeforeTheFreshRead = readsLandedOn(summaryRead);
                 void queryClient.refetchQueries({ predicate: query => query === summaryRead });
                 await waitForAReadToLand(queryClient, summaryRead, readsLandedBeforeTheFreshRead);
