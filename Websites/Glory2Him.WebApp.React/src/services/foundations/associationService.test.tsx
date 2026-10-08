@@ -347,6 +347,29 @@ describe('associationService.useRemoveAssociationByPair', () => {
             },
             reads);
     });
+
+    // A FAILED WITHDRAWAL MAY STILL HAVE LANDED: the server can delete the row and the answer be
+    // lost on the way back, so the summaries are read again either way and the card shows what
+    // the server holds rather than what the page guessed.
+    it('should read the summaries again when a withdrawal fails', async () => {
+        // given
+        const reads = await seedSummaryReads();
+        const settle = holdTheWithdrawalOpen();
+
+        const { result } = renderHook(
+            () => associationService.useRemoveAssociationByPair(), { wrapper });
+
+        // when
+        const withdrawal = result.current.mutateAsync(reactionRequest);
+
+        // then
+        await expectTheSummariesReadAgainOnSettle(
+            async () => {
+                settle().reject(new Error('refused'));
+                await expect(withdrawal).rejects.toThrow('refused');
+            },
+            reads);
+    });
 });
 
 describe('associationService.useGetReactionSummaries', () => {
