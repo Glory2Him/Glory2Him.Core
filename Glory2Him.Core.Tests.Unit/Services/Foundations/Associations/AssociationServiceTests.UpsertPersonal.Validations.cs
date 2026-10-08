@@ -188,6 +188,80 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         }
 
         [Theory]
+        [MemberData(nameof(PairsWithNoHostOnEndpointA))]
+        public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfThePairHasNoHostOnEndpointAAndLogItAsync(
+            string pair)
+        {
+            // given: the reader's own upsert of an otherwise well-formed pair, so every earlier
+            // refusal lets it through to this one, which is asked once canonical order is restored.
+            // The store holds the reader's row keyed on the reaction, so an upsert that reached it
+            // would move the tag (Backend/Foundations/AssociationService.md §8 rule 1; §DOM4.10
+            // rule 9).
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association noHostRequest = CreatePairWithNoHostOnEndpointA(readerUserId, pair);
+            noHostRequest.ApprovalStatus = ApprovalStatus.Submitted;
+
+            Association readersRow = CreateStoredPersonalRow(
+                CreatePairWithNoHostOnEndpointA(readerUserId, "ReactionThenTag"),
+                isDeleted: false);
+
+            var invalidAssociationException = new InvalidAssociationException(
+                message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.UpsertDataList(
+                key: nameof(Association.EntityAType),
+                value: "Value is a personal entity type, which cannot be endpoint A");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(
+                new[] { readersRow },
+                TestContext.Current.CancellationToken);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    noHostRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(upsertTask.AsTask);
+
+            // then: refused naming EntityAType, storage never asked, nothing written, no fact
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(noHostRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
         [MemberData(nameof(ApprovalStatesOnANewPersonalRow))]
         public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfTheNewRowCarriesApprovalStateAndLogItAsync(
             string invalidField,
