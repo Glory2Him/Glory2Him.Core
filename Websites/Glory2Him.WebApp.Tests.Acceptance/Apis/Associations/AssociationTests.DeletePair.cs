@@ -59,5 +59,42 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
             }
         }
+
+        [Fact]
+        public async Task ShouldLeaveTheHeldReactionWhenAnotherIsWithdrawnOverHttpAsync()
+        {
+            // given
+            CoreContentItem publishedContentItem = await InsertPublishedContentItemAsync();
+            Association heldPair = CreateReactionPair(publishedContentItem.Id, seededLoveReactionId);
+            Association inputPair = CreateReactionPair(publishedContentItem.Id, seededJoyReactionId);
+            this.apiBroker.ActAsContributor();
+
+            try
+            {
+                await this.apiBroker.PostAssociationAsync(heldPair);
+
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.DeleteAssociationPairAsync(inputPair);
+
+                // then
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+                // Love still live is what answers AlreadyApproved; had the withdrawal taken it,
+                // posting it again would revive it and answer Restored.
+                HttpResponseMessage repostResponse =
+                    await this.apiBroker.PostAssociationAsync(heldPair);
+
+                AssociationSuggestionResult repostResult = await ReadResultAsync(repostResponse);
+                repostResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                repostResult.Status.Should().Be(AssociationSuggestionStatus.AlreadyApproved);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(publishedContentItem.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
+            }
+        }
     }
 }
