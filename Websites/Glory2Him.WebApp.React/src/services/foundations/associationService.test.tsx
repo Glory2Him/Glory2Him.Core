@@ -827,3 +827,331 @@ describe('associationService.useGetReactionSummaries', () => {
         expect(result.current.isError).toBe(false);
     });
 });
+
+describe('associationService.useReadReactionSummariesAgain', () => {
+    let queryClient: QueryClient;
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const summaryFor = (contentItemId: string, count = 1): ContentItemReactionSummary => ({
+        contentItemId,
+        reactions: [{ reactionId: 'reaction-1', name: 'Like', unicodeEmoji: '👍', count }],
+        viewerReactionId: null,
+        viewerReactionName: null
+    });
+
+    // EVERY READ IS HELD OPEN until the test lands it, so which read ends the wait is the
+    // test's to decide, in the order it chooses, rather than the order the broker happens to
+    // answer in.
+    interface HeldRead {
+        contentItemIds: ReadonlyArray<string>;
+        answer: (summaries: ContentItemReactionSummary[]) => void;
+        fail: (error: Error) => void;
+    }
+
+    let heldReads: HeldRead[];
+
+    const answer = (heldRead: HeldRead, count = 1) => act(async () => {
+        heldRead.answer(heldRead.contentItemIds.map(contentItemId => summaryFor(contentItemId, count)));
+    });
+
+    const fail = (heldRead: HeldRead) => act(async () => {
+        heldRead.fail(new Error('refused'));
+    });
+
+    // Long enough for every read that has landed to have been seen, so a wait that would end
+    // on it has ended.
+    const letTheLandedReadsBeSeen = () => act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    const watch = (wait: Promise<void>) => {
+        const watched = { hasResolved: false, wait };
+        wait.then(() => { watched.hasResolved = true; });
+
+        return watched;
+    };
+
+    const summaryKey = (page: ReadonlyArray<string>) => ['ReactionSummaries', 'reader-1', page];
+
+    const renderTheSummariesAndTheReadAgain = (pages: ReadonlyArray<ReadonlyArray<string>>) =>
+        renderHook(
+            () => ({
+                read: associationService.useGetReactionSummaries(pages, 'reader-1'),
+                readAgain: associationService.useReadReactionSummariesAgain()
+            }),
+            { wrapper });
+
+    const readAgain = (readAgainOf: () => () => Promise<void>) => {
+        let wait: Promise<void> = Promise.resolve();
+        act(() => { wait = readAgainOf()(); });
+
+        return watch(wait);
+    };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        getReactionSummariesAsync.mockReset();
+        heldReads = [];
+
+        getReactionSummariesAsync.mockImplementation(
+            (contentItemIds: ReadonlyArray<string>) => new Promise((resolve, reject) => {
+                heldReads.push({ contentItemIds, answer: resolve, fail: reject });
+            }));
+
+        queryClient = new QueryClient({
+            defaultOptions: { queries: { retry: false } }
+        });
+    });
+
+    // A page whose only read failed holds no answer and has no read in flight. It is read
+    // afresh at the call, never waited on for a read nobody sent.
+    it.each([
+        ['both pages hold answers', false],
+        ['a page holds no answer because its only read failed', true]
+    ])('should resolve once a fresh read of every summaries page has landed (%s)',
+        async (_, secondPageFailed) => {
+            // given
+            const firstPage = ['quote-1', 'quote-2'];
+            const secondPage = ['quote-3', 'quote-4'];
+            const { result } = renderTheSummariesAndTheReadAgain([firstPage, secondPage]);
+
+            await waitFor(() => expect(heldReads).toHaveLength(2));
+            await answer(heldReads[0]);
+
+            if (secondPageFailed) {
+                await fail(heldReads[1]);
+                await waitFor(() => expect(result.current.read.isError).toBe(true));
+            } else {
+                await answer(heldReads[1]);
+            }
+
+            await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+
+            // when
+            const watched = readAgain(() => result.current.readAgain);
+
+            // then
+            await waitFor(() => expect(heldReads).toHaveLength(4));
+            expect(heldReads[2].contentItemIds).toEqual(firstPage);
+            expect(heldReads[3].contentItemIds).toEqual(secondPage);
+
+            await letTheLandedReadsBeSeen();
+            expect(watched.hasResolved).toBe(false);
+
+            // when
+            await answer(heldReads[2], 2);
+            await letTheLandedReadsBeSeen();
+
+            // then
+            expect(watched.hasResolved).toBe(false);
+
+            // when
+            await answer(heldReads[3], 2);
+
+            // then
+            await act(async () => { await watched.wait; });
+
+            expect(queryClient.getQueryData(summaryKey(firstPage)))
+                .toEqual(firstPage.map(contentItemId => summaryFor(contentItemId, 2)));
+
+            expect(queryClient.getQueryData(summaryKey(secondPage)))
+                .toEqual(secondPage.map(contentItemId => summaryFor(contentItemId, 2)));
+        });
+
+    // A READ IN FLIGHT AT THE CALL never ends the wait. On a query holding an answer, the call's
+    // fresh read supersedes it. On a query holding none, TanStack Query joins it rather than
+    // cancelling it, so it is let land and a fresh read follows it.
+    it.each([
+        ['a re-read of a query holding an answer', 'answered'],
+        ["the query's first read", 'first read'],
+        ['a re-read of a page whose first read failed', 'first read failed']
+    ])('should not resolve on a read that was in flight when it was called (%s)',
+        async (_, pageBeforeTheReadInFlight) => {
+            // given
+            const page = ['quote-1', 'quote-2'];
+            const { result, rerender } = renderTheSummariesAndTheReadAgain([page]);
+
+            await waitFor(() => expect(heldReads).toHaveLength(1));
+
+            if (pageBeforeTheReadInFlight !== 'first read') {
+                if (pageBeforeTheReadInFlight === 'answered') {
+                    await answer(heldReads[0]);
+                } else {
+                    await fail(heldReads[0]);
+                }
+
+                await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+                act(() => { void queryClient.invalidateQueries({ queryKey: ['ReactionSummaries'] }); });
+                await waitFor(() => expect(heldReads).toHaveLength(2));
+            }
+
+            const readInFlight = heldReads[heldReads.length - 1];
+
+            // when
+            const watched = readAgain(() => result.current.readAgain);
+
+            // The page re-renders while the read is in flight, as it does in the app, so the
+            // query cache tells the wait of a change before that read lands: a wait that took a
+            // failure landed before the call for a read landed after it ends here.
+            rerender();
+            await letTheLandedReadsBeSeen();
+
+            await answer(readInFlight, 2);
+            await letTheLandedReadsBeSeen();
+
+            // then
+            expect(watched.hasResolved).toBe(false);
+            const freshRead = heldReads[heldReads.length - 1];
+            expect(freshRead).not.toBe(readInFlight);
+            expect(freshRead.contentItemIds).toEqual(page);
+
+            // when
+            await answer(freshRead, 3);
+
+            // then
+            await act(async () => { await watched.wait; });
+
+            expect(queryClient.getQueryData(summaryKey(page)))
+                .toEqual(page.map(contentItemId => summaryFor(contentItemId, 3)));
+        });
+
+    // AN UNCHANGED ANSWER COUNTS, as for a post that is not public yet. TanStack Query keeps the
+    // data it already holds when an answer is unchanged, so the page sees no new data at all.
+    it('should resolve on a fresh read whose answer did not change', async () => {
+        // given
+        const page = ['quote-1', 'quote-2'];
+        const { result } = renderTheSummariesAndTheReadAgain([page]);
+
+        await waitFor(() => expect(heldReads).toHaveLength(1));
+        await answer(heldReads[0]);
+        await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+        const answerBeforeTheCall = queryClient.getQueryData(summaryKey(page));
+
+        // when
+        const watched = readAgain(() => result.current.readAgain);
+        await waitFor(() => expect(heldReads).toHaveLength(2));
+        await answer(heldReads[1]);
+
+        // then
+        await act(async () => { await watched.wait; });
+        expect(queryClient.getQueryData(summaryKey(page))).toBe(answerBeforeTheCall);
+    });
+
+    // A SUPERSEDED READ IS WAITED PAST. Once by a second call's re-read, or twice, by another
+    // write's refresh and then another call's re-read. Every superseded read is landed before
+    // the read that supersedes it, so a wait that ends on any of them ends too early.
+    it.each([
+        ['superseded once', false],
+        ['superseded twice', true]
+    ])('should resolve only on a read sent after the call, however often its read is superseded (%s)',
+        async (_, supersededByAWriteFirst) => {
+            // given
+            const page = ['quote-1', 'quote-2'];
+            const { result } = renderTheSummariesAndTheReadAgain([page]);
+
+            await waitFor(() => expect(heldReads).toHaveLength(1));
+            await answer(heldReads[0]);
+            await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+
+            const firstCall = readAgain(() => result.current.readAgain);
+            await waitFor(() => expect(heldReads).toHaveLength(2));
+
+            if (supersededByAWriteFirst) {
+                act(() => { void queryClient.invalidateQueries({ queryKey: ['ReactionSummaries'] }); });
+                await waitFor(() => expect(heldReads).toHaveLength(3));
+            }
+
+            // when
+            const secondCall = readAgain(() => result.current.readAgain);
+            await waitFor(() => expect(heldReads).toHaveLength(supersededByAWriteFirst ? 4 : 3));
+            const supersedingRead = heldReads[heldReads.length - 1];
+
+            for (const supersededRead of heldReads.slice(1, -1)) {
+                await answer(supersededRead, 2);
+            }
+
+            await letTheLandedReadsBeSeen();
+
+            // then
+            expect(firstCall.hasResolved).toBe(false);
+            expect(secondCall.hasResolved).toBe(false);
+
+            // when
+            await answer(supersedingRead, 3);
+
+            // then
+            await act(async () => { await Promise.all([firstCall.wait, secondCall.wait]); });
+
+            expect(queryClient.getQueryData(summaryKey(page)))
+                .toEqual(page.map(contentItemId => summaryFor(contentItemId, 3)));
+        });
+
+    // A FAILED READ ENDS THE WAIT, so no caller waits forever, and the page hears of the failure
+    // as it hears of any failed read.
+    it('should resolve when the fresh read fails', async () => {
+        // given
+        const page = ['quote-1', 'quote-2'];
+        const { result } = renderTheSummariesAndTheReadAgain([page]);
+
+        await waitFor(() => expect(heldReads).toHaveLength(1));
+        await answer(heldReads[0]);
+        await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+
+        // when
+        const watched = readAgain(() => result.current.readAgain);
+        await waitFor(() => expect(heldReads).toHaveLength(2));
+        await fail(heldReads[1]);
+
+        // then
+        await act(async () => { await watched.wait; });
+        await waitFor(() => expect(result.current.read.isError).toBe(true));
+        expect(result.current.read.summaries).toEqual({});
+    });
+
+    // ONLY THE ACTIVE READS. A read cached from another screen is read again when that screen is
+    // next shown, and an empty page's read is disabled and never sent, so waiting on either
+    // would hold the caller for a read that does not come. An active read outside the
+    // ReactionSummaries family stands beside them: a reaction changes no other read.
+    it('should re-read and wait for the active reads only', async () => {
+        // given
+        const emptyPage: string[] = [];
+        const page = ['quote-1', 'quote-2'];
+        const pageFromAnotherScreen = ['quote-9'];
+        const readFromAnotherScreen = vi.fn()
+            .mockResolvedValue(pageFromAnotherScreen.map(contentItemId => summaryFor(contentItemId)));
+
+        await queryClient.prefetchQuery({
+            queryKey: summaryKey(pageFromAnotherScreen),
+            queryFn: readFromAnotherScreen
+        });
+
+        const { result } = renderTheSummariesAndTheReadAgain([emptyPage, page]);
+        const readOutsideTheFamily = vi.fn().mockResolvedValue([]);
+
+        renderHook(
+            () => useQuery({ queryKey: ['ContentItemsSearch'], queryFn: readOutsideTheFamily }),
+            { wrapper });
+
+        await waitFor(() => expect(heldReads).toHaveLength(1));
+        await waitFor(() => expect(readOutsideTheFamily).toHaveBeenCalledTimes(1));
+        await answer(heldReads[0]);
+        await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+
+        // when
+        const watched = readAgain(() => result.current.readAgain);
+        await waitFor(() => expect(heldReads).toHaveLength(2));
+        await answer(heldReads[1]);
+
+        // then
+        await act(async () => { await watched.wait; });
+        expect(getReactionSummariesAsync).toHaveBeenCalledTimes(2);
+        expect(getReactionSummariesAsync).toHaveBeenNthCalledWith(2, page);
+        expect(readFromAnotherScreen).toHaveBeenCalledTimes(1);
+        expect(readOutsideTheFamily).toHaveBeenCalledTimes(1);
+        expect(queryClient.getQueryState(summaryKey(emptyPage))?.fetchStatus).toBe('idle');
+        expect(queryClient.getQueryState(summaryKey(emptyPage))?.dataUpdateCount).toBe(0);
+    });
+});

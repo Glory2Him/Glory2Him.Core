@@ -1,4 +1,4 @@
-import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
+import { Query, QueryClient, useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import AssociationBroker from '../../brokers/apiBroker.associations';
 import { AssociationRequest } from '../../models/foundations/associations/associationRequest';
 import { AssociationSuggestionResult } from '../../models/foundations/associations/associationSuggestionResult';
@@ -25,6 +25,23 @@ const chunkContentItemIds = (
 
     return chunks;
 };
+
+// Every read that lands moves one of the two counts, whatever it answered and whether it failed.
+const readsLandedOn = (query: Query): number =>
+    query.state.dataUpdateCount + query.state.errorUpdateCount;
+
+const waitForAReadToLand = (
+    queryClient: QueryClient,
+    query: Query,
+    readsLandedBefore: number): Promise<void> =>
+    new Promise(resolve => {
+        const unsubscribe = queryClient.getQueryCache().subscribe(() => {
+            if (readsLandedOn(query) > readsLandedBefore) {
+                unsubscribe();
+                resolve();
+            }
+        });
+    });
 
 export const associationService = {
     // Gives or changes a reader's reaction. No suppressGlobalErrorToast: a failed reaction is
@@ -105,5 +122,33 @@ export const associationService = {
         const isError = pageReads.some(pageRead => pageRead.isError);
 
         return { summaries, isLoading, isError };
+    },
+
+    // Reads the summaries the page is showing again, and resolves once a read sent at or after
+    // the call has landed for each, so the engagement hook knows the server's answer is in, even
+    // when it did not change. Only the active reads: one cached from another screen or disabled
+    // for an empty page would hold the caller for a read that never comes.
+    useReadReactionSummariesAgain: () => {
+        const queryClient = useQueryClient();
+
+        return async () => {
+            const summaryReads = queryClient.getQueryCache()
+                .findAll({ queryKey: ['ReactionSummaries'], type: 'active' });
+
+            await Promise.all(summaryReads.map(async summaryRead => {
+                // A refetch joins a read in flight on a query holding no answer rather than
+                // cancelling it, so that read is let land and a fresh read follows it.
+                if (summaryRead.state.fetchStatus !== 'idle' && summaryRead.state.data === undefined) {
+                    await waitForAReadToLand(queryClient, summaryRead, readsLandedOn(summaryRead));
+                }
+
+                // Waits on the reads that land rather than on the refetch's promise. A read
+                // superseded once hands its promise the superseding read's, but one superseded
+                // again rejects with the cancellation, before any read sent after the call lands.
+                const readsLandedBeforeTheFreshRead = readsLandedOn(summaryRead);
+                void queryClient.refetchQueries({ predicate: query => query === summaryRead });
+                await waitForAReadToLand(queryClient, summaryRead, readsLandedBeforeTheFreshRead);
+            }));
+        };
     }
 };
