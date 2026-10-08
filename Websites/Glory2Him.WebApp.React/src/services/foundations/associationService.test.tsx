@@ -912,4 +912,40 @@ describe('associationService.useReadReactionSummariesAgain', () => {
         await waitFor(() => expect(result.current.read.isError).toBe(true));
         expect(result.current.read.summaries).toEqual({});
     });
+
+    // ONLY THE ACTIVE READS. A read cached from another screen is read again when that screen is
+    // next shown, and an empty page's read is disabled and never sent, so waiting on either
+    // would hold the caller for a read that does not come.
+    it('should re-read and wait for the active reads only', async () => {
+        // given
+        const emptyPage: string[] = [];
+        const page = ['quote-1', 'quote-2'];
+        const pageFromAnotherScreen = ['quote-9'];
+        const readFromAnotherScreen = vi.fn()
+            .mockResolvedValue(pageFromAnotherScreen.map(contentItemId => summaryFor(contentItemId)));
+
+        await queryClient.prefetchQuery({
+            queryKey: summaryKey(pageFromAnotherScreen),
+            queryFn: readFromAnotherScreen
+        });
+
+        const { result } = renderTheSummariesAndTheReadAgain([emptyPage, page]);
+
+        await waitFor(() => expect(heldReads).toHaveLength(1));
+        await answer(heldReads[0]);
+        await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+
+        // when
+        const watched = readAgain(() => result.current.readAgain);
+        await waitFor(() => expect(heldReads).toHaveLength(2));
+        await answer(heldReads[1]);
+
+        // then
+        await act(async () => { await watched.wait; });
+        expect(getReactionSummariesAsync).toHaveBeenCalledTimes(2);
+        expect(getReactionSummariesAsync).toHaveBeenNthCalledWith(2, page);
+        expect(readFromAnotherScreen).toHaveBeenCalledTimes(1);
+        expect(queryClient.getQueryState(summaryKey(emptyPage))?.fetchStatus).toBe('idle');
+        expect(queryClient.getQueryState(summaryKey(emptyPage))?.dataUpdateCount).toBe(0);
+    });
 });
