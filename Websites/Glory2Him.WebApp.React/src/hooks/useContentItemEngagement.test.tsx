@@ -173,4 +173,43 @@ describe('useContentItemEngagement', () => {
             unmount();
         }
     });
+
+    it("should never put another item's counts on a card", () => {
+        useGetReactionSummaries.mockReturnValue({
+            summaries: {
+                'item-1': {
+                    contentItemId: 'item-1',
+                    reactions: [{ reactionId: 'reaction-love', name: 'Love', unicodeEmoji: '❤️', count: 3 }],
+                    viewerReactionId: null,
+                    viewerReactionName: null
+                },
+                'item-3': {
+                    contentItemId: 'item-3',
+                    reactions: [{ reactionId: 'reaction-joy', name: 'Joy', unicodeEmoji: '😊', count: 5 }],
+                    viewerReactionId: 'reaction-joy',
+                    viewerReactionName: 'Joy'
+                }
+            },
+            isLoading: false,
+            isError: false
+        });
+
+        const { result } = renderEngagement([['item-1', 'item-2', 'item-3']]);
+
+        const cards = result.current.withReactions(
+            [cardFor('item-3'), cardFor('item-2'), cardFor('item-1')]);
+
+        expect(cards).toEqual([
+            {
+                ...cardFor('item-3'),
+                reactionSummary: [{ label: 'Joy', glyph: '😊', count: 5 }],
+                viewerReactionLabel: 'Joy'
+            },
+            cardFor('item-2'),
+            {
+                ...cardFor('item-1'),
+                reactionSummary: [{ label: 'Love', glyph: '❤️', count: 3 }]
+            }
+        ]);
+    });
 });
