@@ -370,6 +370,44 @@ describe('associationService.useRemoveAssociationByPair', () => {
             },
             reads);
     });
+
+    // A FAILED WITHDRAWAL IS ANNOUNCED as every failed write is. Driven through the app's own
+    // global handler, so what is proven is the toast the reader sees, not the absence of a flag.
+    // The handler rethrows by design, which react-query surfaces as an unhandled rejection; it
+    // is swallowed here and nowhere else, so the decision to toast stays the app's.
+    it("should fail a withdrawal with the broker's error and leave the global toast on", async () => {
+        // given
+        const brokerError = new Error('refused');
+        deleteAssociationPairAsync.mockRejectedValue(brokerError);
+
+        const globalOnError =
+            queryClientGlobalOptions.getMutationCache().config.onError!;
+
+        const globalClient = new QueryClient({
+            mutationCache: new MutationCache({
+                onError: (...args) => {
+                    try {
+                        globalOnError(...args);
+                    } catch {
+                        // the global handler's deliberate rethrow
+                    }
+                }
+            })
+        });
+
+        const globalWrapper = ({ children }: { children: ReactNode }) => (
+            <QueryClientProvider client={globalClient}>{children}</QueryClientProvider>
+        );
+
+        const { result } = renderHook(
+            () => associationService.useRemoveAssociationByPair(), { wrapper: globalWrapper });
+
+        // when
+        await expect(result.current.mutateAsync(reactionRequest)).rejects.toBe(brokerError);
+
+        // then
+        expect(toastErrorMock).toHaveBeenCalledTimes(1);
+    });
 });
 
 describe('associationService.useGetReactionSummaries', () => {
