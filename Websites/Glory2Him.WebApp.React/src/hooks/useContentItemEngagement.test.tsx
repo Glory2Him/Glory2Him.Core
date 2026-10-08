@@ -250,4 +250,18 @@ describe('useContentItemEngagement', () => {
             unmount();
         }
     });
+
+    it('should treat a reader whose sign-in state failed to read as not yet known', () => {
+        // What a failed read of the current user leaves: no user, and no longer loading.
+        authState.data = undefined;
+        authState.isLoading = false;
+
+        renderEngagement([['item-1']]);
+
+        expect(useGetReactionSummaries).toHaveBeenCalled();
+
+        for (const [, handedReaderId] of useGetReactionSummaries.mock.calls) {
+            expect(handedReaderId).toBeUndefined();
+        }
+    });
 });
