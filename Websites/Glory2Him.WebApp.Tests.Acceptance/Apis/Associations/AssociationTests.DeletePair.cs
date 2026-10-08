@@ -9,10 +9,12 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using AssociationSuggestionStatus = Glory2Him.Core.Models.Orchestrations.Associations.AssociationSuggestionStatus;
 using Glory2Him.WebApp.Tests.Acceptance.Models.Associations;
 using CoreContentItem = Glory2Him.Core.Models.Foundations.ContentItems.ContentItem;
@@ -126,6 +128,30 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 this.apiBroker.ActAsSeededAdministrator();
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
             }
+        }
+
+        [Fact]
+        public async Task ShouldReturnBadRequestOnDeletePairIfThePairIsEditorialAsync()
+        {
+            // given
+            // A content item and a tag: neither endpoint is personal, so the withdrawal refuses
+            // the pair before it reads anything, and no row needs arranging.
+            var inputPair = new Association
+            {
+                EntityAType = EntityType.ContentItem,
+                EntityAKeyId = Guid.NewGuid(),
+                EntityBType = EntityType.Tag,
+                EntityBKeyId = Guid.NewGuid()
+            };
+
+            this.apiBroker.ActAsContributor();
+
+            // when
+            HttpResponseMessage actualResponse =
+                await this.apiBroker.DeleteAssociationPairAsync(inputPair);
+
+            // then
+            actualResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         }
     }
 }
