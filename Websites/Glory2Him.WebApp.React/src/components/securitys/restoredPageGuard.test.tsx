@@ -139,10 +139,16 @@ const isShown = (): boolean => {
         && visibilityOfAPartWithNone !== 'collapse';
 };
 
-// Every page goes into the cache hidden by the same means, whoever is signed in.
+// Every page goes into the cache hidden by the means a restored page is hidden, whoever is signed
+// in, and never by `display: none`, which would move its scroll position.
 const expectHiddenAsItGoesIntoTheCache = (): void => {
+    const rootStyle = getComputedStyle(document.documentElement);
+
     expect(isHidden()).toBe(true);
-    expect(getComputedStyle(document.documentElement).display).toBe('none');
+    expect(rootStyle.visibility).toBe('hidden');
+    expect(rootStyle.opacity).toBe('0');
+    expect(document.body.hasAttribute('inert')).toBe(true);
+    expect(rootStyle.display).not.toBe('none');
 };
 
 // happy-dom scrolls and focuses under a hidden root, and never scrolls on focus. A browser takes
@@ -572,7 +578,7 @@ describe('RestoredPageGuard', () => {
         expect(isHidden()).toBe(true);
     });
 
-    it('should hide a page by display none as it goes into the cache', () => {
+    it('should hide a page as it goes into the cache by the means a restored page is hidden', () => {
         // given
         mocks.currentUser = readerA;
         render(<Page />);
