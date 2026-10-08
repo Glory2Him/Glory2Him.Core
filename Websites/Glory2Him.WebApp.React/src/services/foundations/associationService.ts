@@ -70,8 +70,9 @@ export const associationService = {
             .flatMap(pageRead => pageRead.data ?? [])
             .map(summary => [summary.contentItemId, summary]));
 
+        const isLoading = pageReads.some(pageRead => pageRead.isLoading);
         const isError = pageReads.some(pageRead => pageRead.isError);
 
-        return { summaries, isLoading: false, isError };
+        return { summaries, isLoading, isError };
     }
 };
