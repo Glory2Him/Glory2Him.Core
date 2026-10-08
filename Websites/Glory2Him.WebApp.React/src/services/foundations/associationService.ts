@@ -52,7 +52,7 @@ export const associationService = {
         readerId: string | null | undefined): ReactionSummariesRead => {
         const associationBroker = new AssociationBroker();
 
-        useQueries({
+        const pageReads = useQueries({
             queries: contentItemIdPages.map(contentItemIds => ({
                 queryKey: ['ReactionSummaries', readerId, contentItemIds],
                 queryFn: async () => {
@@ -66,6 +66,10 @@ export const associationService = {
             }))
         });
 
-        return { summaries: {}, isLoading: false, isError: false };
+        const summaries = Object.fromEntries(pageReads
+            .flatMap(pageRead => pageRead.data ?? [])
+            .map(summary => [summary.contentItemId, summary]));
+
+        return { summaries, isLoading: false, isError: false };
     }
 };
