@@ -220,8 +220,8 @@ const scrollPageByAsAskedBy = (xOrOptions?: ScrollToOptions | number, y?: number
 
 type Prototype = Record<string, (...args: Array<unknown>) => unknown>;
 
-// Every way the page can be hidden passes through one of these, so the page is taken out of the
-// render in the same task it is hidden in.
+// Every way the page can be hidden passes through one of these, so the model follows the hiding in
+// the same task the page is hidden in.
 const followTheHidingAfterEachCallTo = (prototype: object, method: string): void => {
     const callAsHappyDomDoes = (prototype as Prototype)[method];
 
