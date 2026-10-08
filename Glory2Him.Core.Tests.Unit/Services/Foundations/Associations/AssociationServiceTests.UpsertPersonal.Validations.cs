@@ -194,9 +194,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given: the reader's own upsert of an otherwise well-formed pair, so every earlier
             // refusal lets it through to this one, which is asked once canonical order is restored.
-            // The store holds the reader's row keyed on the reaction, so an upsert that reached it
-            // would move the tag (Backend/Foundations/AssociationService.md §8 rule 1; §DOM4.10
-            // rule 9).
+            // The lookup is set up, so an upsert that reached storage would be answered and seen
+            // asking it (Backend/Foundations/AssociationService.md §8 rule 1; §DOM4.10 rule 9).
             string readerUserId = GetRandomString();
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
             Association noHostRequest = CreatePairWithNoHostOnEndpointA(readerUserId, pair);
