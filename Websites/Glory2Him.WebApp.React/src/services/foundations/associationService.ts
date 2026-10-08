@@ -1,4 +1,4 @@
-import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
+import { Query, QueryClient, useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import AssociationBroker from '../../brokers/apiBroker.associations';
 import { AssociationRequest } from '../../models/foundations/associations/associationRequest';
 import { AssociationSuggestionResult } from '../../models/foundations/associations/associationSuggestionResult';
@@ -25,6 +25,23 @@ const chunkContentItemIds = (
 
     return chunks;
 };
+
+// Every read that lands moves one of the two counts, whatever it answered and whether it failed.
+const readsLandedOn = (query: Query): number =>
+    query.state.dataUpdateCount + query.state.errorUpdateCount;
+
+const waitForAReadToLand = (
+    queryClient: QueryClient,
+    query: Query,
+    readsLandedBefore: number): Promise<void> =>
+    new Promise(resolve => {
+        const unsubscribe = queryClient.getQueryCache().subscribe(() => {
+            if (readsLandedOn(query) > readsLandedBefore) {
+                unsubscribe();
+                resolve();
+            }
+        });
+    });
 
 export const associationService = {
     // Gives or changes a reader's reaction. No suppressGlobalErrorToast: a failed reaction is
@@ -95,7 +112,17 @@ export const associationService = {
         const queryClient = useQueryClient();
 
         return async () => {
-            await queryClient.refetchQueries({ queryKey: ['ReactionSummaries'] });
+            const summaryReads = queryClient.getQueryCache().findAll({ queryKey: ['ReactionSummaries'] });
+
+            await Promise.all(summaryReads.map(async summaryRead => {
+                // A refetch joins a read in flight on a query holding no answer rather than
+                // cancelling it, so that read is let land and a fresh read follows it.
+                if (summaryRead.state.fetchStatus !== 'idle' && summaryRead.state.data === undefined) {
+                    await waitForAReadToLand(queryClient, summaryRead, readsLandedOn(summaryRead));
+                }
+
+                await queryClient.refetchQueries({ predicate: query => query === summaryRead });
+            }));
         };
     }
 };
