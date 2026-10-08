@@ -11,6 +11,7 @@ import { associationService } from './associationService';
 import { queryClientGlobalOptions } from '../../brokers/apiBroker.globals';
 import { EntityType } from '../../models/foundations/approvalSettings/approvalSetting';
 import { AssociationRequest } from '../../models/foundations/associations/associationRequest';
+import { ContentItemReactionSummary } from '../../models/foundations/associations/contentItemReactionSummary';
 
 import {
     AssociationSuggestionResult,
@@ -18,10 +19,12 @@ import {
 } from '../../models/foundations/associations/associationSuggestionResult';
 
 const postAssociationAsync = vi.fn();
+const getReactionSummariesAsync = vi.fn();
 
 vi.mock('../../brokers/apiBroker.associations', () => ({
     default: class {
         PostAssociationAsync = postAssociationAsync;
+        GetReactionSummariesAsync = getReactionSummariesAsync;
     }
 }));
 
@@ -223,5 +226,69 @@ describe('associationService.useUpsertAssociation', () => {
 
         // then
         expect(toastErrorMock).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('associationService.useGetReactionSummaries', () => {
+    let queryClient: QueryClient;
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const summaryFor = (contentItemId: string): ContentItemReactionSummary => ({
+        contentItemId,
+        reactions: [{ reactionId: 'reaction-1', name: 'Like', unicodeEmoji: '👍', count: 1 }],
+        viewerReactionId: null,
+        viewerReactionName: null
+    });
+
+    // The broker answers every id it is asked for, in the order asked, as the route does.
+    const answerEveryIdAsked = () =>
+        getReactionSummariesAsync.mockImplementation(
+            async (contentItemIds: ReadonlyArray<string>) => contentItemIds.map(summaryFor));
+
+    const summaryKey = (readerId: string | null, page: ReadonlyArray<string>) =>
+        ['ReactionSummaries', readerId, page];
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        getReactionSummariesAsync.mockReset();
+        answerEveryIdAsked();
+
+        queryClient = new QueryClient({
+            defaultOptions: { queries: { retry: false } }
+        });
+    });
+
+    it("should ask once per delivered page, for that page's ids", async () => {
+        // given
+        const firstPage = ['quote-1', 'quote-2'];
+        const secondPage = ['quote-3', 'quote-4'];
+
+        // when
+        renderHook(
+            () => associationService.useGetReactionSummaries([firstPage, secondPage], 'reader-1'),
+            { wrapper });
+
+        // then
+        await waitFor(() => expect(
+            queryClient.getQueryData(summaryKey('reader-1', firstPage))).toBeDefined());
+
+        await waitFor(() => expect(
+            queryClient.getQueryData(summaryKey('reader-1', secondPage))).toBeDefined());
+
+        expect(getReactionSummariesAsync).toHaveBeenCalledTimes(2);
+        expect(getReactionSummariesAsync).toHaveBeenNthCalledWith(1, firstPage);
+        expect(getReactionSummariesAsync).toHaveBeenNthCalledWith(2, secondPage);
+
+        expect(queryClient.getQueryData(summaryKey('reader-1', firstPage)))
+            .toEqual(firstPage.map(summaryFor));
+
+        expect(queryClient.getQueryData(summaryKey('reader-1', secondPage)))
+            .toEqual(secondPage.map(summaryFor));
+
+        expect(queryClient.getQueryCache().getAll().map(query => query.queryKey))
+            .toEqual([summaryKey('reader-1', firstPage), summaryKey('reader-1', secondPage)]);
     });
 });

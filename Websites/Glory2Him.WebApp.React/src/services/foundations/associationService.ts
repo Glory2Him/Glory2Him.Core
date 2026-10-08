@@ -2,6 +2,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import AssociationBroker from '../../brokers/apiBroker.associations';
 import { AssociationRequest } from '../../models/foundations/associations/associationRequest';
 import { AssociationSuggestionResult } from '../../models/foundations/associations/associationSuggestionResult';
+import { ContentItemReactionSummary } from '../../models/foundations/associations/contentItemReactionSummary';
+
+export interface ReactionSummariesRead {
+    summaries: Readonly<Record<string, ContentItemReactionSummary>>;
+    isLoading: boolean;
+    isError: boolean;
+}
 
 export const associationService = {
     // Gives or changes a reader's reaction. No suppressGlobalErrorToast: a failed reaction is
@@ -22,5 +29,10 @@ export const associationService = {
                 queryClient.invalidateQueries({ queryKey: ['ReactionSummaries'] });
             }
         });
-    }
+    },
+
+    useGetReactionSummaries: ((): ReactionSummariesRead =>
+        ({ summaries: {}, isLoading: false, isError: false })) as (
+            contentItemIdPages: ReadonlyArray<ReadonlyArray<string>>,
+            readerId: string | null | undefined) => ReactionSummariesRead
 };
