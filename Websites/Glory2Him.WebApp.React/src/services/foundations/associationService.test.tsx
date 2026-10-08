@@ -529,4 +529,53 @@ describe('associationService.useGetReactionSummaries', () => {
         expect(result.current.summaries).toEqual({ 'quote-1': summaryFor('quote-1') });
         expect(loadingAtEachRender).not.toContain(true);
     });
+
+    // The first reader holds a reaction and the others hold none, as the server answers each
+    // for its own caller. Every render after the reader changes is recorded, so the first
+    // reader's reaction showing for a moment still reds the test.
+    it("should never answer one reader from another reader's read", async () => {
+        // given
+        const page = ['quote-1'];
+
+        const firstReadersSummary: ContentItemReactionSummary = {
+            ...summaryFor('quote-1'),
+            viewerReactionId: 'reaction-1',
+            viewerReactionName: 'Like'
+        };
+
+        getReactionSummariesAsync.mockResolvedValueOnce([firstReadersSummary]);
+
+        const viewerReactionAtEachRender: (string | null | undefined)[] = [];
+
+        const { result, rerender } = renderHook(
+            ({ readerId }) => {
+                const read = associationService.useGetReactionSummaries([page], readerId);
+                viewerReactionAtEachRender.push(read.summaries['quote-1']?.viewerReactionId);
+
+                return read;
+            },
+            { wrapper, initialProps: { readerId: 'reader-1' as string | null } });
+
+        await waitFor(() => expect(result.current.summaries).toEqual({ 'quote-1': firstReadersSummary }));
+        viewerReactionAtEachRender.length = 0;
+
+        // when
+        rerender({ readerId: 'reader-2' });
+
+        // then
+        await waitFor(() => expect(getReactionSummariesAsync).toHaveBeenCalledTimes(2));
+        await waitFor(() => expect(result.current.summaries).toEqual({ 'quote-1': summaryFor('quote-1') }));
+
+        // when
+        rerender({ readerId: null });
+
+        // then
+        await waitFor(() => expect(getReactionSummariesAsync).toHaveBeenCalledTimes(3));
+        await waitFor(() => expect(result.current.summaries).toEqual({ 'quote-1': summaryFor('quote-1') }));
+        expect(viewerReactionAtEachRender).not.toContain('reaction-1');
+
+        expect(queryClient.getQueryData(summaryKey('reader-1', page))).toEqual([firstReadersSummary]);
+        expect(queryClient.getQueryData(summaryKey('reader-2', page))).toEqual([summaryFor('quote-1')]);
+        expect(queryClient.getQueryData(summaryKey(null, page))).toEqual([summaryFor('quote-1')]);
+    });
 });
