@@ -66,7 +66,10 @@ export const associationService = {
             }))
         });
 
+        // A page whose latest read failed answers nothing, even where an earlier read of it
+        // answered: React Query keeps that earlier answer, and the page must not show it.
         const summaries = Object.fromEntries(pageReads
+            .filter(pageRead => pageRead.isError === false)
             .flatMap(pageRead => pageRead.data ?? [])
             .map(summary => [summary.contentItemId, summary]));
 
