@@ -381,7 +381,7 @@ access matrices: `UI/Components/ContentItemPanel.md §5`, `UI/Components/Content
    **The card's counts are this item's work too** (the Likes feature, `DesignFeatures/Likes.md`).
    The page reads no reaction summary, so the card shows none of the reactions its item has been
    given, and the reader's own reaction is the visit's page state rather than the one they hold
-   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-83). The page hands
+   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-86). The page hands
    `useContentItemEngagement` the id of its one card and renders what `withReactions` projects
    (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
 4. (needs issue) **Page gap — `/Admin/Posts/{id}`: the moderator's editor prefills the moderator's
