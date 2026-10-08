@@ -922,7 +922,8 @@ describe('associationService.useReadReactionSummariesAgain', () => {
 
     // ONLY THE ACTIVE READS. A read cached from another screen is read again when that screen is
     // next shown, and an empty page's read is disabled and never sent, so waiting on either
-    // would hold the caller for a read that does not come.
+    // would hold the caller for a read that does not come. An active read outside the
+    // ReactionSummaries family stands beside them: a reaction changes no other read.
     it('should re-read and wait for the active reads only', async () => {
         // given
         const emptyPage: string[] = [];
@@ -937,8 +938,14 @@ describe('associationService.useReadReactionSummariesAgain', () => {
         });
 
         const { result } = renderTheSummariesAndTheReadAgain([emptyPage, page]);
+        const readOutsideTheFamily = vi.fn().mockResolvedValue([]);
+
+        renderHook(
+            () => useQuery({ queryKey: ['ContentItemsSearch'], queryFn: readOutsideTheFamily }),
+            { wrapper });
 
         await waitFor(() => expect(heldReads).toHaveLength(1));
+        await waitFor(() => expect(readOutsideTheFamily).toHaveBeenCalledTimes(1));
         await answer(heldReads[0]);
         await waitFor(() => expect(queryClient.isFetching()).toBe(0));
 
@@ -952,6 +959,7 @@ describe('associationService.useReadReactionSummariesAgain', () => {
         expect(getReactionSummariesAsync).toHaveBeenCalledTimes(2);
         expect(getReactionSummariesAsync).toHaveBeenNthCalledWith(2, page);
         expect(readFromAnotherScreen).toHaveBeenCalledTimes(1);
+        expect(readOutsideTheFamily).toHaveBeenCalledTimes(1);
         expect(queryClient.getQueryState(summaryKey(emptyPage))?.fetchStatus).toBe('idle');
         expect(queryClient.getQueryState(summaryKey(emptyPage))?.dataUpdateCount).toBe(0);
     });
