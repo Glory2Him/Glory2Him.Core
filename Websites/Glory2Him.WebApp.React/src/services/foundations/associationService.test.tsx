@@ -578,4 +578,39 @@ describe('associationService.useGetReactionSummaries', () => {
         expect(queryClient.getQueryData(summaryKey('reader-2', page))).toEqual([summaryFor('quote-1')]);
         expect(queryClient.getQueryData(summaryKey(null, page))).toEqual([summaryFor('quote-1')]);
     });
+
+    // React Query hashes a key as JSON, where an undefined element becomes null, so a key naming
+    // an unknown reader would find the signed-out reader's answer. Nothing is in flight to wait
+    // on, so the test lets the hook's effects run and then checks every render.
+    it('should ask nothing and answer nothing while the reader is not yet known', async () => {
+        // given
+        const page = ['quote-1'];
+        const summariesAtEachRender: Readonly<Record<string, ContentItemReactionSummary>>[] = [];
+
+        await queryClient.prefetchQuery({
+            queryKey: summaryKey(null, page),
+            queryFn: async () => page.map(summaryFor)
+        });
+
+        // when
+        const { result } = renderHook(
+            () => {
+                const read = associationService.useGetReactionSummaries([page], undefined);
+                summariesAtEachRender.push(read.summaries);
+
+                return read;
+            },
+            { wrapper });
+
+        await act(async () => {
+            await new Promise(resolve => setTimeout(resolve, 50));
+        });
+
+        // then
+        expect(getReactionSummariesAsync).not.toHaveBeenCalled();
+        expect(summariesAtEachRender).not.toHaveLength(0);
+        summariesAtEachRender.forEach(summaries => expect(summaries).toEqual({}));
+        expect(result.current.isLoading).toBe(false);
+        expect(result.current.isError).toBe(false);
+    });
 });
