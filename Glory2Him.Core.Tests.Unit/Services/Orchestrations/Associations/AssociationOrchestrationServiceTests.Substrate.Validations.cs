@@ -19,7 +19,9 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
@@ -689,6 +691,109 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // Each editorial far end the gate maps, with the switch it asks of the ContentItem host's
+        // winning setting (§ARC16.2.1's table). No Reaction row: this door refuses a personal pair
+        // before the gate (#723). No Attachment row: no Attachment endpoint resolves yet, so no
+        // pair reaches that switch (AssociationOrchestrationService.md §1 rule 2).
+        public static TheoryData<EntityType, string> EditorialFacetsRefusedBySetting() =>
+            new TheoryData<EntityType, string>
+            {
+                { EntityType.Tag, nameof(ContentItemSetting.TagsAllowed) },
+                { EntityType.Comment, nameof(ContentItemSetting.CommentsAllowed) },
+                { EntityType.BibleReference, nameof(ContentItemSetting.BibleReferenceAllowed) },
+                { EntityType.Link, nameof(ContentItemSetting.LinksAllowed) },
+            };
+
+        // THE GATE IS REACHED ON BOTH ENTRY PATHS (#753, §ARC16.2.1; AssociationOrchestrationService.md
+        // §5 rule 1). A verified editorial pair the item's setting refuses is refused here as the
+        // upsert refuses it, so nobody sidesteps an item's settings by publishing to this address.
+        // The row, the Association-Added fact and the ProcessedEvents record are all the foundation
+        // handler's, so a refusal has done none of them exactly when that handler was never reached
+        // and nothing was minted.
+        [Theory]
+        [MemberData(nameof(EditorialFacetsRefusedBySetting))]
+        public async Task ShouldThrowValidationExceptionOnAddingEventIfTheSettingRefusesTheFacetAndLogItAsync(
+            EntityType farEndType,
+            string refusingSwitch)
+        {
+            // given: the item's winning setting allows every facet but the one its far end names,
+            // so only that switch can refuse the pair
+            Association addRequest = CreateHonestAddRequestBetween(EntityType.ContentItem, farEndType);
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReadsBetween(addRequest, inputEnvelope);
+            List<ContentItemSettingKey> expectedSettingKeys = CreateEventPathSettingKeysFor(addRequest);
+            ContentItemSetting refusingSetting = CreateAllowingContentItemSetting(ContentType.Story);
+            typeof(ContentItemSetting).GetProperty(refusingSwitch).SetValue(refusingSetting, false);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new List<EffectiveContentItemSetting>
+                        {
+                            new EffectiveContentItemSetting
+                            {
+                                ContentItemId = addRequest.EntityAKeyId,
+                                ContentItemSetting = refusingSetting,
+                            },
+                        });
+
+            this.associationServiceMock.Setup(service =>
+                service.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(inputEnvelope);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationOrchestrationException.AddData(
+                key: refusingSwitch,
+                values: "Value does not allow this association");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    onAddingTask.AsTask);
+
+            // then: refused by the switch it names
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.HasAlreadyAddedAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            // nothing probed, nothing written, no fact published, no ProcessedEvents row recorded
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         private static SecurityContext CreateSignedReader() =>
             new SecurityContext
             {
@@ -714,5 +819,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 addRequest.EntityBGroupId,
                 inboundEnvelope);
         }
+
+        // The settings the gate asks for on this door: the ContentItem on A under the type its
+        // event-path read resolves (SetupEventPathEndpointRead).
+        private static List<ContentItemSettingKey> CreateEventPathSettingKeysFor(Association addRequest) =>
+            new List<ContentItemSettingKey>
+            {
+                new ContentItemSettingKey
+                {
+                    ContentType = ContentType.Story,
+                    ContentItemId = addRequest.EntityAKeyId,
+                },
+            };
     }
 }
