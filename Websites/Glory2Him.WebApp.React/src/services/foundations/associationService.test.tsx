@@ -347,4 +347,24 @@ describe('associationService.useGetReactionSummaries', () => {
         expect(queryClient.getQueryData(summaryKey('reader-1', page)))
             .toEqual(page.map(summaryFor));
     });
+
+    // A page that answers is read beside the empty one, so the test waits on a read that
+    // happens rather than on time passing.
+    it('should ask nothing for an empty page', async () => {
+        // given
+        const emptyPage: string[] = [];
+        const answeredPage = ['quote-1'];
+
+        // when
+        renderHook(
+            () => associationService.useGetReactionSummaries([emptyPage, answeredPage], 'reader-1'),
+            { wrapper });
+
+        // then
+        await waitFor(() => expect(
+            queryClient.getQueryData(summaryKey('reader-1', answeredPage))).toBeDefined());
+
+        expect(getReactionSummariesAsync).toHaveBeenCalledTimes(1);
+        expect(getReactionSummariesAsync).toHaveBeenCalledWith(answeredPage);
+    });
 });
