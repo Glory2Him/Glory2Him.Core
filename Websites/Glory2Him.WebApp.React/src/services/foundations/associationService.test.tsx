@@ -416,4 +416,34 @@ describe('associationService.useGetReactionSummaries', () => {
             'quote-2': summaryFor('quote-2')
         }));
     });
+
+    it('should report loading while any page is still reading', async () => {
+        // given
+        const answeredPage = ['quote-1', 'quote-2'];
+        const readingPage = ['quote-3', 'quote-4'];
+        let answerTheReadingPage: () => void = () => undefined;
+
+        getReactionSummariesAsync.mockImplementation(
+            (contentItemIds: ReadonlyArray<string>) => contentItemIds.includes('quote-3')
+                ? new Promise(resolve => {
+                    answerTheReadingPage = () => resolve(contentItemIds.map(summaryFor));
+                })
+                : Promise.resolve(contentItemIds.map(summaryFor)));
+
+        // when
+        const { result } = renderHook(
+            () => associationService.useGetReactionSummaries([answeredPage, readingPage], 'reader-1'),
+            { wrapper });
+
+        // then
+        await waitFor(() => expect(result.current.summaries['quote-1']).toBeDefined());
+        expect(result.current.isLoading).toBe(true);
+
+        // when
+        answerTheReadingPage();
+
+        // then
+        await waitFor(() => expect(result.current.summaries['quote-3']).toBeDefined());
+        expect(result.current.isLoading).toBe(false);
+    });
 });
