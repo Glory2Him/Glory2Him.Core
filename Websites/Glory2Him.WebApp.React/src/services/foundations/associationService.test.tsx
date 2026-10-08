@@ -291,4 +291,36 @@ describe('associationService.useGetReactionSummaries', () => {
         expect(queryClient.getQueryCache().getAll().map(query => query.queryKey))
             .toEqual([summaryKey('reader-1', firstPage), summaryKey('reader-1', secondPage)]);
     });
+
+    // A list page hands the read its delivered pages afresh on every render, so the pages it
+    // already read arrive as new arrays holding the same ids.
+    it('should ask only for the page just delivered', async () => {
+        // given
+        const firstPage = ['quote-1', 'quote-2'];
+        const secondPage = ['quote-3', 'quote-4'];
+        const thirdPage = ['quote-5', 'quote-6'];
+
+        const { rerender } = renderHook(
+            ({ pages }) => associationService.useGetReactionSummaries(pages, 'reader-1'),
+            { wrapper, initialProps: { pages: [firstPage, secondPage] } });
+
+        await waitFor(() => expect(
+            queryClient.getQueryData(summaryKey('reader-1', secondPage))).toBeDefined());
+
+        // when
+        rerender({ pages: [[...firstPage], [...secondPage], thirdPage] });
+
+        // then
+        await waitFor(() => expect(
+            queryClient.getQueryData(summaryKey('reader-1', thirdPage))).toBeDefined());
+
+        expect(getReactionSummariesAsync).toHaveBeenCalledTimes(3);
+        expect(getReactionSummariesAsync).toHaveBeenNthCalledWith(3, thirdPage);
+
+        expect(queryClient.getQueryCache().getAll().map(query => query.queryKey)).toEqual([
+            summaryKey('reader-1', firstPage),
+            summaryKey('reader-1', secondPage),
+            summaryKey('reader-1', thirdPage)
+        ]);
+    });
 });
