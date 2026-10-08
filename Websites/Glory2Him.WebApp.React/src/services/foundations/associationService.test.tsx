@@ -19,11 +19,13 @@ import {
 } from '../../models/foundations/associations/associationSuggestionResult';
 
 const postAssociationAsync = vi.fn();
+const deleteAssociationPairAsync = vi.fn();
 const getReactionSummariesAsync = vi.fn();
 
 vi.mock('../../brokers/apiBroker.associations', () => ({
     default: class {
         PostAssociationAsync = postAssociationAsync;
+        DeleteAssociationPairAsync = deleteAssociationPairAsync;
         GetReactionSummariesAsync = getReactionSummariesAsync;
     }
 }));
@@ -226,6 +228,36 @@ describe('associationService.useUpsertAssociation', () => {
 
         // then
         expect(toastErrorMock).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('associationService.useRemoveAssociationByPair', () => {
+    let queryClient: QueryClient;
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        deleteAssociationPairAsync.mockResolvedValue(undefined);
+
+        queryClient = new QueryClient({
+            defaultOptions: { queries: { retry: false } }
+        });
+    });
+
+    it('should withdraw the reaction through the broker', async () => {
+        // given
+        const { result } = renderHook(
+            () => associationService.useRemoveAssociationByPair(), { wrapper });
+
+        // when
+        await result.current.mutateAsync(reactionRequest);
+
+        // then
+        expect(deleteAssociationPairAsync).toHaveBeenCalledTimes(1);
+        expect(deleteAssociationPairAsync).toHaveBeenCalledWith(reactionRequest);
     });
 });
 
