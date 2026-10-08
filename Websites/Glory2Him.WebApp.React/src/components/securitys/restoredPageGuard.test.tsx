@@ -1,15 +1,18 @@
 import { ReactElement } from 'react';
 import { onlineManager } from '@tanstack/react-query';
 import { act, render, screen } from '@testing-library/react';
+import { createMemoryRouter, RouterProvider, ScrollRestoration } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CurrentUser } from '../../models/accounts/currentUser';
 import { RestoredPageGuard } from './restoredPageGuard';
 
 // The guard reads the current user through accountService. Each render hands it a NEW result
 // object, as React Query does, so a guard that keeps the result of its first render cannot
-// pass by having the shared state mutated under it.
+// pass by having the shared state mutated under it. A read with no answer yet is loading unless a
+// test says otherwise, as React Query counts a paused read as pending but not loading.
 const mocks = vi.hoisted(() => ({
     currentUser: undefined as unknown,
+    isLoading: undefined as boolean | undefined,
     refetch: vi.fn()
 }));
 
@@ -17,7 +20,7 @@ vi.mock('../../services/foundations/accountService', () => ({
     accountService: {
         useGetCurrentUser: () => ({
             data: mocks.currentUser,
-            isLoading: mocks.currentUser === undefined,
+            isLoading: mocks.isLoading ?? mocks.currentUser === undefined,
             refetch: mocks.refetch
         })
     }
@@ -137,10 +140,24 @@ const isShown = (): boolean => {
         && visibilityOfAPartWithNone !== 'collapse';
 };
 
-// happy-dom scrolls and focuses under a hidden root, and never scrolls on focus. A browser takes
-// the page out of the render while any part of the hiding remains: both its scroll offsets read as
-// the top left from the moment the page is hidden until something sets them once the page is
-// shown, the focus moves to `body`, and nothing under it is scrolled or focused meanwhile. Once
+// Every page goes into the cache hidden by the means a restored page is hidden, whoever is signed
+// in, and never by `display: none`, which would move its scroll position.
+const expectHiddenAsItGoesIntoTheCache = (): void => {
+    const rootStyle = getComputedStyle(document.documentElement);
+
+    expect(isHidden()).toBe(true);
+    expect(rootStyle.visibility).toBe('hidden');
+    expect(rootStyle.opacity).toBe('0');
+    expect(document.body.hasAttribute('inert')).toBe(true);
+    expect(rootStyle.display).not.toBe('none');
+};
+
+// happy-dom scrolls and focuses under a hidden root, and never scrolls on focus. This models a
+// browser stricter than a real one: while any part of the hiding remains, both scroll offsets read
+// as the top left from the moment the page is hidden until something sets them once the page is
+// shown, the focus moves to `body`, and nothing under it is scrolled or focused meanwhile. A real
+// browser does this under `display: none`, but keeps the scroll position under the hiding the guard
+// uses, so a guard that passes this model resumes the page where the reader left it in either. Once
 // the page is shown, `focus()` scrolls a field that is out of view to its top unless asked not to.
 const topOfTheField = 40;
 let scrollPosition = 0;
@@ -203,8 +220,8 @@ const scrollPageByAsAskedBy = (xOrOptions?: ScrollToOptions | number, y?: number
 
 type Prototype = Record<string, (...args: Array<unknown>) => unknown>;
 
-// Every way the page can be hidden passes through one of these, so the page is taken out of the
-// render in the same task it is hidden in.
+// Every way the page can be hidden passes through one of these, so the model follows the hiding in
+// the same task the page is hidden in.
 const followTheHidingAfterEachCallTo = (prototype: object, method: string): void => {
     const callAsHappyDomDoes = (prototype as Prototype)[method];
 
@@ -329,6 +346,7 @@ describe('RestoredPageGuard', () => {
 
     beforeEach(() => {
         mocks.currentUser = undefined;
+        mocks.isLoading = undefined;
         mocks.refetch.mockReset();
         reload = vi.fn();
         vi.spyOn(window.location, 'reload').mockImplementation(reload);
@@ -370,7 +388,9 @@ describe('RestoredPageGuard', () => {
         // given
         mocks.currentUser = readerA;
         render(<Page />);
-        dispatchPageTransition('pagehide', true);
+
+        // A page goes into the cache hidden, so this one reaches the restore unhidden, and only the
+        // restore's own hide can hide it.
         mocks.refetch.mockReturnValue(new Promise(() => { }));
 
         // when
@@ -561,7 +581,56 @@ describe('RestoredPageGuard', () => {
         expect(isHidden()).toBe(true);
     });
 
-    describe('in a browser that takes a hidden page out of the render', () => {
+    it('should hide a page as it goes into the cache by the means a restored page is hidden', () => {
+        // given
+        mocks.currentUser = readerA;
+        render(<Page />);
+
+        // when
+        dispatchPageTransition('pagehide', true);
+
+        // then
+        expectHiddenAsItGoesIntoTheCache();
+    });
+
+    it('should hide a page as it goes into the cache when nobody is signed in', () => {
+        // given
+        mocks.currentUser = nobody;
+        render(<Page />);
+
+        // when
+        dispatchPageTransition('pagehide', true);
+
+        // then
+        expectHiddenAsItGoesIntoTheCache();
+    });
+
+    it('should hide a page as it goes into the cache while the current user is being read', () => {
+        // given
+        mocks.currentUser = undefined;
+        render(<Page />);
+
+        // when
+        dispatchPageTransition('pagehide', true);
+
+        // then
+        expectHiddenAsItGoesIntoTheCache();
+    });
+
+    it("should hide a page as it goes into the cache while the current user's read is paused", () => {
+        // given
+        mocks.currentUser = undefined;
+        mocks.isLoading = false;
+        render(<Page />);
+
+        // when
+        dispatchPageTransition('pagehide', true);
+
+        // then
+        expectHiddenAsItGoesIntoTheCache();
+    });
+
+    describe('in a browser modelled as moving the scroll position and the focus under any hiding', () => {
         beforeEach(() => {
             modelHowABrowserScrollsAndFocuses();
         });
@@ -634,6 +703,143 @@ describe('RestoredPageGuard', () => {
 
             // then
             expect(placeAsFirstShown?.horizontalScrollPosition).toBe(300);
+        });
+
+        it('should resume a page hidden as it went into the cache where the reader left it', async () => {
+            // given
+            mocks.currentUser = readerA;
+            render(<Page />);
+            const field = fieldBeingTypedIn();
+            field.focus();
+            field.setSelectionRange(5, 5);
+
+            // Scrolled down from the top, with the field still in view.
+            window.scrollTo(0, topOfTheField - 10);
+            dispatchPageTransition('pagehide', true);
+            answerFreshRead(freshCopyOf(readerA));
+
+            // when
+            const placeAsFirstShown = await restoreAndNoteThePlaceAsFirstShown();
+
+            // then
+            expect(placeAsFirstShown?.scrollPosition).toBe(topOfTheField - 10);
+            expect(placeAsFirstShown?.focusedElement).toBe(field);
+            expect(placeAsFirstShown?.caret).toEqual([5, 5]);
+        });
+
+        it('should resume a page hidden as it went into the cache at the horizontal scroll position it had', async () => {
+            // given
+            mocks.currentUser = readerA;
+            render(<Page />);
+            window.scrollTo(300, 0);
+            dispatchPageTransition('pagehide', true);
+            answerFreshRead(freshCopyOf(readerA));
+
+            // when
+            const placeAsFirstShown = await restoreAndNoteThePlaceAsFirstShown();
+
+            // then
+            expect(placeAsFirstShown?.horizontalScrollPosition).toBe(300);
+        });
+    });
+
+    describe('in a browser where only display none moves the scroll position', () => {
+        let pagePosition = 0;
+
+        const followDisplayNone = (): void => {
+            if (getComputedStyle(document.documentElement).display === 'none') {
+                pagePosition = 0;
+            }
+        };
+
+        const followDisplayNoneAfterEachCallTo = (prototype: object, method: string): void => {
+            const callAsHappyDomDoes = (prototype as Prototype)[method];
+
+            vi.spyOn(prototype as Prototype, method).mockImplementation(function (this: unknown, ...args) {
+                const result = callAsHappyDomDoes.apply(this, args);
+                followDisplayNone();
+
+                return result;
+            });
+        };
+
+        const pagePositionProperty: PropertyDescriptor = {
+            configurable: true,
+            get: () => {
+                followDisplayNone();
+
+                return pagePosition;
+            }
+        };
+
+        // Renders the guard, then the router's scroll restoration, in the order the app does, so the
+        // guard's `pagehide` listener runs before the router's.
+        const renderPageWithTheRouter = () => {
+            const router = createMemoryRouter([{ path: '/', element: <ScrollRestoration /> }]);
+
+            render(
+                <>
+                    <RestoredPageGuard />
+                    <RouterProvider router={router} />
+                </>);
+
+            return router;
+        };
+
+        const scrollPositionTheRouterSaved = (router: ReturnType<typeof createMemoryRouter>): number =>
+            JSON.parse(sessionStorage.getItem('react-router-scroll-positions') ?? '{}')[router.state.location.key];
+
+        beforeEach(() => {
+            pagePosition = 0;
+            sessionStorage.clear();
+            followDisplayNoneAfterEachCallTo(CSSStyleDeclaration.prototype, 'setProperty');
+            followDisplayNoneAfterEachCallTo(Element.prototype, 'setAttribute');
+            replaceProperty(window, 'scrollY', pagePositionProperty);
+            replaceProperty(window, 'pageYOffset', pagePositionProperty);
+
+            vi.spyOn(window, 'scrollTo').mockImplementation((xOrOptions?: ScrollToOptions | number, y?: number) => {
+                followDisplayNone();
+
+                if (getComputedStyle(document.documentElement).display !== 'none') {
+                    pagePosition = typeof xOrOptions === 'object' ? xOrOptions.top ?? pagePosition : y ?? pagePosition;
+                }
+            });
+        });
+
+        afterEach(() => {
+            stopModellingABrowser();
+            sessionStorage.clear();
+        });
+
+        it('should keep the scroll position the router saves for a page hidden as it goes into the cache', () => {
+            // given
+            mocks.currentUser = readerA;
+            const router = renderPageWithTheRouter();
+            window.scrollTo(0, 600);
+
+            // when
+            dispatchPageTransition('pagehide', true);
+
+            // then
+            expect(scrollPositionTheRouterSaved(router)).toBe(600);
+        });
+
+        it('should keep the scroll position the router saves for a page the guard reloads', async () => {
+            // given
+            mocks.currentUser = nobody;
+            const router = renderPageWithTheRouter();
+            window.scrollTo(0, 600);
+            dispatchPageTransition('pagehide', true);
+            answerFreshRead(nobody);
+            dispatchPageTransition('pageshow', true);
+            await settle();
+            expect(reload).toHaveBeenCalledTimes(1);
+
+            // when
+            dispatchPageTransition('pagehide', false);
+
+            // then
+            expect(scrollPositionTheRouterSaved(router)).toBe(600);
         });
     });
 });

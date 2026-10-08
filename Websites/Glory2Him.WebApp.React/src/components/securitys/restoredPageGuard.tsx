@@ -35,8 +35,8 @@ const notePlaceOnThePage = (): PlaceOnThePage => ({
     focusedElement: document.activeElement
 });
 
-// A browser does not scroll a page taken out of the render, nor focus a field out of reach of
-// input, so the place is put back only once the page is shown again.
+// A browser does not focus a field out of reach of input, so the place is put back only once the
+// page is shown again, its scroll position with it.
 const resumePlaceOnThePage = (place: PlaceOnThePage): void => {
     window.scrollTo({ left: place.horizontalScrollPosition, top: place.scrollPosition });
 
@@ -63,6 +63,10 @@ export const RestoredPageGuard = (): ReactElement => {
         const handlePageHide = () => {
             cachedReaderReference.current = signedInReaderOf(currentUserReference.current);
             cachedPlaceReference.current = notePlaceOnThePage();
+
+            // The page goes into the cache hidden as a restored page is, which moves nothing the
+            // router saves for a page loaded afresh.
+            hidePage();
         };
 
         const handlePageShow = async (event: PageTransitionEvent) => {
