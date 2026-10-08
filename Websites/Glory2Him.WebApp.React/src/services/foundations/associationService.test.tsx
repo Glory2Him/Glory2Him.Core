@@ -19,11 +19,13 @@ import {
 } from '../../models/foundations/associations/associationSuggestionResult';
 
 const postAssociationAsync = vi.fn();
+const deleteAssociationPairAsync = vi.fn();
 const getReactionSummariesAsync = vi.fn();
 
 vi.mock('../../brokers/apiBroker.associations', () => ({
     default: class {
         PostAssociationAsync = postAssociationAsync;
+        DeleteAssociationPairAsync = deleteAssociationPairAsync;
         GetReactionSummariesAsync = getReactionSummariesAsync;
     }
 }));
@@ -225,6 +227,195 @@ describe('associationService.useUpsertAssociation', () => {
         await expect(result.current.mutateAsync(reactionRequest)).rejects.toBe(brokerError);
 
         // then
+        expect(toastErrorMock).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('associationService.useRemoveAssociationByPair', () => {
+    let queryClient: QueryClient;
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        deleteAssociationPairAsync.mockResolvedValue(undefined);
+
+        queryClient = new QueryClient({
+            defaultOptions: { queries: { retry: false } }
+        });
+    });
+
+    it('should withdraw the reaction through the broker', async () => {
+        // given
+        const { result } = renderHook(
+            () => associationService.useRemoveAssociationByPair(), { wrapper });
+
+        // when
+        await result.current.mutateAsync(reactionRequest);
+
+        // then
+        expect(deleteAssociationPairAsync).toHaveBeenCalledTimes(1);
+        expect(deleteAssociationPairAsync).toHaveBeenCalledWith(reactionRequest);
+    });
+
+    // THE SUMMARY READS A WITHDRAWAL MUST REACH, seeded for real rather than spied on: one a card
+    // is serving (active, so it is read again at once) and one cached from another screen
+    // (inactive, so it is marked stale and NOT fetched), both under the ReactionSummaries prefix,
+    // and one outside the family, which a filter widening past the prefix would wrongly reach.
+    // The withdrawal is held open so what happens before it settles can be told apart from what
+    // happens after.
+    const seedSummaryReads = async () => {
+        const activeSummaryRead = vi.fn().mockResolvedValue([]);
+        const cachedSummaryRead = vi.fn().mockResolvedValue([]);
+        const unrelatedRead = vi.fn().mockResolvedValue([]);
+
+        renderHook(
+            () => useQuery({
+                queryKey: ['ReactionSummaries', ['quote-1']],
+                queryFn: activeSummaryRead
+            }),
+            { wrapper });
+
+        await queryClient.prefetchQuery({
+            queryKey: ['ReactionSummaries', ['quote-2']],
+            queryFn: cachedSummaryRead
+        });
+
+        await queryClient.prefetchQuery({
+            queryKey: ['ContentItemsSearch'],
+            queryFn: unrelatedRead
+        });
+
+        await waitFor(() => expect(activeSummaryRead).toHaveBeenCalledTimes(1));
+
+        return { activeSummaryRead, cachedSummaryRead, unrelatedRead };
+    };
+
+    const isStale = (queryKey: ReadonlyArray<unknown>) =>
+        queryClient.getQueryState(queryKey)?.isInvalidated;
+
+    const holdTheWithdrawalOpen = () => {
+        let settle: { resolve: (value: unknown) => void; reject: (reason: unknown) => void } =
+            { resolve: () => undefined, reject: () => undefined };
+
+        deleteAssociationPairAsync.mockReturnValue(
+            new Promise((resolve, reject) => { settle = { resolve, reject }; }));
+
+        return () => settle;
+    };
+
+    const expectTheSummariesReadAgainOnSettle = async (
+        settleTheWithdrawal: () => Promise<unknown>,
+        reads: Awaited<ReturnType<typeof seedSummaryReads>>) => {
+
+        // then, before the withdrawal settles
+        await waitFor(() => expect(deleteAssociationPairAsync).toHaveBeenCalledTimes(1));
+        expect(reads.activeSummaryRead).toHaveBeenCalledTimes(1);
+        expect(isStale(['ReactionSummaries', ['quote-2']])).toBe(false);
+
+        // when
+        await settleTheWithdrawal();
+
+        // then
+        await waitFor(() => expect(reads.activeSummaryRead).toHaveBeenCalledTimes(2));
+        expect(isStale(['ReactionSummaries', ['quote-2']])).toBe(true);
+        expect(reads.cachedSummaryRead).toHaveBeenCalledTimes(1);
+        expect(isStale(['ContentItemsSearch'])).toBe(false);
+        expect(reads.unrelatedRead).toHaveBeenCalledTimes(1);
+    };
+
+    // Matched by PREFIX: a summary read is keyed on the page of ids it asked for, and every
+    // page holding the item is stale once its reaction is withdrawn.
+    it('should read the summaries again once a reaction is withdrawn', async () => {
+        // given
+        const reads = await seedSummaryReads();
+        const settle = holdTheWithdrawalOpen();
+
+        const { result } = renderHook(
+            () => associationService.useRemoveAssociationByPair(), { wrapper });
+
+        // when
+        const withdrawal = result.current.mutateAsync(reactionRequest);
+
+        // then
+        await expectTheSummariesReadAgainOnSettle(
+            async () => {
+                settle().resolve(undefined);
+                await withdrawal;
+            },
+            reads);
+    });
+
+    // A FAILED WITHDRAWAL MAY STILL HAVE LANDED: the server can delete the row and the answer be
+    // lost on the way back, so the summaries are read again either way and the card shows what
+    // the server holds rather than what the page guessed.
+    it('should read the summaries again when a withdrawal fails', async () => {
+        // given
+        const reads = await seedSummaryReads();
+        const settle = holdTheWithdrawalOpen();
+
+        const { result } = renderHook(
+            () => associationService.useRemoveAssociationByPair(), { wrapper });
+
+        // when
+        const withdrawal = result.current.mutateAsync(reactionRequest);
+
+        // then
+        await expectTheSummariesReadAgainOnSettle(
+            async () => {
+                settle().reject(new Error('refused'));
+                await expect(withdrawal).rejects.toThrow('refused');
+            },
+            reads);
+    });
+
+    // A FAILED WITHDRAWAL IS ANNOUNCED as every failed write is. Driven through the app's own
+    // global handler, so what is proven is the toast the reader sees, not the absence of a flag.
+    // The handler rethrows by design, which react-query surfaces as an unhandled rejection; it
+    // is swallowed here and nowhere else, so the decision to toast stays the app's. The toasts
+    // are counted inside the global handler, so a hook that suppresses it and raises its own
+    // toast is not mistaken for one that leaves it on.
+    it("should fail a withdrawal with the broker's error and leave the global toast on", async () => {
+        // given
+        const brokerError = new Error('refused');
+        deleteAssociationPairAsync.mockRejectedValue(brokerError);
+
+        const globalOnError =
+            queryClientGlobalOptions.getMutationCache().config.onError!;
+
+        let toastsRaisedByTheGlobalHandler = 0;
+
+        const globalClient = new QueryClient({
+            mutationCache: new MutationCache({
+                onError: (...args) => {
+                    const toastsBefore = toastErrorMock.mock.calls.length;
+
+                    try {
+                        globalOnError(...args);
+                    } catch {
+                        // the global handler's deliberate rethrow
+                    } finally {
+                        toastsRaisedByTheGlobalHandler +=
+                            toastErrorMock.mock.calls.length - toastsBefore;
+                    }
+                }
+            })
+        });
+
+        const globalWrapper = ({ children }: { children: ReactNode }) => (
+            <QueryClientProvider client={globalClient}>{children}</QueryClientProvider>
+        );
+
+        const { result } = renderHook(
+            () => associationService.useRemoveAssociationByPair(), { wrapper: globalWrapper });
+
+        // when
+        await expect(result.current.mutateAsync(reactionRequest)).rejects.toBe(brokerError);
+
+        // then
+        expect(toastsRaisedByTheGlobalHandler).toBe(1);
         expect(toastErrorMock).toHaveBeenCalledTimes(1);
     });
 });
