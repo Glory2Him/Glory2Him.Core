@@ -99,9 +99,11 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
             var someException = new Exception();
             string someMessage = GetRandomString();
 
+            // A message of its own, so a 400 carrying the outer exception rather than this one
+            // does not compare equal.
             var alreadyExistsAssociationException =
                 new AlreadyExistsAssociationException(
-                    message: someMessage,
+                    message: GetRandomString(),
                     innerException: someException,
                     data: someException.Data);
 
