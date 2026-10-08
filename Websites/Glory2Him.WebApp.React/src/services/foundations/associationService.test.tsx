@@ -841,4 +841,53 @@ describe('associationService.useReadReactionSummariesAgain', () => {
         await act(async () => { await watched.wait; });
         expect(queryClient.getQueryData(summaryKey(page))).toBe(answerBeforeTheCall);
     });
+
+    // A SUPERSEDED READ IS WAITED PAST. Once by a second call's re-read, or twice, by another
+    // write's refresh and then another call's re-read. Every superseded read is landed before
+    // the read that supersedes it, so a wait that ends on any of them ends too early.
+    it.each([
+        ['superseded once', false],
+        ['superseded twice', true]
+    ])('should resolve only on a read sent after the call, however often its read is superseded (%s)',
+        async (_, supersededByAWriteFirst) => {
+            // given
+            const page = ['quote-1', 'quote-2'];
+            const { result } = renderTheSummariesAndTheReadAgain([page]);
+
+            await waitFor(() => expect(heldReads).toHaveLength(1));
+            await answer(heldReads[0]);
+            await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+
+            const firstCall = readAgain(() => result.current.readAgain);
+            await waitFor(() => expect(heldReads).toHaveLength(2));
+
+            if (supersededByAWriteFirst) {
+                act(() => { void queryClient.invalidateQueries({ queryKey: ['ReactionSummaries'] }); });
+                await waitFor(() => expect(heldReads).toHaveLength(3));
+            }
+
+            // when
+            const secondCall = readAgain(() => result.current.readAgain);
+            await waitFor(() => expect(heldReads).toHaveLength(supersededByAWriteFirst ? 4 : 3));
+            const supersedingRead = heldReads[heldReads.length - 1];
+
+            for (const supersededRead of heldReads.slice(1, -1)) {
+                await answer(supersededRead, 2);
+            }
+
+            await letTheLandedReadsBeSeen();
+
+            // then
+            expect(firstCall.hasResolved).toBe(false);
+            expect(secondCall.hasResolved).toBe(false);
+
+            // when
+            await answer(supersedingRead, 3);
+
+            // then
+            await act(async () => { await Promise.all([firstCall.wait, secondCall.wait]); });
+
+            expect(queryClient.getQueryData(summaryKey(page)))
+                .toEqual(page.map(contentItemId => summaryFor(contentItemId, 3)));
+        });
 });
