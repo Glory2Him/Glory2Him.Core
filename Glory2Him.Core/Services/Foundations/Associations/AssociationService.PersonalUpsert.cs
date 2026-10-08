@@ -61,6 +61,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             // key holds the host on A, and CK_Association_CanonicalOrder refuses any other row
             // (§DOM4.4 rule 4)
             association = NormalizeEndpointOrder(association);
+            ValidatePersonalUpsertHasHostOnEndpointA(association);
 
             Guid entityAEffectiveId = ResolveEffectiveId(
                 association.EntityAScope,
@@ -217,6 +218,15 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
                 (Rule: IsSameEndpoint(association.EntityAGroupId, association.EntityBGroupId),
                     Parameter: nameof(Association.EntityBGroupId)));
+
+        // Asked once canonical order is restored and after the caller and field checks, and before
+        // the reader's row is resolved (Backend/Foundations/AssociationService.md §8 rules 1 and 2).
+        // A reaction paired with a tag, either way round, or with another reaction, lands on A and
+        // has no host.
+        private static void ValidatePersonalUpsertHasHostOnEndpointA(Association association) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsPersonalOnEndpointA(association.EntityAType), Parameter: nameof(Association.EntityAType)));
 
         // The scope a type takes is EntityTypeVersioning's answer, never an inline test of the type
         // (§DOM4.5 rule 1, §APR7.5.1). An undefined scope, or an endpoint of an undefined type, is
