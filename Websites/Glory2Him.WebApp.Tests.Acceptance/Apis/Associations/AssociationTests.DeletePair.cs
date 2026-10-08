@@ -96,5 +96,36 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
             }
         }
+
+        [Fact]
+        public async Task ShouldReturnUnauthorizedOnDeletePairIfCallerIsAnonymousAsync()
+        {
+            // given
+            CoreContentItem publishedContentItem = await InsertPublishedContentItemAsync();
+            Association inputPair = CreateReactionPair(publishedContentItem.Id, seededAmenReactionId);
+            this.apiBroker.ActAsAnonymous();
+
+            try
+            {
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.DeleteAssociationPairAsync(inputPair);
+
+                string actualBody = await actualResponse.Content.ReadAsStringAsync();
+
+                // then
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+                // The attribute's challenge answers with no body, where the orchestration's own
+                // refusal would carry problem details: an empty body shows the attribute turned
+                // the caller away before the orchestration was asked.
+                actualBody.Should().BeEmpty();
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
+            }
+        }
     }
 }
