@@ -112,7 +112,8 @@ export const associationService = {
         const queryClient = useQueryClient();
 
         return async () => {
-            const summaryReads = queryClient.getQueryCache().findAll({ queryKey: ['ReactionSummaries'] });
+            const summaryReads = queryClient.getQueryCache()
+                .findAll({ queryKey: ['ReactionSummaries'], type: 'active' });
 
             await Promise.all(summaryReads.map(async summaryRead => {
                 // A refetch joins a read in flight on a query holding no answer rather than
