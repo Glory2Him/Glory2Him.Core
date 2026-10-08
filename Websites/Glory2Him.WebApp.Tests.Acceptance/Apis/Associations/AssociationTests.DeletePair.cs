@@ -153,5 +153,21 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
             // then
             actualResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         }
+
+        [Fact]
+        public async Task ShouldReturnNotFoundOnDeletePairIfTheItemDoesNotExistAsync()
+        {
+            // given
+            Guid nonExistentContentItemId = Guid.NewGuid();
+            Association inputPair = CreateReactionPair(nonExistentContentItemId, seededAmenReactionId);
+            this.apiBroker.ActAsContributor();
+
+            // when
+            HttpResponseMessage actualResponse =
+                await this.apiBroker.DeleteAssociationPairAsync(inputPair);
+
+            // then
+            actualResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
     }
 }
