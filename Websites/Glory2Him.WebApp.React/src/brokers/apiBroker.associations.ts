@@ -15,6 +15,19 @@ class AssociationBroker {
         return result.data as AssociationSuggestionResult;
     }
 
+    // DeleteAsync sends no body, so the pair travels on the query string (§ARC16.8.1). The
+    // server answers 204 whether or not it held the pair, so there is nothing to return.
+    async DeleteAssociationPairAsync(association: AssociationRequest): Promise<void> {
+        const parameters = new URLSearchParams();
+        parameters.set('entityAType', String(association.entityAType));
+        parameters.set('entityAKeyId', association.entityAKeyId);
+        parameters.set('entityBType', String(association.entityBType));
+        parameters.set('entityBKeyId', association.entityBKeyId);
+
+        const url = `${this.relativeAssociationsUrl}/pair?${parameters}`;
+        await this.apiBroker.DeleteAsync(url);
+    }
+
     // Every id it is handed, in one request and in the order handed: bounding and chunking the
     // set are the caller's (§ARC16.8, The set, its bounds).
     async GetReactionSummariesAsync(
