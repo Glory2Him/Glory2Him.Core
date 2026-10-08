@@ -166,6 +166,122 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         }
 
         [Fact]
+        public async Task ShouldCreateTheReadersRowOnAHostThatIsNotAContentItemAsync()
+        {
+            // given: a reaction on a Bible reference. "BibleReference" sorts before "Reaction", so
+            // the host is endpoint A and is not personal; a refusal written as "no content item
+            // endpoint" rather than "a personal type on A" would refuse it
+            // (Backend/Foundations/AssociationService.md §8 rule 1).
+            string readerUserId = GetRandomString();
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association upsertRequest = CreateBibleReferenceLookupRequest(readerUserId);
+            upsertRequest.EntityBScope = Scope.ThisVersionOnly;
+            upsertRequest.ApprovalStatus = ApprovalStatus.Submitted;
+            upsertRequest.Id = Guid.Empty;
+            Guid mintedId = Guid.NewGuid();
+
+            Association expectedInsertedAssociation =
+                StampAddAudit(upsertRequest.DeepClone(), readerUserId, currentDateTime);
+
+            expectedInsertedAssociation.Id = mintedId;
+
+            Association storedAssociation =
+                WithDatabaseComputedEffectiveIds(expectedInsertedAssociation.DeepClone());
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(CreateRandomAssociations(), inputCancellationToken);
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(mintedId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTime);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.Is(SameAssociationBeforeItsAddStampAs(expectedInsertedAssociation)),
+                    this.ambientSecurityContext))
+                        .ReturnsAsync((Association entity, SecurityContext _) =>
+                            StampAddAudit(entity.DeepClone(), readerUserId, currentDateTime));
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertAssociationAsync(
+                    It.Is(SameAssociationAs(expectedInsertedAssociation)),
+                    inputCancellationToken))
+                        .ReturnsAsync(storedAssociation);
+
+            EventEnvelope<Association> inboundEnvelope = SetupInboundEnvelopeFor(upsertRequest);
+
+            EventEnvelope<Association> outboundEnvelope =
+                SetupOutboundEnvelopeFor(inboundEnvelope, storedAssociation);
+
+            // when
+            PersonalAssociationUpsert actualUpsert =
+                await this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    inputCancellationToken);
+
+            // then: the reader's row is created on the Bible reference
+            actualUpsert.Outcome.Should().Be(PersonalAssociationUpsertOutcome.Created);
+            actualUpsert.Association.Should().BeSameAs(storedAssociation);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(upsertRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalUpsertLookupAsked(inputCancellationToken, Times.Once());
+
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                    Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.Is(SameAssociationBeforeItsAddStampAs(expectedInsertedAssociation)),
+                    this.ambientSecurityContext),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAssociationAsync(
+                    It.Is(SameAssociationAs(expectedInsertedAssociation)),
+                    inputCancellationToken),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateNextAsync(inboundEnvelope, storedAssociation),
+                    Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAssociationAsync(outboundEnvelope, AssociationEventOperation.Added),
+                    Times.Once);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldReviveTheReadersWithdrawnRowAtItsOwnStatusAsync()
         {
             // given: the reader withdrew this reaction themselves, at Approved, and the caller sends
