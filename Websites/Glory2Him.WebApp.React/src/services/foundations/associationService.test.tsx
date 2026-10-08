@@ -367,4 +367,25 @@ describe('associationService.useGetReactionSummaries', () => {
         expect(getReactionSummariesAsync).toHaveBeenCalledTimes(1);
         expect(getReactionSummariesAsync).toHaveBeenCalledWith(answeredPage);
     });
+
+    it('should answer one summary per content item id across every page', async () => {
+        // given
+        const firstPage = ['quote-1', 'quote-2'];
+        const secondPage = ['quote-3', 'quote-4'];
+
+        const expectedSummaries = {
+            'quote-1': summaryFor('quote-1'),
+            'quote-2': summaryFor('quote-2'),
+            'quote-3': summaryFor('quote-3'),
+            'quote-4': summaryFor('quote-4')
+        };
+
+        // when
+        const { result } = renderHook(
+            () => associationService.useGetReactionSummaries([firstPage, secondPage], 'reader-1'),
+            { wrapper });
+
+        // then
+        await waitFor(() => expect(result.current.summaries).toEqual(expectedSummaries));
+    });
 });
