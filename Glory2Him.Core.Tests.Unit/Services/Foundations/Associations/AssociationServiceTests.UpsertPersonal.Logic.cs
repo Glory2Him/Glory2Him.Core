@@ -1289,6 +1289,81 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         }
 
         [Theory]
+        [MemberData(nameof(CallersWhoMayNotWriteThePair))]
+        public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfTheCallerMayNotWriteAPairWithNoHostOnEndpointAAndLogItAsync(
+            string caller)
+        {
+            // given: a reaction paired with a tag, which has no host on endpoint A. The caller is
+            // refused first, as today, whatever pair they name
+            // (Backend/Foundations/AssociationService.md §8 rule 2).
+            string callerUserId = GetRandomString();
+            string anotherReaderUserId = GetRandomString();
+            bool isSignedIn = caller == "AnotherReader";
+
+            this.ambientSecurityContext = isSignedIn
+                ? CreateAuthenticatedSecurityContext()
+                : new SecurityContext { IsAuthenticated = false };
+
+            Association upsertRequest = CreatePairWithNoHostOnEndpointA(anotherReaderUserId, "ReactionThenTag");
+
+            var unauthorizedAssociationException =
+                new UnauthorizedAssociationException(
+                    message: isSignedIn
+                        ? "The current user is not allowed to write another user's " +
+                            "personal content item association."
+                        : "The current user is not authenticated.");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedAssociationException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(callerUserId);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(upsertTask.AsTask);
+
+            // then: refused as unauthorized, not as an invalid pair, and storage never asked
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(upsertRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    isSignedIn ? Times.Once() : Times.Never());
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        public static TheoryData<string> CallersWhoMayNotWriteThePair() =>
+            new TheoryData<string>
+            {
+                "NotSignedIn",
+                "AnotherReader"
+            };
+
+        [Theory]
         [MemberData(nameof(PublishingUpsertArms))]
         public async Task ShouldLogCriticalWhenTheUpsertFactDeliveryFailsAsync(
             string arm,
