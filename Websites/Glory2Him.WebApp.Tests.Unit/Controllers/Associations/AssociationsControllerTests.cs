@@ -12,6 +12,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
+using System.Text.Json;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations;
@@ -57,6 +59,16 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
                 EntityBType = EntityType.Reaction,
                 EntityBKeyId = Guid.NewGuid()
             };
+
+        /// <summary>
+        /// Every member compared, serialised, so an association carrying anything beyond what the
+        /// expected one carries — a member set, or two endpoints swapped — does not match.
+        /// </summary>
+        private static Expression<Func<Association, bool>> SameAssociationAs(
+            Association expectedAssociation) =>
+            actualAssociation =>
+                JsonSerializer.Serialize(actualAssociation, (JsonSerializerOptions)null)
+                    == JsonSerializer.Serialize(expectedAssociation, (JsonSerializerOptions)null);
 
         public static TheoryData<Xeption> ValidationExceptions()
         {

@@ -9,9 +9,11 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 using Microsoft.AspNetCore.Mvc;
@@ -75,6 +77,58 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
             associationOrchestrationServiceMock
                 .Verify(service => service.RemoveAssociationByPairAsync(inputAssociation, cancellationToken),
                     Times.Once);
+
+            associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldHandTheOrchestrationThePairItIsGivenOnDeletePairAsync()
+        {
+            // given
+            EntityType inputEntityAType = EntityType.ContentItem;
+            Guid inputEntityAKeyId = Guid.NewGuid();
+            EntityType inputEntityBType = EntityType.Reaction;
+            Guid inputEntityBKeyId = Guid.NewGuid();
+
+            var inputAssociation = new Association
+            {
+                EntityAType = inputEntityAType,
+                EntityAKeyId = inputEntityAKeyId,
+                EntityBType = inputEntityBType,
+                EntityBKeyId = inputEntityBKeyId
+            };
+
+            // Built apart from the input, so the match below compares what the orchestration is
+            // handed with the two endpoints alone rather than with the instance the action was
+            // given — any member beyond them would red it.
+            var expectedAssociation = new Association
+            {
+                EntityAType = inputEntityAType,
+                EntityAKeyId = inputEntityAKeyId,
+                EntityBType = inputEntityBType,
+                EntityBKeyId = inputEntityBKeyId
+            };
+
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+            AssociationRemovalResult removedResult =
+                CreateAssociationRemovalResult(AssociationRemovalStatus.Removed);
+
+            associationOrchestrationServiceMock
+                .Setup(service => service.RemoveAssociationByPairAsync(
+                    It.Is(SameAssociationAs(expectedAssociation)),
+                    cancellationToken))
+                        .ReturnsAsync(removedResult);
+
+            // when
+            await associationsController.DeleteAssociationPairAsync(inputAssociation, cancellationToken);
+
+            // then
+            associationOrchestrationServiceMock
+                .Verify(service => service.RemoveAssociationByPairAsync(
+                    It.Is(SameAssociationAs(expectedAssociation)),
+                    cancellationToken),
+                        Times.Once);
 
             associationOrchestrationServiceMock.VerifyNoOtherCalls();
         }
