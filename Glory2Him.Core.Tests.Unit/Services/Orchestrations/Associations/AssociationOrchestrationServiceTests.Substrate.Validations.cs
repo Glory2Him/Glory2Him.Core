@@ -794,6 +794,97 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // THE GATE NEVER FALLS OPEN ON THIS DOOR EITHER (#753; AssociationOrchestrationService.md
+        // §5 rule 1). The broker answers per key, and its answer here holds one allowing row for
+        // each term of the key that misses on that term alone — the same item under another type,
+        // and another item under the same type — so a gate that took a row for any other key would
+        // admit the pair.
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddingEventIfTheItemsSettingDoesNotResolveAndLogItAsync()
+        {
+            // given
+            Association addRequest = CreateHonestAddRequestBetween(EntityType.ContentItem, EntityType.Tag);
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReadsBetween(addRequest, inputEnvelope);
+            List<ContentItemSettingKey> expectedSettingKeys = CreateEventPathSettingKeysFor(addRequest);
+
+            var nearMissSettings = new List<EffectiveContentItemSetting>
+            {
+                new EffectiveContentItemSetting
+                {
+                    ContentItemId = addRequest.EntityAKeyId,
+                    ContentItemSetting = CreateAllowingContentItemSetting(ContentType.Testimony),
+                },
+
+                new EffectiveContentItemSetting
+                {
+                    ContentItemId = Guid.NewGuid(),
+                    ContentItemSetting = CreateAllowingContentItemSetting(ContentType.Story),
+                },
+            };
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(nearMissSettings);
+
+            this.associationServiceMock.Setup(service =>
+                service.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(inputEnvelope);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationOrchestrationException.AddData(
+                key: nameof(ContentItemSetting.TagsAllowed),
+                values: "Value could not be resolved");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.HasAlreadyAddedAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            // nothing probed, nothing written, no fact published, no ProcessedEvents row recorded
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         private static SecurityContext CreateSignedReader() =>
             new SecurityContext
             {
