@@ -102,7 +102,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
         }
 
         [Theory]
-        [MemberData(nameof(ValidationExceptions))]
+        [MemberData(nameof(DeletePairValidationExceptions))]
         public async Task ShouldReturnBadRequestOnDeletePairIfValidationErrorOccurredAsync(
             Xeption validationException)
         {

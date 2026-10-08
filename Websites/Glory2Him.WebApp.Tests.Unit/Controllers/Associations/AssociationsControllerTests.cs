@@ -16,6 +16,7 @@ using System.Linq.Expressions;
 using System.Text.Json;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Glory2Him.Core.Services.Orchestrations.Associations;
@@ -84,6 +85,35 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
                 new AssociationOrchestrationDependencyValidationException(
                     message: someMessage,
                     innerException: someInnerException)
+            };
+        }
+
+        /// <summary>
+        /// One case per family, the dependency validation case carrying the inner exception the
+        /// upsert answers <c>409</c> for, so a withdrawal that borrowed that arm would not answer
+        /// <c>400</c> (<c>AssociationsController.md</c> §2 rule 4).
+        /// </summary>
+        public static TheoryData<Xeption> DeletePairValidationExceptions()
+        {
+            var someInnerException = new Xeption();
+            var someException = new Exception();
+            string someMessage = GetRandomString();
+
+            var alreadyExistsAssociationException =
+                new AlreadyExistsAssociationException(
+                    message: someMessage,
+                    innerException: someException,
+                    data: someException.Data);
+
+            return new TheoryData<Xeption>
+            {
+                new AssociationOrchestrationValidationException(
+                    message: someMessage,
+                    innerException: someInnerException),
+
+                new AssociationOrchestrationDependencyValidationException(
+                    message: someMessage,
+                    innerException: alreadyExistsAssociationException)
             };
         }
 
