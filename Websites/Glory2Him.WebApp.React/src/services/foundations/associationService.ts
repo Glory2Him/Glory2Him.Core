@@ -52,8 +52,13 @@ export const associationService = {
         readerId: string | null | undefined): ReactionSummariesRead => {
         const associationBroker = new AssociationBroker();
 
+        // While the reader is unknown the hook holds no query at all, rather than a disabled one:
+        // React Query hashes an undefined key element as null, so a disabled query would still
+        // answer from the signed-out reader's cache.
+        const pagesToRead = readerId === undefined ? [] : contentItemIdPages;
+
         const pageReads = useQueries({
-            queries: contentItemIdPages.map(contentItemIds => ({
+            queries: pagesToRead.map(contentItemIds => ({
                 queryKey: ['ReactionSummaries', readerId, contentItemIds],
                 queryFn: async () => {
                     const chunks = chunkContentItemIds(contentItemIds);
