@@ -33,7 +33,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
 
             var unauthorizedAssociationOrchestrationException =
                 new UnauthorizedAssociationOrchestrationException(
-                    message: someMessage);
+                    message: GetRandomString());
 
             var associationOrchestrationValidationException =
                 new AssociationOrchestrationValidationException(
@@ -72,7 +72,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
 
             var notFoundAssociationOrchestrationException =
                 new NotFoundAssociationOrchestrationException(
-                    message: someMessage);
+                    message: GetRandomString());
 
             var associationOrchestrationValidationException =
                 new AssociationOrchestrationValidationException(
