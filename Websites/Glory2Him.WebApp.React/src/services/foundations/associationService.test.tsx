@@ -303,7 +303,7 @@ describe('associationService.useGetReactionSummaries', () => {
         const secondPage = ['quote-3', 'quote-4'];
         const thirdPage = ['quote-5', 'quote-6'];
 
-        const { rerender } = renderHook(
+        const { result, rerender } = renderHook(
             ({ pages }) => associationService.useGetReactionSummaries(pages, 'reader-1'),
             { wrapper, initialProps: { pages: [firstPage, secondPage] } });
 
@@ -325,6 +325,11 @@ describe('associationService.useGetReactionSummaries', () => {
             summaryKey('reader-1', secondPage),
             summaryKey('reader-1', thirdPage)
         ]);
+
+        // The cached pages still answer: every card keeps its counts at any scroll depth.
+        await waitFor(() => expect(result.current.summaries).toEqual(Object.fromEntries(
+            [...firstPage, ...secondPage, ...thirdPage]
+                .map(contentItemId => [contentItemId, summaryFor(contentItemId)]))));
     });
 
     it('should chunk a page of more than 25 ids at 25', async () => {
