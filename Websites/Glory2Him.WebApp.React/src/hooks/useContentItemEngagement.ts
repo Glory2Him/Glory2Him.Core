@@ -68,7 +68,8 @@ export const useContentItemEngagement = (
                         label: reaction.name,
                         glyph: reaction.unicodeEmoji,
                         count: reaction.count
-                    }))
+                    })),
+                    viewerReactionLabel: summary.viewerReactionName ?? undefined
                 };
 
             return (viewerReactions[contentItem.id] ?? '').length > 0
