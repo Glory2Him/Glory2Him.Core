@@ -166,6 +166,13 @@ namespace Glory2Him.WebApp.Controllers.Associations
             catch (AssociationOrchestrationValidationException
                 associationOrchestrationValidationException)
                 when (associationOrchestrationValidationException.InnerException
+                    is UnauthorizedAssociationOrchestrationException)
+            {
+                return Unauthorized(associationOrchestrationValidationException.InnerException);
+            }
+            catch (AssociationOrchestrationValidationException
+                associationOrchestrationValidationException)
+                when (associationOrchestrationValidationException.InnerException
                     is NotFoundAssociationOrchestrationException)
             {
                 return NotFound(associationOrchestrationValidationException.InnerException);
