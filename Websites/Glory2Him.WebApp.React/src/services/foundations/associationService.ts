@@ -62,7 +62,10 @@ export const associationService = {
                         associationBroker.GetReactionSummariesAsync(chunk)));
 
                     return answers.flat();
-                }
+                },
+
+                // An empty page asks nothing, so it never reads and is never loading.
+                enabled: contentItemIds.length > 0
             }))
         });
 
