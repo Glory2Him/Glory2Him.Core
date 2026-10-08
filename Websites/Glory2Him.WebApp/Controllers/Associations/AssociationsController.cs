@@ -155,11 +155,19 @@ namespace Glory2Him.WebApp.Controllers.Associations
             [FromQuery] Association association,
             CancellationToken cancellationToken)
         {
-            await this.associationOrchestrationService.RemoveAssociationByPairAsync(
-                association,
-                cancellationToken);
+            try
+            {
+                await this.associationOrchestrationService.RemoveAssociationByPairAsync(
+                    association,
+                    cancellationToken);
 
-            return NoContent();
+                return NoContent();
+            }
+            catch (AssociationOrchestrationValidationException
+                associationOrchestrationValidationException)
+            {
+                return BadRequest(associationOrchestrationValidationException.InnerException);
+            }
         }
     }
 }
