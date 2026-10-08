@@ -353,6 +353,23 @@ describe('associationService.useGetReactionSummaries', () => {
             .toEqual(page.map(summaryFor));
     });
 
+    // The route refuses an ask holding no ids, so a page of exactly 25 must not be followed by
+    // an empty chunk.
+    it('should ask a page of exactly 25 ids whole', async () => {
+        // given
+        const page = idsFrom('quote', 25);
+
+        // when
+        const { result } = renderHook(
+            () => associationService.useGetReactionSummaries([page], 'reader-1'),
+            { wrapper });
+
+        // then
+        await waitFor(() => expect(Object.keys(result.current.summaries)).toHaveLength(25));
+        expect(getReactionSummariesAsync).toHaveBeenCalledTimes(1);
+        expect(getReactionSummariesAsync).toHaveBeenCalledWith(page);
+    });
+
     // A page that answers is read beside the empty one, so the test waits on a read that
     // happens rather than on time passing.
     it('should ask nothing for an empty page', async () => {
