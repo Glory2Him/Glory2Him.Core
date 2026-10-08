@@ -251,6 +251,9 @@ describe('associationService.useGetReactionSummaries', () => {
     const summaryKey = (readerId: string | null, page: ReadonlyArray<string>) =>
         ['ReactionSummaries', readerId, page];
 
+    const idsFrom = (prefix: string, count: number) =>
+        Array.from({ length: count }, (_, index) => `${prefix}-${index + 1}`);
+
     beforeEach(() => {
         vi.clearAllMocks();
         getReactionSummariesAsync.mockReset();
@@ -322,5 +325,26 @@ describe('associationService.useGetReactionSummaries', () => {
             summaryKey('reader-1', secondPage),
             summaryKey('reader-1', thirdPage)
         ]);
+    });
+
+    it('should chunk a page of more than 25 ids at 25', async () => {
+        // given
+        const page = idsFrom('quote', 30);
+
+        // when
+        renderHook(
+            () => associationService.useGetReactionSummaries([page], 'reader-1'),
+            { wrapper });
+
+        // then
+        await waitFor(() => expect(
+            queryClient.getQueryData(summaryKey('reader-1', page))).toBeDefined());
+
+        expect(getReactionSummariesAsync).toHaveBeenCalledTimes(2);
+        expect(getReactionSummariesAsync).toHaveBeenNthCalledWith(1, page.slice(0, 25));
+        expect(getReactionSummariesAsync).toHaveBeenNthCalledWith(2, page.slice(25));
+
+        expect(queryClient.getQueryData(summaryKey('reader-1', page)))
+            .toEqual(page.map(summaryFor));
     });
 });
