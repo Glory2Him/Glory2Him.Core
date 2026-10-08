@@ -1,6 +1,7 @@
 import { ReactElement } from 'react';
 import { onlineManager } from '@tanstack/react-query';
 import { act, render, screen } from '@testing-library/react';
+import { createMemoryRouter, RouterProvider, ScrollRestoration } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CurrentUser } from '../../models/accounts/currentUser';
 import { RestoredPageGuard } from './restoredPageGuard';
@@ -737,6 +738,88 @@ describe('RestoredPageGuard', () => {
 
             // then
             expect(placeAsFirstShown?.horizontalScrollPosition).toBe(300);
+        });
+    });
+
+    describe('in a browser where only display none moves the scroll position', () => {
+        let pagePosition = 0;
+
+        const followDisplayNone = (): void => {
+            if (getComputedStyle(document.documentElement).display === 'none') {
+                pagePosition = 0;
+            }
+        };
+
+        const followDisplayNoneAfterEachCallTo = (prototype: object, method: string): void => {
+            const callAsHappyDomDoes = (prototype as Prototype)[method];
+
+            vi.spyOn(prototype as Prototype, method).mockImplementation(function (this: unknown, ...args) {
+                const result = callAsHappyDomDoes.apply(this, args);
+                followDisplayNone();
+
+                return result;
+            });
+        };
+
+        const pagePositionProperty: PropertyDescriptor = {
+            configurable: true,
+            get: () => {
+                followDisplayNone();
+
+                return pagePosition;
+            }
+        };
+
+        // Renders the guard, then the router's scroll restoration, in the order the app does, so the
+        // guard's `pagehide` listener runs before the router's.
+        const renderPageWithTheRouter = () => {
+            const router = createMemoryRouter([{ path: '/', element: <ScrollRestoration /> }]);
+
+            render(
+                <>
+                    <RestoredPageGuard />
+                    <RouterProvider router={router} />
+                </>);
+
+            return router;
+        };
+
+        const scrollPositionTheRouterSaved = (router: ReturnType<typeof createMemoryRouter>): number =>
+            JSON.parse(sessionStorage.getItem('react-router-scroll-positions') ?? '{}')[router.state.location.key];
+
+        beforeEach(() => {
+            pagePosition = 0;
+            sessionStorage.clear();
+            followDisplayNoneAfterEachCallTo(CSSStyleDeclaration.prototype, 'setProperty');
+            followDisplayNoneAfterEachCallTo(Element.prototype, 'setAttribute');
+            replaceProperty(window, 'scrollY', pagePositionProperty);
+            replaceProperty(window, 'pageYOffset', pagePositionProperty);
+
+            vi.spyOn(window, 'scrollTo').mockImplementation((xOrOptions?: ScrollToOptions | number, y?: number) => {
+                followDisplayNone();
+
+                if (getComputedStyle(document.documentElement).display !== 'none') {
+                    pagePosition = typeof xOrOptions === 'object' ? xOrOptions.top ?? pagePosition : y ?? pagePosition;
+                }
+            });
+        });
+
+        afterEach(() => {
+            stopModellingABrowser();
+            sessionStorage.clear();
+        });
+
+        it('should keep the scroll position the router saves for a page hidden as it goes into the cache', () => {
+            // given
+            mocks.currentUser = readerA;
+            const router = renderPageWithTheRouter();
+            window.scrollTo(0, 600);
+
+            // when
+            dispatchPageTransition('pagehide', true);
+
+            // then
+            expect(scrollPositionTheRouterSaved(router)).toBe(600);
         });
     });
 });
