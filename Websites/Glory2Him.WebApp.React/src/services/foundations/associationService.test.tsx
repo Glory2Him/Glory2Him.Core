@@ -388,4 +388,32 @@ describe('associationService.useGetReactionSummaries', () => {
         // then
         await waitFor(() => expect(result.current.summaries).toEqual(expectedSummaries));
     });
+
+    it('should keep the summaries of the pages that answered when another fails', async () => {
+        // given
+        const answeredPage = ['quote-1', 'quote-2'];
+        const failedPage = ['quote-3', 'quote-4'];
+
+        getReactionSummariesAsync.mockImplementation(
+            async (contentItemIds: ReadonlyArray<string>) => {
+                if (contentItemIds.includes('quote-3')) {
+                    throw new Error('refused');
+                }
+
+                return contentItemIds.map(summaryFor);
+            });
+
+        // when
+        const { result } = renderHook(
+            () => associationService.useGetReactionSummaries([answeredPage, failedPage], 'reader-1'),
+            { wrapper });
+
+        // then
+        await waitFor(() => expect(result.current.isError).toBe(true));
+
+        await waitFor(() => expect(result.current.summaries).toEqual({
+            'quote-1': summaryFor('quote-1'),
+            'quote-2': summaryFor('quote-2')
+        }));
+    });
 });
