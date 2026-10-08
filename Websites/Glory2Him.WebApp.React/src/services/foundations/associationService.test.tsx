@@ -819,4 +819,26 @@ describe('associationService.useReadReactionSummariesAgain', () => {
             expect(queryClient.getQueryData(summaryKey(page)))
                 .toEqual(page.map(contentItemId => summaryFor(contentItemId, 3)));
         });
+
+    // AN UNCHANGED ANSWER COUNTS, as for a post that is not public yet. TanStack Query keeps the
+    // data it already holds when an answer is unchanged, so the page sees no new data at all.
+    it('should resolve on a fresh read whose answer did not change', async () => {
+        // given
+        const page = ['quote-1', 'quote-2'];
+        const { result } = renderTheSummariesAndTheReadAgain([page]);
+
+        await waitFor(() => expect(heldReads).toHaveLength(1));
+        await answer(heldReads[0]);
+        await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+        const answerBeforeTheCall = queryClient.getQueryData(summaryKey(page));
+
+        // when
+        const watched = readAgain(() => result.current.readAgain);
+        await waitFor(() => expect(heldReads).toHaveLength(2));
+        await answer(heldReads[1]);
+
+        // then
+        await act(async () => { await watched.wait; });
+        expect(queryClient.getQueryData(summaryKey(page))).toBe(answerBeforeTheCall);
+    });
 });
