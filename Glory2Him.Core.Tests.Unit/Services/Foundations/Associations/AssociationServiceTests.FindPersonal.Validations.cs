@@ -166,6 +166,97 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [MemberData(nameof(PairsWithNoHostOnEndpointA))]
+        public async Task ShouldThrowValidationExceptionOnFindPersonalIfThePairHasNoHostOnEndpointAAndLogItAsync(
+            string pair)
+        {
+            // given: the reader's own lookup, so the caller check lets it through to the refusal,
+            // which is asked once canonical order is restored
+            // (Backend/Foundations/AssociationService.md §7 rule 1; §DOM4.10 rule 9)
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association noHostRequest = CreatePairWithNoHostOnEndpointA(readerUserId, pair);
+
+            var invalidAssociationException = new InvalidAssociationException(
+                message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.UpsertDataList(
+                key: nameof(Association.EntityAType),
+                value: "Value is a personal entity type, which cannot be endpoint A");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            // when
+            ValueTask<PersonalAssociationMatch?> findTask =
+                this.associationService.FindPersonalAssociationAsync(
+                    noHostRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(findTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(noHostRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        public static TheoryData<string> PairsWithNoHostOnEndpointA() =>
+            new TheoryData<string>
+            {
+                "ReactionThenTag",
+                "TagThenReaction",
+                "TwoReactions"
+            };
+
+        // A reaction paired with a tag, named either way round, or with another reaction: the
+        // reaction lands on endpoint A once canonical order is restored, whichever field of the
+        // request carried it, and of two reactions one is always A.
+        private static Association CreatePairWithNoHostOnEndpointA(string readerUserId, string pair)
+        {
+            Association request = CreateNoHostLookupRequest(readerUserId);
+
+            switch (pair)
+            {
+                case "TagThenReaction":
+                    request = ReverseEndpoints(request);
+                    break;
+
+                case "TwoReactions":
+                    request.EntityBType = EntityType.Reaction;
+                    break;
+            }
+
+            return request;
+        }
+
         public static TheoryData<string, string> InvalidPersonalLookupEndpoints() =>
             new TheoryData<string, string>
             {

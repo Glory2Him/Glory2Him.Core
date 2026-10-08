@@ -67,7 +67,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.18 [Must]** A card is rendered only once its setting has loaded: until the effective settings read lands, the page holds the cards back and shows the list's loading state, announced (§UI20.6.6 rule 5). If the settings read fails, the page shows its error, announced, with a Retry, in the cards' place — never the cards without their settings. *(user, 2026-09-27)* ≠ item 1
 
-**2.19 [Must]** A change to an item's setting reaches the open page without a reload: comments switched off for an item, say, take the comments control off its card (§ARC12.5.2 business rule 12). How the page learns of the change is designed under #702, *Push Live Updates To Open Pages*; until it is designed and built, nothing pushes a change to the page. *(user, 2026-09-27; §ARC12.5.2 business rule 12)* ≠ item 10
+**2.19 [Must]** A change to an item's setting reaches the open page without a reload: comments switched off for an item, say, take the comments control off its card (§ARC12.5.2 business rule 12). How the page learns of the change is §UI20.10's: the live connection makes the page's settings read stale, and the page reads it again, with no code of its own (`DesignFeatures/LiveUpdates.md` rule 1, #702). *(user, 2026-09-27; §ARC12.5.2 business rule 12)* ≠ item 10
 
 **2.20 [Must]** The page's contribution link, *Share what He has done*, carries this page's own address as `from`, so the contribution page's Cancel returns the reader here (`UI/Pages/Contribute.md rule 2.9`). *(user, 2026-09-27)* ≠ item 11
 
@@ -281,14 +281,15 @@ The read-only roles each action answers to are those components' security and ac
    (`UI/Components/SharingPanel.md rules 2.10 and 2.11`). The link is the page's own markup, shown
    to every signed-in reader, and the page reads no role for it (`myPosts.tsx`, lines 129-132). The
    same gap on `/posts` is `UI/Pages/Posts.md §6 item 9`.
-10. (#702) **Page gap — `/myposts`: a changed setting does not reach the open page.** Rule 2.19
+10. (#910) **Page gap — `/myposts`: a changed setting does not reach the open page.** Rule 2.19
     (user rulings 2026-09-27; §ARC12.5.2 business rule 12). Nothing pushes a change to an open
     page: the page reads its settings through
     `contentItemSettingService.useGetEffectiveSettingsFor`, as `/` does, so a setting another
     person changes reaches it only on the query library's own triggers or on a reload. The live
-    connection is designed under #702, *Push Live Updates To Open Pages* (user ruling 2026-09-27);
-    this page's share — hearing of a change to a setting that governs an item it shows, and
-    updating what it shows — is carved from that design. The same gap on `/` is
+    connection was designed under #702 (`DesignFeatures/LiveUpdates.md`, user rulings 2026-09-27
+    and 2026-10-06): this page's share — hearing of a change to a setting that governs an item it
+    shows, and updating what it shows — needs no code of its own (§UI20.10 rule 2), and is built
+    when `Root` opens the connection (§UI20.10 item 1), the task this item carries. The same gap on `/` is
     `UI/Pages/Home.md §6 item 11`, whose evidence stands for this page too.
 11. (needs issue) **Page gap — `/myposts`: the contribution link carries no origin.** Rule 2.20
     (user ruling 2026-09-27): every link to `/posts/contribute` passes its own address as the

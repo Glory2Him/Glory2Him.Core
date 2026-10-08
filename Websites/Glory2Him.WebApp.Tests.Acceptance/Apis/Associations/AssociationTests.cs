@@ -10,6 +10,8 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
@@ -66,5 +68,56 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
         private static async ValueTask<AssociationSuggestionResult> ReadResultAsync(
             HttpResponseMessage response) =>
             await response.Content.ReadFromJsonAsync<AssociationSuggestionResult>();
+
+        /// <summary>
+        /// Has two readers react to the item — the first with Amen, the second with Love —
+        /// through the upsert route, as a reader gives one. Returns the first reader's id, so a
+        /// test can ask as that reader. A test calls it inside the try its teardown closes, so a
+        /// post that throws still leaves nothing behind.
+        /// </summary>
+        private async ValueTask<string> GiveAmenAndLoveFromTwoReadersAsync(Guid contentItemId)
+        {
+            string firstReaderId = this.apiBroker.ActAsContributor();
+
+            await this.apiBroker.PostAssociationAsync(
+                CreateReactionPair(contentItemId, seededAmenReactionId));
+
+            this.apiBroker.ActAsContributor();
+
+            await this.apiBroker.PostAssociationAsync(
+                CreateReactionPair(contentItemId, seededLoveReactionId));
+
+            return firstReaderId;
+        }
+
+        // ReactionSeedData's two rows, as the summary projects them.
+        private static List<ContentItemReactionCount> CreateOneAmenAndOneLoveCounts() =>
+            new List<ContentItemReactionCount>
+            {
+                new ContentItemReactionCount
+                {
+                    ReactionId = seededAmenReactionId,
+                    Name = "Amen",
+                    UnicodeEmoji = "👍",
+                    Count = 1
+                },
+
+                new ContentItemReactionCount
+                {
+                    ReactionId = seededLoveReactionId,
+                    Name = "Love",
+                    UnicodeEmoji = "❤️",
+                    Count = 1
+                }
+            };
+
+        // Each id as its own contentItemIds parameter, which is how a Guid[] binds from a query
+        // string.
+        private static string CreateContentItemIdsQuery(params Guid[] contentItemIds) =>
+            string.Join("&", contentItemIds.Select(contentItemId => $"contentItemIds={contentItemId}"));
+
+        private static async ValueTask<List<ContentItemReactionSummary>> ReadSummariesAsync(
+            HttpResponseMessage response) =>
+            await response.Content.ReadFromJsonAsync<List<ContentItemReactionSummary>>();
     }
 }
