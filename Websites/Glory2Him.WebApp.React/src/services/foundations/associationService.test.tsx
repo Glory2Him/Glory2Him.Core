@@ -446,4 +446,32 @@ describe('associationService.useGetReactionSummaries', () => {
         await waitFor(() => expect(result.current.summaries['quote-3']).toBeDefined());
         expect(result.current.isLoading).toBe(false);
     });
+
+    // The first chunk's answer is held until the second has failed, so the page cannot be
+    // decided before both chunks have settled.
+    it('should fail the whole page when one of its chunks fails', async () => {
+        // given
+        const page = idsFrom('quote', 30);
+        const secondChunk = page.slice(25);
+        let answerTheFirstChunk: () => void = () => undefined;
+
+        getReactionSummariesAsync.mockImplementation(
+            (contentItemIds: ReadonlyArray<string>) => contentItemIds.includes(secondChunk[0])
+                ? Promise.reject(new Error('refused'))
+                : new Promise(resolve => {
+                    answerTheFirstChunk = () => resolve(contentItemIds.map(summaryFor));
+                }));
+
+        // when
+        const { result } = renderHook(
+            () => associationService.useGetReactionSummaries([page], 'reader-1'),
+            { wrapper });
+
+        await waitFor(() => expect(getReactionSummariesAsync).toHaveBeenCalledTimes(2));
+        answerTheFirstChunk();
+
+        // then
+        await waitFor(() => expect(result.current.isError).toBe(true));
+        expect(result.current.summaries).toEqual({});
+    });
 });
