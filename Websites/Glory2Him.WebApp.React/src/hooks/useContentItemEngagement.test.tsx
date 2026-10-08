@@ -142,4 +142,35 @@ describe('useContentItemEngagement', () => {
 
         expect(card.viewerReactionLabel).toBe('Love');
     });
+
+    it('should leave an item with no summary without counts and still offer Like', () => {
+        const otherItemsSummary = {
+            contentItemId: 'item-2',
+            reactions: [{ reactionId: 'reaction-love', name: 'Love', unicodeEmoji: '❤️', count: 4 }],
+            viewerReactionId: 'reaction-love',
+            viewerReactionName: 'Love'
+        };
+
+        const readsWithoutItsSummary: ReadonlyArray<ReactionSummariesRead> = [
+            { summaries: {}, isLoading: true, isError: false },
+            { summaries: { 'item-2': otherItemsSummary }, isLoading: false, isError: true },
+            { summaries: { 'item-2': otherItemsSummary }, isLoading: false, isError: false }
+        ];
+
+        for (const read of readsWithoutItsSummary) {
+            useGetReactionSummaries.mockReturnValue(read);
+
+            const { result, unmount } = renderEngagement([['item-1', 'item-2']]);
+            const [card] = result.current.withReactions([cardFor('item-1')]);
+
+            expect(card).toStrictEqual(cardFor('item-1'));
+
+            expect(result.current.reactionOptions).toStrictEqual([
+                { id: 'reaction-joy', label: 'Joy', glyph: '😊', isLove: false },
+                { id: 'reaction-love', label: 'Love', glyph: '❤️', isLove: true }
+            ]);
+
+            unmount();
+        }
+    });
 });
