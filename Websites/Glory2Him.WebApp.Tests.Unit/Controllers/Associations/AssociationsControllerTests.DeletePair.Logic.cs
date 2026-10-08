@@ -49,5 +49,34 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
 
             associationOrchestrationServiceMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldReturnNoContentOnDeletePairWhenThereWasNothingToRemoveAsync()
+        {
+            // given
+            Association randomAssociation = CreateRandomAssociation();
+            Association inputAssociation = randomAssociation;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+            AssociationRemovalResult nothingToRemoveResult =
+                CreateAssociationRemovalResult(AssociationRemovalStatus.NothingToRemove);
+
+            associationOrchestrationServiceMock
+                .Setup(service => service.RemoveAssociationByPairAsync(inputAssociation, cancellationToken))
+                    .ReturnsAsync(nothingToRemoveResult);
+
+            // when
+            ActionResult actualActionResult =
+                await associationsController.DeleteAssociationPairAsync(inputAssociation, cancellationToken);
+
+            // then
+            actualActionResult.Should().BeOfType<NoContentResult>();
+
+            associationOrchestrationServiceMock
+                .Verify(service => service.RemoveAssociationByPairAsync(inputAssociation, cancellationToken),
+                    Times.Once);
+
+            associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
     }
 }
