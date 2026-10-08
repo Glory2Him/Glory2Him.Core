@@ -103,6 +103,14 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
                 })
                 .ToList();
 
+        private static AssociationRemovalResult CreateAssociationRemovalResult(
+            AssociationRemovalStatus status) =>
+            new AssociationRemovalResult
+            {
+                Status = status,
+                AssociationId = status is AssociationRemovalStatus.Removed ? Guid.NewGuid() : null
+            };
+
         private static AssociationSuggestionResult CreateAssociationSuggestionResult(
             AssociationSuggestionStatus status) =>
             new AssociationSuggestionResult

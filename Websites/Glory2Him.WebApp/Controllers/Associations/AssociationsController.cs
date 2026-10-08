@@ -148,5 +148,10 @@ namespace Glory2Him.WebApp.Controllers.Associations
                 return InternalServerError(associationOrchestrationServiceException);
             }
         }
+
+        public ValueTask<ActionResult> DeleteAssociationPairAsync(
+            [FromQuery] Association association,
+            CancellationToken cancellationToken) =>
+            throw new NotImplementedException();
     }
 }
