@@ -57,7 +57,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.16 [Should]** An item that cannot be read is said — it may have been removed, or may not be the reader's to read — with a way back to the journal, `/`. *(test: postDetail.test.tsx — "should say so rather than render an empty page when the item cannot be read")*
 
-**2.17 [Should]** The page claims no engagement figure it has no source for: no reaction, comment or view count. *(test: postDetail.test.tsx — "should claim no engagement figures it has no source for")*
+**2.17 [Should]** The page claims no engagement figure it has no source for: no comment or view count. The post's reaction counts have a source, its reaction summary, and the card shows them. *(`DesignFeatures/Likes.md` rules 5 and 11; test: postDetail.test.tsx — "should claim no engagement figures it has no source for")* ≠ item 2
 
 **2.18 [Must]** A click on the card's type chip, *Submitted by* or *Author* raises its hook, and the page opens the journal's search, `/posts`, handed the value: its search bar shows it in the matching box — Category, Submitted by or Author, each one of the bar's advanced boxes — with the advanced section expanded (`UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md rule 2.23`). *(user, 2026-09-27; `UI/Components/ContentItemPanel.md rule 2.42`)* ≠ item 9
 
@@ -397,3 +397,9 @@ page is a courtesy (§SEC14.6).
     the reference story's own `/Search?q=<reference>`
     (`UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 5`). The same gap on
     the cards is `UI/Pages/Home.md §6 item 14`.
+16. **Note — the card's reaction counts, corrected.** Rule 2.17 said the page claims no reaction
+    count, having no source for one (commit `5927bc7c`, 2026-09-27). `DesignFeatures/Likes.md`
+    rules 5 and 11 (commit `1fab9127`, 2026-09-28) superseded it for reactions: every reader sees
+    each item's reaction counts, on every page that renders the card with Like, `/posts/{id}`
+    among them, read from the item's reaction summary (§ARC16.8). Rule 2.17 now says so and cites
+    them. The card shows no count yet, which is item 2.
