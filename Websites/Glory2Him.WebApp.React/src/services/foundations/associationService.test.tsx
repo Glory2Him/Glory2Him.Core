@@ -497,4 +497,36 @@ describe('associationService.useGetReactionSummaries', () => {
         await waitFor(() => expect(result.current.isError).toBe(true));
         expect(result.current.summaries).toEqual({});
     });
+
+    // Every render is recorded, so an empty page that reports loading for a moment and then
+    // stops still reds the test.
+    it('should not report loading for an empty page', async () => {
+        // given
+        const emptyPage: string[] = [];
+        const answeredPage = ['quote-1'];
+        const loadingAtEachRender: boolean[] = [];
+
+        await queryClient.prefetchQuery({
+            queryKey: summaryKey('reader-1', answeredPage),
+            queryFn: async () => answeredPage.map(summaryFor)
+        });
+
+        // when
+        const { result } = renderHook(
+            () => {
+                const read = associationService.useGetReactionSummaries(
+                    [emptyPage, answeredPage], 'reader-1');
+
+                loadingAtEachRender.push(read.isLoading);
+
+                return read;
+            },
+            { wrapper });
+
+        // then
+        await waitFor(() => expect(getReactionSummariesAsync).toHaveBeenCalledWith(answeredPage));
+        await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+        expect(result.current.summaries).toEqual({ 'quote-1': summaryFor('quote-1') });
+        expect(loadingAtEachRender).not.toContain(true);
+    });
 });
