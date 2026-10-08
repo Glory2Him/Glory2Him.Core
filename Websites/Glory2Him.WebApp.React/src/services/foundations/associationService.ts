@@ -47,6 +47,8 @@ export const associationService = {
         });
     },
 
+    // Withdraws a reader's reaction, on the same terms as useUpsertAssociation: the global error
+    // toast stays on, and the summaries are read again on settle, success or failure.
     useRemoveAssociationByPair: () => {
         const associationBroker = new AssociationBroker();
         const queryClient = useQueryClient();
