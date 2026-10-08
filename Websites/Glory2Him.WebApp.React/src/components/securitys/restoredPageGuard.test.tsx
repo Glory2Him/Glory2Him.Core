@@ -821,5 +821,23 @@ describe('RestoredPageGuard', () => {
             // then
             expect(scrollPositionTheRouterSaved(router)).toBe(600);
         });
+
+        it('should keep the scroll position the router saves for a page the guard reloads', async () => {
+            // given
+            mocks.currentUser = nobody;
+            const router = renderPageWithTheRouter();
+            window.scrollTo(0, 600);
+            dispatchPageTransition('pagehide', true);
+            answerFreshRead(nobody);
+            dispatchPageTransition('pageshow', true);
+            await settle();
+            expect(reload).toHaveBeenCalledTimes(1);
+
+            // when
+            dispatchPageTransition('pagehide', false);
+
+            // then
+            expect(scrollPositionTheRouterSaved(router)).toBe(600);
+        });
     });
 });
