@@ -119,4 +119,27 @@ describe('useContentItemEngagement', () => {
             { label: 'Joy', glyph: '😊', count: 1 }
         ]);
     });
+
+    it("should mark the reader's own reaction on its item", () => {
+        useGetReactionSummaries.mockReturnValue({
+            summaries: {
+                'item-1': {
+                    contentItemId: 'item-1',
+                    reactions: [
+                        { reactionId: 'reaction-joy', name: 'Joy', unicodeEmoji: '😊', count: 2 },
+                        { reactionId: 'reaction-love', name: 'Love', unicodeEmoji: '❤️', count: 1 }
+                    ],
+                    viewerReactionId: 'reaction-love',
+                    viewerReactionName: 'Love'
+                }
+            },
+            isLoading: false,
+            isError: false
+        });
+
+        const { result } = renderEngagement([['item-1']]);
+        const [card] = result.current.withReactions([cardFor('item-1')]);
+
+        expect(card.viewerReactionLabel).toBe('Love');
+    });
 });
