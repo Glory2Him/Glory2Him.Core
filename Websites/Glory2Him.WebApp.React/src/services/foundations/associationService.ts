@@ -121,7 +121,11 @@ export const associationService = {
                     await waitForAReadToLand(queryClient, summaryRead, readsLandedOn(summaryRead));
                 }
 
-                await queryClient.refetchQueries({ predicate: query => query === summaryRead });
+                // Waits on the reads that land rather than on the refetch's promise: a superseded
+                // read's promise returns before the read that superseded it has landed.
+                const readsLandedBeforeTheFreshRead = readsLandedOn(summaryRead);
+                void queryClient.refetchQueries({ predicate: query => query === summaryRead });
+                await waitForAReadToLand(queryClient, summaryRead, readsLandedBeforeTheFreshRead);
             }));
         };
     }
