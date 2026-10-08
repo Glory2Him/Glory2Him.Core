@@ -49,10 +49,15 @@ export const associationService = {
 
     useRemoveAssociationByPair: () => {
         const associationBroker = new AssociationBroker();
+        const queryClient = useQueryClient();
 
         return useMutation<void, unknown, AssociationRequest>({
             mutationFn: async (association: AssociationRequest) =>
-                await associationBroker.DeleteAssociationPairAsync(association)
+                await associationBroker.DeleteAssociationPairAsync(association),
+
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: ['ReactionSummaries'] });
+            }
         });
     },
 
