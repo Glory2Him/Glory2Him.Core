@@ -212,4 +212,18 @@ describe('useContentItemEngagement', () => {
             }
         ]);
     });
+
+    it('should read nothing when it is handed no pages', () => {
+        const { result } = renderEngagement();
+
+        expect(useGetReactionSummaries).toHaveBeenCalled();
+
+        for (const [handedPages] of useGetReactionSummaries.mock.calls) {
+            expect(handedPages).toStrictEqual([]);
+        }
+
+        const cards = [cardFor('item-1'), { ...cardFor('item-2'), commentCount: 2 }];
+
+        expect(result.current.withReactions(cards)).toStrictEqual(cards);
+    });
 });
