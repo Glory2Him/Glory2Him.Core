@@ -91,5 +91,11 @@ export const associationService = {
         return { summaries, isLoading, isError };
     },
 
-    useReadReactionSummariesAgain: (() => async () => undefined) as () => () => Promise<void>
+    useReadReactionSummariesAgain: () => {
+        const queryClient = useQueryClient();
+
+        return async () => {
+            await queryClient.refetchQueries({ queryKey: ['ReactionSummaries'] });
+        };
+    }
 };
