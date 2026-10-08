@@ -890,4 +890,26 @@ describe('associationService.useReadReactionSummariesAgain', () => {
             expect(queryClient.getQueryData(summaryKey(page)))
                 .toEqual(page.map(contentItemId => summaryFor(contentItemId, 3)));
         });
+
+    // A FAILED READ ENDS THE WAIT, so no caller waits forever, and the page hears of the failure
+    // as it hears of any failed read.
+    it('should resolve when the fresh read fails', async () => {
+        // given
+        const page = ['quote-1', 'quote-2'];
+        const { result } = renderTheSummariesAndTheReadAgain([page]);
+
+        await waitFor(() => expect(heldReads).toHaveLength(1));
+        await answer(heldReads[0]);
+        await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+
+        // when
+        const watched = readAgain(() => result.current.readAgain);
+        await waitFor(() => expect(heldReads).toHaveLength(2));
+        await fail(heldReads[1]);
+
+        // then
+        await act(async () => { await watched.wait; });
+        await waitFor(() => expect(result.current.read.isError).toBe(true));
+        expect(result.current.read.summaries).toEqual({});
+    });
 });
