@@ -951,6 +951,15 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 Message = $"Value is only applicable to a {nameof(EntityType.ContentItem)} endpoint"
             };
 
+        // a personal row keys its host on endpoint A, so a personal type there leaves the row
+        // with no host to key on (§DOM4.10 rule 9). Whether a type is personal is
+        // EntityTypePersonalisation's answer (§DOM4.10 rule 4), never a test against Reaction.
+        private static dynamic IsPersonalOnEndpointA(EntityType entityAType) => new
+        {
+            Condition = EntityTypePersonalisation.IsPersonal(entityAType),
+            Message = "Value is a personal entity type, which cannot be endpoint A"
+        };
+
         private static dynamic IsNotSame(
             string first,
             string second) => new
