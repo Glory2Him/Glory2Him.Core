@@ -5,7 +5,7 @@ import {
     QueryClientProvider,
     useQuery
 } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { associationService } from './associationService';
 import { queryClientGlobalOptions } from '../../brokers/apiBroker.globals';
@@ -469,6 +469,29 @@ describe('associationService.useGetReactionSummaries', () => {
 
         await waitFor(() => expect(getReactionSummariesAsync).toHaveBeenCalledTimes(2));
         answerTheFirstChunk();
+
+        // then
+        await waitFor(() => expect(result.current.isError).toBe(true));
+        expect(result.current.summaries).toEqual({});
+    });
+
+    // Read again the way a write reads it again, by the ReactionSummaries prefix. React Query
+    // keeps a query's last answer when a later read fails; the page must not show it.
+    it("should drop a page's summaries when a later read of it fails", async () => {
+        // given
+        const page = ['quote-1', 'quote-2'];
+
+        const { result } = renderHook(
+            () => associationService.useGetReactionSummaries([page], 'reader-1'),
+            { wrapper });
+
+        await waitFor(() => expect(result.current.summaries['quote-1']).toBeDefined());
+        getReactionSummariesAsync.mockRejectedValue(new Error('refused'));
+
+        // when
+        await act(async () => {
+            await queryClient.invalidateQueries({ queryKey: ['ReactionSummaries'] });
+        });
 
         // then
         await waitFor(() => expect(result.current.isError).toBe(true));
