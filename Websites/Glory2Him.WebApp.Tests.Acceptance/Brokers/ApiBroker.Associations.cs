@@ -37,5 +37,19 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
 
             return await this.httpClient.GetAsync(url);
         }
+
+        // The raw response, because the status code is the assertion and a typed delete throws on
+        // every refusal. The pair travels on the query string, each enum as its number, which is
+        // how the React app's broker sends it.
+        public async ValueTask<HttpResponseMessage> DeleteAssociationPairAsync(Association association)
+        {
+            string queryString =
+                $"entityAType={(int)association.EntityAType}"
+                + $"&entityAKeyId={association.EntityAKeyId}"
+                + $"&entityBType={(int)association.EntityBType}"
+                + $"&entityBKeyId={association.EntityBKeyId}";
+
+            return await this.httpClient.DeleteAsync($"{associationsRelativeUrl}/Pair?{queryString}");
+        }
     }
 }
