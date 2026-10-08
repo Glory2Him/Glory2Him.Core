@@ -1410,7 +1410,7 @@ An upsert cannot express *"the reader now holds nothing"*, which is the withdraw
 - It publishes **`Association-Removed`** through that foundation soft delete and **mints no orchestration address** (§ARC16.8).
 - **It is bound neither by the reviewed lock nor by the read-only veto**: a reader may withdraw their own reaction whatever its approval status (§APR9.9 rule 6) and whatever `ReadOnly` role they hold (§SEC14.7 posture A′ rule 1). The upsert's personal arm takes the same veto exemption; its editorial arm keeps the veto. The foundation's soft delete by id, which this member ends in, admits the exemption by reading the row before it asks the veto and exempting the write only when the row's `UserId` is the signed caller's — the reader's own reaction, never another reader's, whoever removes it (§SEC14.7 posture A′ rules 1 and 4; user ruling 2026-09-27).
 
-**The member is built** (#725); it was minted by #614. `AssociationsController` (#728) does not serve its route yet.
+**The member is built** (#725); it was minted by #614. `AssociationsController` serves its route (#729).
 
 **No reaction-specific member is introduced, and that is §DOM4.1's no-discriminator rule applied to the API.** A reaction is an `Association` whose far endpoint is a `Reaction`, and it is written by the one member that writes associations; a `GiveReactionAsync` beside `UpsertAssociationAsync` would be a second source of truth for what the endpoint pair already says.
 
