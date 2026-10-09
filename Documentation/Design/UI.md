@@ -722,27 +722,23 @@ line 38), and that path is not usable from the app today (its comment, lines 30-
 §SEC18.7.1 rule 7 governs it when it is.
 
 The account pages have no page documents, since §UI20.5.1 counts them among the candidates for
-later. So the gaps in how they send a reader on are recorded here and tagged as this file's other
-gap lists are (`design.md`, *Conventions*), with their lines at a2b8bcbc. The four close together,
-in one pull request, so that every way of signing in moves onto the shared return at the same moment
-(user ruling 2026-09-30). The hook's own task, #780, lands in that pull request too. Each keeps its
-own task:
+later. So the gaps in how they sent a reader on are recorded here and tagged as this file's other
+gap lists are (`design.md`, *Conventions*), with their lines at a00746ad. The four closed together,
+in one pull request, PR #832, so that every way of signing in moved onto the shared return at the
+same moment (user ruling 2026-09-30), and the hook's own task, #780, landed in it too. All four are
+built, each under its own task:
 
-1. (#781) **The sign-in page follows its return address itself after a password sign-in.** It
-   checks and follows the address inline (`src/pages/account/login.tsx`, line 70) rather than
-   through `useSignInReturn`. When a second factor is asked, it hands the address on as
-   `ReturnUrl` (line 62), unchanged, which is what §SEC18.7.1 rule 7 asks of a step that carries
-   it.
-2. (#782) **The second-factor page follows its return address itself.** It checks and follows
-   the address inline (`src/pages/account/loginWith2fa.tsx`, line 59) rather than through
-   `useSignInReturn`.
-3. (#783) **The recovery-code page follows its return address itself.** It checks and follows
-   the address inline (`src/pages/account/loginWithRecoveryCode.tsx`, line 45) rather than
-   through `useSignInReturn`.
-4. (#784) **The passkey button follows its return address itself.** It checks and follows the
-   address the sign-in page hands it (`src/pages/account/login.tsx`, line 168) inline
-   (`src/pages/account/passkeySignInButton.tsx`, line 23) rather than through
-   `useSignInReturn`.
+1. Built (#781) **The sign-in page sends a reader signed in by password on through
+   `useSignInReturn`** (`src/pages/account/login.tsx`, line 72). When a second factor is asked, it
+   hands the address on as `ReturnUrl` (line 64), unchanged, which is what §SEC18.7.1 rule 7 asks
+   of a step that carries it.
+2. Built (#782) **The second-factor page sends a reader on through `useSignInReturn`**
+   (`src/pages/account/loginWith2fa.tsx`, line 61).
+3. Built (#783) **The recovery-code page sends a reader on through `useSignInReturn`**
+   (`src/pages/account/loginWithRecoveryCode.tsx`, line 47).
+4. Built (#784) **The passkey button sends the address the sign-in page hands it on through
+   `useSignInReturn`** (`src/pages/account/login.tsx`, line 168;
+   `src/pages/account/passkeySignInButton.tsx`, line 23).
 
 ### UI20.9 Services and Brokers *(formerly §20.9)*
 
