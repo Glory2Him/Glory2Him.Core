@@ -863,5 +863,65 @@ describe('useContentItemEngagement.onReactionSelected', () => {
             await waitFor(() => expect(deleteAssociationPairAsync).toHaveBeenCalledTimes(1));
             expect(deleteAssociationPairAsync).toHaveBeenCalledWith(requestFor('item-1', 'Joy'));
         });
+
+        // Item 1 starts with Love held, and the reader chooses Joy, then Joy again. The page goes
+        // into the cache while the change to Joy is pending and the withdrawal of Joy waits.
+        // Every read after the first is held open, so an item with no overlay shows the last read.
+        it('should drop the waiting reaction writes when the page goes into the back-forward cache', async () => {
+            const startWithAWriteWaiting = async (contentItemIdPages: ReadonlyArray<ReadonlyArray<string>>) => {
+                queryClient.clear();
+                vi.clearAllMocks();
+
+                serverSummaries = {
+                    'item-1': summaryOf('item-1', [['Love', 3]], 'Love'),
+                    'item-2': summaryOf('item-2', [['Amen', 2]], 'Amen')
+                };
+
+                getReactionSummariesAsync.mockImplementation(answerFromTheServer);
+                const upserts = holdEachCall(postAssociationAsync);
+                holdEachCall(deleteAssociationPairAsync);
+                const render = renderEngagement(contentItemIdPages);
+                await waitForTheRead(render, 'item-1');
+                holdEachCall(getReactionSummariesAsync);
+                choose(render, 'item-1', 'Joy');
+                choose(render, 'item-1', 'Joy');
+                await waitFor(() => expect(upserts).toHaveLength(1));
+
+                return { render, upserts };
+            };
+
+            // given — the hook mounted, and a second item's change to Moved pending with nothing
+            // waiting behind it
+            let { render, upserts } = await startWithAWriteWaiting([['item-1', 'item-2']]);
+            choose(render, 'item-2', 'Moved');
+            await waitFor(() => expect(upserts).toHaveLength(2));
+
+            // when
+            goIntoTheCacheAndBack();
+
+            // then
+            expect(shownAs(render, 'item-1')).toStrictEqual(showing('Love', [['Love', 3]]));
+            expect(shownAs(render, 'item-2')).toStrictEqual(showing('Moved', [['Amen', 1], ['Moved', 1]]));
+
+            // when
+            await act(async () => upserts[0].resolve(createdResult));
+            await settleEverything();
+
+            // then
+            expect(deleteAssociationPairAsync).not.toHaveBeenCalled();
+            render.unmount();
+
+            // given — the hook unmounted, as when the reader moves to another page of the app
+            ({ render, upserts } = await startWithAWriteWaiting([['item-1']]));
+            render.unmount();
+
+            // when
+            goIntoTheCacheAndBack();
+            await act(async () => upserts[0].resolve(createdResult));
+            await settleEverything();
+
+            // then
+            expect(deleteAssociationPairAsync).not.toHaveBeenCalled();
+        });
     });
 });
