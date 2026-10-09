@@ -58,6 +58,7 @@ export const useContentItemEngagement = (
 
     const upsertAssociation = associationService.useUpsertAssociation();
     const removeAssociation = associationService.useRemoveAssociationByPair();
+    const readReactionSummariesAgain = associationService.useReadReactionSummariesAgain();
 
     const reactionOptions = useMemo(
         () => (reactions ?? []).map(toContentItemReactionOption),
@@ -91,9 +92,21 @@ export const useContentItemEngagement = (
             entityBKeyId: reaction.id
         };
 
-        void (isWithdrawal
+        const dropOverlay = () => setOverlays((laid) =>
+            Object.fromEntries(Object.entries(laid).filter(([contentItemId]) => contentItemId !== item.id)));
+
+        // Each write's outcome comes from its own call: the mutations' shared state reports
+        // only their latest call, across every card.
+        const write = isWithdrawal
             ? removeAssociation.mutateAsync(association)
-            : upsertAssociation.mutateAsync(association));
+            : upsertAssociation.mutateAsync(association);
+
+        write.then(
+            async () => {
+                await readReactionSummariesAgain();
+                dropOverlay();
+            },
+            dropOverlay);
     };
 
     const onShareClick = (item: ContentItemSearchItem) => {
