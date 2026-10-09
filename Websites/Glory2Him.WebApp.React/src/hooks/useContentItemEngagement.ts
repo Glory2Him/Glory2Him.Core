@@ -159,7 +159,13 @@ export const useContentItemEngagement = (
     const onReactionSelected = (
         item: ContentItemSearchItem,
         reaction: ContentItemReactionOption) => {
-        if (user?.isAuthenticated === false) {
+        // A reader not yet known, whose sign-in state is still being read or failed to read,
+        // is neither sent to sign in nor recorded. A failed read has already been announced.
+        if (user === undefined) {
+            return;
+        }
+
+        if (user.isAuthenticated === false) {
             signIn();
 
             return;
