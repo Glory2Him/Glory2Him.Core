@@ -122,6 +122,27 @@ const holdEachCall = <T,>(brokerMethod: { mockImplementation: (implementation: (
     return calls;
 };
 
+// Answers, all at once, every summary read still held open, and lets what follows run.
+const answerEveryHeldRead = async (
+    reads: Settle<ContentItemReactionSummary[]>[],
+    summaries: ContentItemReactionSummary[]): Promise<void> => {
+    await act(async () => {
+        reads.splice(0).forEach((read) => read.resolve(summaries));
+    });
+};
+
+// What a card shows, in the view's names: the reaction marked, if any, and each count.
+const showing = (
+    viewerReactionLabel: string | undefined,
+    counts: ReadonlyArray<[string, number]>) => ({
+    viewerReactionLabel,
+    reactionSummary: counts.map(([name, count]) => ({
+        label: name,
+        glyph: reactionNamed(name).unicodeEmoji,
+        count
+    }))
+});
+
 const createdResult: AssociationSuggestionResult = {
     status: AssociationSuggestionStatus.Created,
     associationId: 'association-1'
@@ -179,6 +200,15 @@ describe('useContentItemEngagement.onReactionSelected', () => {
 
         act(() => render.result.current.engagement.onReactionSelected(
             shown(render, contentItemId), option));
+    };
+
+    const shownAs = (render: EngagementRender, contentItemId: string) => {
+        const item = shown(render, contentItemId);
+
+        return showing(
+            item.viewerReactionLabel,
+            (item.reactionSummary ?? []).map((reactionCount) =>
+                [reactionCount.label, reactionCount.count] as [string, number]));
     };
 
     const waitForTheRead = async (render: EngagementRender, contentItemId: string): Promise<void> => {
@@ -343,6 +373,103 @@ describe('useContentItemEngagement.onReactionSelected', () => {
             await waitFor(() => expect(deleteAssociationPairAsync).toHaveBeenCalledTimes(1));
             expect(deleteAssociationPairAsync).toHaveBeenCalledWith(requestFor('item-1', 'Love'));
             expect(postAssociationAsync).toHaveBeenCalledTimes(1);
+        });
+
+        // One upsert mutation serves both cards, and its shared state reports only its latest
+        // call, B's. Every read here answers each card differently from the overlay it carries,
+        // so a card that took a read it must not take, or kept its overlay past the read it
+        // must take, shows it.
+        it("should end each card's overlay on its own writes when two cards' writes overlap", async () => {
+            // given — A settles last
+            serverSummaries = {
+                'item-a': summaryOf('item-a', [['Joy', 1]], null),
+                'item-b': summaryOf('item-b', [['Joy', 1]], null)
+            };
+
+            let upserts = holdEachCall(postAssociationAsync);
+            let render = renderEngagement([['item-a', 'item-b']]);
+            await waitForTheRead(render, 'item-a');
+            choose(render, 'item-a', 'Love');
+            choose(render, 'item-b', 'Amen');
+            await waitFor(() => expect(upserts).toHaveLength(2));
+            expect(postAssociationAsync.mock.calls[0][0]).toStrictEqual(requestFor('item-a', 'Love'));
+
+            serverSummaries = {
+                'item-a': summaryOf('item-a', [['Joy', 5]], null),
+                'item-b': summaryOf('item-b', [['Amen', 3]], 'Amen')
+            };
+
+            // when B's write settles while A's is pending
+            await act(async () => upserts[1].resolve(createdResult));
+
+            // then
+            await waitFor(() =>
+                expect(shownAs(render, 'item-b')).toStrictEqual(showing('Amen', [['Amen', 3]])));
+
+            expect(shownAs(render, 'item-a'))
+                .toStrictEqual(showing('Love', [['Joy', 1], ['Love', 1]]));
+
+            // when A's write settles
+            serverSummaries = {
+                'item-a': summaryOf('item-a', [['Love', 4]], 'Love'),
+                'item-b': summaryOf('item-b', [['Amen', 3]], 'Amen')
+            };
+
+            await act(async () => upserts[0].resolve(createdResult));
+
+            // then
+            await waitFor(() =>
+                expect(shownAs(render, 'item-a')).toStrictEqual(showing('Love', [['Love', 4]])));
+
+            render.unmount();
+
+            // given — A fails while B is pending
+            queryClient.clear();
+            postAssociationAsync.mockClear();
+
+            serverSummaries = {
+                'item-a': summaryOf('item-a', [['Joy', 1]], null),
+                'item-b': summaryOf('item-b', [['Joy', 1]], null)
+            };
+
+            upserts = holdEachCall(postAssociationAsync);
+            render = renderEngagement([['item-a', 'item-b']]);
+            await waitForTheRead(render, 'item-a');
+            const reads = holdEachCall(getReactionSummariesAsync);
+            choose(render, 'item-a', 'Love');
+            choose(render, 'item-b', 'Amen');
+            await waitFor(() => expect(upserts).toHaveLength(2));
+
+            // when A's write fails
+            await act(async () => upserts[0].reject(new Error('refused')));
+
+            // then A shows the last read at once, before any read lands
+            expect(shownAs(render, 'item-a')).toStrictEqual(showing(undefined, [['Joy', 1]]));
+            expect(shownAs(render, 'item-b')).toStrictEqual(showing('Amen', [['Joy', 1], ['Amen', 1]]));
+
+            // and B keeps its overlay through the read A's failure sent
+            await answerEveryHeldRead(reads, [
+                summaryOf('item-a', [['Joy', 7]], null),
+                summaryOf('item-b', [['Joy', 9]], null)
+            ]);
+
+            await waitFor(() =>
+                expect(shownAs(render, 'item-a')).toStrictEqual(showing(undefined, [['Joy', 7]])));
+
+            expect(shownAs(render, 'item-b')).toStrictEqual(showing('Amen', [['Joy', 1], ['Amen', 1]]));
+
+            // when B's write settles and its own re-read lands
+            await act(async () => upserts[1].resolve(createdResult));
+            await waitFor(() => expect(reads.length).toBeGreaterThan(0));
+
+            await answerEveryHeldRead(reads, [
+                summaryOf('item-a', [['Joy', 7]], null),
+                summaryOf('item-b', [['Amen', 3]], 'Amen')
+            ]);
+
+            // then
+            await waitFor(() =>
+                expect(shownAs(render, 'item-b')).toStrictEqual(showing('Amen', [['Amen', 3]])));
         });
     });
 });
