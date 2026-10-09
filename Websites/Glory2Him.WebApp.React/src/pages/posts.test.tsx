@@ -224,8 +224,8 @@ describe('Posts', () => {
     });
 
     // The Like control renders with the REAL vocabulary — the page pulls the approved
-    // reactions and the thin engagement wiring makes the picker respond; the write behind it
-    // arrives with #318.
+    // reactions, and the write behind the picker is useContentItemEngagement's, which records
+    // the reader's choice (#739).
     it('should offer the Like control fed by the approved vocabulary', async () => {
         // given
         pages = onePage([contentItemFor({
