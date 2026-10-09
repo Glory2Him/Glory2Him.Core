@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toastSuccess } from '../brokers/toastBroker.success';
 import { useAuth } from '../components/securitys/authProvider';
 import { EntityType } from '../models/foundations/approvalSettings/approvalSetting';
@@ -23,6 +23,20 @@ type ReactionOverlay = {
     viewerReactionLabel: string | undefined;
     reactionSummary: ReadonlyArray<ContentItemReactionCount>;
 };
+
+type ReactionWrite = {
+    send: () => Promise<unknown>;
+    whenSucceeded: () => Promise<void>;
+};
+
+type ItemWrites = {
+    waiting: ReactionWrite[];
+};
+
+const withoutOverlay = (
+    overlays: Readonly<Record<string, ReactionOverlay>>,
+    contentItemId: string): Readonly<Record<string, ReactionOverlay>> =>
+    Object.fromEntries(Object.entries(overlays).filter(([laidOn]) => laidOn !== contentItemId));
 
 // The engagement wiring every page that renders the card shares, so each card RENDERS its full
 // row — Like with the real reaction vocabulary, Share, Save — and every page decides it the
@@ -56,6 +70,9 @@ export const useContentItemEngagement = (
     const [overlays, setOverlays] =
         useState<Readonly<Record<string, ReactionOverlay>>>({});
 
+    // Each item with a write in flight, and the writes waiting their turn behind it.
+    const itemWrites = useRef(new Map<string, ItemWrites>());
+
     // Each item's latest write, by identity: only the read that follows it ends the overlay.
     const latestWrites = useRef(new Map<string, object>());
 
@@ -66,6 +83,51 @@ export const useContentItemEngagement = (
     const reactionOptions = useMemo(
         () => (reactions ?? []).map(toContentItemReactionOption),
         [reactions]);
+
+    // A page going into the back-forward cache drops the writes still waiting, as if the write
+    // before them had failed. The write in flight keeps its place.
+    useEffect(() => {
+        const dropWaitingWrites = (event: PageTransitionEvent) => {
+            if (event.persisted === false) {
+                return;
+            }
+
+            itemWrites.current.forEach((writes, contentItemId) => {
+                if (writes.waiting.length > 0) {
+                    writes.waiting.splice(0);
+                    setOverlays((laid) => withoutOverlay(laid, contentItemId));
+                }
+            });
+        };
+
+        window.addEventListener('pagehide', dropWaitingWrites);
+
+        return () => window.removeEventListener('pagehide', dropWaitingWrites);
+    }, []);
+
+    // One item's writes are sent one at a time, in the order chosen. A failed write drops those
+    // waiting behind it, which started from it, and holds up nothing after.
+    const sendNextWrite = (contentItemId: string, writes: ItemWrites) => {
+        const write = writes.waiting.shift();
+
+        if (write === undefined) {
+            itemWrites.current.delete(contentItemId);
+
+            return;
+        }
+
+        // Each write's outcome comes from its own call: the mutations' shared state reports
+        // only their latest call, across every card.
+        write.send().then(
+            () => {
+                void write.whenSucceeded();
+                sendNextWrite(contentItemId, writes);
+            },
+            () => {
+                itemWrites.current.delete(contentItemId);
+                setOverlays((laid) => withoutOverlay(laid, contentItemId));
+            });
+    };
 
     const onReactionSelected = (
         item: ContentItemSearchItem,
@@ -95,27 +157,32 @@ export const useContentItemEngagement = (
             entityBKeyId: reaction.id
         };
 
-        const dropOverlay = () => setOverlays((laid) =>
-            Object.fromEntries(Object.entries(laid).filter(([contentItemId]) => contentItemId !== item.id)));
-
-        // Each write's outcome comes from its own call: the mutations' shared state reports
-        // only their latest call, across every card.
-        const write = isWithdrawal
-            ? removeAssociation.mutateAsync(association)
-            : upsertAssociation.mutateAsync(association);
-
         const writeToken = {};
         latestWrites.current.set(item.id, writeToken);
 
-        write.then(
-            async () => {
+        const write: ReactionWrite = {
+            send: () => isWithdrawal
+                ? removeAssociation.mutateAsync(association)
+                : upsertAssociation.mutateAsync(association),
+
+            whenSucceeded: async () => {
                 await readReactionSummariesAgain();
 
                 if (latestWrites.current.get(item.id) === writeToken) {
-                    dropOverlay();
+                    setOverlays((laid) => withoutOverlay(laid, item.id));
                 }
-            },
-            dropOverlay);
+            }
+        };
+
+        const writes = itemWrites.current.get(item.id);
+
+        if (writes === undefined) {
+            const firstWrites: ItemWrites = { waiting: [write] };
+            itemWrites.current.set(item.id, firstWrites);
+            sendNextWrite(item.id, firstWrites);
+        } else {
+            writes.waiting.push(write);
+        }
     };
 
     const onShareClick = (item: ContentItemSearchItem) => {
