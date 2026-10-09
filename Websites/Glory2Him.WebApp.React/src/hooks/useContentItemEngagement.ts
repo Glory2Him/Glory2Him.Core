@@ -37,8 +37,8 @@ const withoutOverlay = (
 
 // One page's reaction writes: for each item with a write in flight, the writes waiting their
 // turn behind it, sent one at a time in the order chosen. It outlives the page's hook, so a
-// write still waiting when the reader moves to another page of the app is still sent, and it
-// listens for the back-forward cache for as long as it holds a write.
+// write still waiting when the reader moves to another page of the app is still sent, and from
+// its first write on it listens for the back-forward cache.
 const createReactionWriteQueue = (takeOverlayAway: (contentItemId: string) => void) => {
     const itemWrites = new Map<string, ReactionWrite[]>();
 
@@ -57,14 +57,6 @@ const createReactionWriteQueue = (takeOverlayAway: (contentItemId: string) => vo
         });
     };
 
-    const endItemWrites = (contentItemId: string) => {
-        itemWrites.delete(contentItemId);
-
-        if (itemWrites.size === 0) {
-            window.removeEventListener('pagehide', dropWaitingWrites);
-        }
-    };
-
     // A failed write drops those waiting behind it, which started from it, and holds up
     // nothing after it. Each write's outcome comes from its own call: the mutations' shared
     // state reports only their latest call, across every card.
@@ -72,7 +64,7 @@ const createReactionWriteQueue = (takeOverlayAway: (contentItemId: string) => vo
         const write = waiting.shift();
 
         if (write === undefined) {
-            endItemWrites(contentItemId);
+            itemWrites.delete(contentItemId);
 
             return;
         }
@@ -83,7 +75,7 @@ const createReactionWriteQueue = (takeOverlayAway: (contentItemId: string) => vo
                 sendNextWrite(contentItemId, waiting);
             },
             () => {
-                endItemWrites(contentItemId);
+                itemWrites.delete(contentItemId);
                 takeOverlayAway(contentItemId);
             });
     };
@@ -98,9 +90,7 @@ const createReactionWriteQueue = (takeOverlayAway: (contentItemId: string) => vo
                 return;
             }
 
-            if (itemWrites.size === 0) {
-                window.addEventListener('pagehide', dropWaitingWrites);
-            }
+            window.addEventListener('pagehide', dropWaitingWrites);
 
             const firstWaiting = [write];
             itemWrites.set(contentItemId, firstWaiting);
