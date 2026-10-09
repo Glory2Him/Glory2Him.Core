@@ -258,5 +258,64 @@ describe('useContentItemEngagement.onReactionSelected', () => {
             await settleEverything();
             expect(postAssociationAsync).not.toHaveBeenCalled();
         });
+
+        // Every write here stays pending, so what the item shows is the overlay alone. Each
+        // summary lists its reactions out of the vocabulary's order, so a reaction added where
+        // the summary or the alphabet would put it is told apart from one the options place.
+        it('should mark the choice and move the counts at once', async () => {
+            const choices: ReadonlyArray<{
+                summary: ContentItemReactionSummary;
+                chosen: string;
+                expectedViewerReactionLabel: string | undefined;
+                expectedReactionSummary: ReadonlyArray<{ label: string; glyph: string; count: number }>;
+            }> = [
+                {
+                    // give
+                    summary: summaryOf('item-1', [['Love', 3]], null),
+                    chosen: 'Joy',
+                    expectedViewerReactionLabel: 'Joy',
+                    expectedReactionSummary: [
+                        { label: 'Joy', glyph: '😊', count: 1 },
+                        { label: 'Love', glyph: '❤️', count: 3 }
+                    ]
+                },
+                {
+                    // change
+                    summary: summaryOf('item-1', [['Love', 3], ['Joy', 2]], 'Joy'),
+                    chosen: 'Amen',
+                    expectedViewerReactionLabel: 'Amen',
+                    expectedReactionSummary: [
+                        { label: 'Love', glyph: '❤️', count: 3 },
+                        { label: 'Joy', glyph: '😊', count: 1 },
+                        { label: 'Amen', glyph: '🙏', count: 1 }
+                    ]
+                },
+                {
+                    // withdraw
+                    summary: summaryOf('item-1', [['Love', 3], ['Joy', 1]], 'Joy'),
+                    chosen: 'Joy',
+                    expectedViewerReactionLabel: undefined,
+                    expectedReactionSummary: [{ label: 'Love', glyph: '❤️', count: 3 }]
+                }
+            ];
+
+            for (const choice of choices) {
+                // given
+                queryClient.clear();
+                serverSummaries = { 'item-1': choice.summary };
+                const render = renderEngagement();
+                await waitForTheRead(render, 'item-1');
+
+                // when
+                choose(render, 'item-1', choice.chosen);
+
+                // then
+                const item = shown(render, 'item-1');
+                expect(item.viewerReactionLabel).toBe(choice.expectedViewerReactionLabel);
+                expect(item.reactionSummary).toStrictEqual(choice.expectedReactionSummary);
+
+                render.unmount();
+            }
+        });
     });
 });
