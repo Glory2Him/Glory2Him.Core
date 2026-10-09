@@ -30,7 +30,13 @@ vi.mock('../services/foundations/associationService', () => ({
         useGetReactionSummaries: (
             contentItemIdPages: ReadonlyArray<ReadonlyArray<string>>,
             readerId: string | null | undefined) =>
-            useGetReactionSummaries(contentItemIdPages, readerId)
+            useGetReactionSummaries(contentItemIdPages, readerId),
+
+        // The hook's writes, which these tests never make: a write made through them stays
+        // pending.
+        useUpsertAssociation: () => ({ mutateAsync: () => new Promise(() => undefined) }),
+        useRemoveAssociationByPair: () => ({ mutateAsync: () => new Promise(() => undefined) }),
+        useReadReactionSummariesAgain: () => () => new Promise(() => undefined)
     }
 }));
 

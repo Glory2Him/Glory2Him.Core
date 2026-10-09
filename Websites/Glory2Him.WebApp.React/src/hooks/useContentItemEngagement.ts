@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { toastSuccess } from '../brokers/toastBroker.success';
 import { useAuth } from '../components/securitys/authProvider';
+import { EntityType } from '../models/foundations/approvalSettings/approvalSetting';
 import { associationService } from '../services/foundations/associationService';
 import { reactionService } from '../services/foundations/reactionService';
 
@@ -45,19 +46,29 @@ export const useContentItemEngagement = (
     const [viewerReactions, setViewerReactions] =
         useState<Readonly<Record<string, string>>>({});
 
+    const upsertAssociation = associationService.useUpsertAssociation();
+
     const reactionOptions = useMemo(
         () => (reactions ?? []).map(toContentItemReactionOption),
         [reactions]);
 
     const onReactionSelected = (
         item: ContentItemSearchItem,
-        reaction: ContentItemReactionOption) =>
+        reaction: ContentItemReactionOption) => {
         setViewerReactions((given) => ({
             ...given,
 
             // The same choice again is a change of mind — withdrawn, not doubled.
             [item.id]: given[item.id] === reaction.label ? '' : reaction.label
         }));
+
+        void upsertAssociation.mutateAsync({
+            entityAType: EntityType.ContentItem,
+            entityAKeyId: item.id,
+            entityBType: EntityType.Reaction,
+            entityBKeyId: reaction.id
+        });
+    };
 
     const onShareClick = (item: ContentItemSearchItem) => {
         navigator.clipboard

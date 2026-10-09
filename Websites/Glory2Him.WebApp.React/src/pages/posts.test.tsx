@@ -68,9 +68,14 @@ vi.mock('../services/foundations/reactionService', () => ({
 
 // The engagement hook reads the cards' reaction summaries through a query, which a harness with
 // no QueryClientProvider cannot hold, so it is mocked and answers none: no card carries counts.
+// Its writes are mutations, mocked for the same reason, and a write made through them stays
+// pending for the length of the test.
 vi.mock('../services/foundations/associationService', () => ({
     associationService: {
-        useGetReactionSummaries: () => ({ summaries: {}, isLoading: false, isError: false })
+        useGetReactionSummaries: () => ({ summaries: {}, isLoading: false, isError: false }),
+        useUpsertAssociation: () => ({ mutateAsync: () => new Promise(() => undefined) }),
+        useRemoveAssociationByPair: () => ({ mutateAsync: () => new Promise(() => undefined) }),
+        useReadReactionSummariesAgain: () => () => new Promise(() => undefined)
     }
 }));
 
