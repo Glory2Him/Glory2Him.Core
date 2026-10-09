@@ -12,7 +12,7 @@ import { AssociationRequest } from '../models/foundations/associations/associati
 import { ContentItemReactionSummary } from '../models/foundations/associations/contentItemReactionSummary';
 import { ContentType } from '../models/foundations/contentItemSettings/contentType';
 import { Reaction } from '../models/foundations/reactions/reaction';
-import { createAuthState, signInAs, signOut } from '../tests/testAuth';
+import { createAuthState, setLoading, signInAs, signOut } from '../tests/testAuth';
 
 import {
     AssociationSuggestionResult,
@@ -949,6 +949,25 @@ describe('useContentItemEngagement.onReactionSelected', () => {
             expect(postAssociationAsync).not.toHaveBeenCalled();
             expect(deleteAssociationPairAsync).not.toHaveBeenCalled();
             expect(shownAs(render, 'item-1')).toStrictEqual(showing(undefined, [['Joy', 2]]));
+        });
+
+        // A reader not yet known has no summaries read, so the last read said nothing: the item
+        // is shown as the page handed it.
+        it("should do nothing while the reader's sign-in state is still unknown", async () => {
+            // given
+            setLoading(authState);
+            serverSummaries = { 'item-1': summaryOf('item-1', [['Joy', 2]], null) };
+            const render = renderEngagement([['item-1']], '/posts?q=grace#item-1');
+
+            // when
+            choose(render, 'item-1', 'Love');
+            await settleEverything();
+
+            // then
+            expect(render.result.current.location.pathname).toBe('/posts');
+            expect(postAssociationAsync).not.toHaveBeenCalled();
+            expect(deleteAssociationPairAsync).not.toHaveBeenCalled();
+            expect(shown(render, 'item-1')).toStrictEqual(cardFor('item-1'));
         });
     });
 });
