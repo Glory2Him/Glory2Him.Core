@@ -317,5 +317,32 @@ describe('useContentItemEngagement.onReactionSelected', () => {
                 render.unmount();
             }
         });
+
+        // Read against the last read instead, the second press would give Love again, or show
+        // Joy back at 2 beside a Love of 1: a press of Love from Joy moves both.
+        it('should read a second press against the overlay the first one left', async () => {
+            // given
+            serverSummaries = { 'item-1': summaryOf('item-1', [['Joy', 2]], 'Joy') };
+            const upserts = holdEachCall(postAssociationAsync);
+            const render = renderEngagement();
+            await waitForTheRead(render, 'item-1');
+
+            // when
+            choose(render, 'item-1', 'Love');
+            choose(render, 'item-1', 'Love');
+
+            // then, while the first write is still pending
+            await waitFor(() => expect(upserts).toHaveLength(1));
+            const item = shown(render, 'item-1');
+            expect(item.viewerReactionLabel).toBeUndefined();
+            expect(item.reactionSummary).toStrictEqual([{ label: 'Joy', glyph: '😊', count: 1 }]);
+
+            // and once it succeeds
+            await act(async () => upserts[0].resolve(createdResult));
+
+            await waitFor(() => expect(deleteAssociationPairAsync).toHaveBeenCalledTimes(1));
+            expect(deleteAssociationPairAsync).toHaveBeenCalledWith(requestFor('item-1', 'Love'));
+            expect(postAssociationAsync).toHaveBeenCalledTimes(1);
+        });
     });
 });
