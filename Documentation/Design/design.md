@@ -259,7 +259,11 @@ that carries a task's tag the way a gap does, such as `DesignFeatures/Likes.md` 
    tagged business rule, once built, loses its tag and stays a rule, with its number.
 2. **Part of it built.** The item keeps its number and its tag, and records what is built and what
    is not on separate lines, **Built:** and **Not yet built:**, as `UI/Pages/Home.md §6 item 3`
-   does.
+   does. One exception is accepted (user ruling 2026-10-09). #739 builds part of the seven page
+   reaction gaps, whose tags name #741–#747, and its criterion 21 records that part in a form of
+   its own: the item is retitled to what is left, and its text is rewritten, with no **Built:** or
+   **Not yet built:** line. Where #739 has recorded an item that way, the item keeps that form
+   until its own task marks it built.
 3. **What points at it.** A `≠` marker (§UI20.6.4) and a page document's ❌ No cell in section 4
    (§UI20.5.1) answer to the rule or the row they sit on. Once a build meets all of that rule or
    row, the marker comes off and the ❌ No cell turns ✅ Yes, with its file and line. While any part
