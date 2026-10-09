@@ -216,10 +216,11 @@ describe('useContentItemEngagement.onReactionSelected', () => {
             expect(shown(render, contentItemId).reactionSummary).toBeDefined());
     };
 
-    // Lets every promise the hook and the query client chain run, and any timer they set.
+    // Long enough for every promise the hook and the query client chain to run, and for every
+    // read that has landed to have been seen, so a change that would follow it has followed.
     const settleEverything = async (): Promise<void> => {
         await act(async () => {
-            await new Promise((resolve) => setTimeout(resolve, 0));
+            await new Promise((resolve) => setTimeout(resolve, 50));
         });
     };
 
@@ -529,6 +530,156 @@ describe('useContentItemEngagement.onReactionSelected', () => {
                 expect(shownAs(render, 'item-1')).toStrictEqual(showing('Joy', [['Joy', 2]]));
                 expect(toastError).not.toHaveBeenCalled();
                 expect(toastSuccess).not.toHaveBeenCalled();
+
+                render.unmount();
+            }
+        });
+
+        // Every read is held open, so which read lands, and when, is the test's to decide. Item
+        // 1 starts at Joy 2, held. Each read before the one the hook waits on answers it
+        // differently from its overlay, so taking that read would show; the read that ends the
+        // overlay answers it as the server finally holds it.
+        it('should drop the overlay only when the re-read after the latest write lands', async () => {
+            type Scenario = {
+                pages: ReadonlyArray<ReadonlyArray<string>>;
+                expectedOverlay: ReturnType<typeof showing>;
+                final: ContentItemReactionSummary;
+                landTheEarlierReadsAndSettleTheLatestWrite: (
+                    render: EngagementRender,
+                    upserts: Settle<AssociationSuggestionResult>[],
+                    reads: Settle<ContentItemReactionSummary[]>[]) => Promise<void>;
+            };
+
+            const startingSummary = summaryOf('item-1', [['Joy', 2]], 'Joy');
+            const earlierAnswer = summaryOf('item-1', [['Moved', 4]], null);
+            const loveOverlay = showing('Love', [['Joy', 1], ['Love', 1]]);
+            const finalAnswer = summaryOf('item-1', [['Love', 5]], 'Love');
+
+            const scenarios: Record<string, Scenario> = {
+                'a read in flight when the reader chose': {
+                    pages: [['item-1']],
+                    expectedOverlay: loveOverlay,
+                    final: finalAnswer,
+                    landTheEarlierReadsAndSettleTheLatestWrite: async (render, upserts, reads) => {
+                        // the read was sent before the choice, and lands after it
+                        await answerEveryHeldRead(reads, [earlierAnswer]);
+                        await settleEverything();
+                        expect(shownAs(render, 'item-1')).toStrictEqual(loveOverlay);
+
+                        await act(async () => upserts[0].resolve(createdResult));
+                    }
+                },
+                "another card's read": {
+                    pages: [['item-1', 'item-2']],
+                    expectedOverlay: loveOverlay,
+                    final: finalAnswer,
+                    landTheEarlierReadsAndSettleTheLatestWrite: async (render, upserts, reads) => {
+                        choose(render, 'item-2', 'Amen');
+                        await waitFor(() => expect(upserts).toHaveLength(2));
+
+                        await act(async () => upserts[1].resolve(createdResult));
+                        await waitFor(() => expect(reads.length).toBeGreaterThan(0));
+
+                        await answerEveryHeldRead(reads, [
+                            earlierAnswer,
+                            summaryOf('item-2', [['Amen', 1]], 'Amen')
+                        ]);
+
+                        await waitFor(() => expect(shownAs(render, 'item-2'))
+                            .toStrictEqual(showing('Amen', [['Amen', 1]])));
+
+                        expect(shownAs(render, 'item-1')).toStrictEqual(loveOverlay);
+
+                        await act(async () => upserts[0].resolve(createdResult));
+                    }
+                },
+                'a refresh that landed before the write settled': {
+                    pages: [['item-1']],
+                    expectedOverlay: loveOverlay,
+                    final: finalAnswer,
+                    landTheEarlierReadsAndSettleTheLatestWrite: async (render, upserts, reads) => {
+                        // the write's own refresh is sent as it settles, before its call
+                        // resolves to the hook
+                        await act(async () => upserts[0].resolve(createdResult));
+                        await waitFor(() => expect(reads.length).toBeGreaterThan(0));
+
+                        await act(async () => reads.shift()!.resolve([earlierAnswer]));
+                        await settleEverything();
+                        expect(shownAs(render, 'item-1')).toStrictEqual(loveOverlay);
+                    }
+                },
+                "an earlier write's read": {
+                    pages: [['item-1']],
+                    expectedOverlay: showing('Amen', [['Joy', 1], ['Amen', 1]]),
+                    final: summaryOf('item-1', [['Amen', 5]], 'Amen'),
+                    landTheEarlierReadsAndSettleTheLatestWrite: async (render, upserts, reads) => {
+                        choose(render, 'item-1', 'Amen');
+
+                        await act(async () => upserts[0].resolve(createdResult));
+                        await waitFor(() => expect(upserts).toHaveLength(2));
+                        await waitFor(() => expect(reads.length).toBeGreaterThan(0));
+                        await answerEveryHeldRead(reads, [earlierAnswer]);
+                        await settleEverything();
+
+                        expect(shownAs(render, 'item-1'))
+                            .toStrictEqual(showing('Amen', [['Joy', 1], ['Amen', 1]]));
+
+                        await act(async () => upserts[1].resolve(createdResult));
+                    }
+                },
+                'an unchanged answer': {
+                    pages: [['item-1']],
+                    expectedOverlay: loveOverlay,
+                    final: startingSummary,
+                    landTheEarlierReadsAndSettleTheLatestWrite: async (_render, upserts) => {
+                        await act(async () => upserts[0].resolve(createdResult));
+                    }
+                }
+            };
+
+            for (const [name, scenario] of Object.entries(scenarios)) {
+                // given
+                queryClient.clear();
+
+                serverSummaries = {
+                    'item-1': startingSummary,
+                    'item-2': summaryOf('item-2', [['Joy', 1]], null)
+                };
+
+                getReactionSummariesAsync.mockImplementation(answerFromTheServer);
+                const upserts = holdEachCall(postAssociationAsync);
+                const render = renderEngagement(scenario.pages);
+                await waitForTheRead(render, 'item-1');
+                const reads = holdEachCall(getReactionSummariesAsync);
+
+                if (name === 'a read in flight when the reader chose') {
+                    act(() => { void queryClient.invalidateQueries({ queryKey: ['ReactionSummaries'] }); });
+                    await waitFor(() => expect(reads).toHaveLength(1));
+                }
+
+                choose(render, 'item-1', 'Love');
+                await waitFor(() => expect(upserts).toHaveLength(1));
+
+                // when
+                await scenario.landTheEarlierReadsAndSettleTheLatestWrite(render, upserts, reads);
+                await settleEverything();
+
+                // then, before the re-read the hook waits on lands
+                expect(shownAs(render, 'item-1')).toStrictEqual(scenario.expectedOverlay);
+
+                // when it lands
+                await waitFor(() => expect(reads.length).toBeGreaterThan(0));
+
+                await answerEveryHeldRead(reads, [
+                    scenario.final,
+                    summaryOf('item-2', [['Amen', 1]], 'Amen')
+                ]);
+
+                // then
+                await waitFor(() => expect(shownAs(render, 'item-1')).toStrictEqual(showing(
+                    scenario.final.viewerReactionName ?? undefined,
+                    scenario.final.reactions.map((reaction) =>
+                        [reaction.name, reaction.count] as [string, number]))));
 
                 render.unmount();
             }
