@@ -143,6 +143,20 @@ const showing = (
     }))
 });
 
+// The test environment treats a PageTransitionEvent as a plain Event and drops `persisted`
+// from its constructor, so it is set on the event itself.
+const dispatchPageTransition = (type: 'pagehide' | 'pageshow', persisted: boolean): void => {
+    const event = new Event(type);
+    Object.defineProperty(event, 'persisted', { value: persisted });
+    act(() => { window.dispatchEvent(event); });
+};
+
+// The page going into the back-forward cache and coming back out of it.
+const goIntoTheCacheAndBack = (): void => {
+    dispatchPageTransition('pagehide', true);
+    dispatchPageTransition('pageshow', true);
+};
+
 const createdResult: AssociationSuggestionResult = {
     status: AssociationSuggestionStatus.Created,
     associationId: 'association-1'
@@ -683,6 +697,101 @@ describe('useContentItemEngagement.onReactionSelected', () => {
 
                 render.unmount();
             }
+        });
+
+        // Each case holds every write open, and checks at the broker that a waiting write is not
+        // made while the one before it is pending, and is made once that one resolves. Item 1
+        // starts with Love held.
+        it("should send an item's next reaction write only once the one before it settles", async () => {
+            const loveHeld = summaryOf('item-1', [['Love', 3]], 'Love');
+
+            const startWithLoveHeld = async () => {
+                queryClient.clear();
+                vi.clearAllMocks();
+                serverSummaries = { 'item-1': loveHeld };
+                getReactionSummariesAsync.mockImplementation(answerFromTheServer);
+                const upserts = holdEachCall(postAssociationAsync);
+                const withdrawals = holdEachCall(deleteAssociationPairAsync);
+                const render = renderEngagement();
+                await waitForTheRead(render, 'item-1');
+
+                return { render, upserts, withdrawals };
+            };
+
+            // a withdrawal chosen while a change is pending
+            let { render, upserts, withdrawals } = await startWithLoveHeld();
+            choose(render, 'item-1', 'Joy');
+            choose(render, 'item-1', 'Joy');
+            await waitFor(() => expect(upserts).toHaveLength(1));
+            expect(postAssociationAsync).toHaveBeenCalledWith(requestFor('item-1', 'Joy'));
+            await settleEverything();
+            expect(deleteAssociationPairAsync).not.toHaveBeenCalled();
+
+            await act(async () => upserts[0].resolve(createdResult));
+
+            await waitFor(() => expect(deleteAssociationPairAsync).toHaveBeenCalledTimes(1));
+            expect(deleteAssociationPairAsync).toHaveBeenCalledWith(requestFor('item-1', 'Joy'));
+            render.unmount();
+
+            // a change chosen while a withdrawal is pending
+            ({ render, upserts, withdrawals } = await startWithLoveHeld());
+            choose(render, 'item-1', 'Love');
+            choose(render, 'item-1', 'Joy');
+            await waitFor(() => expect(withdrawals).toHaveLength(1));
+            expect(deleteAssociationPairAsync).toHaveBeenCalledWith(requestFor('item-1', 'Love'));
+            await settleEverything();
+            expect(postAssociationAsync).not.toHaveBeenCalled();
+
+            await act(async () => withdrawals[0].resolve(undefined));
+
+            await waitFor(() => expect(postAssociationAsync).toHaveBeenCalledTimes(1));
+            expect(postAssociationAsync).toHaveBeenCalledWith(requestFor('item-1', 'Joy'));
+            render.unmount();
+
+            // two writes waiting
+            ({ render, upserts, withdrawals } = await startWithLoveHeld());
+            choose(render, 'item-1', 'Joy');
+            choose(render, 'item-1', 'Joy');
+            choose(render, 'item-1', 'Amen');
+            await waitFor(() => expect(upserts).toHaveLength(1));
+            expect(postAssociationAsync).toHaveBeenCalledWith(requestFor('item-1', 'Joy'));
+            await settleEverything();
+            expect(deleteAssociationPairAsync).not.toHaveBeenCalled();
+
+            await act(async () => upserts[0].resolve(createdResult));
+
+            await waitFor(() => expect(deleteAssociationPairAsync).toHaveBeenCalledTimes(1));
+            expect(deleteAssociationPairAsync).toHaveBeenCalledWith(requestFor('item-1', 'Joy'));
+            await settleEverything();
+            expect(postAssociationAsync).toHaveBeenCalledTimes(1);
+
+            await act(async () => withdrawals[0].resolve(undefined));
+
+            await waitFor(() => expect(postAssociationAsync).toHaveBeenCalledTimes(2));
+            expect(postAssociationAsync).toHaveBeenLastCalledWith(requestFor('item-1', 'Amen'));
+            render.unmount();
+
+            // a change chosen once the page is restored from the back-forward cache, while the
+            // write pending as it went in is still pending
+            ({ render, upserts, withdrawals } = await startWithLoveHeld());
+            choose(render, 'item-1', 'Love');
+            choose(render, 'item-1', 'Joy');
+            await waitFor(() => expect(withdrawals).toHaveLength(1));
+
+            goIntoTheCacheAndBack();
+
+            expect(shownAs(render, 'item-1')).toStrictEqual(showing('Love', [['Love', 3]]));
+            choose(render, 'item-1', 'Amen');
+            await settleEverything();
+            expect(postAssociationAsync).not.toHaveBeenCalled();
+
+            await act(async () => withdrawals[0].resolve(undefined));
+
+            await waitFor(() => expect(postAssociationAsync).toHaveBeenCalledTimes(1));
+            expect(postAssociationAsync).toHaveBeenCalledWith(requestFor('item-1', 'Amen'));
+            await settleEverything();
+            expect(postAssociationAsync).not.toHaveBeenCalledWith(requestFor('item-1', 'Joy'));
+            render.unmount();
         });
     });
 });
