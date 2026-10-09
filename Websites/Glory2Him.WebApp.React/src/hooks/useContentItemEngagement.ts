@@ -6,13 +6,23 @@ import { associationService } from '../services/foundations/associationService';
 import { reactionService } from '../services/foundations/reactionService';
 
 import {
+    toChosenReactionSummary
+} from '../services/views/contentItems/toChosenReactionSummary';
+
+import {
     toContentItemReactionOption
 } from '../services/views/contentItems/toContentItemReactionOption';
 
 import {
+    ContentItemReactionCount,
     ContentItemReactionOption,
     ContentItemSearchItem
 } from '../models/components/contentItems/contentItemSearchItem';
+
+type ReactionOverlay = {
+    viewerReactionLabel: string | undefined;
+    reactionSummary: ReadonlyArray<ContentItemReactionCount>;
+};
 
 // The engagement wiring every page that renders the card shares, so each card RENDERS its full
 // row — Like with the real reaction vocabulary, Share, Save — and every page decides it the
@@ -41,10 +51,10 @@ export const useContentItemEngagement = (
     const { summaries } =
         associationService.useGetReactionSummaries(contentItemIdPages ?? [], readerId);
 
-    // What this visitor has chosen, per item, for THIS VISIT. Merged into the projection below
-    // so the picker shows the choice; nothing is persisted yet.
-    const [viewerReactions, setViewerReactions] =
-        useState<Readonly<Record<string, string>>>({});
+    // What the reader has just chosen, per item, laid over the item's summary until the server
+    // answers: the reaction pressed, or none after a withdrawal, and the counts moved.
+    const [overlays, setOverlays] =
+        useState<Readonly<Record<string, ReactionOverlay>>>({});
 
     const upsertAssociation = associationService.useUpsertAssociation();
     const removeAssociation = associationService.useRemoveAssociationByPair();
@@ -56,11 +66,22 @@ export const useContentItemEngagement = (
     const onReactionSelected = (
         item: ContentItemSearchItem,
         reaction: ContentItemReactionOption) => {
-        setViewerReactions((given) => ({
-            ...given,
+        const heldReactionLabel = item.viewerReactionLabel;
 
-            // The same choice again is a change of mind — withdrawn, not doubled.
-            [item.id]: given[item.id] === reaction.label ? '' : reaction.label
+        // The same choice again is a change of mind — withdrawn, not doubled.
+        const isWithdrawal = heldReactionLabel === reaction.label;
+        const chosenReactionLabel = isWithdrawal ? undefined : reaction.label;
+
+        setOverlays((laid) => ({
+            ...laid,
+            [item.id]: {
+                viewerReactionLabel: chosenReactionLabel,
+                reactionSummary: toChosenReactionSummary(
+                    item.reactionSummary,
+                    heldReactionLabel,
+                    chosenReactionLabel,
+                    reactionOptions)
+            }
         }));
 
         const association = {
@@ -70,7 +91,7 @@ export const useContentItemEngagement = (
             entityBKeyId: reaction.id
         };
 
-        void (item.viewerReactionLabel === reaction.label
+        void (isWithdrawal
             ? removeAssociation.mutateAsync(association)
             : upsertAssociation.mutateAsync(association));
     };
@@ -101,9 +122,15 @@ export const useContentItemEngagement = (
                     viewerReactionLabel: summary.viewerReactionName ?? undefined
                 };
 
-            return (viewerReactions[contentItem.id] ?? '').length > 0
-                ? { ...summarisedItem, viewerReactionLabel: viewerReactions[contentItem.id] }
-                : summarisedItem;
+            const overlay = overlays[contentItem.id];
+
+            return overlay === undefined
+                ? summarisedItem
+                : {
+                    ...summarisedItem,
+                    viewerReactionLabel: overlay.viewerReactionLabel,
+                    reactionSummary: overlay.reactionSummary
+                };
         });
 
     return { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withReactions };
