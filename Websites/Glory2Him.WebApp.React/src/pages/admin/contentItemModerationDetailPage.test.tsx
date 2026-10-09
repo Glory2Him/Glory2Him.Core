@@ -486,7 +486,9 @@ describe('ContentItemModerationDetailPage', () => {
             // when
             await userEvent.click(screen.getByRole('button', { name: /Like/ }));
 
-            // then
+            // then: the mark is the overlay of a choice still being recorded — the write
+            // stays pending for the length of this test, and the overlay stands until the read
+            // that follows it lands — until #747 brings this test to what the page does
             expect(screen.getByRole('menuitem', { name: 'Amen' }))
                 .toHaveAttribute('aria-pressed', 'true');
         });

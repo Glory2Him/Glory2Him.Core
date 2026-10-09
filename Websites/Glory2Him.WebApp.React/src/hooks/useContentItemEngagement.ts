@@ -118,9 +118,10 @@ const createReactionWriteQueue = (takeOverlayAway: (contentItemId: string) => vo
 // has been given, and the reader's own. A card the read has no summary for carries neither and
 // still offers Like; a page that hands no pages reads nothing.
 //
-// Choosing writes nothing yet: a chosen reaction lives in page state for this visit, laid over
-// the summary (the picker marks it, a second click withdraws it), and Save says so honestly.
-// Share is real: it copies the item's address.
+// CHOOSING IS RECORDED. A signed-in reader's choice gives, changes or withdraws their reaction,
+// and the card shows it at once, as an overlay on the item's summary that stands until the read
+// following the item's latest write lands. A signed-out reader is sent to sign in. Save says so
+// honestly. Share is real: it copies the item's address.
 export const useContentItemEngagement = (
     contentItemIdPages?: ReadonlyArray<ReadonlyArray<string>>) => {
     const { data: reactions } = reactionService.useGetApprovedReactions();

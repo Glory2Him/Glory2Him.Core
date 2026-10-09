@@ -479,9 +479,9 @@ describe('PostDetail', () => {
         // when
         await chooseReaction();
 
-        // then: the choice reached the CARD, which is what this page's fold of the visit's
-        // reactions into its one projection is for. Nothing is persisted — the write lands
-        // with the association exposer (#318)
+        // then: the mark is the overlay of a choice still being recorded — the write stays
+        // pending for the length of this test, and the overlay stands until the read that
+        // follows it lands — until #743 (criterion 2) brings this test to what the page does
         expect(await reopenPicker()).toHaveAttribute('aria-pressed', 'true');
     });
 
