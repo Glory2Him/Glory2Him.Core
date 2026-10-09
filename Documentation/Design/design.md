@@ -238,6 +238,49 @@ tasks, and anything it leaves unbuilt goes back to `(needs issue)`, so the sweep
 its design carved the task that builds it, which those items now carry
 (`UI/Pages/Home.md §6 item 11` and the items it names).
 
+**A gap that is built stays in its list** (user rulings 2026-10-09, under #838). This holds for
+every gap list the paragraphs above name, and for a numbered business rule of a feature document
+that carries a task's tag the way a gap does, such as `DesignFeatures/Likes.md` rule 12.
+
+1. **All of it built.** An item is built once the task its tag names has delivered it. An item whose
+   tag names a `DESIGN:` issue follows the paragraph above instead, and is not built when that
+   issue closes.
+   A built item stays in its list and keeps its number, so nothing is renumbered and every
+   citation of it still finds it. Its tag gives way to `Built` and the number of the task that
+   built it, in the same place, straight after the item's number:
+
+   <!-- Indented so that a line-based reader, such as the sweep above, does not take this example
+        line for a built item. Do not dedent. -->
+   ```markdown
+     4. Built (#512) **The doc page matches the component.** …
+   ```
+
+   Neither the `(needs issue)` sweep above nor a search for the `(#N)` tag finds a built item. A
+   tagged business rule, once built, loses its tag and stays a rule, with its number.
+2. **Part of it built.** The item keeps its number and its tag, and records what is built and what
+   is not on separate lines, **Built:** and **Not yet built:**, as `UI/Pages/Home.md §6 item 3`
+   does.
+3. **What points at it.** A `≠` marker (§UI20.6.4) and a page document's ❌ No cell in section 4
+   (§UI20.5.1) answer to the rule or the row they sit on. Once a build meets all of that rule or
+   row, the marker comes off and the ❌ No cell turns ✅ Yes, with its file and line. While any part
+   of what the rule or row asks is unbuilt, the marker and the ❌ No stay, and the cell's reason
+   narrows to what is left. The ruling follows #739's criterion 21, which does both on the §4
+   `onReactionSelected` row of the seven page documents: the row is met on the four pages no
+   signed-out reader reaches, while their reaction gaps stay open for the cards' counts, and is
+   not yet met on the other three.
+4. **Text elsewhere.** Text that the build makes untrue is rewritten in the same change, wherever
+   it stands: the item's own, another item that takes its evidence from it, prose that says a rule
+   is not yet built, and a sentence that names the item as where the same gap stands on another
+   page.
+5. **Who records it, and when.** The task that delivers the gap records the build, inside its own
+   pull request, in words the planner fixes in one of that task's criteria, as #739's criterion 15
+   does. The planner writes those words when it writes the task, and before an open task is built.
+   So the planner still writes the design (above, *The planner writes the design. Nobody else
+   does.*): the developer makes the edit in the words the planner fixed. And the delivering pull
+   request leaves no line it makes untrue, which `.claude/agents/qa.md` check 9, *Retired claims*, asks
+   of every pull request. A line the build makes untrue that the task's criterion does not name is a criterion
+   missing from the task, and goes to the planner.
+
 **Relocations.** §IDX1.5 rules how a relocated section is annotated, so that a
 citation of its old number still resolves by grep, and where a retired number
 may still stand. Nothing in CI validates
