@@ -273,14 +273,15 @@ that carries a task's tag the way a gap does, such as `DesignFeatures/Likes.md` 
    row, the marker comes off and the ❌ No cell turns ✅ Yes, with its file and line. While any part
    of what the rule or row asks is unbuilt, the marker and the ❌ No stay, and the cell's reason
    narrows to what is left. The ruling follows #739's criterion 21, which does both on the §4
-   `onReactionSelected` row of the seven page documents: the row is met on the four pages no
-   signed-out reader reaches, while their reaction gaps stay open for the cards' counts, and is
-   not yet met on the other three. A line a build records, in such a cell or anywhere else, names
-   a commit of the delivering pull request's branch at which the file reads so, in the form
-   `lines 328-332 at 70dc72e7`: a page document reads every line that names no commit at the
-   commit its header gives (*Line numbers are at 70dc72e7.*), and a recorded line is not at that
-   commit. #739's criterion 21 pins its lines so too: point 2's exception covers the form of its
-   gap records, not its lines (user ruling 2026-10-09, under #838).
+   `onReactionSelected` row of the seven page documents: on the four pages no signed-out reader
+   reaches it takes the marker off and turns the cell ✅ Yes, leaving their reaction gaps open for
+   the cards' counts, and on the other three it keeps both and narrows the cell's reason. A line a
+   build records, in such a cell or anywhere else, names a commit of the delivering pull request's
+   branch at which the file reads so, in the form `lines 328-332 at 70dc72e7`: a page document
+   reads every line that names no commit at the commit its header gives (*Line numbers are at
+   70dc72e7.*), and a recorded line is not at that commit. #739's criterion 21 pins its lines so
+   too: point 2's exception covers the form of its gap records, not its lines (user ruling
+   2026-10-09, under #838).
 4. **Text elsewhere.** Text that the build makes untrue is rewritten in the same change, wherever
    it stands: the item's own, another item that takes its evidence from it, prose that says a rule
    is not yet built, and a sentence that names the item as where the same gap stands on another
