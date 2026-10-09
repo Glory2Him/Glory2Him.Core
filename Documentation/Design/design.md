@@ -279,8 +279,8 @@ that carries a task's tag the way a gap does, such as `DesignFeatures/Likes.md` 
    a commit of the delivering pull request's branch at which the file reads so, in the form
    `lines 328-332 at 70dc72e7`: a page document reads every line that names no commit at the
    commit its header gives (*Line numbers are at 70dc72e7.*), and a recorded line is not at that
-   commit. #739's criterion 21, which is left as it is (user ruling 2026-10-09, under #838), gives
-   its lines without one.
+   commit. #739's criterion 21 pins its lines so too: point 2's exception covers the form of its
+   gap records, not its lines (user ruling 2026-10-09, under #838).
 4. **Text elsewhere.** Text that the build makes untrue is rewritten in the same change, wherever
    it stands: the item's own, another item that takes its evidence from it, prose that says a rule
    is not yet built, and a sentence that names the item as where the same gap stands on another
