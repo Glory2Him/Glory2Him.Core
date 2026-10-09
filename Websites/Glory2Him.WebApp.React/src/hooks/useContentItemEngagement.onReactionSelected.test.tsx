@@ -242,5 +242,21 @@ describe('useContentItemEngagement.onReactionSelected', () => {
             expect(postAssociationAsync).toHaveBeenCalledWith(requestFor('item-1', 'Love'));
             expect(deleteAssociationPairAsync).not.toHaveBeenCalled();
         });
+
+        it('should withdraw the reaction a reader chooses again', async () => {
+            // given
+            serverSummaries = { 'item-1': summaryOf('item-1', [['Love', 3]], 'Love') };
+            const render = renderEngagement();
+            await waitForTheRead(render, 'item-1');
+
+            // when
+            choose(render, 'item-1', 'Love');
+
+            // then
+            await waitFor(() => expect(deleteAssociationPairAsync).toHaveBeenCalledTimes(1));
+            expect(deleteAssociationPairAsync).toHaveBeenCalledWith(requestFor('item-1', 'Love'));
+            await settleEverything();
+            expect(postAssociationAsync).not.toHaveBeenCalled();
+        });
     });
 });
