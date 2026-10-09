@@ -75,9 +75,12 @@ export const toContentItemSearchItem = (
     //                    the id would leak it; inventing a name would be worse.
     //   tags,
     //   bibleReferences  Associations have no HTTP exposer (#318).
-    //   reactionSummary,
-    //   commentCount     Neither Reaction nor Comment carries a ContentItemId — both are linked
-    //                    by an Association, so these are blocked on #318 too.
+    //   commentCount     Comment carries no ContentItemId — it is linked by an Association, so
+    //                    this is blocked on #318 too.
+    //
+    // reactionSummary is left unset for another reason: the counts are not on this row. They
+    // arrive through useContentItemEngagement, whose withReactions reads the summaries of the
+    // cards a page has delivered and puts each one on its card.
     //
     // Each one is optional on the projection and the templates LEAVE IT OUT rather than
     // rendering a zero, so a card claims no figure it does not have.

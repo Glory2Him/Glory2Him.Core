@@ -57,7 +57,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.16 [Should]** An item that cannot be read is said — it may have been removed, or may not be the reader's to read — with a way back to the journal, `/`. *(test: postDetail.test.tsx — "should say so rather than render an empty page when the item cannot be read")*
 
-**2.17 [Should]** The page claims no engagement figure it has no source for: no reaction, comment or view count. *(test: postDetail.test.tsx — "should claim no engagement figures it has no source for")*
+**2.17 [Should]** The page claims no engagement figure it has no source for: no comment or view count. The post's reaction counts have a source, its reaction summary, and the card shows them. *(`DesignFeatures/Likes.md` rules 5 and 11; test: postDetail.test.tsx — "should claim no engagement figures it has no source for")* ≠ item 2
 
 **2.18 [Must]** A click on the card's type chip, *Submitted by* or *Author* raises its hook, and the page opens the journal's search, `/posts`, handed the value: its search bar shows it in the matching box — Category, Submitted by or Author, each one of the bar's advanced boxes — with the advanced section expanded (`UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md rule 2.23`). *(user, 2026-09-27; `UI/Components/ContentItemPanel.md rule 2.42`)* ≠ item 9
 
@@ -117,7 +117,7 @@ beneath it. While the item loads, or when it cannot be read, a single centred co
 | Hook | Raised when | What the page does | Built today |
 | --- | --- | --- | --- |
 | `onReactionSelected` ≠ item 2 | A reaction is chosen, whatever the sign-in state | Sends a signed-out reader to sign in; records, changes or clears a signed-in reader's own reaction (rule 2.10) | ❌ No — the choice is held in page state for the visit; the card redirects a signed-out reader itself (`UI/Components/ContentItemPanel.md §10 item 12`); item 2 |
-| `onShareClick` | Share is clicked | Copies this post's address and says so (rule 2.11) | ✅ Yes (`postDetail.tsx`, line 182; `useContentItemEngagement.ts`, lines 44-49) |
+| `onShareClick` | Share is clicked | Copies this post's address and says so (rule 2.11) | ✅ Yes (`postDetail.tsx`, line 182; `useContentItemEngagement.ts`, lines 62-67) |
 | `onSaveClick` ≠ item 3 | Save is clicked | Nothing designed yet (rule 2.12) | ❌ No — it says *Saving posts is coming soon.*; item 3 |
 | `onContentTypeClick`, `onSubmittedByClick`, `onAuthorClick` ≠ item 9 | The type chip, *Submitted by* or *Author* is clicked | Opens `/posts` handed the value, its search bar showing it in the matching box with the advanced section expanded (rule 2.18) | ❌ No — the page wires none, yet the three render as buttons, so pressing one does nothing (`contentItemDefaultPanel.tsx`, lines 194-198, 305-308 and 323-326); item 9 |
 | `onTagClick`, `onBibleReferenceClick` | A tag or reference pill on the card is clicked | — | *Not wired — switched off*: the card's two sections are off, because the side panels carry them (rule 2.5) |
@@ -252,10 +252,10 @@ page is a courtesy (§SEC14.6).
    chooses a reaction is to be sent to sign in, with return information that brings them back
    afterwards, and a signed-in reader's reaction recorded or cleared
    (`UI/Components/ContentItemPanel.md rule 3.2.4`). The page takes `onReactionSelected` from
-   `useContentItemEngagement`, which only toggles the choice in page state for the visit and reads
-   no sign-in state (`src/hooks/useContentItemEngagement.ts`, lines 34-42; test:
-   `postDetail.test.tsx` — "should mark the reaction the reader chose for this visit", "should
-   withdraw the reaction when the reader chooses it again"); the card redirects a signed-out
+   `useContentItemEngagement`, which only toggles the choice in page state for the visit, whatever
+   the reader's sign-in state (`src/hooks/useContentItemEngagement.ts` — `onReactionSelected`;
+   test: `postDetail.test.tsx` — "should mark the reaction the reader chose for this visit",
+   "should withdraw the reaction when the reader chooses it again"); the card redirects a signed-out
    reader itself (`UI/Components/ContentItemPanel.md §10 item 12`, which this item ships with).
    Recording the reader's own reaction (§ARC16.8.1, served by #728) and withdrawing it (its member built by #725, its route not yet) are this item's work, and so is the redirect, which uses the one
    reusable sign-in action (`UI/Pages/Home.md §6 item 3`), and must not fire while the reader's
@@ -263,13 +263,13 @@ page is a courtesy (§SEC14.6).
    **The card's counts are this item's work too** (the Likes feature, `DesignFeatures/Likes.md`).
    The page reads no reaction summary, so the card shows none of the reactions its item has been
    given, and the reader's own reaction is the visit's page state rather than the one they hold
-   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-83). The page hands
+   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-86). The page hands
    `useContentItemEngagement` the id of its one card and renders what `withReactions` projects
    (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
 3. (needs issue) **Save has nothing behind it.** The card offers Save (rule 2.12), and the
-   handler only says *Saving posts is coming soon.* (`useContentItemEngagement.ts`, line 51), to a
-   signed-out reader too. Save has no design yet. The same gap, and its plan under §UI20.6.6 rule 4, is
-   `UI/Pages/Home.md §6 item 5`: one handler serves every page that renders the card.
+   handler only says *Saving posts is coming soon.* (`useContentItemEngagement.ts` —
+   `onSaveClick`), to a signed-out reader too. Save has no design yet. The same gap, and its plan
+   under §UI20.6.6 rule 4, is `UI/Pages/Home.md §6 item 5`: one handler serves every page that renders the card.
 4. (needs issue) **The association panels are inert.** Rules 2.6–2.8 have the page read the
    item's tags and Bible references, write a reader's suggestion and remove their own withdrawn
    one. The page hands both panels an empty collection, answers every suggestion with a *coming
@@ -397,3 +397,9 @@ page is a courtesy (§SEC14.6).
     the reference story's own `/Search?q=<reference>`
     (`UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 5`). The same gap on
     the cards is `UI/Pages/Home.md §6 item 14`.
+16. **Note — the card's reaction counts, corrected.** Rule 2.17 said the page claims no reaction
+    count, having no source for one (commit `5927bc7c`, 2026-09-27). `DesignFeatures/Likes.md`
+    rules 5 and 11 (commit `1fab9127`, 2026-09-28) superseded it for reactions: every reader sees
+    each item's reaction counts, on every page that renders the card with Like, `/posts/{id}`
+    among them, read from the item's reaction summary (§ARC16.8). Rule 2.17 now says so and cites
+    them. The card shows no count yet, which is item 2.

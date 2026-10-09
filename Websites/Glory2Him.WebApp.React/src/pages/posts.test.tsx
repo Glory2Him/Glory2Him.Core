@@ -66,6 +66,14 @@ vi.mock('../services/foundations/reactionService', () => ({
     }
 }));
 
+// The engagement hook reads the cards' reaction summaries through a query, which a harness with
+// no QueryClientProvider cannot hold, so it is mocked and answers none: no card carries counts.
+vi.mock('../services/foundations/associationService', () => ({
+    associationService: {
+        useGetReactionSummaries: () => ({ summaries: {}, isLoading: false, isError: false })
+    }
+}));
+
 vi.mock('../services/foundations/contentItemSettingService', () => ({
     contentItemSettingService: {
         useGetDefaults: () => ({ data: settings }),

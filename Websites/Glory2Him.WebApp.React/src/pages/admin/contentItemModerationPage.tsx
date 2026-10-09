@@ -97,7 +97,7 @@ export function ContentItemModerationPage() {
     const feedNavigation = buildContentItemFeedNavigation(
         navigate, location, (item) => `/Admin/Posts/${item.id}`);
 
-    const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withViewerReactions } =
+    const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withReactions } =
         useContentItemEngagement();
 
     // MODERATE STAYS IN THE ADMIN AREA. It leads to the item's admin address, never to the
@@ -131,7 +131,7 @@ export function ContentItemModerationPage() {
             ) : (
                 <ContentItemListPanel
                     ariaLabel="Posts awaiting moderation"
-                    contentItemCollection={withViewerReactions(contentItems)}
+                    contentItemCollection={withReactions(contentItems)}
                     categorySettingCollection={contentItemSettings ?? []}
                     criteria={criteria}
                     onSearch={search}

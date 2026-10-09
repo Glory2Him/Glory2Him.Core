@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { toastSuccess } from '../brokers/toastBroker.success';
+import { useAuth } from '../components/securitys/authProvider';
+import { associationService } from '../services/foundations/associationService';
 import { reactionService } from '../services/foundations/reactionService';
 
 import {
@@ -11,16 +13,32 @@ import {
     ContentItemSearchItem
 } from '../models/components/contentItems/contentItemSearchItem';
 
-// The engagement wiring the feed pages share, so the cards RENDER their full row — Like with the
-// real reaction vocabulary, Share, Save — while the writes behind them are still to come.
+// The engagement wiring every page that renders the card shares, so each card RENDERS its full
+// row — Like with the real reaction vocabulary, Share, Save — and every page decides it the
+// same way.
 //
-// DELIBERATELY THIN. Persisting a reaction or a saved post is a ContentItem association, and
-// associations have no HTTP exposer yet (#318) — so a chosen reaction lives in page state for
-// this visit (the picker marks it, a second click withdraws it) and Save says so honestly.
-// Share is real: it copies the item's address. When #318 lands, the handlers here grow a write
-// each and no page or component changes shape.
-export const useContentItemEngagement = () => {
+// THE COUNTS ARE THE SERVER'S. A page hands the hook the ids of each page of cards it has
+// delivered, and withReactions puts each card's reaction summary on it: the reactions its item
+// has been given, and the reader's own. A card the read has no summary for carries neither and
+// still offers Like; a page that hands no pages reads nothing.
+//
+// Choosing writes nothing yet: a chosen reaction lives in page state for this visit, laid over
+// the summary (the picker marks it, a second click withdraws it), and Save says so honestly.
+// Share is real: it copies the item's address.
+export const useContentItemEngagement = (
+    contentItemIdPages?: ReadonlyArray<ReadonlyArray<string>>) => {
     const { data: reactions } = reactionService.useGetApprovedReactions();
+
+    const { user } = useAuth();
+
+    // The reader the summaries are read for: not yet known while there is no current user,
+    // whether its read is still loading or failed, and signed out only once it has been read.
+    const readerId = user === undefined
+        ? undefined
+        : user.isAuthenticated ? user.userId : null;
+
+    const { summaries } =
+        associationService.useGetReactionSummaries(contentItemIdPages ?? [], readerId);
 
     // What this visitor has chosen, per item, for THIS VISIT. Merged into the projection below
     // so the picker shows the choice; nothing is persisted yet.
@@ -50,12 +68,27 @@ export const useContentItemEngagement = () => {
 
     const onSaveClick = () => toastSuccess('Saving posts is coming soon.');
 
-    const withViewerReactions = (
+    const withReactions = (
         contentItems: ReadonlyArray<ContentItemSearchItem>): ReadonlyArray<ContentItemSearchItem> =>
-        contentItems.map((contentItem) =>
-            (viewerReactions[contentItem.id] ?? '').length > 0
-                ? { ...contentItem, viewerReactionLabel: viewerReactions[contentItem.id] }
-                : contentItem);
+        contentItems.map((contentItem) => {
+            const summary = summaries[contentItem.id];
 
-    return { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withViewerReactions };
+            const summarisedItem = summary === undefined
+                ? contentItem
+                : {
+                    ...contentItem,
+                    reactionSummary: summary.reactions.map((reaction) => ({
+                        label: reaction.name,
+                        glyph: reaction.unicodeEmoji,
+                        count: reaction.count
+                    })),
+                    viewerReactionLabel: summary.viewerReactionName ?? undefined
+                };
+
+            return (viewerReactions[contentItem.id] ?? '').length > 0
+                ? { ...summarisedItem, viewerReactionLabel: viewerReactions[contentItem.id] }
+                : summarisedItem;
+        });
+
+    return { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withReactions };
 };

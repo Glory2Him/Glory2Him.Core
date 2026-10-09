@@ -106,7 +106,7 @@ nothing stacks on a narrow screen: the column is already one.
 | Property | Value | Why |
 | --- | --- | --- |
 | `ariaLabel` | `The journal` | Names the list; the page gives it no heading (`UI/Components/ContentItemListPanel.md rule 3.1.1`). |
-| `contentItemCollection` | The accumulated rows of the infinite read, each projected with its winning setting, with the reaction this visitor chose this visit folded in | Rules 2.2 and 2.6; `useContentItemEngagement` — `withViewerReactions`. |
+| `contentItemCollection` | The accumulated rows of the infinite read, each projected with its winning setting, with the reaction this visitor chose this visit folded in | Rules 2.2 and 2.6; `useContentItemEngagement` — `withReactions`. |
 | `categorySettingCollection` | The effective settings read — defaults plus the overrides of the items on screen | The bar's Category box lists the defaults alone (`UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md rule 2.5`). |
 | `criteria` | Read off the URL | Rule 2.5. |
 | `isLoading`, `isLoadingMore`, `hasMore` | The infinite read's state | Paging (section 4.3). |
@@ -163,8 +163,8 @@ type (`UI/Components/ContentItemPanel.md rule 2.3`).
 | `onEditClick` ≠ item 4 | The owner's Edit is clicked — labelled *View* today | Navigates to `/myposts/{id}`, opened in edit mode (rule 2.10) | ❌ No — it navigates to `/posts/{id}` with `edit: true`, which that page never reads (`home.tsx`, lines 110-113); item 4 |
 | `onModerateClick` ≠ `UI/Pages/ContentItemModerationDetailPage.md §6 item 1` | Moderate is clicked | Navigates to `/Admin/Posts/{id}`, carrying `from` and `moderate: true` (rule 2.11) | ✅ Yes (`home.tsx`, lines 115-118) |
 | `onReactionSelected` ≠ items 2 and 3 | A reaction is chosen, whatever the sign-in state | Sends a signed-out reader to sign in; records, changes or clears a signed-in reader's own reaction (rule 2.15) | ❌ No — the choice is held in page state for the visit; the card redirects a signed-out reader itself (`UI/Components/ContentItemPanel.md §10 item 12`); item 2 |
-| `onShareClick` | Share is clicked | Copies `/posts/{id}` and says so (rule 2.16) | ✅ Yes (`useContentItemEngagement.ts`, lines 44-49) |
-| `onSaveClick` ≠ item 5 | Save is clicked | Nothing designed yet (rule 2.17) | ❌ No — it says *Saving posts is coming soon.* (`useContentItemEngagement.ts`, line 51); item 5 |
+| `onShareClick` | Share is clicked | Copies `/posts/{id}` and says so (rule 2.16) | ✅ Yes (`useContentItemEngagement.ts`, lines 62-67) |
+| `onSaveClick` ≠ item 5 | Save is clicked | Nothing designed yet (rule 2.17) | ❌ No — it says *Saving posts is coming soon.* (`useContentItemEngagement.ts` — `onSaveClick`); item 5 |
 | `onTagClick`, `onBibleReferenceClick`, `onContentTypeClick`, `onSubmittedByClick`, `onAuthorClick` | A pill or a meta segment is clicked | The list wraps them (section 4.1) | As section 4.1 |
 | `onAdded`, `onModified`, `onRemoved`, `onCancelled` | Never on a listed card | — | *Not wired — switched off*: the list carries none of the writing faces' properties (rule 2.22) |
 
@@ -249,9 +249,9 @@ write a card leads to is decided again by the service (§SEC14.6).
    signed-out reader is sent to sign in, with return information that brings them back
    afterwards, and a signed-in reader's reaction is recorded or cleared. The page takes
    `onReactionSelected` from the shared `useContentItemEngagement` hook, which only toggles the
-   chosen reaction in page state for the visit and reads no sign-in state
-   (`src/hooks/useContentItemEngagement.ts`, lines 34-42). No page sends a signed-out reader to
-   sign in — the card does it itself (`UI/Components/ContentItemPanel.md §10 item 12`) — and no
+   chosen reaction in page state for the visit, whatever the reader's sign-in state
+   (`src/hooks/useContentItemEngagement.ts` — `onReactionSelected`). No page sends a signed-out
+   reader to sign in — the card does it itself (`UI/Components/ContentItemPanel.md §10 item 12`) — and no
    page records or clears a reaction: of the reaction write surface (§ARC16.8.1), recording is
    served (#728), and clearing has its member built (#725) and its route not yet. Recording and
    withdrawing the reader's own reaction are this item's work, and so is the redirect; it uses
@@ -268,7 +268,7 @@ write a card leads to is decided again by the service (§SEC14.6).
    **The cards' counts are this item's work too** (the Likes feature, `DesignFeatures/Likes.md`).
    The page reads no reaction summary, so no card shows the reactions its item has been given,
    and the reader's own reaction is the visit's page state rather than the one they hold
-   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-83). The page hands
+   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-86). The page hands
    `useContentItemEngagement` the ids of each page of cards it has delivered and renders what
    `withReactions` projects (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
 3. (#737) **Nothing uses the reusable sign-in action yet.** §UI20.6.6 rule 2 makes sign-in a global action:
@@ -315,8 +315,9 @@ write a card leads to is decided again by the service (§SEC14.6).
    `/myposts/{id}` opens straight in edit mode is that page's to build. The same gap stands on
    `/posts` (`UI/Pages/Posts.md §6 item 3`).
 5. (needs issue) **Save has nothing behind it.** Every card offers Save (rule 2.17), and the
-   page's handler only says *Saving posts is coming soon.* (`useContentItemEngagement.ts`, line
-   51), to a signed-out reader too: nobody is sent to sign in (rule 2.17). Save has no design yet:
+   page's handler only says *Saving posts is coming soon.* (`useContentItemEngagement.ts` —
+   `onSaveClick`), to a signed-out reader too: nobody is sent to sign in (rule 2.17). Save has no
+   design yet:
    `UI/Components/ContentItemPanel.md §5` records it, and the user's ruling of 2026-09-27 exempts a
    reader's own Save from the lock after review and from the read-only veto once it is designed
    (§APR9.9 rule 6). §UI20.6.6 rule 4 plans it end to end, from the page down to the API, in the
