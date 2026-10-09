@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { toastSuccess } from '../brokers/toastBroker.success';
 import { useAuth } from '../components/securitys/authProvider';
 import { EntityType } from '../models/foundations/approvalSettings/approvalSetting';
@@ -29,14 +29,84 @@ type ReactionWrite = {
     whenSucceeded: () => Promise<void>;
 };
 
-type ItemWrites = {
-    waiting: ReactionWrite[];
-};
-
 const withoutOverlay = (
     overlays: Readonly<Record<string, ReactionOverlay>>,
     contentItemId: string): Readonly<Record<string, ReactionOverlay>> =>
     Object.fromEntries(Object.entries(overlays).filter(([laidOn]) => laidOn !== contentItemId));
+
+// One page's reaction writes: for each item with a write in flight, the writes waiting their
+// turn behind it, sent one at a time in the order chosen. It outlives the page's hook, so a
+// write still waiting when the reader moves to another page of the app is still sent, and it
+// listens for the back-forward cache for as long as it holds a write.
+const createReactionWriteQueue = (takeOverlayAway: (contentItemId: string) => void) => {
+    const itemWrites = new Map<string, ReactionWrite[]>();
+
+    // The document going into the back-forward cache drops the writes still waiting, as if the
+    // write before them had failed. The write in flight keeps its place.
+    const dropWaitingWrites = (event: PageTransitionEvent) => {
+        if (event.persisted === false) {
+            return;
+        }
+
+        itemWrites.forEach((waiting, contentItemId) => {
+            if (waiting.length > 0) {
+                waiting.splice(0);
+                takeOverlayAway(contentItemId);
+            }
+        });
+    };
+
+    const endItemWrites = (contentItemId: string) => {
+        itemWrites.delete(contentItemId);
+
+        if (itemWrites.size === 0) {
+            window.removeEventListener('pagehide', dropWaitingWrites);
+        }
+    };
+
+    // A failed write drops those waiting behind it, which started from it, and holds up
+    // nothing after it. Each write's outcome comes from its own call: the mutations' shared
+    // state reports only their latest call, across every card.
+    const sendNextWrite = (contentItemId: string, waiting: ReactionWrite[]) => {
+        const write = waiting.shift();
+
+        if (write === undefined) {
+            endItemWrites(contentItemId);
+
+            return;
+        }
+
+        write.send().then(
+            () => {
+                void write.whenSucceeded();
+                sendNextWrite(contentItemId, waiting);
+            },
+            () => {
+                endItemWrites(contentItemId);
+                takeOverlayAway(contentItemId);
+            });
+    };
+
+    return {
+        enqueue: (contentItemId: string, write: ReactionWrite) => {
+            const waiting = itemWrites.get(contentItemId);
+
+            if (waiting !== undefined) {
+                waiting.push(write);
+
+                return;
+            }
+
+            if (itemWrites.size === 0) {
+                window.addEventListener('pagehide', dropWaitingWrites);
+            }
+
+            const firstWaiting = [write];
+            itemWrites.set(contentItemId, firstWaiting);
+            sendNextWrite(contentItemId, firstWaiting);
+        }
+    };
+};
 
 // The engagement wiring every page that renders the card shares, so each card RENDERS its full
 // row — Like with the real reaction vocabulary, Share, Save — and every page decides it the
@@ -70,8 +140,8 @@ export const useContentItemEngagement = (
     const [overlays, setOverlays] =
         useState<Readonly<Record<string, ReactionOverlay>>>({});
 
-    // Each item with a write in flight, and the writes waiting their turn behind it.
-    const itemWrites = useRef(new Map<string, ItemWrites>());
+    const [reactionWriteQueue] = useState(() => createReactionWriteQueue((contentItemId) =>
+        setOverlays((laid) => withoutOverlay(laid, contentItemId))));
 
     // Each item's latest write, by identity: only the read that follows it ends the overlay.
     const latestWrites = useRef(new Map<string, object>());
@@ -83,51 +153,6 @@ export const useContentItemEngagement = (
     const reactionOptions = useMemo(
         () => (reactions ?? []).map(toContentItemReactionOption),
         [reactions]);
-
-    // A page going into the back-forward cache drops the writes still waiting, as if the write
-    // before them had failed. The write in flight keeps its place.
-    useEffect(() => {
-        const dropWaitingWrites = (event: PageTransitionEvent) => {
-            if (event.persisted === false) {
-                return;
-            }
-
-            itemWrites.current.forEach((writes, contentItemId) => {
-                if (writes.waiting.length > 0) {
-                    writes.waiting.splice(0);
-                    setOverlays((laid) => withoutOverlay(laid, contentItemId));
-                }
-            });
-        };
-
-        window.addEventListener('pagehide', dropWaitingWrites);
-
-        return () => window.removeEventListener('pagehide', dropWaitingWrites);
-    }, []);
-
-    // One item's writes are sent one at a time, in the order chosen. A failed write drops those
-    // waiting behind it, which started from it, and holds up nothing after.
-    const sendNextWrite = (contentItemId: string, writes: ItemWrites) => {
-        const write = writes.waiting.shift();
-
-        if (write === undefined) {
-            itemWrites.current.delete(contentItemId);
-
-            return;
-        }
-
-        // Each write's outcome comes from its own call: the mutations' shared state reports
-        // only their latest call, across every card.
-        write.send().then(
-            () => {
-                void write.whenSucceeded();
-                sendNextWrite(contentItemId, writes);
-            },
-            () => {
-                itemWrites.current.delete(contentItemId);
-                setOverlays((laid) => withoutOverlay(laid, contentItemId));
-            });
-    };
 
     const onReactionSelected = (
         item: ContentItemSearchItem,
@@ -174,15 +199,7 @@ export const useContentItemEngagement = (
             }
         };
 
-        const writes = itemWrites.current.get(item.id);
-
-        if (writes === undefined) {
-            const firstWrites: ItemWrites = { waiting: [write] };
-            itemWrites.current.set(item.id, firstWrites);
-            sendNextWrite(item.id, firstWrites);
-        } else {
-            writes.waiting.push(write);
-        }
+        reactionWriteQueue.enqueue(item.id, write);
     };
 
     const onShareClick = (item: ContentItemSearchItem) => {
