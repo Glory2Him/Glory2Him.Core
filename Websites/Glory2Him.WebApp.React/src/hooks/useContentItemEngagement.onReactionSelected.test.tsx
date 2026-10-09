@@ -641,6 +641,29 @@ describe('useContentItemEngagement.onReactionSelected', () => {
                         await act(async () => upserts[1].resolve(createdResult));
                     }
                 },
+                "an earlier write's read, the next choice made once that write had settled": {
+                    pages: [['item-1']],
+                    expectedOverlay: showing('Amen', [['Joy', 1], ['Amen', 1]]),
+                    final: summaryOf('item-1', [['Amen', 5]], 'Amen'),
+                    landTheEarlierReadsAndSettleTheLatestWrite: async (render, upserts, reads) => {
+                        // Love's write settles, and the hook waits on the read that follows it
+                        await act(async () => upserts[0].resolve(createdResult));
+                        await waitFor(() => expect(reads.length).toBeGreaterThan(0));
+                        await settleEverything();
+
+                        // the reader chooses again before that read lands
+                        choose(render, 'item-1', 'Amen');
+                        await waitFor(() => expect(upserts).toHaveLength(2));
+
+                        await answerEveryHeldRead(reads, [earlierAnswer]);
+                        await settleEverything();
+
+                        expect(shownAs(render, 'item-1'))
+                            .toStrictEqual(showing('Amen', [['Joy', 1], ['Amen', 1]]));
+
+                        await act(async () => upserts[1].resolve(createdResult));
+                    }
+                },
                 'an unchanged answer': {
                     pages: [['item-1']],
                     expectedOverlay: loveOverlay,
