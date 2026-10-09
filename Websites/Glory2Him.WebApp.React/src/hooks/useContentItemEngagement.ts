@@ -47,6 +47,7 @@ export const useContentItemEngagement = (
         useState<Readonly<Record<string, string>>>({});
 
     const upsertAssociation = associationService.useUpsertAssociation();
+    const removeAssociation = associationService.useRemoveAssociationByPair();
 
     const reactionOptions = useMemo(
         () => (reactions ?? []).map(toContentItemReactionOption),
@@ -62,12 +63,16 @@ export const useContentItemEngagement = (
             [item.id]: given[item.id] === reaction.label ? '' : reaction.label
         }));
 
-        void upsertAssociation.mutateAsync({
+        const association = {
             entityAType: EntityType.ContentItem,
             entityAKeyId: item.id,
             entityBType: EntityType.Reaction,
             entityBKeyId: reaction.id
-        });
+        };
+
+        void (item.viewerReactionLabel === reaction.label
+            ? removeAssociation.mutateAsync(association)
+            : upsertAssociation.mutateAsync(association));
     };
 
     const onShareClick = (item: ContentItemSearchItem) => {
