@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useContentItemEngagement } from './useContentItemEngagement';
@@ -74,8 +75,11 @@ const cardFor = (id: string): ContentItemSearchItem => ({
     content: `The words of ${id}.`
 });
 
+// The hook sends a signed-out reader to sign in through useSignIn, which needs a router.
 const wrapper = ({ children }: { children: ReactNode }) => (
-    <AuthProvider>{children}</AuthProvider>
+    <MemoryRouter>
+        <AuthProvider>{children}</AuthProvider>
+    </MemoryRouter>
 );
 
 const renderEngagement = (contentItemIdPages?: ReadonlyArray<ReadonlyArray<string>>) =>

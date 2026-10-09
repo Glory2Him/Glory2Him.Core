@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { toastSuccess } from '../brokers/toastBroker.success';
+import { useSignIn } from './useSignIn';
 import { useAuth } from '../components/securitys/authProvider';
 import { EntityType } from '../models/foundations/approvalSettings/approvalSetting';
 import { associationService } from '../services/foundations/associationService';
@@ -125,6 +126,7 @@ export const useContentItemEngagement = (
     const { data: reactions } = reactionService.useGetApprovedReactions();
 
     const { user } = useAuth();
+    const signIn = useSignIn();
 
     // The reader the summaries are read for: not yet known while there is no current user,
     // whether its read is still loading or failed, and signed out only once it has been read.
@@ -157,6 +159,12 @@ export const useContentItemEngagement = (
     const onReactionSelected = (
         item: ContentItemSearchItem,
         reaction: ContentItemReactionOption) => {
+        if (user?.isAuthenticated === false) {
+            signIn();
+
+            return;
+        }
+
         const heldReactionLabel = item.viewerReactionLabel;
 
         // The same choice again is a change of mind — withdrawn, not doubled.
