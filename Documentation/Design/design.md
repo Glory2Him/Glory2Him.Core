@@ -255,15 +255,19 @@ that carries a task's tag the way a gap does, such as `DesignFeatures/Likes.md` 
      4. Built (#512) **The doc page matches the component.** …
    ```
 
-   Neither the `(needs issue)` sweep above nor a search for the `(#N)` tag finds a built item. A
-   tagged business rule, once built, loses its tag and stays a rule, with its number.
+   Neither the `(needs issue)` sweep above nor a search for a tag where an item carries it,
+   straight after the item's number, finds a built item. A plain search for `(#N)` still finds
+   the `Built (#N)` of the item that task built. A tagged business rule, once built, loses its tag
+   and stays a rule, with its number.
 2. **Part of it built.** The item keeps its number and its tag, and records what is built and what
    is not on separate lines, **Built:** and **Not yet built:**, as `UI/Pages/Home.md §6 item 3`
    does. One exception is accepted (user ruling 2026-10-09). #739 builds part of the seven page
    reaction gaps, whose tags name #741–#747, and its criterion 21 records that part in a form of
    its own: the item is retitled to what is left, and its text is rewritten, with no **Built:** or
    **Not yet built:** line. Where #739 has recorded an item that way, the item keeps that form
-   until its own task marks it built.
+   until its own task marks it built. If #739 reaches `main` before this paragraph does, the
+   design change that adds this paragraph (#838) brings those items to the form above instead,
+   and none keeps criterion 21's form.
 3. **What points at it.** A `≠` marker (§UI20.6.4) and a page document's ❌ No cell in section 4
    (§UI20.5.1) answer to the rule or the row they sit on. Once a build meets all of that rule or
    row, the marker comes off and the ❌ No cell turns ✅ Yes, with its file and line. While any part
@@ -271,7 +275,12 @@ that carries a task's tag the way a gap does, such as `DesignFeatures/Likes.md` 
    narrows to what is left. The ruling follows #739's criterion 21, which does both on the §4
    `onReactionSelected` row of the seven page documents: the row is met on the four pages no
    signed-out reader reaches, while their reaction gaps stay open for the cards' counts, and is
-   not yet met on the other three.
+   not yet met on the other three. A line a build records, in such a cell or anywhere else, names
+   a commit of the delivering pull request's branch at which the file reads so, in the form
+   `lines 328-332 at 70dc72e7`: a page document reads every line that names no commit at the
+   commit its header gives (*Line numbers are at 70dc72e7.*), and a recorded line is not at that
+   commit. #739's criterion 21, which is left as it is (user ruling 2026-10-09, under #838), gives
+   its lines without one.
 4. **Text elsewhere.** Text that the build makes untrue is rewritten in the same change, wherever
    it stands: the item's own, another item that takes its evidence from it, prose that says a rule
    is not yet built, and a sentence that names the item as where the same gap stands on another
