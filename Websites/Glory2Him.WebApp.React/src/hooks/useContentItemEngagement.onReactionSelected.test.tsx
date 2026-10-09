@@ -12,7 +12,7 @@ import { AssociationRequest } from '../models/foundations/associations/associati
 import { ContentItemReactionSummary } from '../models/foundations/associations/contentItemReactionSummary';
 import { ContentType } from '../models/foundations/contentItemSettings/contentType';
 import { Reaction } from '../models/foundations/reactions/reaction';
-import { createAuthState, signInAs } from '../tests/testAuth';
+import { createAuthState, signInAs, signOut } from '../tests/testAuth';
 
 import {
     AssociationSuggestionResult,
@@ -922,6 +922,33 @@ describe('useContentItemEngagement.onReactionSelected', () => {
 
             // then
             expect(deleteAssociationPairAsync).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('a reader who is not signed in', () => {
+        // The overlay stands only between a press and the read that follows the item's write,
+        // and this choice writes nothing: a hook that laid it before its guard would show Love
+        // marked, and nothing would ever take it away.
+        it('should send a signed-out reader to sign in and write nothing', async () => {
+            // given
+            signOut(authState);
+            serverSummaries = { 'item-1': summaryOf('item-1', [['Joy', 2]], null) };
+            const render = renderEngagement([['item-1']], '/posts?q=grace#item-1');
+            await waitForTheRead(render, 'item-1');
+
+            // when
+            choose(render, 'item-1', 'Love');
+            await settleEverything();
+
+            // then
+            expect(render.result.current.location.pathname).toBe('/Account/Login');
+
+            expect(new URLSearchParams(render.result.current.location.search).get('returnUrl'))
+                .toBe('/posts?q=grace#item-1');
+
+            expect(postAssociationAsync).not.toHaveBeenCalled();
+            expect(deleteAssociationPairAsync).not.toHaveBeenCalled();
+            expect(shownAs(render, 'item-1')).toStrictEqual(showing(undefined, [['Joy', 2]]));
         });
     });
 });
