@@ -163,8 +163,8 @@ handled inside `ContentItemPanel` (the counts toggle and the Like picker) and ne
 | `onTagClick` | A tag pill is pressed | No pill renders today, because the projection carries no tags until the association read is exposed over HTTP (§ARC17.4, not yet built). When one does, the page is to open `/posts` handed the tag (rule 2.14); the list toggles the tag criterion instead (`UI/Components/ContentItemListPanel.md §10 item 8`), and the page supplies no destination of its own. ≠ item 8 | ❌ No — item 8 |
 | `onBibleReferenceClick` ≠ item 12 | A Bible reference pill is pressed | No pill renders today: the association read is not yet exposed over HTTP (§ARC17.4). When one does, the page navigates to the passage at `/BibleReferences/{USFM}`, or, for a reference it cannot read, to that page all the same, which says it could not be found (rule 2.21), with `from`. The list also toggles the reference criterion first (`UI/Components/ContentItemListPanel.md §10 item 8`). | For a readable reference ✅ Yes (`contentItemFeedNavigation.ts`, lines 45-46; `toUsfmReference.ts`, lines 67-73); for one it cannot read ❌ No — it goes to `/Search?q=<reference>` (`toUsfmReference.ts`, line 72); item 12 |
 | `onCommentsClick` | The comments control is pressed | Navigates to `/myposts/{id}#comments` with `from`. That page shows no comments. ≠ item 4 | ✅ Yes (`contentItemFeedNavigation.ts`, lines 40-41); the destination is item 4 |
-| `onReactionSelected` | The reader chooses a reaction | Records, changes or clears the reader's own reaction. A signed-out reader never reaches the page (rule 2.1). | ✅ Yes (`src/hooks/useContentItemEngagement.ts`, lines 160-218; #739) |
-| `onShareClick` | *Share* is pressed, on an `Approved` item alone (rule 2.16) | Copies `{origin}/posts/{id}` to the clipboard and toasts "Link copied." ≠ item 5 | ✅ Yes (`useContentItemEngagement.ts`, lines 220-225), but Share is offered on every card, whatever its status; item 5 |
+| `onReactionSelected` | The reader chooses a reaction | Records, changes or clears the reader's own reaction. A signed-out reader never reaches the page (rule 2.1). | ✅ Yes (`src/hooks/useContentItemEngagement.ts`, lines 150-208 at 3a824fc6; #739) |
+| `onShareClick` | *Share* is pressed, on an `Approved` item alone (rule 2.16) | Copies `{origin}/posts/{id}` to the clipboard and toasts "Link copied." ≠ item 5 | ✅ Yes (`useContentItemEngagement.ts`, lines 210-215 at 3a824fc6), but Share is offered on every card, whatever its status; item 5 |
 | `onSaveClick` | *Save* is pressed | Saves the post for the reader; Save has no design yet. ≠ item 3 | ❌ No — it toasts "Saving posts is coming soon." and saves nothing (`useContentItemEngagement.ts` — `onSaveClick`); item 3 |
 | `onEditClick` | The owner's Edit is pressed. It reads *View* today (`UI/Components/ContentItemListPanel.md §10 item 9`) | Navigates to `/myposts/{id}`, carrying `from` and `edit: true` in router state (rule 2.7). The detail page does not act on `edit` today. ≠ `UI/Pages/MyPostDetail.md §6 item 1` | ✅ Yes (`myPosts.tsx`, lines 111-114 and 170) |
 | `onModerateClick` | Moderate is pressed (the shield) by an owner who also holds the moderation tier | Navigates to `/Admin/Posts/{id}`, carrying `from` and `moderate: true` in router state (rule 2.8). That page admits `Administrators` alone today. ≠ `UI/Pages/ContentItemModerationDetailPage.md §6 item 1` | ✅ Yes (`myPosts.tsx`, lines 116-119 and 171) |
@@ -217,7 +217,15 @@ The read-only roles each action answers to are those components' security and ac
    The page reads no reaction summary, so no card shows the reactions its item has been given,
    and the reader's own reaction shows only as the overlay of a choice they have just made
    (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rule 8), never as the one they hold
-   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-86). The page hands
+   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-86). So the overlay goes
+   as soon as the write that laid it settles, and a reader who then chooses the reaction they hold
+   gives it again, which leaves it held, rather than withdrawing it: until this item is built, a
+   reaction is withdrawn here only when the reader chooses it again before the write that gave it
+   has settled (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rules 4 and 9). The overlay
+   starts from an empty summary where the item has none, so while a choice's write is pending the
+   card shows the chosen reaction counted 1, whatever the item has been given, and no other count,
+   and none after a withdrawal (`DesignFeatures/UI/Views/ChosenReactionSummary.md §1` rules 1 to 3;
+   `DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rule 5). The page hands
    `useContentItemEngagement` the ids of each page of cards it has delivered and renders what
    `withReactions` projects (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
 3. (needs issue) **Page gap — `/myposts`: Save saves nothing.** The page wires *Save* to a toast,

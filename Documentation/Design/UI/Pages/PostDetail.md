@@ -117,7 +117,7 @@ beneath it. While the item loads, or when it cannot be read, a single centred co
 | Hook | Raised when | What the page does | Built today |
 | --- | --- | --- | --- |
 | `onReactionSelected` ≠ item 2 | A reaction is chosen, whatever the sign-in state | Sends a signed-out reader to sign in; records, changes or clears a signed-in reader's own reaction (rule 2.10) | ❌ No — the card redirects a signed-out reader itself (`UI/Components/ContentItemPanel.md §10 item 12`); item 2 |
-| `onShareClick` | Share is clicked | Copies this post's address and says so (rule 2.11) | ✅ Yes (`postDetail.tsx`, line 182; `useContentItemEngagement.ts`, lines 220-225) |
+| `onShareClick` | Share is clicked | Copies this post's address and says so (rule 2.11) | ✅ Yes (`postDetail.tsx`, line 182; `useContentItemEngagement.ts`, lines 210-215 at 3a824fc6) |
 | `onSaveClick` ≠ item 3 | Save is clicked | Nothing designed yet (rule 2.12) | ❌ No — it says *Saving posts is coming soon.*; item 3 |
 | `onContentTypeClick`, `onSubmittedByClick`, `onAuthorClick` ≠ item 9 | The type chip, *Submitted by* or *Author* is clicked | Opens `/posts` handed the value, its search bar showing it in the matching box with the advanced section expanded (rule 2.18) | ❌ No — the page wires none, yet the three render as buttons, so pressing one does nothing (`contentItemDefaultPanel.tsx`, lines 194-198, 305-308 and 323-326); item 9 |
 | `onTagClick`, `onBibleReferenceClick` | A tag or reference pill on the card is clicked | — | *Not wired — switched off*: the card's two sections are off, because the side panels carry them (rule 2.5) |
@@ -263,7 +263,15 @@ page is a courtesy (§SEC14.6).
    The page reads no reaction summary, so the card shows none of the reactions its item has been
    given, and the reader's own reaction shows only as the overlay of a choice they have just made
    (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rule 8), never as the one they hold
-   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-86). The page hands
+   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-86). So the overlay goes
+   as soon as the write that laid it settles, and a reader who then chooses the reaction they hold
+   gives it again, which leaves it held, rather than withdrawing it: until this item is built, a
+   reaction is withdrawn here only when the reader chooses it again before the write that gave it
+   has settled (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rules 4 and 9). The overlay
+   starts from an empty summary where the item has none, so while a choice's write is pending the
+   card shows the chosen reaction counted 1, whatever the item has been given, and no other count,
+   and none after a withdrawal (`DesignFeatures/UI/Views/ChosenReactionSummary.md §1` rules 1 to 3;
+   `DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rule 5). The page hands
    `useContentItemEngagement` the id of its one card and renders what `withReactions` projects
    (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
 3. (needs issue) **Save has nothing behind it.** The card offers Save (rule 2.12), and the
