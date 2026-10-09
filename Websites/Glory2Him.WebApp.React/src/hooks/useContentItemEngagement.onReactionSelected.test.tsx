@@ -969,5 +969,25 @@ describe('useContentItemEngagement.onReactionSelected', () => {
             expect(deleteAssociationPairAsync).not.toHaveBeenCalled();
             expect(shown(render, 'item-1')).toStrictEqual(cardFor('item-1'));
         });
+
+        // A failed read of the current user leaves no user and is no longer loading: the reader
+        // is not yet known, not signed out, and the app's global handler has announced it.
+        it("should do nothing when the reader's sign-in state could not be read", async () => {
+            // given
+            authState.data = undefined;
+            authState.isLoading = false;
+            serverSummaries = { 'item-1': summaryOf('item-1', [['Joy', 2]], null) };
+            const render = renderEngagement([['item-1']], '/posts?q=grace#item-1');
+
+            // when
+            choose(render, 'item-1', 'Love');
+            await settleEverything();
+
+            // then
+            expect(render.result.current.location.pathname).toBe('/posts');
+            expect(postAssociationAsync).not.toHaveBeenCalled();
+            expect(deleteAssociationPairAsync).not.toHaveBeenCalled();
+            expect(shown(render, 'item-1')).toStrictEqual(cardFor('item-1'));
+        });
     });
 });
