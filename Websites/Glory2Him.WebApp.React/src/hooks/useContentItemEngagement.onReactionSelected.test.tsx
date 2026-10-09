@@ -793,5 +793,54 @@ describe('useContentItemEngagement.onReactionSelected', () => {
             expect(postAssociationAsync).not.toHaveBeenCalledWith(requestFor('item-1', 'Joy'));
             render.unmount();
         });
+
+        // Item 1 starts with Love held, and the change to Joy fails with writes waiting behind
+        // it. Every read after the first is held open, so the item shows the last read.
+        it('should drop the reaction writes that wait behind one that fails', async () => {
+            const waitingChoicesByCase: ReadonlyArray<ReadonlyArray<string>> = [
+                ['Joy'],
+                ['Amen', 'Amen']
+            ];
+
+            for (const waitingChoices of waitingChoicesByCase) {
+                // given
+                queryClient.clear();
+                vi.clearAllMocks();
+                serverSummaries = { 'item-1': summaryOf('item-1', [['Love', 3]], 'Love') };
+                getReactionSummariesAsync.mockImplementation(answerFromTheServer);
+                const upserts = holdEachCall(postAssociationAsync);
+                holdEachCall(deleteAssociationPairAsync);
+                const render = renderEngagement();
+                await waitForTheRead(render, 'item-1');
+                holdEachCall(getReactionSummariesAsync);
+
+                choose(render, 'item-1', 'Joy');
+
+                for (const waitingChoice of waitingChoices) {
+                    choose(render, 'item-1', waitingChoice);
+                }
+
+                await waitFor(() => expect(upserts).toHaveLength(1));
+
+                // when
+                await act(async () => upserts[0].reject(new Error('refused')));
+                await settleEverything();
+
+                // then
+                expect(postAssociationAsync).toHaveBeenCalledTimes(1);
+                expect(deleteAssociationPairAsync).not.toHaveBeenCalled();
+                expect(shownAs(render, 'item-1')).toStrictEqual(showing('Love', [['Love', 3]]));
+
+                // when the reader chooses again
+                choose(render, 'item-1', 'Joy');
+
+                // then it is sent at once
+                await waitFor(() => expect(postAssociationAsync).toHaveBeenCalledTimes(2));
+                expect(postAssociationAsync).toHaveBeenLastCalledWith(requestFor('item-1', 'Joy'));
+                expect(deleteAssociationPairAsync).not.toHaveBeenCalled();
+
+                render.unmount();
+            }
+        });
     });
 });
