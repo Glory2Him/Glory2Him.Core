@@ -53,7 +53,7 @@ export function PostDetail() {
         contentItemSettingService.useGetEffectiveSettingsFor(
             contentItemId.length > 0 ? [contentItemId] : []);
 
-    // LIKE, SHARE AND SAVE — the same thin wiring every feed card runs on, so a reader who
+    // LIKE, SHARE AND SAVE — the same wiring every feed card runs on, so a reader who
     // followed a card here meets the controls it offered rather than losing them at the one
     // address the item permanently has. Share is real (it copies this page's address), and so
     // is the reaction, which the hook records. Save answers honestly, because Save has no design

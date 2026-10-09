@@ -147,9 +147,9 @@ export function Posts() {
                                 {...feedNavigation} />
                         )}
 
-                        {/* The engagement handlers are the shared THIN wiring: the controls
-                            render and respond, and the writes behind them arrive with #318 —
-                            see useContentItemEngagement. */}
+                        {/* The engagement handlers are the shared wiring: a chosen reaction
+                            is recorded, Share copies the item's address and Save answers
+                            honestly — see useContentItemEngagement. */}
                     </div>
                 </div>
             </div>
