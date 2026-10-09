@@ -471,5 +471,67 @@ describe('useContentItemEngagement.onReactionSelected', () => {
             await waitFor(() =>
                 expect(shownAs(render, 'item-b')).toStrictEqual(showing('Amen', [['Amen', 3]])));
         });
+
+        // Every read after the first is held open, so what the item shows once a write fails is
+        // the last read and nothing laid over it. The failure is the app's global handler's to
+        // announce, and this harness has none, so any toast would be the hook's own.
+        it('should take the overlay away when a reaction write fails', async () => {
+            const failures: ReadonlyArray<{
+                choices: ReadonlyArray<string>;
+                failTheWrite: (upserts: Settle<AssociationSuggestionResult>[]) => Promise<void>;
+            }> = [
+                {
+                    // the only write
+                    choices: ['Love'],
+                    failTheWrite: async (upserts) => {
+                        await act(async () => upserts[0].reject(new Error('refused')));
+                    }
+                },
+                {
+                    // the first of two
+                    choices: ['Love', 'Amen'],
+                    failTheWrite: async (upserts) => {
+                        await act(async () => upserts[0].reject(new Error('refused')));
+                    }
+                },
+                {
+                    // the later of two
+                    choices: ['Love', 'Amen'],
+                    failTheWrite: async (upserts) => {
+                        await act(async () => upserts[0].resolve(createdResult));
+                        await waitFor(() => expect(upserts).toHaveLength(2));
+                        await act(async () => upserts[1].reject(new Error('refused')));
+                    }
+                }
+            ];
+
+            for (const failure of failures) {
+                // given
+                queryClient.clear();
+                serverSummaries = { 'item-1': summaryOf('item-1', [['Joy', 2]], 'Joy') };
+                getReactionSummariesAsync.mockImplementation(answerFromTheServer);
+                const upserts = holdEachCall(postAssociationAsync);
+                const render = renderEngagement();
+                await waitForTheRead(render, 'item-1');
+                holdEachCall(getReactionSummariesAsync);
+
+                for (const choice of failure.choices) {
+                    choose(render, 'item-1', choice);
+                }
+
+                await waitFor(() => expect(upserts.length).toBeGreaterThan(0));
+
+                // when
+                await failure.failTheWrite(upserts);
+                await settleEverything();
+
+                // then
+                expect(shownAs(render, 'item-1')).toStrictEqual(showing('Joy', [['Joy', 2]]));
+                expect(toastError).not.toHaveBeenCalled();
+                expect(toastSuccess).not.toHaveBeenCalled();
+
+                render.unmount();
+            }
+        });
     });
 });
