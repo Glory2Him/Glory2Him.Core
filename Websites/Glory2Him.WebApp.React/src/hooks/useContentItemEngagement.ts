@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { toastSuccess } from '../brokers/toastBroker.success';
 import { useAuth } from '../components/securitys/authProvider';
 import { EntityType } from '../models/foundations/approvalSettings/approvalSetting';
@@ -56,6 +56,9 @@ export const useContentItemEngagement = (
     const [overlays, setOverlays] =
         useState<Readonly<Record<string, ReactionOverlay>>>({});
 
+    // Each item's latest write, by identity: only the read that follows it ends the overlay.
+    const latestWrites = useRef(new Map<string, object>());
+
     const upsertAssociation = associationService.useUpsertAssociation();
     const removeAssociation = associationService.useRemoveAssociationByPair();
     const readReactionSummariesAgain = associationService.useReadReactionSummariesAgain();
@@ -101,10 +104,16 @@ export const useContentItemEngagement = (
             ? removeAssociation.mutateAsync(association)
             : upsertAssociation.mutateAsync(association);
 
+        const writeToken = {};
+        latestWrites.current.set(item.id, writeToken);
+
         write.then(
             async () => {
                 await readReactionSummariesAgain();
-                dropOverlay();
+
+                if (latestWrites.current.get(item.id) === writeToken) {
+                    dropOverlay();
+                }
             },
             dropOverlay);
     };
