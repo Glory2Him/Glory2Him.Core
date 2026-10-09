@@ -56,7 +56,8 @@ export function PostDetail() {
     // LIKE, SHARE AND SAVE — the same thin wiring every feed card runs on, so a reader who
     // followed a card here meets the controls it offered rather than losing them at the one
     // address the item permanently has. Share is real (it copies this page's address), and so
-    // is the reaction, which the hook records; Save answers honestly.
+    // is the reaction, which the hook records. Save answers honestly, because Save has no design
+    // yet (`UI/Pages/Home.md §6 item 5`).
     const {
         reactionOptions,
         onReactionSelected,
