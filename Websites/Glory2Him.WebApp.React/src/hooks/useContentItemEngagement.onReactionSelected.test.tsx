@@ -225,5 +225,22 @@ describe('useContentItemEngagement.onReactionSelected', () => {
             expect(postAssociationAsync).toHaveBeenCalledWith(requestFor('item-1', 'Love'));
             expect(deleteAssociationPairAsync).not.toHaveBeenCalled();
         });
+
+        // The server changes the reaction a reader holds when it is given another: the page
+        // asks for the new one and never withdraws the old one first.
+        it('should change the reaction a reader holds to the one they choose', async () => {
+            // given
+            serverSummaries = { 'item-1': summaryOf('item-1', [['Joy', 2]], 'Joy') };
+            const render = renderEngagement();
+            await waitForTheRead(render, 'item-1');
+
+            // when
+            choose(render, 'item-1', 'Love');
+
+            // then
+            await waitFor(() => expect(postAssociationAsync).toHaveBeenCalledTimes(1));
+            expect(postAssociationAsync).toHaveBeenCalledWith(requestFor('item-1', 'Love'));
+            expect(deleteAssociationPairAsync).not.toHaveBeenCalled();
+        });
     });
 });
