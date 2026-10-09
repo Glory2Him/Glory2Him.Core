@@ -842,5 +842,26 @@ describe('useContentItemEngagement.onReactionSelected', () => {
                 render.unmount();
             }
         });
+
+        // The reader moving to another page of the app unmounts the page's hook. Its queue goes
+        // on: the page's own writes are still sent in their turn.
+        it('should still send a waiting reaction write after the reader moves to another page of the app', async () => {
+            // given
+            serverSummaries = { 'item-1': summaryOf('item-1', [['Love', 3]], 'Love') };
+            const upserts = holdEachCall(postAssociationAsync);
+            const render = renderEngagement();
+            await waitForTheRead(render, 'item-1');
+            choose(render, 'item-1', 'Joy');
+            choose(render, 'item-1', 'Joy');
+            await waitFor(() => expect(upserts).toHaveLength(1));
+
+            // when
+            render.unmount();
+            await act(async () => upserts[0].resolve(createdResult));
+
+            // then
+            await waitFor(() => expect(deleteAssociationPairAsync).toHaveBeenCalledTimes(1));
+            expect(deleteAssociationPairAsync).toHaveBeenCalledWith(requestFor('item-1', 'Joy'));
+        });
     });
 });
