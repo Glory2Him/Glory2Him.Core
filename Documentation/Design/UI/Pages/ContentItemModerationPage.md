@@ -101,7 +101,7 @@ whole row. Below the `lg` breakpoint the menu stacks above the page.
 | Property | Value | Why |
 | --- | --- | --- |
 | `ariaLabel` | `Posts awaiting moderation` | Names the list's section (item 8). |
-| `contentItemCollection` | The loaded pages, projected with each item's winning setting, with the visit's chosen reactions folded in | Rule 2.7. |
+| `contentItemCollection` | The loaded pages, projected with each item's winning setting, with `withReactions` laying on each item its reaction summary, where one has been read, and the overlay of a choice the reader has just made (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1 and §2`) | Rule 2.7. |
 | `categorySettingCollection` | The settings read (`?? []`) | Feeds the Category box. |
 | `criteria`, `onSearch` | Read from, and written to, the URL | Rules 2.6 and 2.12. |
 | `isLoading`, `isLoadingMore`, `hasMore`, `onLoadMore` | The infinite read's own state and `fetchNextPage` | The scroll. |
@@ -157,8 +157,8 @@ handled inside `ContentItemPanel` and never reach the page.
 | `onTagClick` | A tag pill is pressed | No pill renders today, because the projection carries no tags until the association read is exposed over HTTP (§ARC17.4, not yet built). When one does, the page puts the tag in the queue's criteria, as the type chip (rule 2.13); the list toggles the tag criterion instead (`UI/Components/ContentItemListPanel.md §10 item 8`), and the page wires no hook of its own. ≠ item 6 | ❌ No — item 6 |
 | `onBibleReferenceClick` | A Bible reference pill is pressed | No pill renders today: the association read is not yet exposed over HTTP (§ARC17.4). When one does, the page puts the reference in the queue's criteria, as the type chip (rule 2.13). Today it leaves the admin area for the public passage, `/BibleReferences/{USFM}`, or for `/Search?q=<reference>` where it cannot read the reference, with `from`, after the list toggles the reference criterion (`UI/Components/ContentItemListPanel.md §10 item 8`). ≠ item 6 | ❌ No — it leaves for the public passage (`contentItemFeedNavigation.ts`, lines 45-46; `toUsfmReference.ts`, lines 67-73); item 6 |
 | `onCommentsClick` | The comments control is pressed | Navigates to `/Admin/Posts/{id}#comments` with `from`. That page shows no comments. ≠ item 4 | ✅ Yes (`contentItemFeedNavigation.ts`, lines 40-41); the destination is item 4 |
-| `onReactionSelected` | The reader chooses a reaction | Records, changes or clears the reader's own reaction. ≠ item 2 | ❌ No — the choice is held in page state for the visit, and nothing is recorded (`useContentItemEngagement.ts` — `onReactionSelected`); item 2 |
-| `onShareClick` | *Share* is pressed, on an `Approved` item alone (rule 2.14) | Copies `{origin}/posts/{id}` and toasts "Link copied." ≠ item 9 | ✅ Yes (`useContentItemEngagement.ts`, lines 62-67), but Share is offered on every card, whatever its status; item 9 |
+| `onReactionSelected` | The reader chooses a reaction | Records, changes or clears the reader's own reaction. | ✅ Yes (`src/hooks/useContentItemEngagement.ts`, lines 160-218; #739) |
+| `onShareClick` | *Share* is pressed, on an `Approved` item alone (rule 2.14) | Copies `{origin}/posts/{id}` and toasts "Link copied." ≠ item 9 | ✅ Yes (`useContentItemEngagement.ts`, lines 220-225), but Share is offered on every card, whatever its status; item 9 |
 | `onSaveClick` | *Save* is pressed | Saves the post for the reader; Save has no design yet. ≠ item 3 | ❌ No — it toasts "Saving posts is coming soon." and saves nothing (`useContentItemEngagement.ts` — `onSaveClick`); item 3 |
 | `onEditClick` | The owner's Edit is pressed | Never offered: the moderated surface removes it from every card (rule 2.3). | *Not wired — switched off* (`UI/Components/ContentItemListPanel.md rule 3.3.1`) |
 | `onModerateClick` | The moderation action, labelled *Edit* here, is pressed | Never offered: no card on the queue offers Edit (rule 2.3). ≠ item 5 | ❌ No — the page wires it, and it renders on every card: it navigates to `/Admin/Posts/{id}`, carrying `from` and `moderate: true` in router state, which nothing reads (item 8) (`contentItemModerationPage.tsx`, lines 110-113 and 157); item 5 |
@@ -195,14 +195,15 @@ below are what the page adds: who reaches it, and the card's actions for those w
    answers the list read alone (rule 2.9), so a failed settings read still shows the cards. Evidence:
    `contentItemModerationPage.tsx` — `contentItemSettings ?? []`. Copied from
    `UI/Components/ContentItemPanel.md §10 item 15`, this page's share of it.
-2. (#746) **Page gap — `/Admin/Posts`: a chosen reaction is not persisted.** The page takes
-   `onReactionSelected` from `useContentItemEngagement`, which toggles the choice in page state for
-   the visit only. Recording the reader's own reaction (§ARC16.8.1, served by #728) and withdrawing it (its member built by #725, its route not yet) are this item's work. The sign-in half does not
-   arise, because `SecuredRoute` admits no signed-out reader. Copied from
+2. (#746) **Page gap — `/Admin/Posts`: the cards show no counts.** A chosen reaction is recorded,
+   changed or cleared by `useContentItemEngagement`, which the page takes `onReactionSelected` from
+   (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2`; #739), and no signed-out reader chooses
+   one here, because `SecuredRoute` admits none. Copied from
    `UI/Components/ContentItemPanel.md §10 item 17`, this page's share of it.
-   **The cards' counts are this item's work too** (the Likes feature, `DesignFeatures/Likes.md`).
+   **The cards' counts are this item's work** (the Likes feature, `DesignFeatures/Likes.md`).
    The page reads no reaction summary, so no card shows the reactions its item has been given,
-   and the reader's own reaction is the visit's page state rather than the one they hold
+   and the reader's own reaction shows only as the overlay of a choice they have just made
+   (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rule 8), never as the one they hold
    (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-86). The page hands
    `useContentItemEngagement` the ids of each page of cards it has delivered and renders what
    `withReactions` projects (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).

@@ -153,7 +153,7 @@ Rendered while the editor is closed.
 
 | Property | Value | Why |
 | --- | --- | --- |
-| `contentItem` | The item projected with its winning setting and the contributor's name and image, with the visit's chosen reaction folded in | Rules 2.17 and 2.19. |
+| `contentItem` | The item projected with its winning setting and the contributor's name and image, with `withReactions` laying on it its reaction summary, where one has been read, and the overlay of a choice the reader has just made (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1 and §2`) | Rules 2.17 and 2.19. |
 | `contentItemSettingCollection` | The settings read (`?? []`) | Rule 2.17. |
 | `showModerationSection`, `moderationOpensEditor` | `true`, `true` | Rule 2.7. |
 | `showApprovalStatusRibbon` / `showApprovalStatus` | `true` / `false` | Rule 2.16. |
@@ -172,7 +172,7 @@ the owner's Edit. The editor is `ContentItemEditPanel`, rendered by the page (se
 | `onModerateClick` | The moderation action, labelled *Edit*, is pressed while not locked | Swaps the card for `ContentItemEditPanel` in place (rule 2.7). A reviewer is also shown the action, and the editor then refuses them (`UI/Components/ContentItemPanel.Edit.md rule 3.2.2`). | ✅ Yes (`contentItemModerationDetailPage.tsx`, line 727) |
 | `onEditClick` | The owner's Edit is pressed | Never offered: the moderated face removes it (`UI/Components/ContentItemPanel.md rule 3.1.6`). | *Not wired — switched off* |
 | `onModified`, `onRemoved`, `onCancelled`, `onAdded` | The panel's own writing faces | — | *Never raised*: `showEditSection` is off on the card, and the page renders the editor itself (section 4.2) |
-| `onReactionSelected` | The reader chooses a reaction | Records, changes or clears the reader's own reaction. ≠ item 3 | ❌ No — the choice is held in page state for the visit, and nothing is recorded (`useContentItemEngagement.ts` — `onReactionSelected`); item 3 |
+| `onReactionSelected` | The reader chooses a reaction | Records, changes or clears the reader's own reaction. | ✅ Yes (`src/hooks/useContentItemEngagement.ts`, lines 160-218; #739) |
 | `onShareClick`, `onSaveClick` | *Share* or *Save* is pressed | Not offered (rule 2.15). | *Not wired — switched off* (the comment above `useContentItemEngagement`) |
 | `onTitleClick` | The title is pressed | The title is plain heading text: this page is the detail surface. | *Not wired — switched off* (`UI/Components/ContentItemPanel.md rule 3.1.10`) |
 | `onReadMore`, `onExpandCollapse` | *read more* is pressed | Never offered: the content stands whole (rule 2.16). | *Not wired — switched off* |
@@ -373,14 +373,15 @@ access matrices: `UI/Components/ContentItemPanel.md §5`, `UI/Components/Content
    `admin/contentItemModerationDetailPage.tsx` — `contentItemSettings ?? []` (lines 847-850 at
    70dc72e7 for the settings panel). Copied from `UI/Components/ContentItemPanel.md §10 item 15`, this
    page's share of it. `UI/Components/ContentItemSettingsPanel.md §10 item 5` points to it.
-3. (#747) **Page gap — `/Admin/Posts/{id}`: a chosen reaction is not persisted.** The page
-   takes `onReactionSelected` from `useContentItemEngagement`, which toggles the choice in page state
-   for the visit only. Recording the reader's own reaction (§ARC16.8.1, served by #728) and withdrawing it (its member built by #725, its route not yet) are this item's work. The sign-in half does
-   not arise, because `SecuredRoute` admits no signed-out reader. Copied from
+3. (#747) **Page gap — `/Admin/Posts/{id}`: the card shows no counts.** A chosen reaction is
+   recorded, changed or cleared by `useContentItemEngagement`, which the page takes
+   `onReactionSelected` from (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2`; #739), and no
+   signed-out reader chooses one here, because `SecuredRoute` admits none. Copied from
    `UI/Components/ContentItemPanel.md §10 item 17`, this page's share of it.
-   **The card's counts are this item's work too** (the Likes feature, `DesignFeatures/Likes.md`).
+   **The card's counts are this item's work** (the Likes feature, `DesignFeatures/Likes.md`).
    The page reads no reaction summary, so the card shows none of the reactions its item has been
-   given, and the reader's own reaction is the visit's page state rather than the one they hold
+   given, and the reader's own reaction shows only as the overlay of a choice they have just made
+   (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rule 8), never as the one they hold
    (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-86). The page hands
    `useContentItemEngagement` the id of its one card and renders what `withReactions` projects
    (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).

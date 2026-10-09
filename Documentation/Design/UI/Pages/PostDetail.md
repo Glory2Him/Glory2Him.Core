@@ -106,7 +106,7 @@ beneath it. While the item loads, or when it cannot be read, a single centred co
 
 | Property | Value | Why |
 | --- | --- | --- |
-| `contentItem` | The item, projected with its winning setting and the contributor's name and picture, with the reaction this visitor chose this visit folded in | Rule 2.3. |
+| `contentItem` | The item, projected with its winning setting and the contributor's name and picture, with `withReactions` laying on it its reaction summary, where one has been read, and the overlay of a choice the reader has just made (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1 and §2`) | Rule 2.3. |
 | `showContentExpanded` | `true` | Rule 2.2. |
 | `showTagSection`, `showBibleReferenceSection` | `false` | Rule 2.5. |
 | `reactionOptions` | The approved reactions, `GET api/Reactions` | Rule 2.10. |
@@ -116,8 +116,8 @@ beneath it. While the item loads, or when it cannot be read, a single centred co
 
 | Hook | Raised when | What the page does | Built today |
 | --- | --- | --- | --- |
-| `onReactionSelected` ≠ item 2 | A reaction is chosen, whatever the sign-in state | Sends a signed-out reader to sign in; records, changes or clears a signed-in reader's own reaction (rule 2.10) | ❌ No — the choice is held in page state for the visit; the card redirects a signed-out reader itself (`UI/Components/ContentItemPanel.md §10 item 12`); item 2 |
-| `onShareClick` | Share is clicked | Copies this post's address and says so (rule 2.11) | ✅ Yes (`postDetail.tsx`, line 182; `useContentItemEngagement.ts`, lines 62-67) |
+| `onReactionSelected` ≠ item 2 | A reaction is chosen, whatever the sign-in state | Sends a signed-out reader to sign in; records, changes or clears a signed-in reader's own reaction (rule 2.10) | ❌ No — the card redirects a signed-out reader itself (`UI/Components/ContentItemPanel.md §10 item 12`); item 2 |
+| `onShareClick` | Share is clicked | Copies this post's address and says so (rule 2.11) | ✅ Yes (`postDetail.tsx`, line 182; `useContentItemEngagement.ts`, lines 220-225) |
 | `onSaveClick` ≠ item 3 | Save is clicked | Nothing designed yet (rule 2.12) | ❌ No — it says *Saving posts is coming soon.*; item 3 |
 | `onContentTypeClick`, `onSubmittedByClick`, `onAuthorClick` ≠ item 9 | The type chip, *Submitted by* or *Author* is clicked | Opens `/posts` handed the value, its search bar showing it in the matching box with the advanced section expanded (rule 2.18) | ❌ No — the page wires none, yet the three render as buttons, so pressing one does nothing (`contentItemDefaultPanel.tsx`, lines 194-198, 305-308 and 323-326); item 9 |
 | `onTagClick`, `onBibleReferenceClick` | A tag or reference pill on the card is clicked | — | *Not wired — switched off*: the card's two sections are off, because the side panels carry them (rule 2.5) |
@@ -247,22 +247,22 @@ page is a courtesy (§SEC14.6).
    `contentItemSettings ?? []` (line 86). The page's error answers the item read alone (rule
    2.16), so a failed settings read still shows the card. The page's heading already names the
    type while the settings are on their way (rule 2.4). The same gap on `/` is `UI/Pages/Home.md §6 item 1`.
-2. (#743) **Page gap — the page does not act on a chosen reaction.** Copied from
+2. (#743) **Page gap — the card shows no counts.** Copied from
    `UI/Components/ContentItemPanel.md §10 item 17`, this page's share. A signed-out reader who
    chooses a reaction is to be sent to sign in, with return information that brings them back
    afterwards, and a signed-in reader's reaction recorded or cleared
    (`UI/Components/ContentItemPanel.md rule 3.2.4`). The page takes `onReactionSelected` from
-   `useContentItemEngagement`, which only toggles the choice in page state for the visit, whatever
-   the reader's sign-in state (`src/hooks/useContentItemEngagement.ts` — `onReactionSelected`;
-   test: `postDetail.test.tsx` — "should mark the reaction the reader chose for this visit",
-   "should withdraw the reaction when the reader chooses it again"); the card redirects a signed-out
-   reader itself (`UI/Components/ContentItemPanel.md §10 item 12`, which this item ships with).
-   Recording the reader's own reaction (§ARC16.8.1, served by #728) and withdrawing it (its member built by #725, its route not yet) are this item's work, and so is the redirect, which uses the one
-   reusable sign-in action (`UI/Pages/Home.md §6 item 3`), and must not fire while the reader's
-   sign-in state is still being read. The same gap on `/` is `UI/Pages/Home.md §6 item 2`.
-   **The card's counts are this item's work too** (the Likes feature, `DesignFeatures/Likes.md`).
+   `useContentItemEngagement`, which records, changes or clears a signed-in reader's reaction, and
+   sends a signed-out reader to sign in through the one reusable sign-in action
+   (`UI/Pages/Home.md §6 item 3`), never while the reader's sign-in state is still being read
+   (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rules 1 to 4; #739). The card raises the
+   hook for a signed-out reader only once `UI/Components/ContentItemPanel.md §10 item 12` (#740)
+   lands, which this item ships with, and until then sends them to sign in itself. The same gap on
+   `/` is `UI/Pages/Home.md §6 item 2`.
+   **The card's counts are this item's work** (the Likes feature, `DesignFeatures/Likes.md`).
    The page reads no reaction summary, so the card shows none of the reactions its item has been
-   given, and the reader's own reaction is the visit's page state rather than the one they hold
+   given, and the reader's own reaction shows only as the overlay of a choice they have just made
+   (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rule 8), never as the one they hold
    (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-86). The page hands
    `useContentItemEngagement` the id of its one card and renders what `withReactions` projects
    (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
