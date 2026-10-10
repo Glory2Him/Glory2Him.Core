@@ -557,6 +557,46 @@ describe('The content item feed pages', () => {
                 expect(reactionCountsOn('devotional-1')).toHaveTextContent('5');
                 expect(reactionCountsOn('devotional-2')).toHaveTextContent('7');
             });
+
+            // EACH PAGE AS IT WAS DELIVERED: asking for the third page's ids alone is the
+            // summaries read's, one query per page it is handed, so the page hands every page it
+            // holds and the first two pages' cards keep their counts.
+            it('should hand the engagement hook every page delivered on /Admin/Posts', async () => {
+                // given
+                pages = [pageOf(0, ['devotional-1', 'devotional-2']), pageOf(1, ['devotional-3'])];
+                undeliveredPages = [pageOf(2, ['devotional-4', 'devotional-5'])];
+                hasNextPage = true;
+
+                // Without an IntersectionObserver the list offers Load more, a press the test
+                // can make.
+                vi.stubGlobal('IntersectionObserver', undefined);
+
+                serverSummaries = {
+                    'devotional-1': summaryOf('devotional-1', [['Love', 1]]),
+                    'devotional-2': summaryOf('devotional-2', [['Amen', 2]]),
+                    'devotional-3': summaryOf('devotional-3', [['Joy', 3]]),
+                    'devotional-4': summaryOf('devotional-4', [['Love', 4]]),
+                    'devotional-5': summaryOf('devotional-5', [['Amen', 5], ['Joy', 1]])
+                };
+
+                renderPage(<ContentItemModerationPage />, '/Admin/Posts');
+
+                // when
+                await userEvent.click(screen.getByRole('button', { name: 'Load more' }));
+
+                // then
+                expect(handedPages).toEqual([
+                    ['devotional-1', 'devotional-2'],
+                    ['devotional-3'],
+                    ['devotional-4', 'devotional-5']
+                ]);
+
+                expect(reactionCountsOn('devotional-1')).toHaveTextContent('1');
+                expect(reactionCountsOn('devotional-2')).toHaveTextContent('2');
+                expect(reactionCountsOn('devotional-3')).toHaveTextContent('3');
+                expect(reactionCountsOn('devotional-4')).toHaveTextContent('4');
+                expect(reactionCountsOn('devotional-5')).toHaveTextContent('6');
+            });
         });
     });
 
