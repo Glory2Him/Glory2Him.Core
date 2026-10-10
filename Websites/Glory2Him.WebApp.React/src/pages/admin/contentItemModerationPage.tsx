@@ -97,9 +97,11 @@ export function ContentItemModerationPage() {
     const feedNavigation = buildContentItemFeedNavigation(
         navigate, location, (item) => `/Admin/Posts/${item.id}`);
 
+    // Each page of the queue as it was delivered: the summaries read asks once per page it is
+    // handed, so a page loaded later reads its own ids and the earlier pages keep their counts.
     const contentItemIdPages = useMemo(
-        () => [loadedContentItems.map((item) => item.id)],
-        [loadedContentItems]);
+        () => (data?.pages ?? []).map((page) => page.items.map((item) => item.id)),
+        [data]);
 
     const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withReactions } =
         useContentItemEngagement(contentItemIdPages);
