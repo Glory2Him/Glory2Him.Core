@@ -98,7 +98,7 @@ export const Home = () => {
     const feedNavigation = buildContentItemFeedNavigation(navigate, location);
 
     const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withReactions } =
-        useContentItemEngagement();
+        useContentItemEngagement([loadedContentItems.map((item) => item.id)]);
 
     // Edit renders only for the item's own submitter and Moderate only for the moderation
     // tier — ContentItemPanel decides both from the signed-in identity, so this page
