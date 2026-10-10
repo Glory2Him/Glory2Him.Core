@@ -253,7 +253,7 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
    `useContentItemEngagement` the id of its one card and renders the card from what
    `withReactions` projects, so the card, where its item has a reaction summary, shows the
    reactions it has been given and marks the reader's own (`src/pages/myPostDetail.tsx`, the hook
-   at lines 77-78, the card at lines 183-201, at 1a69f873;
+   at lines 77-78, the card at lines 184-202, at c8a224f8;
    `DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; `DesignFeatures/Likes.md` rules 5, 6 and
    11a; #745). A reaction the reader chooses is recorded, changed or cleared by the same hook
    (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2`; #739), and no signed-out reader chooses
