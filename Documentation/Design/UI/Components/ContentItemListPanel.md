@@ -271,7 +271,7 @@ Each page renders an error alert in place of the panel when its read fails (sect
 | The Category rows and each card's winning setting | `GET api/ContentItemSettings` — the defaults (`contentItemId eq null`) and the override rows of the items on screen |
 | The reaction choices | `GET api/Reactions` — approved rows only |
 
-The paging behind `hasMore` is the consumer's. *(code: services/foundations/contentItemService.ts — `useSearchContentItems`; code: brokers/apiBroker.contentItems.ts — `SearchContentItemsAsync`; code: services/foundations/contentItemSettingService.ts — `useGetEffectiveSettingsFor`; code: hooks/useContentItemEngagement.ts)*
+The paging behind `hasMore` is the consumer's. *(code: services/foundations/contentItemService.ts — `useSearchContentItems`, which writes the page from #946, `BrokersHoldNoLogic.md`; code: services/foundations/contentItemSettingService.ts — `useGetEffectiveSettingsFor`; code: hooks/useContentItemEngagement.ts)*
 
 **Indirect dependencies:** the auth context, through ContentItemPanel. *(code: contentItemPanel.tsx — useAuth)*
 
