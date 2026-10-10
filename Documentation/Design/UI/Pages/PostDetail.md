@@ -43,7 +43,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.9 [Must]** Editing is off. The page leaves `showEditSection` off and wires neither `onEditClick` nor `onModerateClick`, so no reader — the item's owner and an administrator included — is offered Edit, Delete or Moderate here (`UI/Components/ContentItemPanel.md rules 2.13 and 2.14`). It reads no `edit` or `moderate` flag a list page hands it in router state. *(code: postDetail.tsx — the `ContentItemPanel` element; test: postDetail.test.tsx — "should offer no editing to the reader who contributed it", "should offer no editing to an administrator either", "should offer no moderation control however the reader is trusted")*
 
-**2.10 [Must]** The card carries the engagement row the feeds carry — Like, Share and Save. A signed-out reader who chooses a reaction is sent to sign in through the one reusable sign-in action, carrying where they came from, and returned there afterwards — but not while their sign-in state is still being read; for a signed-in reader the page records, changes or clears their own reaction. *(§UI20.6.6 rule 2; user, 2026-09-27; `UI/Components/ContentItemPanel.md rule 3.2.4`; test: postDetail.test.tsx — "should carry the engagement row the feeds carry")* ≠ item 2
+**2.10 [Must]** The card carries the engagement row the feeds carry — Like, Share and Save. A signed-out reader who chooses a reaction is sent to sign in through the one reusable sign-in action, carrying where they came from, and returned there afterwards — but not while their sign-in state is still being read; for a signed-in reader the page records, changes or clears their own reaction. *(§UI20.6.6 rule 2; user, 2026-09-27; `UI/Components/ContentItemPanel.md rule 3.2.4`; test: postDetail.test.tsx — "should carry the engagement row the feeds carry")*
 
 **2.11 [Must]** Share copies this post's own address to the clipboard and says *Link copied.* *(code: useContentItemEngagement.ts — `onShareClick`; test: postDetail.test.tsx — "should copy THIS post’s address when the reader shares it")*
 
@@ -116,7 +116,7 @@ beneath it. While the item loads, or when it cannot be read, a single centred co
 
 | Hook | Raised when | What the page does | Built today |
 | --- | --- | --- | --- |
-| `onReactionSelected` ≠ item 2 | A reaction is chosen, whatever the sign-in state | Sends a signed-out reader to sign in; records, changes or clears a signed-in reader's own reaction (rule 2.10) | ❌ No — the card redirects a signed-out reader itself (`UI/Components/ContentItemPanel.md §10 item 12`); item 2 |
+| `onReactionSelected` | A reaction is chosen, whatever the sign-in state | Sends a signed-out reader to sign in; records, changes or clears a signed-in reader's own reaction (rule 2.10) | ✅ Yes (`src/hooks/useContentItemEngagement.ts`, lines 150-208 at f376e6b0; #739, #740) |
 | `onShareClick` | Share is clicked | Copies this post's address and says so (rule 2.11) | ✅ Yes (`postDetail.tsx`, line 182; `useContentItemEngagement.ts`, lines 210-215 at 3a824fc6) |
 | `onSaveClick` ≠ item 3 | Save is clicked | Nothing designed yet (rule 2.12) | ❌ No — it says *Saving posts is coming soon.*; item 3 |
 | `onContentTypeClick`, `onSubmittedByClick`, `onAuthorClick` ≠ item 9 | The type chip, *Submitted by* or *Author* is clicked | Opens `/posts` handed the value, its search bar showing it in the matching box with the advanced section expanded (rule 2.18) | ❌ No — the page wires none, yet the three render as buttons, so pressing one does nothing (`contentItemDefaultPanel.tsx`, lines 194-198, 305-308 and 323-326); item 9 |
@@ -197,7 +197,7 @@ contributor in the rows about the item, and a suggestion's contributor in the ro
 | The item, when it is not public — a draft, a submission or a refusal ≠ item 12 | ❌ No | ❌ No | ❌ No³ | ❌ No³ | ❌ No³ | ❌ No³ |
 | Edit, Delete or Moderate on the card | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
 | View on the card ≠ item 13 | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
-| Like, where the item's setting allows reactions ≠ item 2 | ✅ Yes¹ | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| Like, where the item's setting allows reactions | ✅ Yes¹ | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | Share | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | Save ≠ item 3 | ✅ Yes⁴ | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | The type chip, *Submitted by* and *Author*, as buttons ≠ item 9 | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
@@ -256,8 +256,7 @@ page is a courtesy (§SEC14.6).
    sends a signed-out reader to sign in through the one reusable sign-in action
    (`UI/Pages/Home.md §6 item 3`), never while the reader's sign-in state is still being read
    (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rules 1 to 4; #739). The card raises the
-   hook for a signed-out reader only once `UI/Components/ContentItemPanel.md §10 item 12` (#740)
-   lands, which this item ships with, and until then sends them to sign in itself. The same gap on
+   hook for every reader (`UI/Components/ContentItemPanel.md §10 item 12`; #740). The same gap on
    `/` is `UI/Pages/Home.md §6 item 2`.
    **The card's counts are this item's work** (the Likes feature, `DesignFeatures/Likes.md`).
    The page reads no reaction summary, so the card shows none of the reactions its item has been

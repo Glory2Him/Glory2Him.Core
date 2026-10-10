@@ -263,7 +263,7 @@ The read-only roles each action answers to are those components' security and ac
    filtered `/myposts` link comes back to the unfiltered list. §UI20.6.6 rule 2 returns a reader to
    exactly the place they came from (user ruling 2026-09-27). The user's ruling of the same day that
    puts route guards outside "hooks, not routes" (§UI20.6.4) takes them out of that rule alone, not
-   out of the exact return, so the loss is a gap, not a question. The guard is one of the five
+   out of the exact return, so the loss is a gap, not a question. The guard is one of the four
    places `UI/Pages/Home.md §6 item 3` names that compose the sign-in route from the path alone and
    lose the query. The same guard fronts `/Admin/Posts`, whose committed criteria also live in its
    URL (`UI/Pages/ContentItemModerationPage.md rule 2.6`).

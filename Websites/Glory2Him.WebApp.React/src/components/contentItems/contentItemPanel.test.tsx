@@ -21,16 +21,15 @@ import {
 // collection, so every gate below is exercised by varying the element itself, which is exactly
 // how a consumer changes one card without refetching a list.
 //
-// A router stands over every render, because one affordance is not an event: a signed-out
-// reader choosing a reaction is sent to sign in, and the card performs that navigation itself.
-// The auth double IS here, because three of the card's decisions are identity decisions: Edit
-// belongs to the item's own submitter, Moderate to the moderation tier, and a reaction to a
-// reader who is signed in at all. Render gates only — the server re-decides every write
-// against the stored row.
+// A router stands over every render, as one stands over every page the card is rendered on.
+// The auth double IS here, because two of the card's decisions are identity decisions: Edit
+// belongs to the item's own submitter, and Moderate to the moderation tier. A reaction is not
+// one: the card raises it for every reader, and what follows is the page's (rule 3.2.4).
+// Render gates only — the server re-decides every write against the stored row.
 const authState = createAuthState();
 
-// The sign-in redirect a signed-out reader's reaction triggers is a navigation, so the router's
-// navigate is doubled here and asserted directly - the same double the pages already use.
+// The router's navigate is doubled here and asserted directly, so a test can prove the card
+// navigates nowhere - the same double the pages already use.
 const navigate = vi.fn();
 
 vi.mock('../../services/foundations/accountService', () => ({
@@ -45,18 +44,15 @@ vi.mock('react-router-dom', async () => {
     return { ...actual, useNavigate: () => navigate };
 });
 
-// The path is a PARAMETER, because the return address the card computes is only proven to
-// track the page if more than one page is exercised: pinned to a single entry, a hard-coded
-// constant is indistinguishable from `location.pathname`. The default is kept for the
-// renders that do not care.
+// The path is a PARAMETER, so a test can place the card on the page it is about. The default
+// is kept for the renders that do not care.
 const renderCard = (ui: ReactElement, path: string = '/myposts/devotional-1') => {
     const rendered = render(
         <MemoryRouter initialEntries={[path]}>
             <AuthProvider>{ui}</AuthProvider>
         </MemoryRouter>);
 
-    // A rerender replaces the whole tree, so the router has to be put back with it — the card
-    // reads the location it would send a signed-out reader back to.
+    // A rerender replaces the whole tree, so the router has to be put back with it.
     return {
         ...rendered,
         rerender: (nextUi: ReactElement) =>
@@ -939,8 +935,8 @@ describe('ContentItemPanel', () => {
 
     describe('giving a reaction', () => {
         it('should open the choices from Like and raise the selection', async () => {
-            // A signed-in reader: choosing is a write, and a signed-out reader is sent to sign
-            // in instead of raising it. Bryan submitted this quote, not the test user.
+            // A signed-in reader: choosing is a write. Bryan submitted this quote, not the
+            // test user.
             signInAs(authState);
             const onReactionSelected = vi.fn();
 
@@ -1041,7 +1037,10 @@ describe('ContentItemPanel', () => {
             expect(screen.getByText('142')).toBeInTheDocument();
         });
 
-        it('should send a signed-out reader to sign in instead of writing the reaction',
+        // WHAT FOLLOWS THE CHOICE IS THE PAGE'S (rule 3.2.4): the card raises the hook for
+        // every reader and composes no route, and the page's engagement hook sends a
+        // signed-out reader to sign in.
+        it('should raise the reaction hook for a signed-out reader and navigate nowhere',
             async () => {
             // given
             signOut(authState);
@@ -1058,16 +1057,36 @@ describe('ContentItemPanel', () => {
             await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
 
             // then
-            expect(navigate)
-                .toHaveBeenCalledWith(expect.stringContaining('/Account/Login'));
+            expect(onReactionSelected).toHaveBeenCalledWith(
+                quoteItem, expect.objectContaining({ label: 'Love' }));
 
-            // the click navigates: no write is attempted, and nothing is put in front of the
-            // reader first - no prompt, no modal, no toast
-            expect(onReactionSelected).not.toHaveBeenCalled();
-            expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-            expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-            expect(screen.queryByRole('status')).not.toBeInTheDocument();
-            expect(screen.queryByText(/sign in/i)).not.toBeInTheDocument();
+            expect(navigate).not.toHaveBeenCalled();
+        });
+
+        // A READ THAT ENDED WITH NO CURRENT USER: `useAuth` reports the reader neither loading
+        // nor signed in, the state the auth double starts in. The engagement hook treats this
+        // reader as not yet known (#739); the card raises the hook as it does for every reader.
+        it('should raise the reaction hook for a reader whose sign-in state failed to read',
+            async () => {
+            // given
+            Object.assign(authState, createAuthState());
+            const onReactionSelected = vi.fn();
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={quoteItem}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={onReactionSelected} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
+
+            // then
+            expect(onReactionSelected).toHaveBeenCalledWith(
+                quoteItem, expect.objectContaining({ label: 'Love' }));
+
+            expect(navigate).not.toHaveBeenCalled();
         });
 
         // IT GUARDS THE CARD ALONE, which moves no count of its own: the handler here is a stub,
@@ -1097,88 +1116,11 @@ describe('ContentItemPanel', () => {
                 .toHaveAttribute('aria-pressed', 'false');
         });
 
-        // TWO PAGES, because one cannot tell a computed address apart from a constant. Both
-        // are PUBLIC paths — `/posts` and `/posts/{id}` — which is where a signed-out reader
-        // can actually be; `/myposts/{id}` is wrapped in a SecuredRoute and is not.
-        it('should send the reader to sign in with a return address for the page they were '
-            + 'reading', async () => {
-            // given
-            signOut(authState);
-
-            const card = (
-                <ContentItemPanel
-                    contentItem={quoteItem}
-                    reactionOptions={reactionOptions}
-                    onReactionSelected={vi.fn()} />);
-
-            const listing = renderCard(card, '/posts');
-
-            // when
-            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
-            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
-
-            // then: the path alone, URI-encoded — what the card sends
-            expect(navigate).toHaveBeenCalledWith('/Account/Login?returnUrl=%2Fposts');
-
-            // when: the same card on a different public page
-            listing.unmount();
-            navigate.mockClear();
-
-            renderCard(card, '/posts/quote-1');
-
-            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
-            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
-
-            // then: the address moved with the page, so it is read rather than fixed
-            expect(navigate)
-                .toHaveBeenCalledWith('/Account/Login?returnUrl=%2Fposts%2Fquote-1');
-        });
-
-        it('should not apply the pre-sign-in choice automatically', async () => {
-            // given
-            signOut(authState);
-            const onReactionSelected = vi.fn();
-
-            sessionStorage.clear();
-            localStorage.clear();
-
-            const card = (
-                <ContentItemPanel
-                    contentItem={quoteItem}
-                    reactionOptions={reactionOptions}
-                    onReactionSelected={onReactionSelected} />);
-
-            const rendered = renderCard(card);
-
-            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
-            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
-
-            // then: the choice was kept NOWHERE — not in browser storage, and not in the
-            // return address the reader carries to the sign-in page
-            expect(sessionStorage.length).toBe(0);
-            expect(localStorage.length).toBe(0);
-
-            expect(navigate)
-                .toHaveBeenCalledWith('/Account/Login?returnUrl=%2Fmyposts%2Fdevotional-1');
-
-            // when: the reader comes back signed in
-            signInAs(authState);
-            rendered.rerender(<AuthProvider>{card}</AuthProvider>);
-
-            // then: nothing is replayed — the reader chooses again
-            expect(onReactionSelected).not.toHaveBeenCalled();
-
-            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
-
-            expect(screen.getByRole('menuitem', { name: 'Love' }))
-                .toHaveAttribute('aria-pressed', 'false');
-        });
-
         // NOT SIGNED OUT — NOT YET KNOWN. `isAuthenticated` collapses "no session" and "we
         // have not read one yet" into false, and every full page load starts in the second
-        // state with the cards already on screen. Deciding a navigation there sends a reader
-        // holding a valid session to the sign-in screen, so the card refuses to decide while
-        // the read is unresolved, exactly as SecuredRoute does.
+        // state with the cards already on screen. The card raises the hook here as it does
+        // for every reader, and the page's engagement hook does nothing with a choice while
+        // the reader is not yet known (#739).
         it('should not send a reader to sign in while the sign-in state is still unknown',
             async () => {
             // given

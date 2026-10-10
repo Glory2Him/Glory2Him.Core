@@ -472,8 +472,8 @@ describe('PostDetail', () => {
     };
 
     it('should mark the reaction the reader chose for this visit', async () => {
-        // given: a signed-in reader — choosing a reaction signed out sends the reader to sign
-        // in instead of reaching this page's handler at all
+        // given: a signed-in reader — the engagement hook records nothing for a signed-out
+        // reader's choice and lays no overlay
         signInAs(authState);
         renderPage();
 

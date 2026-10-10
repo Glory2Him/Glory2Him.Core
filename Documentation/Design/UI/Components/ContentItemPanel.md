@@ -169,7 +169,7 @@ in that face's story.
 
 **3.2.3** The owner's Edit renders for the item's own contributor alone — the element's `submittedById` equal to the signed-in reader's account id — and never for an anonymous visitor. The publisher tier and `Administrators` in rule 2.17's edit set do not make this button theirs: that set governs the edit template, and they reach it through Moderate (rule 2.38). *(test: contentItemPanel.test.tsx — "should offer Edit to the person who submitted it and to nobody else", "should offer Edit to no anonymous visitor"; user, 2026-09-26)*
 
-**3.2.4** A signed-out reader is offered Like on the same terms as any reader (rule 3.1.8), and choosing a reaction raises `onReactionSelected` whatever the sign-in state. The panel never redirects and composes no route of its own (§UI20.6.4); no other hook is needed. What follows the hook is the page's (§UI20.6.6 rule 2; the pages' gaps, `UI/Pages/Home.md §6 item 2`, `UI/Pages/Posts.md §6 item 2`, `UI/Pages/PostDetail.md §6 item 2`, `UI/Pages/MyPosts.md §6 item 2`, `UI/Pages/MyPostDetail.md §6 item 4`, `UI/Pages/ContentItemModerationPage.md §6 item 2` and `UI/Pages/ContentItemModerationDetailPage.md §6 item 3`): it sends a signed-out reader to sign in, with return information that brings them back afterwards, and persists or clears the reaction for a signed-in reader. A reader whose sign-in state has not been read back yet is not sent to sign in. *(user, 2026-09-27; code: contentItemPanel.tsx — the `onReactionSelected` handler's `isAuthenticationLoading` guard; test: contentItemPanel.test.tsx — "should not send a reader to sign in while the sign-in state is still unknown")* ≠ item 12
+**3.2.4** A signed-out reader is offered Like on the same terms as any reader (rule 3.1.8), and choosing a reaction raises `onReactionSelected` whatever the sign-in state. The panel never redirects and composes no route of its own (§UI20.6.4); no other hook is needed. What follows the hook is the page's (§UI20.6.6 rule 2; `useContentItemEngagement`, which the seven pages `DesignFeatures/UI/Hooks/ContentItemEngagement.md` names take `onReactionSelected` from, its §2 rules 1 to 4; #739): it sends a signed-out reader to sign in, with return information that brings them back afterwards, and persists or clears the reaction for a signed-in reader. A reader whose sign-in state has not been read back yet is not sent to sign in. *(user, 2026-09-27; test: contentItemPanel.test.tsx — "should raise the reaction hook for a signed-out reader and navigate nowhere", "should raise the reaction hook for a reader whose sign-in state failed to read", "should not send a reader to sign in while the sign-in state is still unknown")*
 
 **3.2.5** A signed-out reader still sees the reaction counts. *(test: contentItemPanel.test.tsx — "should show the reaction counts to a signed-out reader")*
 
@@ -195,7 +195,7 @@ whose stories hold the detail; row 13 is the restricted face.
 | 4. As row 3, `moderationOpensEditor=true`, item `Approved` or `Rejected` — Moderate rendered **locked** | ❌ No | ❌ No | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes |
 | 5. Any ReadOnly covering the item's type, whatever else is held — **Edit** or **Moderate** | ➖ n/a | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
 | 6. Owner also holding `Publishers` or `Administrators`, `showModerationSection=false`, both wired — **Edit and Moderate side by side, neither locked** | ➖ n/a | ➖ n/a | ✅ Yes | ➖ n/a | ➖ n/a | ➖ n/a |
-| 7. `reactionOptions` given, `onReactionSelected` wired, setting allows — **Like** ≠ item 12 | ✅ Yes¹ | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| 7. `reactionOptions` given, `onReactionSelected` wired, setting allows — **Like** | ✅ Yes¹ | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | 8. `showEditSection=true`, `onModified` wired, Edit taken — **editor in place** | ❌ No | ❌ No | ✅ Yes | ❌ No | ❌ No | ❌ No |
 | 9. `mode="edit"`, `showEditSection=true`, `onModified` wired, item `Draft` or `Submitted` — **editor fields and Save** | ❌ No | ❌ No | ✅ Yes | ❌ No | ✅ Yes² | ✅ Yes |
 | 10. As row 9, item `Approved` or `Rejected` — **editor fields and Save**, the owner's save forking a new version (§APR9.9) | ❌ No | ❌ No | ✅ Yes | ❌ No | ❌ No | ❌ No |
@@ -245,7 +245,7 @@ whose stories hold the detail; row 13 is the restricted face.
 | `onCancelled` | none | The add or edit face is cancelled. On the edit face the panel closes the editor first. |
 | `onEditClick` | `ContentItemSearchItem` | The owner's Edit is pressed and the editor does not open in place (rule 3.1.4). |
 | `onModerateClick` | `ContentItemSearchItem` | Moderate is pressed and is not locked. |
-| `onReactionSelected` | `ContentItemSearchItem`, `ContentItemReactionOption` | A reader chooses a reaction, whatever the sign-in state (rule 3.2.4). Today a signed-out reader's choice raises nothing (section 10, item 12). |
+| `onReactionSelected` | `ContentItemSearchItem`, `ContentItemReactionOption` | A reader chooses a reaction, whatever the sign-in state (rule 3.2.4). |
 | `onExpandCollapse` | `ContentItemSearchItem` | The in-place toggle is pressed; the panel toggles the expansion and raises the event. |
 | `onContentTypeClick`, `onTitleClick`, `onSubmittedByClick`, `onAuthorClick`, `onTagClick`, `onBibleReferenceClick`, `onCommentsClick`, `onReadMore`, `onShareClick`, `onSaveClick` | the element (and the tag or reference) | Passed through unchanged; `UI/Components/ContentItemPanel.Default.md §4.2` says when each fires. |
 
@@ -311,7 +311,7 @@ writing faces still accept one today, `blockRoles`, which is retired (section 10
 | The type chip, *Submitted by* and *Author* (`onContentTypeClick`, `onSubmittedByClick`, `onAuthorClick`) | Every persona (`UI/Components/ContentItemPanel.Default.md rules 3.1.1 and 3.1.4`) | None — a read (§SEC18.6) | ✅ Allowed | Offered; raises the hook (rule 2.42) | Nothing of its own, as the title |
 | A tag or Bible reference pill (`onTagClick`, `onBibleReferenceClick`) | Every persona, under the section switches and the setting (rule 3.1.12) | None — a read (§SEC18.6) | ✅ Allowed | Offered; raises the hook (rule 2.41) | Nothing of its own, as the title |
 | The reaction counts | Every persona, where the summary is shown (rule 3.1.12) | None — no request | ✅ Allowed | Offered; toggles in place | Nothing — no request |
-| **Like**: giving, changing or clearing the reader's own reaction (`onReactionSelected`) ≠ item 12 | Every persona, where the page's switch and the setting allow it (rule 3.1.8) | None: a reaction is not a contribution (user rulings 2026-09-27) | ✅ Allowed (user rulings 2026-09-27) | Offered; raises `onReactionSelected`, and the page sends them to sign in (rule 3.2.4; §UI20.6.6 rule 2) | Settled (user rulings 2026-09-27): the exemption from the association block roles is personal — only a reader giving, changing or clearing their own reaction is exempt — so giving or changing the reaction is a `POST`, and clearing it a `DELETE` whose gate exempts the row only when the caller is clearing their own (§SEC14.7 posture A′ rules 1 and 4); any other write to a reaction row, an Administrator's deletion of another reader's reaction included, stays under the read-only veto; clearing one's own reaction at any status, §APR9.9 rule 6 |
+| **Like**: giving, changing or clearing the reader's own reaction (`onReactionSelected`) | Every persona, where the page's switch and the setting allow it (rule 3.1.8) | None: a reaction is not a contribution (user rulings 2026-09-27) | ✅ Allowed (user rulings 2026-09-27) | Offered; raises `onReactionSelected`, and the page sends them to sign in (rule 3.2.4; §UI20.6.6 rule 2) | Settled (user rulings 2026-09-27): the exemption from the association block roles is personal — only a reader giving, changing or clearing their own reaction is exempt — so giving or changing the reaction is a `POST`, and clearing it a `DELETE` whose gate exempts the row only when the caller is clearing their own (§SEC14.7 posture A′ rules 1 and 4); any other write to a reaction row, an Administrator's deletion of another reader's reaction included, stays under the read-only veto; clearing one's own reaction at any status, §APR9.9 rule 6 |
 | The comments control (`onCommentsClick`) | Every persona, where comments are shown and the hook is wired (`UI/Components/ContentItemPanel.Default.md rule 2.9`) | None: it opens the comments and adds none. Adding a comment is refused to a blocked-role holder where comments are added (user ruling 2026-09-27). | ✅ Allowed | Offered; raises `onCommentsClick` | Nothing of its own, as the title |
 | **Share** (`onShareClick`) | Every persona, where `showShareSection` is on and the hook is wired (rule 3.1.12) | None: sharing adds no content, so it is not a contribution (user ruling 2026-09-27) | ✅ Allowed (user ruling 2026-09-27) | Offered; raises `onShareClick` | Nothing of its own: the short links it would share are designed, not built (§DOM19.7) |
 | **Save** (`onSaveClick`) | Every persona, where `showSaveSection` is on and the hook is wired (rule 3.1.12) | None (user rulings 2026-09-27) | ✅ Allowed (user rulings 2026-09-27) | Offered; raises `onSaveClick`, and the page sends them to sign in (§UI20.6.6 rule 2) | Save has no design yet. The user ruled on 2026-09-27 that the read-only veto does not reach a reader's own Save. |
@@ -415,9 +415,7 @@ options (approved rows from `GET api/Reactions`).
 
 **Indirect dependencies:** the signed-in identity and roles (`/api/accounts/me` via the auth
 context) for the render gates, and the item's `ApprovalStatus` for the non-owner edit gate.
-*(§UI20.6.2)* The router, too, today: the panel reads the current path and navigates a
-signed-out reader to sign in itself, which rule 3.2.4 leaves to the page (section 10, item 12)
-*(code: contentItemPanel.tsx — useNavigate, useLocation)*.
+*(§UI20.6.2)*
 
 ## 8. States, Validation and Feedback
 
@@ -545,22 +543,18 @@ signed-out reader to sign in itself, which rule 3.2.4 leaves to the page (sectio
     §UI20.6.5. The ruling chose which property is shared, not the two new names: section 4.3
     gives example names, and the task that builds the forwarding of items 6 and 7 fixes the two
     names and records them in section 4.3, per §UI20.6.5.
-12. (#740) **The panel redirects a signed-out reader itself.** Rule 3.2.4 (user ruling
-    2026-09-27) has the panel raise `onReactionSelected` whatever the sign-in state and never
-    redirect. Sending a signed-out reader to sign in, with return information, and persisting or
-    clearing a signed-in reader's reaction are the page's (§UI20.6.4). Today, when a signed-out
-    reader chooses a reaction, the panel navigates to
-    `/Account/Login?returnUrl=<the current path, URI-encoded>` on its own, a route it composes
-    from the router's current path, and raises nothing. Every page
-    that renders the view face inherits the redirect, the list pages through
-    `ContentItemListPanel`. Evidence: `contentItemPanel.tsx` — `onReactionSelected` handler,
-    `useNavigate` (lines 471-472 at 70dc72e7). This item ships with the pages' half, recorded
-    for the three pages a signed-out reader reaches as `UI/Pages/Home.md §6 item 2`,
-    `UI/Pages/Posts.md §6 item 2` and `UI/Pages/PostDetail.md §6 item 2`:
-    `useContentItemEngagement`, which the seven pages `DesignFeatures/UI/Hooks/ContentItemEngagement.md`
-    names take `onReactionSelected` from, sends a signed-out reader to sign in (its §2 rule 2;
-    #739), so removing the card's redirect leaves no signed-out reader's choice dropped — the
-    silent failure #622 moved the redirect into the card to prevent.
+12. Built (#740) **The panel raises the reaction hook for every reader.** Rule 3.2.4 (user
+    ruling 2026-09-27) has the panel raise `onReactionSelected` whatever the sign-in state and
+    never redirect. Sending a signed-out reader to sign in, with return information, and
+    persisting or clearing a signed-in reader's reaction are the page's (§UI20.6.4). The panel
+    raises the hook for every reader and composes no route
+    (`src/components/contentItems/contentItemPanel.tsx`, the `onReactionSelected` handler,
+    lines 454-457 at f376e6b0; #740), and every page that renders the view face inherits it,
+    the list pages through `ContentItemListPanel`. The pages' half is `useContentItemEngagement`,
+    which the seven pages `DesignFeatures/UI/Hooks/ContentItemEngagement.md` names take
+    `onReactionSelected` from: it sends a signed-out reader to sign in (its §2 rule 2; #739), so
+    no signed-out reader's choice is dropped — the silent failure #622 moved the redirect into the
+    card to prevent.
 13. **Note — the lock after review reaches content items, ruled.** This item asked whether the
     user's ruling of 2026-09-26 — the owner may withdraw their submission only while it is Draft
     or Submitted, and once reviewed it is locked — reaches content items, and whether "locked"
@@ -681,7 +675,7 @@ signed-out reader to sign in itself, which rule 3.2.4 leaves to the page (sectio
     property, the block set included, and the writing faces declare `blockRoles`, a property
     whose default is the composed set (`contentItemFormPanel.tsx` — `blockRoles`, lines 193 and
     407 at 70dc72e7), while the view face composes its block list with no property
-    (`contentItemPanel.tsx` — `isBlocked`, lines 328-332). This item asked which stood. The user
+    (`contentItemPanel.tsx` — `isBlocked`, lines 328-332 at 70dc72e7). This item asked which stood. The user
     ruled on 2026-09-27 that no component takes a blocking-role list from its page: `blockRoles`
     is retired, and each component composes its read-only roles itself, which a page can neither
     add to nor remove from (§UI20.6.6 rule 3). Rule 2.16 now excludes the block set (§UI20.6.4
