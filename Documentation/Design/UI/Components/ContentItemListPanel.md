@@ -271,7 +271,7 @@ Each page renders an error alert in place of the panel when its read fails (sect
 | The Category rows and each card's winning setting | `GET api/ContentItemSettings` — the defaults (`contentItemId eq null`) and the override rows of the items on screen |
 | The reaction choices | `GET api/Reactions` — approved rows only |
 
-The paging behind `hasMore` is the consumer's. *(code: services/foundations/contentItemService.ts — `useSearchContentItems`; code: brokers/apiBroker.contentItems.ts — `SearchContentItemsAsync`; code: services/foundations/contentItemSettingService.ts — `useGetEffectiveSettingsFor`; code: hooks/useContentItemEngagement.ts)*
+The paging behind `hasMore` is the consumer's. *(code: services/foundations/contentItemService.ts — `useSearchContentItems`, which writes the page from #946, `BrokersHoldNoLogic.md`; code: services/foundations/contentItemSettingService.ts — `useGetEffectiveSettingsFor`; code: hooks/useContentItemEngagement.ts)*
 
 **Indirect dependencies:** the auth context and a router, both through ContentItemPanel. The panel must render under a router, because today a card sends a signed-out reader to sign in itself when they choose a reaction (`UI/Components/ContentItemPanel.md §10 item 12`). *(test: contentItemListPanel.test.tsx — the `render` helper comment)*
 

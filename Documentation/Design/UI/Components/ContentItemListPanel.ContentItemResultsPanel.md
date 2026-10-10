@@ -133,7 +133,7 @@ ContentItemResultsPanel
 
 - **Components:** ContentItemPanel and Spinner (section 6).
 - **Hook:** `useInfiniteScrollSentinel` (`src/hooks/useInfiniteScrollSentinel.ts`) watches the sentinel and reports whether IntersectionObserver exists. It is the one implementation of infinite scroll, shared with ReviewCommentResultsPanel. *(code: hooks/useInfiniteScrollSentinel.ts — header comment)*
-- **Data the consumer supplies:** the accumulated elements and the paging state. The OData reads answer with a plain array and no total, so the consumer asks for one row beyond the page and drops it to learn `hasMore`. *(code: contentItemResultsPanel.tsx — `hasMore` comment; code: brokers/apiBroker.contentItems.ts — `SearchContentItemsAsync`)*
+- **Data the consumer supplies:** the accumulated elements and the paging state. The OData reads answer with a plain array and no total, so the consumer asks for one row beyond the page and drops it to learn `hasMore`. *(code: contentItemResultsPanel.tsx — `hasMore` comment; code: services/foundations/contentItemService.ts — `useSearchContentItems`, which writes the page from #946, `BrokersHoldNoLogic.md`)*
 - **API endpoints:** none; the consumer's are at `UI/Components/ContentItemListPanel.md §7`.
 
 ## 8. States, Validation and Feedback

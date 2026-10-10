@@ -7,4 +7,4 @@ The React app's door to `api/AIReviewers`, Berean's assignment (§APR8.6.2). Non
 
 ## 1. Its unit tests of format conversion — deleted (#976)
 
-`apiBroker.aiReviewers.test.ts` and its four cases are deleted, since each pins format conversion and a broker has no unit tests (§UI20.9.3 rule 8): *should read, assign and withdraw the AI reviewer at one entity-keyed address*, *should not address the AI reviewer through the approval round*, *should assign the AI reviewer with an empty body*, and *should answer with the assignment the withdrawal removed*. No member changes.
+`apiBroker.aiReviewers.test.ts` and its five cases are deleted, since each pins format conversion and a broker has no unit tests (§UI20.9.3 rule 8): *should read, assign and withdraw the AI reviewer at one entity-keyed address*, *should not address the AI reviewer through the approval round*, *should assign the AI reviewer with an empty body*, *should answer with the assignment the withdrawal removed*, and the `it.each` case *should answer nothing when the withdrawal removed nothing (%j)*, run for an empty string, `undefined` and `null`. No member changes.

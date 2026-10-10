@@ -17,7 +17,7 @@ ListenToResponses(listeners: ResponseListeners): () => void
 2. **The interceptor calls `onResponse` with each response, and `onFailure` with each failure, as axios raised them.**
 3. **It passes each response on, and rejects with each failure, unchanged.** Listening changes no request's outcome.
 4. **It returns a function that takes that interceptor out again**, and no other.
-5. **It is named for what it does, not for a verb it sends**, because it sends no request (§UI20.9.3 rule 7). `networkStatusService` alone calls it (§UI20.9.1 departure 6).
+5. **It is named for what it does, not for a verb it sends**, because it sends no request (§UI20.9.1 departure 8; §UI20.9.3 rule 7). `networkStatusService` alone calls it (§UI20.9.1 departure 6).
 
 ## 2. The connectivity interceptor — deleted (#975)
 

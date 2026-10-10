@@ -45,7 +45,7 @@ DeleteContentItemAsync(contentItemId: string, deletionReason?: string): Promise<
 
 ## 5. SearchContentItemsAsync — deleted (#962)
 
-Deleted once `contentItemService.useSearchContentItems` calls §1, §2 and §3 instead (`UI/Foundations/ContentItemService.md §1`) and nothing calls it. With it go its private `GetFeedPageAsync` and `GetSearchPageAsync`, the file's `approvalStatusMemberNames` and `toODataLiteral`, which only they use, and `apiBroker.contentItems.test.ts`, whose every case has moved to `contentItemService.test.tsx` (`BrokersHoldNoLogic.md` rule 5).
+Deleted once `contentItemService.useSearchContentItems` calls §1, §2 and §3 instead (`UI/Foundations/ContentItemService.md §1`) and nothing calls it. With it go its private `GetFeedPageAsync` and `GetSearchPageAsync`, the file's `approvalStatusMemberNames` and `toODataLiteral`, which only they use, the `ContentItemSearchQuery` type it is handed (`contentItemSearchQuery.ts`), which nothing else uses once `useSearchContentItems` writes its own requests, while `ContentItemPage` in the same file stays, and `apiBroker.contentItems.test.ts`, whose every case has moved to `contentItemService.test.tsx` (`BrokersHoldNoLogic.md` rule 5).
 
 ## 6. DeleteContentItemByIdAsync — deleted (#963)
 
