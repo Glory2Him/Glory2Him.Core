@@ -94,7 +94,7 @@ export function PostDetail() {
             },
         [contentItem, contentItemSettings, contributor]);
 
-    // The reader's choice, laid over the projection — and deliberately NOT memoised.
+    // The post's reactions and the reader's choice, laid over it — deliberately NOT memoised.
     // withReactions closes over the choices and is rebuilt every render, so a memo listing
     // it recomputes every render and buys nothing, while a memo keyed on readItem alone would go
     // stale the moment the reader chose. The fold is a map over one item; a plain call is the
