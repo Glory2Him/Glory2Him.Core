@@ -86,9 +86,11 @@ export function Posts() {
 
     const feedNavigation = buildContentItemFeedNavigation(navigate, location);
 
+    // Each page of results as it was delivered: the summaries read asks once per page it is
+    // handed, so a page loaded later reads its own ids and the earlier pages keep their counts.
     const contentItemIdPages = useMemo(
-        () => [loadedContentItems.map((item) => item.id)],
-        [loadedContentItems]);
+        () => (data?.pages ?? []).map((page) => page.items.map((item) => item.id)),
+        [data]);
 
     const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withReactions } =
         useContentItemEngagement(contentItemIdPages);
