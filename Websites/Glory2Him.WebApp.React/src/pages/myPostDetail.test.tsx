@@ -345,25 +345,6 @@ describe('MyPostDetail', () => {
         expect(within(card).queryByRole('button', { name: /Save/ })).not.toBeInTheDocument();
     });
 
-    // THE CHOICE HAS TO SHOW. Choosing closes the picker - the panel's own behaviour - so the
-    // mark is read back by reopening it, the same way /posts/{id} proves the fold.
-    it("should mark the reader's chosen reaction as pressed on my own post's detail page",
-        async () => {
-            // given
-            renderPage();
-            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
-            await userEvent.click(screen.getByRole('menuitem', { name: 'Amen' }));
-
-            // when
-            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
-
-            // then: the mark is the overlay of a choice still being recorded — the write
-            // stays pending for the length of this test, and the overlay stands until the read
-            // that follows it lands — until #745 brings this test to what the page does
-            expect(screen.getByRole('menuitem', { name: 'Amen' }))
-                .toHaveAttribute('aria-pressed', 'true');
-        });
-
     it("should show the post's reaction counts on /myposts/{id}", () => {
         // given
         contentItem = publishedQuote;
@@ -375,6 +356,68 @@ describe('MyPostDetail', () => {
         // then
         expect(handedPages).toEqual([['quote-1']]);
         expect(reactionCounts()).toHaveTextContent('5');
+    });
+
+    // THE READER'S OWN REACTION, read from the server: the summary of the publicly visible post
+    // says which reaction the reader holds, and the card marks it. Choosing closes the picker, so
+    // the mark is read by opening it.
+    it("should mark the reader's own reaction on /myposts/{id}", async () => {
+        // given
+        contentItem = publishedQuote;
+        serverSummaries = { 'quote-1': summaryOf([['Amen', 2], ['Love', 3]], 'Love') };
+        renderPage();
+
+        // when
+        await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+
+        // then
+        expect(screen.getByRole('menuitem', { name: 'Love' }))
+            .toHaveAttribute('aria-pressed', 'true');
+
+        expect(screen.getByRole('menuitem', { name: 'Amen' }))
+            .toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('should record a chosen reaction on /myposts/{id}', async () => {
+        // given
+        contentItem = publishedQuote;
+        serverSummaries = { 'quote-1': summaryOf([['Amen', 2], ['Love', 3]]) };
+        renderPage();
+
+        // when
+        await chooseReaction('Love');
+
+        // then
+        expect(upsertAssociation).toHaveBeenCalledTimes(1);
+        expect(upsertAssociation).toHaveBeenCalledWith(reactionPairFor('Love'));
+        expect(removeAssociationByPair).not.toHaveBeenCalled();
+        expect(await reactionCountOf('Love')).toBe('4');
+        expect(await reactionCountOf('Amen')).toBe('2');
+
+        await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+
+        expect(screen.getByRole('menuitem', { name: 'Love' }))
+            .toHaveAttribute('aria-pressed', 'true');
+    });
+
+    it('should withdraw a reaction chosen again on /myposts/{id}', async () => {
+        // given
+        contentItem = publishedQuote;
+        serverSummaries = { 'quote-1': summaryOf([['Amen', 2], ['Love', 3]], 'Love') };
+        renderPage();
+
+        // when
+        await chooseReaction('Love');
+
+        // then
+        expect(removeAssociationByPair).toHaveBeenCalledTimes(1);
+        expect(removeAssociationByPair).toHaveBeenCalledWith(reactionPairFor('Love'));
+        expect(upsertAssociation).not.toHaveBeenCalled();
+
+        await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+
+        screen.getAllByRole('menuitem').forEach((choice) =>
+            expect(choice).toHaveAttribute('aria-pressed', 'false'));
     });
 
     /// THE SAVE IS REAL, and it replaced a local merge that could only ever carry the fields
