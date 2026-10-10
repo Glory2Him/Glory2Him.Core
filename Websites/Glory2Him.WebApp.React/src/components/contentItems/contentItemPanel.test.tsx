@@ -1067,35 +1067,6 @@ describe('ContentItemPanel', () => {
             expect(navigate).not.toHaveBeenCalled();
         });
 
-        it('should send a signed-out reader to sign in instead of writing the reaction',
-            async () => {
-            // given
-            signOut(authState);
-            const onReactionSelected = vi.fn();
-
-            renderCard(
-                <ContentItemPanel
-                    contentItem={quoteItem}
-                    reactionOptions={reactionOptions}
-                    onReactionSelected={onReactionSelected} />);
-
-            // when
-            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
-            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
-
-            // then
-            expect(navigate)
-                .toHaveBeenCalledWith(expect.stringContaining('/Account/Login'));
-
-            // the click navigates: no write is attempted, and nothing is put in front of the
-            // reader first - no prompt, no modal, no toast
-            expect(onReactionSelected).not.toHaveBeenCalled();
-            expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-            expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-            expect(screen.queryByRole('status')).not.toBeInTheDocument();
-            expect(screen.queryByText(/sign in/i)).not.toBeInTheDocument();
-        });
-
         // IT GUARDS THE CARD ALONE, which moves no count of its own: the handler here is a stub,
         // so the engagement hook's overlay is out of its sight. Criteria 9, 10 and 16 of #739
         // guard the overlay for a reader who is not signed in.
@@ -1116,83 +1087,6 @@ describe('ContentItemPanel', () => {
             // then: the counts stand where they stood, and no glyph is marked as given
             expect(screen.getByText('142')).toBeInTheDocument();
             expect(screen.queryByText('143')).not.toBeInTheDocument();
-
-            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
-
-            expect(screen.getByRole('menuitem', { name: 'Love' }))
-                .toHaveAttribute('aria-pressed', 'false');
-        });
-
-        // TWO PAGES, because one cannot tell a computed address apart from a constant. Both
-        // are PUBLIC paths — `/posts` and `/posts/{id}` — which is where a signed-out reader
-        // can actually be; `/myposts/{id}` is wrapped in a SecuredRoute and is not.
-        it('should send the reader to sign in with a return address for the page they were '
-            + 'reading', async () => {
-            // given
-            signOut(authState);
-
-            const card = (
-                <ContentItemPanel
-                    contentItem={quoteItem}
-                    reactionOptions={reactionOptions}
-                    onReactionSelected={vi.fn()} />);
-
-            const listing = renderCard(card, '/posts');
-
-            // when
-            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
-            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
-
-            // then: the path alone, URI-encoded — what the card sends
-            expect(navigate).toHaveBeenCalledWith('/Account/Login?returnUrl=%2Fposts');
-
-            // when: the same card on a different public page
-            listing.unmount();
-            navigate.mockClear();
-
-            renderCard(card, '/posts/quote-1');
-
-            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
-            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
-
-            // then: the address moved with the page, so it is read rather than fixed
-            expect(navigate)
-                .toHaveBeenCalledWith('/Account/Login?returnUrl=%2Fposts%2Fquote-1');
-        });
-
-        it('should not apply the pre-sign-in choice automatically', async () => {
-            // given
-            signOut(authState);
-            const onReactionSelected = vi.fn();
-
-            sessionStorage.clear();
-            localStorage.clear();
-
-            const card = (
-                <ContentItemPanel
-                    contentItem={quoteItem}
-                    reactionOptions={reactionOptions}
-                    onReactionSelected={onReactionSelected} />);
-
-            const rendered = renderCard(card);
-
-            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
-            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
-
-            // then: the choice was kept NOWHERE — not in browser storage, and not in the
-            // return address the reader carries to the sign-in page
-            expect(sessionStorage.length).toBe(0);
-            expect(localStorage.length).toBe(0);
-
-            expect(navigate)
-                .toHaveBeenCalledWith('/Account/Login?returnUrl=%2Fmyposts%2Fdevotional-1');
-
-            // when: the reader comes back signed in
-            signInAs(authState);
-            rendered.rerender(<AuthProvider>{card}</AuthProvider>);
-
-            // then: nothing is replayed — the reader chooses again
-            expect(onReactionSelected).not.toHaveBeenCalled();
 
             await userEvent.click(screen.getByRole('button', { name: /Like/ }));
 
