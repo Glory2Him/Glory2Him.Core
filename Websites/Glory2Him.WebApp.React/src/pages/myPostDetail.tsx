@@ -110,7 +110,8 @@ export function MyPostDetail() {
             : toContentItemSearchItem(contentItem, contentItemSettings ?? []),
         [contentItem, contentItemSettings]);
 
-    // The reader's choice, laid over the projection — and deliberately NOT memoised,
+    // The post's summary from the server — its counts and the reader's held reaction — laid
+    // over the projection, with the reader's choice over that — and deliberately NOT memoised,
     // for the reason postDetail records: withReactions closes over the choices and is
     // rebuilt every render, so a memo listing it recomputes every render and buys nothing,
     // while a memo keyed on readItem alone would go stale the moment the contributor chose.
