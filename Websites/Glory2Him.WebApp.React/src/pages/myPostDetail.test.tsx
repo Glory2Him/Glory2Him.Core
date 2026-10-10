@@ -4,8 +4,12 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MyPostDetail } from './myPostDetail';
 import { AuthProvider } from '../components/securitys/authProvider';
+import { EntityType } from '../models/foundations/approvalSettings/approvalSetting';
+import { AssociationRequest } from '../models/foundations/associations/associationRequest';
+import { ContentItemReactionSummary } from '../models/foundations/associations/contentItemReactionSummary';
 import { ContentItem } from '../models/foundations/contentItems/contentItem';
 import { ContentType } from '../models/foundations/contentItemSettings/contentType';
+import { Reaction } from '../models/foundations/reactions/reaction';
 import { ApprovalStatus } from '../models/components/contentItems/contentItemFormItem';
 import { ShareabilityBasis } from '../models/components/contentItems/contentItemFormItem';
 import { createAuthState, signInAs } from '../tests/testAuth';
@@ -62,43 +66,63 @@ vi.mock('../services/foundations/contentItemSettingService', () => ({
 }));
 
 // The reaction vocabulary behind the Like control, the same read the list at /myposts makes.
+const vocabulary: ReadonlyArray<Reaction> = [
+    {
+        id: 'reaction-1',
+        name: 'Amen',
+        unicodeEmoji: '👍',
+        isPublished: true,
+        approvalStatus: 2,
+        isDeleted: false
+    },
+    {
+        // WHICH ONE IS LOVE is a case-insensitive match on the NAME - the rows
+        // carry no flag of their own - so the fixture has to be named for it.
+        id: 'reaction-2',
+        name: 'Love',
+        unicodeEmoji: '❤️',
+        isPublished: true,
+        approvalStatus: 2,
+        isDeleted: false
+    }
+];
+
+const reactionNamed = (name: string): Reaction =>
+    vocabulary.find((reaction) => reaction.name === name)!;
+
 vi.mock('../services/foundations/reactionService', () => ({
     reactionService: {
-        useGetApprovedReactions: () => ({
-            data: [
-                {
-                    id: 'reaction-1',
-                    name: 'Amen',
-                    unicodeEmoji: '👍',
-                    isPublished: true,
-                    approvalStatus: 2,
-                    isDeleted: false
-                },
-                {
-                    // WHICH ONE IS LOVE is a case-insensitive match on the NAME - the rows
-                    // carry no flag of their own - so the fixture has to be named for it.
-                    id: 'reaction-2',
-                    name: 'Love',
-                    unicodeEmoji: '❤️',
-                    isPublished: true,
-                    approvalStatus: 2,
-                    isDeleted: false
-                }
-            ]
-        })
+        useGetApprovedReactions: () => ({ data: vocabulary })
     }
 }));
 
-// The engagement hook reads the cards' reaction summaries through a query, which a harness with
-// no QueryClientProvider cannot hold, so it is mocked and answers no summary: no card carries
-// counts read from the server, and a chosen reaction's overlay shows its counts while its write
-// is pending. Its writes are mutations, mocked for the same reason, and a write made through
-// them stays pending for the length of the test.
+// The engagement hook reads the card's reaction summary through a query, which a harness with
+// no QueryClientProvider cannot hold, so it is mocked. It answers only for the ids it is handed,
+// as the real one does, so a card whose id the hook was never handed carries no counts. Its
+// writes are mutations, mocked for the same reason, and a write made through them stays pending
+// for the length of the test, so a chosen reaction's overlay stands.
+let handedPages: ReadonlyArray<ReadonlyArray<string>> | undefined;
+let serverSummaries: Record<string, ContentItemReactionSummary> = {};
+const upsertAssociation = vi.fn<(association: AssociationRequest) => Promise<unknown>>();
+const removeAssociationByPair = vi.fn<(association: AssociationRequest) => Promise<unknown>>();
+
 vi.mock('../services/foundations/associationService', () => ({
     associationService: {
-        useGetReactionSummaries: () => ({ summaries: {}, isLoading: false, isError: false }),
-        useUpsertAssociation: () => ({ mutateAsync: () => new Promise(() => undefined) }),
-        useRemoveAssociationByPair: () => ({ mutateAsync: () => new Promise(() => undefined) }),
+        useGetReactionSummaries: (contentItemIdPages: ReadonlyArray<ReadonlyArray<string>>) => {
+            handedPages = contentItemIdPages;
+
+            return {
+                summaries: Object.fromEntries(contentItemIdPages
+                    .flat()
+                    .filter((contentItemId) => serverSummaries[contentItemId] !== undefined)
+                    .map((contentItemId) => [contentItemId, serverSummaries[contentItemId]])),
+                isLoading: false,
+                isError: false
+            };
+        },
+
+        useUpsertAssociation: () => ({ mutateAsync: upsertAssociation }),
+        useRemoveAssociationByPair: () => ({ mutateAsync: removeAssociationByPair }),
         useReadReactionSummariesAgain: () => () => new Promise(() => undefined)
     }
 }));
@@ -129,6 +153,38 @@ const draftQuote: ContentItem = {
     deletionReason: null
 };
 
+// The same post once it is publicly visible: the summary answers only for such an item
+// (Likes.md rule 11a), so a test about the card's counts reads this one.
+const publishedQuote: ContentItem = {
+    ...draftQuote,
+    publishDate: '2026-07-03T00:00:00Z',
+    isPublished: true,
+    approvalStatus: ApprovalStatus.Approved
+};
+
+// The post's summary as the server sends it: each reaction given and its count, and the one
+// the reader holds, if any.
+const summaryOf = (
+    counts: ReadonlyArray<[string, number]>,
+    viewerReactionName: string | null = null): ContentItemReactionSummary => ({
+    contentItemId: publishedQuote.id,
+    reactions: counts.map(([name, count]) => ({
+        reactionId: reactionNamed(name).id,
+        name,
+        unicodeEmoji: reactionNamed(name).unicodeEmoji,
+        count
+    })),
+    viewerReactionId: viewerReactionName === null ? null : reactionNamed(viewerReactionName).id,
+    viewerReactionName
+});
+
+const reactionPairFor = (reactionName: string): AssociationRequest => ({
+    entityAType: EntityType.ContentItem,
+    entityAKeyId: publishedQuote.id,
+    entityBType: EntityType.Reaction,
+    entityBKeyId: reactionNamed(reactionName).id
+});
+
 const renderPage = (initialEntry: Parameters<typeof MemoryRouter>[0]['initialEntries'] extends
     ReadonlyArray<infer T> | undefined ? T : never = '/myposts/quote-1') =>
     render(
@@ -138,12 +194,45 @@ const renderPage = (initialEntry: Parameters<typeof MemoryRouter>[0]['initialEnt
             </AuthProvider>
         </MemoryRouter>);
 
+const cardOf = (container: HTMLElement): HTMLElement =>
+    container.querySelector('.g2h-content-item-card') as HTMLElement;
+
+const reactionCountsOn = (card: HTMLElement): HTMLElement =>
+    within(card).getByRole('button', { name: 'Reaction counts' });
+
+// One reaction's own count on the card, read from the counts' expanded face, which lists each
+// reaction given beside its glyph; the collapsed face shows only their sum.
+const reactionCountOn = async (card: HTMLElement, reactionName: string): Promise<string> => {
+    if (reactionCountsOn(card).getAttribute('aria-expanded') !== 'true') {
+        await userEvent.click(reactionCountsOn(card));
+    }
+
+    const reaction = within(reactionCountsOn(card)).getByTitle(reactionName);
+
+    return (reaction.textContent ?? '').replace(reactionNamed(reactionName).unicodeEmoji, '').trim();
+};
+
+// Opens the card's Like control: the reactions it offers, each pressed or not.
+const openLikeOn = async (card: HTMLElement): Promise<void> =>
+    await userEvent.click(within(card).getByRole('button', { name: /Like/ }));
+
+const chooseOn = async (card: HTMLElement, reactionName: string): Promise<void> => {
+    await openLikeOn(card);
+    await userEvent.click(within(card).getByRole('menuitem', { name: reactionName }));
+};
+
 describe('MyPostDetail', () => {
     beforeEach(() => {
         contentItem = draftQuote;
         modifiedWith.mockReset();
         modifiedWith.mockResolvedValue(undefined);
         effectiveSettings = [quoteSetting];
+        handedPages = undefined;
+        serverSummaries = {};
+        upsertAssociation.mockReset();
+        upsertAssociation.mockImplementation(() => new Promise(() => undefined));
+        removeAssociationByPair.mockReset();
+        removeAssociationByPair.mockImplementation(() => new Promise(() => undefined));
         signInAs(authState, ['Users']);
     });
 
@@ -263,24 +352,105 @@ describe('MyPostDetail', () => {
         expect(within(card).queryByRole('button', { name: /Save/ })).not.toBeInTheDocument();
     });
 
-    // THE CHOICE HAS TO SHOW. Choosing closes the picker - the panel's own behaviour - so the
-    // mark is read back by reopening it, the same way /posts/{id} proves the fold.
-    it("should mark the reader's chosen reaction as pressed on my own post's detail page",
-        async () => {
-            // given
-            renderPage();
-            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
-            await userEvent.click(screen.getByRole('menuitem', { name: 'Amen' }));
+    it("should show the post's reaction counts on /myposts/{id}", async () => {
+        // given
+        contentItem = publishedQuote;
+        serverSummaries = { 'quote-1': summaryOf([['Love', 3], ['Amen', 2]]) };
 
-            // when
-            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+        // when
+        const { container } = renderPage();
 
-            // then: the mark is the overlay of a choice still being recorded — the write
-            // stays pending for the length of this test, and the overlay stands until the read
-            // that follows it lands — until #745 brings this test to what the page does
-            expect(screen.getByRole('menuitem', { name: 'Amen' }))
-                .toHaveAttribute('aria-pressed', 'true');
-        });
+        // then
+        expect(handedPages).toEqual([['quote-1']]);
+        expect(reactionCountsOn(cardOf(container))).toHaveTextContent('5');
+        expect(await reactionCountOn(cardOf(container), 'Love')).toBe('3');
+        expect(await reactionCountOn(cardOf(container), 'Amen')).toBe('2');
+    });
+
+    // A FIRST VISIT: the item's read has not landed when the page first renders, so the hook is
+    // handed no page then, and must be handed the post's id once the read lands.
+    it("should show the post's reaction counts once its read lands on /myposts/{id}", async () => {
+        // given
+        contentItem = undefined;
+        serverSummaries = { 'quote-1': summaryOf([['Love', 3], ['Amen', 2]]) };
+        const { container, rerender } = renderPage();
+        expect(handedPages).toEqual([]);
+
+        // when
+        contentItem = publishedQuote;
+
+        rerender(
+            <MemoryRouter initialEntries={['/myposts/quote-1']}>
+                <AuthProvider>
+                    <MyPostDetail />
+                </AuthProvider>
+            </MemoryRouter>);
+
+        // then
+        expect(handedPages).toEqual([['quote-1']]);
+        expect(await reactionCountOn(cardOf(container), 'Love')).toBe('3');
+    });
+
+    // THE READER'S OWN REACTION, read from the server with the post's counts. The picker opens
+    // only when asked, so the mark is read by opening it.
+    it("should mark the reader's own reaction on /myposts/{id}", async () => {
+        // given
+        contentItem = publishedQuote;
+        serverSummaries = { 'quote-1': summaryOf([['Love', 3], ['Amen', 2]], 'Love') };
+        const { container } = renderPage();
+
+        // when
+        await openLikeOn(cardOf(container));
+
+        // then
+        expect(within(cardOf(container)).getByRole('menuitem', { name: 'Love' }))
+            .toHaveAttribute('aria-pressed', 'true');
+
+        expect(within(cardOf(container)).getByRole('menuitem', { name: 'Amen' }))
+            .toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('should record a chosen reaction on /myposts/{id}', async () => {
+        // given
+        contentItem = publishedQuote;
+        serverSummaries = { 'quote-1': summaryOf([['Love', 3], ['Amen', 2]]) };
+        const { container } = renderPage();
+
+        // when
+        await chooseOn(cardOf(container), 'Love');
+
+        // then
+        expect(upsertAssociation).toHaveBeenCalledTimes(1);
+        expect(upsertAssociation).toHaveBeenCalledWith(reactionPairFor('Love'));
+        expect(removeAssociationByPair).not.toHaveBeenCalled();
+        expect(await reactionCountOn(cardOf(container), 'Love')).toBe('4');
+        expect(await reactionCountOn(cardOf(container), 'Amen')).toBe('2');
+
+        await openLikeOn(cardOf(container));
+
+        expect(within(cardOf(container)).getByRole('menuitem', { name: 'Love' }))
+            .toHaveAttribute('aria-pressed', 'true');
+    });
+
+    it('should withdraw a reaction chosen again on /myposts/{id}', async () => {
+        // given
+        contentItem = publishedQuote;
+        serverSummaries = { 'quote-1': summaryOf([['Love', 3], ['Amen', 2]], 'Love') };
+        const { container } = renderPage();
+
+        // when
+        await chooseOn(cardOf(container), 'Love');
+
+        // then
+        expect(removeAssociationByPair).toHaveBeenCalledTimes(1);
+        expect(removeAssociationByPair).toHaveBeenCalledWith(reactionPairFor('Love'));
+        expect(upsertAssociation).not.toHaveBeenCalled();
+
+        await openLikeOn(cardOf(container));
+
+        within(cardOf(container)).getAllByRole('menuitem').forEach((choice) =>
+            expect(choice).toHaveAttribute('aria-pressed', 'false'));
+    });
 
     /// THE SAVE IS REAL, and it replaced a local merge that could only ever carry the fields
     /// somebody remembered to list. That list held the content fields and not approvalStatus,

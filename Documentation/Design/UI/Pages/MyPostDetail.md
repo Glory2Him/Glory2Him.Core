@@ -45,7 +45,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.6 [Must]** The owner may withdraw their item while it is `Draft` or `Submitted`. Once it is `Approved` or `Rejected` it is locked to them, and an amendment of it forks a new version (§APR9.9 rules 2-4; `UI/Components/ContentItemPanel.md rule 2.17`). The owner is never offered *Delete* on an `Approved` or `Rejected` item. *(§APR9.9; user, 2026-09-27)* ≠ item 2
 
-**2.7 [Must]** The page offers the Like control on the card, and Share and Save deliberately not. Leaving Like off would lose a control the reader had on `/myposts`, and a page that passes no handler would be a second switch no `ShowReactions` setting can reach (§DOM6.5). Share and Save are left off because this page reads items that may be Drafts, and the address Share copies, `/posts/{id}`, answers nothing for one. *(code: myPostDetail.tsx — the comment above `useContentItemEngagement`; test: myPostDetail.test.tsx — "should add only the like control to the newly wired pages", "should offer the like control on my own post's detail page")* ≠ item 4
+**2.7 [Must]** The page offers the Like control on the card, and Share and Save deliberately not. Leaving Like off would lose a control the reader had on `/myposts`, and a page that passes no handler would be a second switch no `ShowReactions` setting can reach (§DOM6.5). Share and Save are left off because this page reads items that may be Drafts, and the address Share copies, `/posts/{id}`, answers nothing for one. *(code: myPostDetail.tsx — the comment above `useContentItemEngagement`; test: myPostDetail.test.tsx — "should add only the like control to the newly wired pages", "should offer the like control on my own post's detail page")*
 
 **2.8 [Must]** The card's tag and Bible reference sections are off, and the two association panels stand in the right-hand column, so the same facts never show twice on one screen. *(code: myPostDetail.tsx — the comment above `ContentItemPanel`; `UI/Components/ContentItemPanel.md §6.3`)*
 
@@ -248,26 +248,16 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
    The page's error answers the item read alone (rule 2.13), so a failed settings read still shows
    the card. Evidence: `myPostDetail.tsx` — `contentItemSettings ?? []`. Copied from
    `UI/Components/ContentItemPanel.md §10 item 15`, this page's share of it.
-4. (#745) **Page gap — `/myposts/{id}`: the card shows no counts.** A chosen reaction is recorded,
-   changed or cleared by `useContentItemEngagement`, which the page takes `onReactionSelected` from
+4. Built (#745) **`/myposts/{id}`: the page's Like control is wired.** Copied from
+   `UI/Components/ContentItemPanel.md §10 item 17`, this page's share of it. The page hands
+   `useContentItemEngagement` the id of its one card and renders the card from what
+   `withReactions` projects, so the card, where its item has a reaction summary, shows the
+   reactions it has been given and marks the reader's own (`src/pages/myPostDetail.tsx`, the hook
+   at lines 77-78, the card at lines 184-202, at c8a224f8;
+   `DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; `DesignFeatures/Likes.md` rules 5, 6 and
+   11a; #745). A reaction the reader chooses is recorded, changed or cleared by the same hook
    (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2`; #739), and no signed-out reader chooses
-   one here, because `SecuredRoute` admits none. Copied from
-   `UI/Components/ContentItemPanel.md §10 item 17`, this page's share of it.
-   **The card's counts are this item's work** (the Likes feature, `DesignFeatures/Likes.md`).
-   The page reads no reaction summary, so the card shows none of the reactions its item has been
-   given, and the reader's own reaction shows only as the overlay of a choice they have just made
-   (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rule 8), never as the one they hold
-   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-86). So the overlay goes
-   as soon as the write that laid it settles, and a reader who then chooses the reaction they hold
-   gives it again, which leaves it held, rather than withdrawing it: until this item is built, a
-   reaction is withdrawn here only when the reader chooses it again before the write that gave it
-   has settled (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rules 4 and 9). The overlay
-   starts from an empty summary where the item has none, so while a choice's write is pending the
-   card shows the chosen reaction counted 1, whatever the item has been given, and no other count,
-   and none after a withdrawal (`DesignFeatures/UI/Views/ChosenReactionSummary.md §1` rules 1 to 3;
-   `DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rule 5). The page hands
-   `useContentItemEngagement` the id of its one card and renders what `withReactions` projects
-   (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
+   one here, because `SecuredRoute` admits none.
 5. (needs issue) **Page gap — `/myposts/{id}`: suggesting a tag or a Bible reference sends
    nothing.** The page answers each panel's `onAdd` with a "coming soon" toast and reads no
    associations, so both lists are always empty (`myPostDetail.tsx` — `suggestTag`,
