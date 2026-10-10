@@ -266,6 +266,8 @@ const renderPage = (initialUrl = '/posts/content-item-1') =>
                         to land on rather than an assertion about a spy. */}
                     <Route path="/posts/contribute" element={<h2>Share something</h2>} />
                     <Route path="/posts/:contentItemId" element={<PostDetail />} />
+                    {/* So a signed-out reader sent to sign in lands on a real destination. */}
+                    <Route path="/Account/Login" element={<h2>Sign in</h2>} />
                 </Routes>
             </AuthProvider>
             <LocationProbe />
