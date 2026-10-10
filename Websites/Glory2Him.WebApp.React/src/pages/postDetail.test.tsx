@@ -309,6 +309,16 @@ const reactionCountOf = async (reactionName: string): Promise<string> => {
     return (reaction.textContent ?? '').replace(reactionNamed(reactionName).unicodeEmoji, '').trim();
 };
 
+// Opens the card's Like control: the reactions it offers, each pressed or not. Choosing
+// closes it, so a test that reads the mark back after a choice opens it again.
+const openLike = async (): Promise<void> =>
+    await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+
+const choose = async (reactionName: string): Promise<void> => {
+    await openLike();
+    await userEvent.click(screen.getByRole('menuitem', { name: reactionName }));
+};
+
 const reactionPairFor = (reactionName: string): AssociationRequest => ({
     entityAType: EntityType.ContentItem,
     entityAKeyId: 'content-item-1',
@@ -553,55 +563,16 @@ describe('PostDetail', () => {
         expect(screen.queryByRole('button', { name: /Moderate/ })).not.toBeInTheDocument();
     });
 
-    // Choosing CLOSES the picker — the panel's own behaviour — so both tests below reopen it
-    // to read the mark back. While the choice's write is pending the card shows the counts of
-    // its overlay, and it shows no counts read from the server until #743.
-    const chooseReaction = async () => {
-        await userEvent.click(screen.getByRole('button', { name: /Like/ }));
-        await userEvent.click(screen.getByRole('menuitem', { name: 'Amen' }));
-    };
-
-    const reopenPicker = async () => {
-        await userEvent.click(screen.getByRole('button', { name: /Like/ }));
-
-        return screen.getByRole('menuitem', { name: 'Amen' });
-    };
-
-    it('should mark the reaction the reader chose for this visit', async () => {
-        // given: a signed-in reader — the engagement hook records nothing for a signed-out
-        // reader's choice and lays no overlay
-        signInAs(authState);
-        renderPage();
-
-        // when
-        await chooseReaction();
-
-        // then: the mark is the overlay of a choice still being recorded — the write stays
-        // pending for the length of this test, and the overlay stands until the read that
-        // follows it lands — until #743 (criterion 2) brings this test to what the page does
-        expect(await reopenPicker()).toHaveAttribute('aria-pressed', 'true');
-    });
-
-    it('should withdraw the reaction when the reader chooses it again', async () => {
-        // given: signed in, for the same reason as the test above
-        signInAs(authState);
-        renderPage();
-        await chooseReaction();
-
-        // when: the same choice again is a change of mind
-        await userEvent.click(await reopenPicker());
-
-        // then
-        expect(await reopenPicker()).toHaveAttribute('aria-pressed', 'false');
-    });
-
     it('should claim no engagement figures it has no source for', () => {
+        // given: the post's reactions have a source, its summary, and are shown
+        contentItem = othersItem;
+        serverSummaries = { 'content-item-1': summaryOf([['Love', 3], ['Amen', 2]]) };
+
         // when
         renderPage();
 
-        // then: there is no comment, reaction or view client in this app yet, and a zero would
-        // assert an empty conversation rather than an absent one
-        expect(screen.queryByText(/reaction/)).not.toBeInTheDocument();
+        // then: there is no comment or view client in this app yet, and a zero would assert an
+        // empty conversation rather than an absent one (rule 2.17)
         expect(screen.queryByText(/comment/)).not.toBeInTheDocument();
         expect(screen.queryByText(/View/)).not.toBeInTheDocument();
     });
@@ -720,6 +691,113 @@ describe('PostDetail', () => {
             // then
             expect(handedPages).toEqual([['content-item-1']]);
             expect(reactionCounts()).toHaveTextContent('5');
+        });
+
+        it("should mark the reader's own reaction on /posts/{id}", async () => {
+            // given
+            signInAs(authState, ['Users']);
+            contentItem = othersItem;
+
+            serverSummaries = {
+                'content-item-1': summaryOf([['Love', 3], ['Amen', 2]], 'Love')
+            };
+
+            renderPage();
+
+            // when
+            await openLike();
+
+            // then
+            expect(screen.getByRole('menuitem', { name: 'Love' }))
+                .toHaveAttribute('aria-pressed', 'true');
+
+            expect(screen.getByRole('menuitem', { name: 'Amen' }))
+                .toHaveAttribute('aria-pressed', 'false');
+        });
+
+        it('should record a chosen reaction on /posts/{id}', async () => {
+            // given
+            signInAs(authState, ['Users']);
+            contentItem = othersItem;
+            serverSummaries = { 'content-item-1': summaryOf([['Love', 3], ['Amen', 2]]) };
+            renderPage();
+
+            // when
+            await choose('Love');
+
+            // then
+            expect(upsertAssociation).toHaveBeenCalledTimes(1);
+            expect(upsertAssociation).toHaveBeenCalledWith(reactionPairFor('Love'));
+            expect(removeAssociationByPair).not.toHaveBeenCalled();
+            expect(await reactionCountOf('Love')).toBe('4');
+            expect(await reactionCountOf('Amen')).toBe('2');
+
+            await openLike();
+
+            expect(screen.getByRole('menuitem', { name: 'Love' }))
+                .toHaveAttribute('aria-pressed', 'true');
+        });
+
+        it('should withdraw the reaction when the reader chooses it again', async () => {
+            // given
+            signInAs(authState, ['Users']);
+            contentItem = othersItem;
+
+            serverSummaries = {
+                'content-item-1': summaryOf([['Love', 3], ['Amen', 2]], 'Love')
+            };
+
+            renderPage();
+
+            // when: the reaction the reader holds, chosen again, is a change of mind
+            await choose('Love');
+
+            // then
+            expect(removeAssociationByPair).toHaveBeenCalledTimes(1);
+            expect(removeAssociationByPair).toHaveBeenCalledWith(reactionPairFor('Love'));
+            expect(upsertAssociation).not.toHaveBeenCalled();
+
+            await openLike();
+
+            screen.getAllByRole('menuitem').forEach((choice) =>
+                expect(choice).toHaveAttribute('aria-pressed', 'false'));
+        });
+    });
+
+    describe('the Like control for a reader who is not signed in', () => {
+        it('should send a signed-out reader to sign in and back to the same post', async () => {
+            // given
+            signOut(authState);
+            contentItem = othersItem;
+            serverSummaries = { 'content-item-1': summaryOf([['Love', 3]]) };
+            renderPage('/posts/content-item-1#comments');
+
+            // when
+            await choose('Love');
+
+            // then
+            expect(upsertAssociation).not.toHaveBeenCalled();
+            expect(removeAssociationByPair).not.toHaveBeenCalled();
+
+            expect(landedOn()).toBe(
+                `/Account/Login?returnUrl=${encodeURIComponent('/posts/content-item-1#comments')}`);
+        });
+
+        it('should do nothing with a reaction while the sign-in state is unknown on /posts/{id}',
+            async () => {
+            // given
+            setLoading(authState);
+            contentItem = othersItem;
+            serverSummaries = { 'content-item-1': summaryOf([['Love', 3]]) };
+            renderPage();
+
+            // when
+            await choose('Love');
+
+            // then
+            expect(upsertAssociation).not.toHaveBeenCalled();
+            expect(removeAssociationByPair).not.toHaveBeenCalled();
+            expect(landedOn()).toBe('/posts/content-item-1');
         });
     });
 });
