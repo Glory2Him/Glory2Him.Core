@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Home } from './home';
 import { AuthProvider } from '../components/securitys/authProvider';
 import { EntityType } from '../models/foundations/approvalSettings/approvalSetting';
@@ -204,6 +204,10 @@ describe('Home', () => {
         signOut(authState);
     });
 
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
     describe('the Like control', () => {
         it("should show each card's reaction counts on /", () => {
             // given
@@ -219,6 +223,49 @@ describe('Home', () => {
             expect(handedPages).toEqual([['devotional-1', 'devotional-2']]);
             expect(reactionCountsOn('devotional-1')).toHaveTextContent('5');
             expect(reactionCountsOn('devotional-2')).toHaveTextContent('7');
+        });
+
+        // EACH PAGE AS IT WAS DELIVERED: asking for the third page's ids alone is the summaries
+        // read's, one query per page it is handed, so the page hands every page it holds and the
+        // first two pages' cards keep their counts.
+        it('should hand the engagement hook every page delivered on /', async () => {
+            // given
+            feedPages = [
+                pageOf(0, ['devotional-1', 'devotional-2']),
+                pageOf(1, ['devotional-3']),
+                pageOf(2, ['devotional-4', 'devotional-5'])
+            ];
+
+            initiallyDelivered = 2;
+
+            // Without an IntersectionObserver the list offers Load more, a press the test can make.
+            vi.stubGlobal('IntersectionObserver', undefined);
+
+            serverSummaries = {
+                'devotional-1': summaryOf('devotional-1', [['Love', 1]]),
+                'devotional-2': summaryOf('devotional-2', [['Amen', 2]]),
+                'devotional-3': summaryOf('devotional-3', [['Joy', 3]]),
+                'devotional-4': summaryOf('devotional-4', [['Love', 4]]),
+                'devotional-5': summaryOf('devotional-5', [['Amen', 5], ['Joy', 1]])
+            };
+
+            renderHome();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Load more' }));
+
+            // then
+            expect(handedPages).toEqual([
+                ['devotional-1', 'devotional-2'],
+                ['devotional-3'],
+                ['devotional-4', 'devotional-5']
+            ]);
+
+            expect(reactionCountsOn('devotional-1')).toHaveTextContent('1');
+            expect(reactionCountsOn('devotional-2')).toHaveTextContent('2');
+            expect(reactionCountsOn('devotional-3')).toHaveTextContent('3');
+            expect(reactionCountsOn('devotional-4')).toHaveTextContent('4');
+            expect(reactionCountsOn('devotional-5')).toHaveTextContent('6');
         });
     });
 });
