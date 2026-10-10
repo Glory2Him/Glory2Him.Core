@@ -304,5 +304,101 @@ describe('Home', () => {
             expect(within(cardFor('devotional-1')).getByRole('menuitem', { name: 'Amen' }))
                 .toHaveAttribute('aria-pressed', 'false');
         });
+
+        it('should record a chosen reaction on /', async () => {
+            // given
+            signInAs(authState, ['Users']);
+
+            serverSummaries = {
+                'devotional-1': summaryOf('devotional-1', [['Love', 3], ['Amen', 2]])
+            };
+
+            renderHome();
+
+            // when
+            await chooseOn('devotional-1', 'Love');
+
+            // then
+            expect(upsertAssociation).toHaveBeenCalledTimes(1);
+            expect(upsertAssociation).toHaveBeenCalledWith(reactionPairFor('devotional-1', 'Love'));
+            expect(removeAssociationByPair).not.toHaveBeenCalled();
+            expect(reactionCountsOn('devotional-1')).toHaveTextContent('6');
+
+            await openLikeOn('devotional-1');
+
+            expect(within(cardFor('devotional-1')).getByRole('menuitem', { name: 'Love' }))
+                .toHaveAttribute('aria-pressed', 'true');
+        });
+
+        it('should withdraw a reaction chosen again on /', async () => {
+            // given
+            signInAs(authState, ['Users']);
+
+            serverSummaries = {
+                'devotional-1': summaryOf('devotional-1', [['Love', 3], ['Amen', 2]], 'Love')
+            };
+
+            renderHome();
+
+            // when
+            await chooseOn('devotional-1', 'Love');
+
+            // then
+            expect(removeAssociationByPair).toHaveBeenCalledTimes(1);
+
+            expect(removeAssociationByPair)
+                .toHaveBeenCalledWith(reactionPairFor('devotional-1', 'Love'));
+
+            expect(upsertAssociation).not.toHaveBeenCalled();
+
+            await openLikeOn('devotional-1');
+
+            within(cardFor('devotional-1')).getAllByRole('menuitem').forEach((choice) =>
+                expect(choice).toHaveAttribute('aria-pressed', 'false'));
+        });
+    });
+
+    describe('the Like control for a reader who is not signed in', () => {
+        it('should send a signed-out reader to sign in and back to / as they left it',
+            async () => {
+            // given
+            signOut(authState);
+
+            serverSummaries = {
+                'devotional-1': summaryOf('devotional-1', [['Love', 3]])
+            };
+
+            renderHome('/?q=grace');
+
+            // when
+            await chooseOn('devotional-1', 'Love');
+
+            // then
+            expect(upsertAssociation).not.toHaveBeenCalled();
+            expect(removeAssociationByPair).not.toHaveBeenCalled();
+
+            expect(landedOn())
+                .toBe(`/Account/Login?returnUrl=${encodeURIComponent('/?q=grace')}`);
+        });
+
+        it('should do nothing with a reaction while the sign-in state is unknown on /',
+            async () => {
+            // given
+            setLoading(authState);
+
+            serverSummaries = {
+                'devotional-1': summaryOf('devotional-1', [['Love', 3]])
+            };
+
+            renderHome();
+
+            // when
+            await chooseOn('devotional-1', 'Love');
+
+            // then
+            expect(upsertAssociation).not.toHaveBeenCalled();
+            expect(removeAssociationByPair).not.toHaveBeenCalled();
+            expect(landedOn()).toBe('/');
+        });
     });
 });
