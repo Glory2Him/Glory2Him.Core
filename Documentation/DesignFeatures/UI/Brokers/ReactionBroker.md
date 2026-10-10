@@ -1,13 +1,22 @@
 # Reaction broker
-Parent: [Likes.md](../../Likes.md)
+Parent: [BrokersHoldNoLogic.md](../../BrokersHoldNoLogic.md)
 Level: broker — `ReactionBroker` (`Websites/Glory2Him.WebApp.React/src/brokers/apiBroker.reactions.ts`), existing
-Inherits: §DOM5.2 (`SortOrder`), `UI/Components/ContentItemPanel.md rule 3.1.8`, `the-standard-reacttypescript-brokers` as §UI20.9.1 departs from it
+Inherits: §UI20.9.1, §UI20.9.3, `the-standard-reacttypescript-brokers` as §UI20.9.1 departs from it
 
-The Like control offers the vocabulary that `GET api/Reactions` returns, in the order it arrives. The engagement hook maps it into options without reordering (`useContentItemEngagement.ts`), and the card narrows those options without reordering (`contentItemPanel.tsx`, `offeredReactions`). Today the read asks for no order, so the choices come in whatever order SQL Server returns the rows. §DOM5.2 orders the vocabulary by its `SortOrder`, so the read asks for that order. Where the order is written is #814's to rule (§1).
+The React app's door to `GET api/Reactions`, the reaction vocabulary every Like control offers. Today its one member writes the vocabulary's `$filter` itself (`BrokersHoldNoLogic.md` rule 2). It gains a member that sends the query it is handed, the reaction service writes the vocabulary's condition and its order (`UI/Foundations/ReactionService.md §1`), and the old member goes (§UI20.9.3 rule 6).
 
-## 1. GetApprovedReactionsAsync (#752)
+This document was the Likes feature's until #814, for the vocabulary's order (Likes.md rule 5a), which #752 was to add here. Under §UI20.9.3 rule 2 the order is the service's, and #752 delivers it there.
 
-**On hold, pending #814.** Today this broker writes the vocabulary's filter, and rule 1 below adds an order. Both are query conditions, and the owner ruled on 2026-10-01 that a broker holds no logic (§UI20.9.1, *Scope*). #814 rules where a React read's condition lives and re-carves #752 against that ruling. The order the reader sees (§DOM5.2) is unchanged; only where it is asked for moves.
+## 1. GetApprovedReactionsAsync — deleted (#961)
 
-1. **It asks for the vocabulary ordered by `sortOrder`, then `name`** — `$orderby=sortOrder,name`, sent beside today's filter, which does not change. The server does the ordering: the route is `[EnableQuery]`, and the host enables `$orderby` (`Program.cs`).
-2. **The wire model gains nothing.** The client does no ordering of its own, and `reaction.ts` types only what the choices surface reads.
+Deleted once `reactionService.useGetApprovedReactions` calls §2 instead (`UI/Foundations/ReactionService.md §1`) and nothing calls it. It writes the vocabulary's `$filter` itself (`apiBroker.reactions.ts:13-19`). No broker test covers it.
+
+## 2. GetReactionsAsync (#932)
+
+```ts
+GetReactionsAsync(query: ODataQuery): Promise<Reaction[]>
+```
+
+1. **It sends `GET /api/reactions` with each option of the query it is handed**, under its `$` name, encoded, and none it is not handed (§UI20.9.3 rules 2 and 4).
+2. **It returns the reactions as they came**, typed as `Reaction[]`, in the order they came.
+3. **It adds `ODataQuery`**, `{ filter?: string; orderBy?: string; skip?: number; top?: number }`, in `src/models/foundations/oDataQueries/oDataQuery.ts` (§UI20.9.3 rule 2). The other brokers' new read members take the same model, and build on this one.

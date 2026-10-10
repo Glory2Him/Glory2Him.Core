@@ -46,11 +46,12 @@ The feature's own user stories, bottom up. Each names this document as its paren
 | [Backend/Controllers/AssociationsController.md](Backend/Controllers/AssociationsController.md) | exposer — `AssociationsController` |
 | [UI/Brokers/AssociationBroker.md](UI/Brokers/AssociationBroker.md) | broker — `AssociationBroker` |
 | [UI/Foundations/AssociationService.md](UI/Foundations/AssociationService.md) | foundation service — `associationService` |
-| [UI/Brokers/ReactionBroker.md](UI/Brokers/ReactionBroker.md) | broker — `ReactionBroker` |
 | [UI/Views/ContentItemReactionOption.md](UI/Views/ContentItemReactionOption.md) | view — `toContentItemReactionOption` |
 | [UI/Views/ChosenReactionSummary.md](UI/Views/ChosenReactionSummary.md) | view — `toChosenReactionSummary` |
 | [UI/Hooks/SignIn.md](UI/Hooks/SignIn.md) | hook — `useSignIn` |
 | [UI/Hooks/ContentItemEngagement.md](UI/Hooks/ContentItemEngagement.md) | hook — `useContentItemEngagement` |
+
+Rule 5a's order for the Like control's choices is asked for by `UI/Foundations/ReactionService.md §1`, a user story of `BrokersHoldNoLogic.md`: a read's condition is written by its foundation service (§UI20.9.3 rule 2), and `UI/Brokers/ReactionBroker.md`, which this feature first carved it into, moved to that sub-feature with it (#814).
 
 The rest of the UI is already designed in the documents the presentation components and pages own (§UI20.6.4, §UI20.5.1), and this feature's tasks are carved from their gaps:
 
