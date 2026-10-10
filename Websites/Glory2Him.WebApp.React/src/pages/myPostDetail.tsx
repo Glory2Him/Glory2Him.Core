@@ -68,8 +68,18 @@ export function MyPostDetail() {
     // setting can reach (§DOM6.5). Share and Save are deliberately NOT taken: this page reads
     // items that may be Drafts, and the address Share copies is /posts/{id}, which answers
     // nothing for one.
+    //
+    // The hook is handed one page holding the id of the card's item, once it is read, so the
+    // card carries the post's reaction summary — which answers only once the post is publicly
+    // visible (Likes.md rule 11a).
+    const readContentItemId = contentItem?.id;
+
+    const contentItemIdPages = useMemo(
+        () => readContentItemId == null ? [] : [[readContentItemId]],
+        [readContentItemId]);
+
     const { reactionOptions, onReactionSelected, withReactions } =
-        useContentItemEngagement();
+        useContentItemEngagement(contentItemIdPages);
 
     const [validationIssues, setValidationIssues] =
         useState<ContentItemValidationIssues | undefined>();
