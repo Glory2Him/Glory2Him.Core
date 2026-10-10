@@ -1041,6 +1041,32 @@ describe('ContentItemPanel', () => {
             expect(screen.getByText('142')).toBeInTheDocument();
         });
 
+        // WHAT FOLLOWS THE CHOICE IS THE PAGE'S (rule 3.2.4): the card raises the hook for
+        // every reader and composes no route, and the page's engagement hook sends a
+        // signed-out reader to sign in.
+        it('should raise the reaction hook for a signed-out reader and navigate nowhere',
+            async () => {
+            // given
+            signOut(authState);
+            const onReactionSelected = vi.fn();
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={quoteItem}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={onReactionSelected} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
+
+            // then
+            expect(onReactionSelected).toHaveBeenCalledWith(
+                quoteItem, expect.objectContaining({ label: 'Love' }));
+
+            expect(navigate).not.toHaveBeenCalled();
+        });
+
         it('should send a signed-out reader to sign in instead of writing the reaction',
             async () => {
             // given
