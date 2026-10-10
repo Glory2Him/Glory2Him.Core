@@ -1067,6 +1067,32 @@ describe('ContentItemPanel', () => {
             expect(navigate).not.toHaveBeenCalled();
         });
 
+        // A READ THAT ENDED WITH NO CURRENT USER: `useAuth` reports the reader neither loading
+        // nor signed in, the state the auth double starts in. The engagement hook treats this
+        // reader as not yet known (#739); the card raises the hook as it does for every reader.
+        it('should raise the reaction hook for a reader whose sign-in state failed to read',
+            async () => {
+            // given
+            Object.assign(authState, createAuthState());
+            const onReactionSelected = vi.fn();
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={quoteItem}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={onReactionSelected} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
+
+            // then
+            expect(onReactionSelected).toHaveBeenCalledWith(
+                quoteItem, expect.objectContaining({ label: 'Love' }));
+
+            expect(navigate).not.toHaveBeenCalled();
+        });
+
         // IT GUARDS THE CARD ALONE, which moves no count of its own: the handler here is a stub,
         // so the engagement hook's overlay is out of its sight. Criteria 9, 10 and 16 of #739
         // guard the overlay for a reader who is not signed in.
