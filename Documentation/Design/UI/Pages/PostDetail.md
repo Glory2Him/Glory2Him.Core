@@ -256,7 +256,7 @@ page is a courtesy (§SEC14.6).
    sends a signed-out reader to sign in through the one reusable sign-in action
    (`UI/Pages/Home.md §6 item 3`), never while the reader's sign-in state is still being read
    (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rules 1 to 4; #739). The card raises the
-   hook for every reader (`UI/Components/ContentItemPanel.md §10 item 12`; #740). The same gap on
+   hook for every reader (`UI/Components/ContentItemPanel.md §10 item 12`; #740). The same work on
    `/` is `UI/Pages/Home.md §6 item 2`.
    **The card's counts are this item's work** (the Likes feature, `DesignFeatures/Likes.md`).
    The page reads no reaction summary, so the card shows none of the reactions its item has been
