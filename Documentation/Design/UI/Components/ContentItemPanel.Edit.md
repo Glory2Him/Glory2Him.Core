@@ -192,7 +192,7 @@ the non-owner bound reads is the one on the item the consumer handed over.
 | Concern | Endpoint |
 | --- | --- |
 | An amendment | `PUT api/ContentItems`, or the version fork on a terminal item *(§UI20.6.2)* |
-| A removal | `DELETE api/ContentItems/{contentItemId}`, with an optional `deletionReason` — a soft delete *(code: apiBroker.contentItems.ts — DeleteContentItemByIdAsync)* |
+| A removal | `DELETE api/ContentItems/{contentItemId}`, with an optional `deletionReason` — a soft delete *(code: contentItemService.ts — useRemoveContentItem; its broker member is DeleteContentItemAsync from #947, `BrokersHoldNoLogic.md`)* |
 
 The settings read, the item read, and the identity and roles, are
 `UI/Components/ContentItemPanel.md §7`.

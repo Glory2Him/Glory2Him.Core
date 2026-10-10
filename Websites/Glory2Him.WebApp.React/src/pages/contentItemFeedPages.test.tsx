@@ -186,6 +186,11 @@ const renderPage = (page: ReactElement, initialUrl = '/') =>
             <LocationProbe />
         </MemoryRouter>);
 
+// One of the reader's own posts, approved and published, so publicly visible: the signed-in
+// account is always user-1, the fixture's contributor.
+const myPostFor = (id: string): ContentItem =>
+    contentItemFor({ id, title: `My post ${id}` });
+
 // A publicly visible devotional the signed-in moderator did not contribute: the signed-in
 // account is always user-1.
 const devotionalFor = (id: string): ContentItem =>
@@ -196,8 +201,11 @@ const devotionalFor = (id: string): ContentItem =>
         updatedBy: 'contributor-9'
     });
 
-const pageOf = (pageIndex: number, ids: ReadonlyArray<string>): ContentItemPage => ({
-    items: ids.map(devotionalFor),
+const pageOf = (
+    pageIndex: number,
+    ids: ReadonlyArray<string>,
+    itemFor: (id: string) => ContentItem): ContentItemPage => ({
+    items: ids.map(itemFor),
     pageIndex,
     pageSize: 8,
     hasNextPage: false
@@ -222,7 +230,8 @@ const summaryOf = (
 
 const cardFor = (contentItemId: string): HTMLElement =>
     screen.getAllByRole('article').find((card) =>
-        within(card).queryByText(`Devotional ${contentItemId}`) !== null)!;
+        within(card).queryByText(`My post ${contentItemId}`) !== null
+        || within(card).queryByText(`Devotional ${contentItemId}`) !== null)!;
 
 const reactionCountsOn = (contentItemId: string): HTMLElement =>
     within(cardFor(contentItemId)).getByRole('button', { name: 'Reaction counts' });
@@ -451,6 +460,145 @@ describe('The content item feed pages', () => {
                 expect(screen.getByRole('checkbox', { name: statusLabel })).toBeChecked();
             });
         });
+
+        describe('the Like control', () => {
+            it("should show each card's reaction counts on /myposts", () => {
+                // given
+                signInAs(authState, ['Users']);
+                pages = [pageOf(0, ['post-1', 'post-2'], myPostFor)];
+
+                serverSummaries = {
+                    'post-1': summaryOf('post-1', [['Love', 3], ['Amen', 2]]),
+                    'post-2': summaryOf('post-2', [['Joy', 7]])
+                };
+
+                // when
+                renderPage(<MyPosts />, '/myposts');
+
+                // then
+                expect(handedPages).toEqual([['post-1', 'post-2']]);
+                expect(reactionCountsOn('post-1')).toHaveTextContent('5');
+                expect(reactionCountsOn('post-2')).toHaveTextContent('7');
+            });
+
+            // EACH PAGE AS IT WAS DELIVERED: asking for the third page's ids alone is the
+            // summaries read's, one query per page it is handed, so the page hands every page
+            // it holds and the first two pages' cards keep their counts.
+            it('should hand the engagement hook every page delivered on /myposts', async () => {
+                // given
+                signInAs(authState, ['Users']);
+                pages = [pageOf(0, ['post-1', 'post-2'], myPostFor), pageOf(1, ['post-3'], myPostFor)];
+                undeliveredPages = [pageOf(2, ['post-4', 'post-5'], myPostFor)];
+                hasNextPage = true;
+
+                // Without an IntersectionObserver the list offers Load more, a press the test
+                // can make.
+                vi.stubGlobal('IntersectionObserver', undefined);
+
+                serverSummaries = {
+                    'post-1': summaryOf('post-1', [['Love', 1]]),
+                    'post-2': summaryOf('post-2', [['Amen', 2]]),
+                    'post-3': summaryOf('post-3', [['Joy', 3]]),
+                    'post-4': summaryOf('post-4', [['Love', 4]]),
+                    'post-5': summaryOf('post-5', [['Amen', 5], ['Joy', 1]])
+                };
+
+                renderPage(<MyPosts />, '/myposts');
+
+                // when
+                await userEvent.click(screen.getByRole('button', { name: 'Load more' }));
+
+                // then
+                expect(handedPages).toEqual([
+                    ['post-1', 'post-2'],
+                    ['post-3'],
+                    ['post-4', 'post-5']
+                ]);
+
+                expect(reactionCountsOn('post-1')).toHaveTextContent('1');
+                expect(reactionCountsOn('post-2')).toHaveTextContent('2');
+                expect(reactionCountsOn('post-3')).toHaveTextContent('3');
+                expect(reactionCountsOn('post-4')).toHaveTextContent('4');
+                expect(reactionCountsOn('post-5')).toHaveTextContent('6');
+            });
+
+            it("should mark the reader's own reaction on /myposts", async () => {
+                // given
+                signInAs(authState, ['Users']);
+                pages = [pageOf(0, ['post-1'], myPostFor)];
+
+                serverSummaries = {
+                    'post-1': summaryOf('post-1', [['Love', 3], ['Amen', 2]], 'Love')
+                };
+
+                renderPage(<MyPosts />, '/myposts');
+
+                // when
+                await openLikeOn('post-1');
+
+                // then
+                expect(within(cardFor('post-1')).getByRole('menuitem', { name: 'Love' }))
+                    .toHaveAttribute('aria-pressed', 'true');
+
+                expect(within(cardFor('post-1')).getByRole('menuitem', { name: 'Amen' }))
+                    .toHaveAttribute('aria-pressed', 'false');
+            });
+
+            it('should record a chosen reaction on /myposts', async () => {
+                // given
+                signInAs(authState, ['Users']);
+                pages = [pageOf(0, ['post-1'], myPostFor)];
+
+                serverSummaries = {
+                    'post-1': summaryOf('post-1', [['Love', 3], ['Amen', 2]])
+                };
+
+                renderPage(<MyPosts />, '/myposts');
+
+                // when
+                await chooseOn('post-1', 'Love');
+
+                // then
+                expect(upsertAssociation).toHaveBeenCalledTimes(1);
+                expect(upsertAssociation).toHaveBeenCalledWith(reactionPairFor('post-1', 'Love'));
+                expect(removeAssociationByPair).not.toHaveBeenCalled();
+                expect(await reactionCountOn('post-1', 'Love')).toBe('4');
+                expect(await reactionCountOn('post-1', 'Amen')).toBe('2');
+
+                await openLikeOn('post-1');
+
+                expect(within(cardFor('post-1')).getByRole('menuitem', { name: 'Love' }))
+                    .toHaveAttribute('aria-pressed', 'true');
+            });
+
+            it('should withdraw a reaction chosen again on /myposts', async () => {
+                // given
+                signInAs(authState, ['Users']);
+                pages = [pageOf(0, ['post-1'], myPostFor)];
+
+                serverSummaries = {
+                    'post-1': summaryOf('post-1', [['Love', 3], ['Amen', 2]], 'Love')
+                };
+
+                renderPage(<MyPosts />, '/myposts');
+
+                // when
+                await chooseOn('post-1', 'Love');
+
+                // then
+                expect(removeAssociationByPair).toHaveBeenCalledTimes(1);
+
+                expect(removeAssociationByPair)
+                    .toHaveBeenCalledWith(reactionPairFor('post-1', 'Love'));
+
+                expect(upsertAssociation).not.toHaveBeenCalled();
+
+                await openLikeOn('post-1');
+
+                within(cardFor('post-1')).getAllByRole('menuitem').forEach((choice) =>
+                    expect(choice).toHaveAttribute('aria-pressed', 'false'));
+            });
+        });
     });
 
     describe('ContentItemModerationPage', () => {
@@ -573,7 +721,7 @@ describe('The content item feed pages', () => {
 
             it("should show each card's reaction counts on /Admin/Posts", () => {
                 // given
-                pages = [pageOf(0, ['devotional-1', 'devotional-2'])];
+                pages = [pageOf(0, ['devotional-1', 'devotional-2'], devotionalFor)];
 
                 serverSummaries = {
                     'devotional-1': summaryOf('devotional-1', [['Love', 3], ['Amen', 2]]),
@@ -594,8 +742,8 @@ describe('The content item feed pages', () => {
             // holds and the first two pages' cards keep their counts.
             it('should hand the engagement hook every page delivered on /Admin/Posts', async () => {
                 // given
-                pages = [pageOf(0, ['devotional-1', 'devotional-2']), pageOf(1, ['devotional-3'])];
-                undeliveredPages = [pageOf(2, ['devotional-4', 'devotional-5'])];
+                pages = [pageOf(0, ['devotional-1', 'devotional-2'], devotionalFor), pageOf(1, ['devotional-3'], devotionalFor)];
+                undeliveredPages = [pageOf(2, ['devotional-4', 'devotional-5'], devotionalFor)];
                 hasNextPage = true;
 
                 // Without an IntersectionObserver the list offers Load more, a press the test
@@ -631,7 +779,7 @@ describe('The content item feed pages', () => {
 
             it("should mark the reader's own reaction on /Admin/Posts", async () => {
                 // given
-                pages = [pageOf(0, ['devotional-1'])];
+                pages = [pageOf(0, ['devotional-1'], devotionalFor)];
 
                 serverSummaries = {
                     'devotional-1': summaryOf('devotional-1', [['Love', 3], ['Amen', 2]], 'Love')
@@ -652,7 +800,7 @@ describe('The content item feed pages', () => {
 
             it('should record a chosen reaction on /Admin/Posts', async () => {
                 // given
-                pages = [pageOf(0, ['devotional-1'])];
+                pages = [pageOf(0, ['devotional-1'], devotionalFor)];
 
                 serverSummaries = {
                     'devotional-1': summaryOf('devotional-1', [['Love', 3], ['Amen', 2]])
@@ -681,7 +829,7 @@ describe('The content item feed pages', () => {
 
             it('should withdraw a reaction chosen again on /Admin/Posts', async () => {
                 // given
-                pages = [pageOf(0, ['devotional-1'])];
+                pages = [pageOf(0, ['devotional-1'], devotionalFor)];
 
                 serverSummaries = {
                     'devotional-1': summaryOf('devotional-1', [['Love', 3], ['Amen', 2]], 'Love')
