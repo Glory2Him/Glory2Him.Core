@@ -227,6 +227,36 @@ const cardFor = (contentItemId: string): HTMLElement =>
 const reactionCountsOn = (contentItemId: string): HTMLElement =>
     within(cardFor(contentItemId)).getByRole('button', { name: 'Reaction counts' });
 
+// One reaction's own count on a card, read from the counts' expanded face, which lists each
+// reaction given beside its glyph; the collapsed face shows only their sum.
+const reactionCountOn = async (contentItemId: string, reactionName: string): Promise<string> => {
+    const reactionCounts = reactionCountsOn(contentItemId);
+
+    if (reactionCounts.getAttribute('aria-expanded') !== 'true') {
+        await userEvent.click(reactionCounts);
+    }
+
+    const reaction = within(reactionCountsOn(contentItemId)).getByTitle(reactionName);
+
+    return (reaction.textContent ?? '').replace(reactionNamed(reactionName).unicodeEmoji, '').trim();
+};
+
+// Opens a card's Like control: the reactions it offers, each pressed or not.
+const openLikeOn = async (contentItemId: string): Promise<void> =>
+    await userEvent.click(within(cardFor(contentItemId)).getByRole('button', { name: /Like/ }));
+
+const chooseOn = async (contentItemId: string, reactionName: string): Promise<void> => {
+    await openLikeOn(contentItemId);
+    await userEvent.click(within(cardFor(contentItemId)).getByRole('menuitem', { name: reactionName }));
+};
+
+const reactionPairFor = (contentItemId: string, reactionName: string): AssociationRequest => ({
+    entityAType: EntityType.ContentItem,
+    entityAKeyId: contentItemId,
+    entityBType: EntityType.Reaction,
+    entityBKeyId: reactionNamed(reactionName).id
+});
+
 describe('The content item feed pages', () => {
     beforeEach(() => {
         searchedOptions = null;
@@ -597,6 +627,83 @@ describe('The content item feed pages', () => {
                 expect(reactionCountsOn('devotional-3')).toHaveTextContent('3');
                 expect(reactionCountsOn('devotional-4')).toHaveTextContent('4');
                 expect(reactionCountsOn('devotional-5')).toHaveTextContent('6');
+            });
+
+            it("should mark the reader's own reaction on /Admin/Posts", async () => {
+                // given
+                pages = [pageOf(0, ['devotional-1'])];
+
+                serverSummaries = {
+                    'devotional-1': summaryOf('devotional-1', [['Love', 3], ['Amen', 2]], 'Love')
+                };
+
+                renderPage(<ContentItemModerationPage />, '/Admin/Posts');
+
+                // when
+                await openLikeOn('devotional-1');
+
+                // then
+                expect(within(cardFor('devotional-1')).getByRole('menuitem', { name: 'Love' }))
+                    .toHaveAttribute('aria-pressed', 'true');
+
+                expect(within(cardFor('devotional-1')).getByRole('menuitem', { name: 'Amen' }))
+                    .toHaveAttribute('aria-pressed', 'false');
+            });
+
+            it('should record a chosen reaction on /Admin/Posts', async () => {
+                // given
+                pages = [pageOf(0, ['devotional-1'])];
+
+                serverSummaries = {
+                    'devotional-1': summaryOf('devotional-1', [['Love', 3], ['Amen', 2]])
+                };
+
+                renderPage(<ContentItemModerationPage />, '/Admin/Posts');
+
+                // when
+                await chooseOn('devotional-1', 'Love');
+
+                // then
+                expect(upsertAssociation).toHaveBeenCalledTimes(1);
+
+                expect(upsertAssociation)
+                    .toHaveBeenCalledWith(reactionPairFor('devotional-1', 'Love'));
+
+                expect(removeAssociationByPair).not.toHaveBeenCalled();
+                expect(await reactionCountOn('devotional-1', 'Love')).toBe('4');
+                expect(await reactionCountOn('devotional-1', 'Amen')).toBe('2');
+
+                await openLikeOn('devotional-1');
+
+                expect(within(cardFor('devotional-1')).getByRole('menuitem', { name: 'Love' }))
+                    .toHaveAttribute('aria-pressed', 'true');
+            });
+
+            it('should withdraw a reaction chosen again on /Admin/Posts', async () => {
+                // given
+                pages = [pageOf(0, ['devotional-1'])];
+
+                serverSummaries = {
+                    'devotional-1': summaryOf('devotional-1', [['Love', 3], ['Amen', 2]], 'Love')
+                };
+
+                renderPage(<ContentItemModerationPage />, '/Admin/Posts');
+
+                // when
+                await chooseOn('devotional-1', 'Love');
+
+                // then
+                expect(removeAssociationByPair).toHaveBeenCalledTimes(1);
+
+                expect(removeAssociationByPair)
+                    .toHaveBeenCalledWith(reactionPairFor('devotional-1', 'Love'));
+
+                expect(upsertAssociation).not.toHaveBeenCalled();
+
+                await openLikeOn('devotional-1');
+
+                within(cardFor('devotional-1')).getAllByRole('menuitem').forEach((choice) =>
+                    expect(choice).toHaveAttribute('aria-pressed', 'false'));
             });
         });
     });
