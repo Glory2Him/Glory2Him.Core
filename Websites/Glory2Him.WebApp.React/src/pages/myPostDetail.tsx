@@ -62,6 +62,12 @@ export function MyPostDetail() {
     // storage actually holds, status included.
     const modifyContentItem = contentItemService.useModifyContentItem();
 
+    // The one card's id, as one page: the summaries read answers for the ids it is handed, so the
+    // card shows the reactions its item has been given and marks the reader's own.
+    const contentItemIdPages = useMemo(
+        () => contentItem == null ? [] : [[contentItem.id]],
+        [contentItem]);
+
     // THE LIKE CONTROL, and only it. /myposts offers the reaction picker on the card for this
     // very item, so a contributor who clicked into the item lost a control by reading it on its
     // own surface — and a page that passes no handler is a second switch no ShowReactions
@@ -69,7 +75,7 @@ export function MyPostDetail() {
     // items that may be Drafts, and the address Share copies is /posts/{id}, which answers
     // nothing for one.
     const { reactionOptions, onReactionSelected, withReactions } =
-        useContentItemEngagement();
+        useContentItemEngagement(contentItemIdPages);
 
     const [validationIssues, setValidationIssues] =
         useState<ContentItemValidationIssues | undefined>();
