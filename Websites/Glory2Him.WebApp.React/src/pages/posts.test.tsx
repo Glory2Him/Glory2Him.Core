@@ -1,13 +1,19 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter, useLocation } from 'react-router-dom';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Posts } from './posts';
+import { AuthProvider } from '../components/securitys/authProvider';
+import { EntityType } from '../models/foundations/approvalSettings/approvalSetting';
+import { AssociationRequest } from '../models/foundations/associations/associationRequest';
+import { ContentItemReactionSummary } from '../models/foundations/associations/contentItemReactionSummary';
 import { ContentItem } from '../models/foundations/contentItems/contentItem';
 import { ContentItemSetting } from '../models/foundations/contentItemSettings/contentItemSetting';
 import { ContentType } from '../models/foundations/contentItemSettings/contentType';
+import { Reaction } from '../models/foundations/reactions/reaction';
 import { ApprovalStatus } from '../models/components/contentItems/contentItemFormItem';
 import { ShareabilityBasis } from '../models/components/contentItems/contentItemFormItem';
+import { createAuthState, setLoading, signInAs, signOut } from '../tests/testAuth';
 
 import {
     ContentItemPage
@@ -51,30 +57,66 @@ vi.mock('../services/foundations/contentItemService', () => ({
     }
 }));
 
+// The reader's sign-in state, flipped per test; every test starts signed out.
+const authState = createAuthState();
+
+vi.mock('../services/foundations/accountService', () => ({
+    accountService: {
+        useGetCurrentUser: () => authState
+    }
+}));
+
+const reactionFor = (name: string, unicodeEmoji: string): Reaction => ({
+    id: `reaction-${name.toLowerCase()}`,
+    name,
+    unicodeEmoji,
+    isPublished: true,
+    approvalStatus: ApprovalStatus.Approved,
+    isDeleted: false
+});
+
+const vocabulary: ReadonlyArray<Reaction> = [
+    reactionFor('Amen', '👍'),
+    reactionFor('Love', '❤️'),
+    reactionFor('Joy', '😊')
+];
+
+const reactionNamed = (name: string): Reaction =>
+    vocabulary.find((reaction) => reaction.name === name)!;
+
 vi.mock('../services/foundations/reactionService', () => ({
     reactionService: {
-        useGetApprovedReactions: () => ({
-            data: [{
-                id: 'reaction-1',
-                name: 'Amen',
-                unicodeEmoji: '👍',
-                isPublished: true,
-                approvalStatus: 2,
-                isDeleted: false
-            }]
-        })
+        useGetApprovedReactions: () => ({ data: vocabulary })
     }
 }));
 
 // The engagement hook reads the cards' reaction summaries through a query, which a harness with
-// no QueryClientProvider cannot hold, so it is mocked and answers none: no card carries counts.
-// Its writes are mutations, mocked for the same reason, and a write made through them stays
-// pending for the length of the test.
+// no QueryClientProvider cannot hold, so it is mocked. It answers only for the ids it is handed,
+// as the real one does, so a card whose page the hook was never handed carries no counts. Its
+// writes are mutations, mocked for the same reason, and a write made through them stays pending
+// for the length of the test, so a chosen reaction's overlay stands.
+let handedPages: ReadonlyArray<ReadonlyArray<string>> | undefined;
+let serverSummaries: Record<string, ContentItemReactionSummary> = {};
+const upsertAssociation = vi.fn<(association: AssociationRequest) => Promise<unknown>>();
+const removeAssociationByPair = vi.fn<(association: AssociationRequest) => Promise<unknown>>();
+
 vi.mock('../services/foundations/associationService', () => ({
     associationService: {
-        useGetReactionSummaries: () => ({ summaries: {}, isLoading: false, isError: false }),
-        useUpsertAssociation: () => ({ mutateAsync: () => new Promise(() => undefined) }),
-        useRemoveAssociationByPair: () => ({ mutateAsync: () => new Promise(() => undefined) }),
+        useGetReactionSummaries: (contentItemIdPages: ReadonlyArray<ReadonlyArray<string>>) => {
+            handedPages = contentItemIdPages;
+
+            return {
+                summaries: Object.fromEntries(contentItemIdPages
+                    .flat()
+                    .filter((contentItemId) => serverSummaries[contentItemId] !== undefined)
+                    .map((contentItemId) => [contentItemId, serverSummaries[contentItemId]])),
+                isLoading: false,
+                isError: false
+            };
+        },
+
+        useUpsertAssociation: () => ({ mutateAsync: upsertAssociation }),
+        useRemoveAssociationByPair: () => ({ mutateAsync: removeAssociationByPair }),
         useReadReactionSummariesAgain: () => () => new Promise(() => undefined)
     }
 }));
@@ -159,11 +201,91 @@ const contentItemFor = (overrides: Partial<ContentItem> = {}): ContentItem => ({
 const onePage = (items: ContentItem[]): ContentItemPage[] =>
     [{ items, pageIndex: 0, pageSize: 8, hasNextPage: false }];
 
+const LocationProbe = () => {
+    const location = useLocation();
+
+    return <span data-testid="location">{`${location.pathname}${location.search}`}</span>;
+};
+
+const landedOn = (): string | null =>
+    screen.getByTestId('location').textContent;
+
 const renderPosts = (initialUrl = '/posts') =>
     render(
         <MemoryRouter initialEntries={[initialUrl]}>
-            <Posts />
+            <AuthProvider><Posts /></AuthProvider>
+            <LocationProbe />
         </MemoryRouter>);
+
+// Somebody else's devotional: the signed-in account is always user-1.
+const devotionalFor = (id: string): ContentItem =>
+    contentItemFor({
+        id,
+        title: `Devotional ${id}`,
+        createdBy: 'contributor-9',
+        updatedBy: 'contributor-9'
+    });
+
+const pageOf = (pageIndex: number, ids: ReadonlyArray<string>): ContentItemPage => ({
+    items: ids.map(devotionalFor),
+    pageIndex,
+    pageSize: 8,
+    hasNextPage: false
+});
+
+// One item's summary as the server sends it: each reaction given and its count, and the one
+// the reader holds, if any.
+const summaryOf = (
+    contentItemId: string,
+    counts: ReadonlyArray<[string, number]>,
+    viewerReactionName: string | null = null): ContentItemReactionSummary => ({
+    contentItemId,
+    reactions: counts.map(([name, count]) => ({
+        reactionId: reactionNamed(name).id,
+        name,
+        unicodeEmoji: reactionNamed(name).unicodeEmoji,
+        count
+    })),
+    viewerReactionId: viewerReactionName === null ? null : reactionNamed(viewerReactionName).id,
+    viewerReactionName
+});
+
+const cardFor = (contentItemId: string): HTMLElement =>
+    screen.getAllByRole('article').find((card) =>
+        within(card).queryByText(`Devotional ${contentItemId}`) !== null)!;
+
+const reactionCountsOn = (contentItemId: string): HTMLElement =>
+    within(cardFor(contentItemId)).getByRole('button', { name: 'Reaction counts' });
+
+// One reaction's own count on a card, read from the counts' expanded face, which lists each
+// reaction given beside its glyph; the collapsed face shows only their sum.
+const reactionCountOn = async (contentItemId: string, reactionName: string): Promise<string> => {
+    const reactionCounts = reactionCountsOn(contentItemId);
+
+    if (reactionCounts.getAttribute('aria-expanded') !== 'true') {
+        await userEvent.click(reactionCounts);
+    }
+
+    const reaction = within(reactionCountsOn(contentItemId)).getByTitle(reactionName);
+
+    return (reaction.textContent ?? '').replace(reactionNamed(reactionName).unicodeEmoji, '').trim();
+};
+
+// Opens a card's Like control: the reactions it offers, each pressed or not.
+const openLikeOn = async (contentItemId: string): Promise<void> =>
+    await userEvent.click(within(cardFor(contentItemId)).getByRole('button', { name: /Like/ }));
+
+const chooseOn = async (contentItemId: string, reactionName: string): Promise<void> => {
+    await openLikeOn(contentItemId);
+    await userEvent.click(within(cardFor(contentItemId)).getByRole('menuitem', { name: reactionName }));
+};
+
+const reactionPairFor = (contentItemId: string, reactionName: string): AssociationRequest => ({
+    entityAType: EntityType.ContentItem,
+    entityAKeyId: contentItemId,
+    entityBType: EntityType.Reaction,
+    entityBKeyId: reactionNamed(reactionName).id
+});
 
 describe('Posts', () => {
     beforeEach(() => {
@@ -175,6 +297,17 @@ describe('Posts', () => {
         isError = false;
         hasNextPage = false;
         isFetchingNextPage = false;
+        handedPages = undefined;
+        serverSummaries = {};
+        upsertAssociation.mockReset();
+        upsertAssociation.mockImplementation(() => new Promise(() => undefined));
+        removeAssociationByPair.mockReset();
+        removeAssociationByPair.mockImplementation(() => new Promise(() => undefined));
+        signOut(authState);
+    });
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
     });
 
     it('should render the journal and a way into the contribution form', () => {
@@ -375,5 +508,25 @@ describe('Posts', () => {
         // then
         expect(screen.getByRole('alert')).toHaveTextContent(/could not load the journal/);
         expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
+    });
+
+    describe('the Like control', () => {
+        it("should show each card's reaction counts on /posts", () => {
+            // given
+            pages = [pageOf(0, ['devotional-1', 'devotional-2'])];
+
+            serverSummaries = {
+                'devotional-1': summaryOf('devotional-1', [['Love', 3], ['Amen', 2]]),
+                'devotional-2': summaryOf('devotional-2', [['Joy', 7]])
+            };
+
+            // when
+            renderPosts();
+
+            // then
+            expect(handedPages).toEqual([['devotional-1', 'devotional-2']]);
+            expect(reactionCountsOn('devotional-1')).toHaveTextContent('5');
+            expect(reactionCountsOn('devotional-2')).toHaveTextContent('7');
+        });
     });
 });
