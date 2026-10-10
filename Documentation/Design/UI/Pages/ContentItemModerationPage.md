@@ -195,26 +195,16 @@ below are what the page adds: who reaches it, and the card's actions for those w
    answers the list read alone (rule 2.9), so a failed settings read still shows the cards. Evidence:
    `contentItemModerationPage.tsx` — `contentItemSettings ?? []`. Copied from
    `UI/Components/ContentItemPanel.md §10 item 15`, this page's share of it.
-2. (#746) **Page gap — `/Admin/Posts`: the cards show no counts.** A chosen reaction is recorded,
-   changed or cleared by `useContentItemEngagement`, which the page takes `onReactionSelected` from
+2. Built (#746) **`/Admin/Posts`: the page's Like control is wired.** Copied from
+   `UI/Components/ContentItemPanel.md §10 item 17`, this page's share of it. The page hands
+   `useContentItemEngagement` the ids of each page of the queue it has delivered and renders what
+   `withReactions` projects, so each card whose item has a reaction summary shows the reactions it
+   has been given and marks the reader's own (`src/pages/admin/contentItemModerationPage.tsx`, the
+   hook at lines 106-107, the list at lines 138-165, at c8cf628f;
+   `DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; `DesignFeatures/Likes.md` rules 5, 6 and
+   11a; #746). A reaction the reader chooses is recorded, changed or cleared by the same hook
    (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2`; #739), and no signed-out reader chooses
-   one here, because `SecuredRoute` admits none. Copied from
-   `UI/Components/ContentItemPanel.md §10 item 17`, this page's share of it.
-   **The cards' counts are this item's work** (the Likes feature, `DesignFeatures/Likes.md`).
-   The page reads no reaction summary, so no card shows the reactions its item has been given,
-   and the reader's own reaction shows only as the overlay of a choice they have just made
-   (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rule 8), never as the one they hold
-   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-86). So the overlay goes
-   as soon as the write that laid it settles, and a reader who then chooses the reaction they hold
-   gives it again, which leaves it held, rather than withdrawing it: until this item is built, a
-   reaction is withdrawn here only when the reader chooses it again before the write that gave it
-   has settled (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rules 4 and 9). The overlay
-   starts from an empty summary where the item has none, so while a choice's write is pending the
-   card shows the chosen reaction counted 1, whatever the item has been given, and no other count,
-   and none after a withdrawal (`DesignFeatures/UI/Views/ChosenReactionSummary.md §1` rules 1 to 3;
-   `DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rule 5). The page hands
-   `useContentItemEngagement` the ids of each page of cards it has delivered and renders what
-   `withReactions` projects (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
+   one here, because `SecuredRoute` admits none.
 3. (needs issue) **Page gap — `/Admin/Posts`: Save saves nothing.** The page wires *Save* to the
    toast "Saving posts is coming soon.", a dead action (§UI20.6.6 rule 4), as `/myposts` does
    (`UI/Pages/MyPosts.md §6 item 3`). Save has no design yet (§APR9.9 rule 6).
