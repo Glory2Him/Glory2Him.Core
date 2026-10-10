@@ -367,8 +367,32 @@ describe('MyPostDetail', () => {
         expect(await reactionCountOn(cardOf(container), 'Amen')).toBe('2');
     });
 
-    // THE READER'S OWN REACTION, read from the server with the post's counts. Choosing closes
-    // the picker - the panel's own behaviour - so the mark is read by opening it.
+    // A FIRST VISIT: the item's read has not landed when the page first renders, so the hook is
+    // handed no page then, and must be handed the post's id once the read lands.
+    it("should show the post's reaction counts once its read lands on /myposts/{id}", async () => {
+        // given
+        contentItem = undefined;
+        serverSummaries = { 'quote-1': summaryOf([['Love', 3], ['Amen', 2]]) };
+        const { container, rerender } = renderPage();
+        expect(handedPages).toEqual([]);
+
+        // when
+        contentItem = publishedQuote;
+
+        rerender(
+            <MemoryRouter initialEntries={['/myposts/quote-1']}>
+                <AuthProvider>
+                    <MyPostDetail />
+                </AuthProvider>
+            </MemoryRouter>);
+
+        // then
+        expect(handedPages).toEqual([['quote-1']]);
+        expect(await reactionCountOn(cardOf(container), 'Love')).toBe('3');
+    });
+
+    // THE READER'S OWN REACTION, read from the server with the post's counts. The picker opens
+    // only when asked, so the mark is read by opening it.
     it("should mark the reader's own reaction on /myposts/{id}", async () => {
         // given
         contentItem = publishedQuote;
