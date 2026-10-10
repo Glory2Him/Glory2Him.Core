@@ -5,7 +5,7 @@ Inherits: §UI20.9.1, §UI20.9.3, §DOM11.3, `the-standard-reacttypescript-broke
 
 The React app's door to `api/ContentItems`. Two of its members hold logic today (`BrokersHoldNoLogic.md` rule 2). `SearchContentItemsAsync` chooses between three routes by the query's scope, builds a `$filter` from the query's fields, orders and pages the read, and cuts the answer to the page. `DeleteContentItemByIdAsync` trims the deletion reason and leaves a blank one out. The three reads become one member each, sending what they are handed, and so does the delete. `contentItemService` writes what they send (`UI/Foundations/ContentItemService.md`), and the old members go (§UI20.9.3 rule 6).
 
-The three reads differ in what the route accepts. `GET api/ContentItems` and `GET api/ContentItems/Public` carry `[EnableQuery]` and take OData options. `GET api/ContentItems/Feed` carries none: it takes its page as plain `skip` and `take`, and ignores anything dollar-prefixed rather than refusing it (§DOM11.3; `contentItemSearchQuery.ts`).
+The three reads differ in what the route accepts. `GET api/ContentItems` and `GET api/ContentItems/Public` carry `[EnableQuery]` and take OData options. `GET api/ContentItems/Feed` carries none: it takes its page as plain `skip` and `take`, and ignores anything dollar-prefixed rather than refusing it (§DOM11.3; `ContentItemsController.GetContentItemFeed`, which binds `[FromQuery] int? skip, int? take` and carries no `[EnableQuery]`).
 
 ## 1. GetContentItemsAsync (#933)
 
