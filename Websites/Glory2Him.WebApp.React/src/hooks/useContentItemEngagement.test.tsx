@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useContentItemEngagement } from './useContentItemEngagement';
@@ -30,7 +31,13 @@ vi.mock('../services/foundations/associationService', () => ({
         useGetReactionSummaries: (
             contentItemIdPages: ReadonlyArray<ReadonlyArray<string>>,
             readerId: string | null | undefined) =>
-            useGetReactionSummaries(contentItemIdPages, readerId)
+            useGetReactionSummaries(contentItemIdPages, readerId),
+
+        // The hook's writes, which these tests never make: a write made through them stays
+        // pending.
+        useUpsertAssociation: () => ({ mutateAsync: () => new Promise(() => undefined) }),
+        useRemoveAssociationByPair: () => ({ mutateAsync: () => new Promise(() => undefined) }),
+        useReadReactionSummariesAgain: () => () => new Promise(() => undefined)
     }
 }));
 
@@ -68,8 +75,11 @@ const cardFor = (id: string): ContentItemSearchItem => ({
     content: `The words of ${id}.`
 });
 
+// The hook sends a signed-out reader to sign in through useSignIn, which needs a router.
 const wrapper = ({ children }: { children: ReactNode }) => (
-    <AuthProvider>{children}</AuthProvider>
+    <MemoryRouter>
+        <AuthProvider>{children}</AuthProvider>
+    </MemoryRouter>
 );
 
 const renderEngagement = (contentItemIdPages?: ReadonlyArray<ReadonlyArray<string>>) =>

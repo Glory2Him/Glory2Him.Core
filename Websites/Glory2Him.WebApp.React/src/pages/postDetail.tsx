@@ -53,11 +53,11 @@ export function PostDetail() {
         contentItemSettingService.useGetEffectiveSettingsFor(
             contentItemId.length > 0 ? [contentItemId] : []);
 
-    // LIKE, SHARE AND SAVE — the same thin wiring every feed card runs on, so a reader who
+    // LIKE, SHARE AND SAVE — the same wiring every feed card runs on, so a reader who
     // followed a card here meets the controls it offered rather than losing them at the one
-    // address the item permanently has. Share is real (it copies this page's address); the
-    // reaction lives in page state for the visit and Save answers honestly, because both are
-    // ContentItem associations and those have no exposer yet (#318).
+    // address the item permanently has. Share is real (it copies this page's address), and so
+    // is the reaction, which the hook records. Save answers honestly, because Save has no design
+    // yet (`UI/Pages/Home.md §6 item 5`).
     const {
         reactionOptions,
         onReactionSelected,
@@ -89,7 +89,7 @@ export function PostDetail() {
             },
         [contentItem, contentItemSettings, contributor]);
 
-    // The visit's chosen reaction, folded over the projection — and deliberately NOT memoised.
+    // The reader's choice, laid over the projection — and deliberately NOT memoised.
     // withReactions closes over the choices and is rebuilt every render, so a memo listing
     // it recomputes every render and buys nothing, while a memo keyed on readItem alone would go
     // stale the moment the reader chose. The fold is a map over one item; a plain call is the

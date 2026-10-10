@@ -556,9 +556,11 @@ signed-out reader to sign in itself, which rule 3.2.4 leaves to the page (sectio
     `ContentItemListPanel`. Evidence: `contentItemPanel.tsx` — `onReactionSelected` handler,
     `useNavigate` (lines 471-472 at 70dc72e7). This item ships with the pages' half, recorded
     for the three pages a signed-out reader reaches as `UI/Pages/Home.md §6 item 2`,
-    `UI/Pages/Posts.md §6 item 2` and `UI/Pages/PostDetail.md §6 item 2`: no page redirects today, so removing the card's redirect first would leave a signed-out
-    reader's choice shown as given in page state, never recorded, and the reader never sent to
-    sign in — the silent failure #622 moved the redirect into the card to prevent.
+    `UI/Pages/Posts.md §6 item 2` and `UI/Pages/PostDetail.md §6 item 2`:
+    `useContentItemEngagement`, which the seven pages `DesignFeatures/UI/Hooks/ContentItemEngagement.md`
+    names take `onReactionSelected` from, sends a signed-out reader to sign in (its §2 rule 2;
+    #739), so removing the card's redirect leaves no signed-out reader's choice dropped — the
+    silent failure #622 moved the redirect into the card to prevent.
 13. **Note — the lock after review reaches content items, ruled.** This item asked whether the
     user's ruling of 2026-09-26 — the owner may withdraw their submission only while it is Draft
     or Submitted, and once reviewed it is locked — reaches content items, and whether "locked"
@@ -609,7 +611,7 @@ signed-out reader to sign in itself, which rule 3.2.4 leaves to the page (sectio
     a state the design relies on, and rules 2.26 and 2.29 and
     `UI/Components/ContentItemPanel.Default.md rules 2.5 and 3.3.1` stand as written. Holding the
     card is each page's: the pages' gaps are those item 5 lists.
-17. **Moved to the page documents.** Page gap — no page acts on a chosen reaction — now
+17. **Moved to the page documents.** Page gap — the cards show no counts — now
     `UI/Pages/Home.md §6 item 2`, `UI/Pages/Posts.md §6 item 2`, `UI/Pages/PostDetail.md §6 item
     2`, `UI/Pages/MyPosts.md §6 item 2`, `UI/Pages/MyPostDetail.md §6 item 4`,
     `UI/Pages/ContentItemModerationPage.md §6 item 2` and

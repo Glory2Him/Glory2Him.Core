@@ -146,10 +146,16 @@ vi.mock('../services/foundations/reactionService', () => ({
 }));
 
 // The engagement hook reads the cards' reaction summaries through a query, which a harness with
-// no QueryClientProvider cannot hold, so it is mocked and answers none: no card carries counts.
+// no QueryClientProvider cannot hold, so it is mocked and answers no summary: no card carries
+// counts read from the server, and a chosen reaction's overlay shows its counts while its write
+// is pending. Its writes are mutations, mocked for the same reason, and a write made through
+// them stays pending for the length of the test.
 vi.mock('../services/foundations/associationService', () => ({
     associationService: {
-        useGetReactionSummaries: () => ({ summaries: {}, isLoading: false, isError: false })
+        useGetReactionSummaries: () => ({ summaries: {}, isLoading: false, isError: false }),
+        useUpsertAssociation: () => ({ mutateAsync: () => new Promise(() => undefined) }),
+        useRemoveAssociationByPair: () => ({ mutateAsync: () => new Promise(() => undefined) }),
+        useReadReactionSummariesAgain: () => () => new Promise(() => undefined)
     }
 }));
 
@@ -452,8 +458,8 @@ describe('PostDetail', () => {
     });
 
     // Choosing CLOSES the picker — the panel's own behaviour — so both tests below reopen it
-    // to read the mark back. The card itself shows nothing yet: a summary needs counts, and
-    // those arrive with the association reads (#318).
+    // to read the mark back. While the choice's write is pending the card shows the counts of
+    // its overlay, and it shows no counts read from the server until #743.
     const chooseReaction = async () => {
         await userEvent.click(screen.getByRole('button', { name: /Like/ }));
         await userEvent.click(screen.getByRole('menuitem', { name: 'Amen' }));
@@ -474,9 +480,9 @@ describe('PostDetail', () => {
         // when
         await chooseReaction();
 
-        // then: the choice reached the CARD, which is what this page's fold of the visit's
-        // reactions into its one projection is for. Nothing is persisted — the write lands
-        // with the association exposer (#318)
+        // then: the mark is the overlay of a choice still being recorded — the write stays
+        // pending for the length of this test, and the overlay stands until the read that
+        // follows it lands — until #743 (criterion 2) brings this test to what the page does
         expect(await reopenPicker()).toHaveAttribute('aria-pressed', 'true');
     });
 

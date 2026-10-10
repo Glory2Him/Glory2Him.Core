@@ -144,10 +144,16 @@ vi.mock('../../services/foundations/reactionService', () => ({
 }));
 
 // The engagement hook reads the cards' reaction summaries through a query, which a harness with
-// no QueryClientProvider cannot hold, so it is mocked and answers none: no card carries counts.
+// no QueryClientProvider cannot hold, so it is mocked and answers no summary: no card carries
+// counts read from the server, and a chosen reaction's overlay shows its counts while its write
+// is pending. Its writes are mutations, mocked for the same reason, and a write made through
+// them stays pending for the length of the test.
 vi.mock('../../services/foundations/associationService', () => ({
     associationService: {
-        useGetReactionSummaries: () => ({ summaries: {}, isLoading: false, isError: false })
+        useGetReactionSummaries: () => ({ summaries: {}, isLoading: false, isError: false }),
+        useUpsertAssociation: () => ({ mutateAsync: () => new Promise(() => undefined) }),
+        useRemoveAssociationByPair: () => ({ mutateAsync: () => new Promise(() => undefined) }),
+        useReadReactionSummariesAgain: () => () => new Promise(() => undefined)
     }
 }));
 
@@ -481,7 +487,9 @@ describe('ContentItemModerationDetailPage', () => {
             // when
             await userEvent.click(screen.getByRole('button', { name: /Like/ }));
 
-            // then
+            // then: the mark is the overlay of a choice still being recorded — the write
+            // stays pending for the length of this test, and the overlay stands until the read
+            // that follows it lands — until #747 brings this test to what the page does
             expect(screen.getByRole('menuitem', { name: 'Amen' }))
                 .toHaveAttribute('aria-pressed', 'true');
         });

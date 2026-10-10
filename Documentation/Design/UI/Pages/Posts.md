@@ -104,7 +104,7 @@ the heading.
 | Property | Value | Why |
 | --- | --- | --- |
 | `ariaLabel` | `The journal` | Names the list for assistive technology; the page's `h1` stands outside it. |
-| `contentItemCollection` | The accumulated rows of the read, each projected with its winning setting, with the reaction this visitor chose this visit folded in; the read is the caller-scoped one today (item 6) | Rules 2.2, 2.5 and 2.6. |
+| `contentItemCollection` | The accumulated rows of the read, each projected with its winning setting, with `withReactions` laying on each item its reaction summary, where one has been read, and the overlay of a choice the reader has just made (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1 and §2`); the read is the caller-scoped one today (item 6) | Rules 2.2, 2.5 and 2.6. |
 | `categorySettingCollection` | The effective settings read — defaults plus the overrides of the items on screen | The bar's Category box lists the defaults alone (`UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md rule 2.5`). |
 | `criteria` | Read off the URL | Rules 2.3, 2.21 and 2.22. |
 | `isLoading`, `isLoadingMore`, `hasMore` | The infinite read's state | Rule 2.6. |
@@ -159,8 +159,8 @@ list's per-surface defaults (section 4.1).
 | View's hook ≠ item 3 | View is clicked | Navigates to `/posts/{id}` (rule 2.8) | ❌ No — the card has no View yet (`UI/Components/ContentItemPanel.md §10 item 20`); item 3 |
 | `onEditClick` ≠ item 3 | The owner's Edit is clicked — labelled *View* today | Navigates to `/myposts/{id}`, opened in edit mode (rule 2.9) | ❌ No — it navigates to `/posts/{id}` with `edit: true`, which that page never reads (`posts.tsx`, lines 99-102); item 3 |
 | `onModerateClick` ≠ `UI/Pages/ContentItemModerationDetailPage.md §6 item 1` | Moderate is clicked | Navigates to `/Admin/Posts/{id}`, carrying `from` and `moderate: true` (rule 2.10) | ✅ Yes (`posts.tsx`, lines 104-107) |
-| `onReactionSelected` ≠ item 2 | A reaction is chosen, whatever the sign-in state | Sends a signed-out reader to sign in; records, changes or clears a signed-in reader's own reaction (rule 2.15) | ❌ No — the choice is held in page state for the visit; the card redirects a signed-out reader itself (`UI/Components/ContentItemPanel.md §10 item 12`); item 2 |
-| `onShareClick` | Share is clicked | Copies `/posts/{id}` and says so (rule 2.16) | ✅ Yes (`useContentItemEngagement.ts`, lines 62-67) |
+| `onReactionSelected` ≠ item 2 | A reaction is chosen, whatever the sign-in state | Sends a signed-out reader to sign in; records, changes or clears a signed-in reader's own reaction (rule 2.15) | ❌ No — the card redirects a signed-out reader itself (`UI/Components/ContentItemPanel.md §10 item 12`); item 2 |
+| `onShareClick` | Share is clicked | Copies `/posts/{id}` and says so (rule 2.16) | ✅ Yes (`useContentItemEngagement.ts`, lines 210-215 at 3a824fc6) |
 | `onSaveClick` ≠ item 4 | Save is clicked | Nothing designed yet (rule 2.17) | ❌ No — it says *Saving posts is coming soon.* (`useContentItemEngagement.ts` — `onSaveClick`); item 4 |
 | `onTagClick`, `onBibleReferenceClick`, `onContentTypeClick`, `onSubmittedByClick`, `onAuthorClick` | A pill or a meta segment is clicked | The list wraps them (section 4.1) | As section 4.1 |
 | `onAdded`, `onModified`, `onRemoved`, `onCancelled` | Never on a listed card | — | *Not wired — switched off*: the list carries none of the writing faces' properties (rule 2.20) |
@@ -218,22 +218,31 @@ Every write a card leads to is decided again by the service (§SEC14.6).
    `contentItemSettings ?? []` (lines 81 and 131). The page's alert answers the list read alone
    (rule 2.18), so a failed settings read still shows the cards. The same gap on `/` is
    `UI/Pages/Home.md §6 item 1`.
-2. (#742) **Page gap — the page does not act on a chosen reaction.** Copied from
+2. (#742) **Page gap — the cards show no counts.** Copied from
    `UI/Components/ContentItemPanel.md §10 item 17`, this page's share. A signed-out reader who
    chooses a reaction is to be sent to sign in, with return information that brings them back
    afterwards, and a signed-in reader's reaction recorded or cleared
    (`UI/Components/ContentItemPanel.md rule 3.2.4`). The page takes `onReactionSelected` from
-   `useContentItemEngagement`, which only toggles the choice in page state for the visit, whatever
-   the reader's sign-in state (`src/hooks/useContentItemEngagement.ts` — `onReactionSelected`);
-   the card redirects a signed-out reader itself (`UI/Components/ContentItemPanel.md §10 item 12`, which this item ships
-   with). Recording the reader's own reaction (§ARC16.8.1, served by #728) and withdrawing it (its member built by #725, its route not yet) are this item's work, and so is the redirect, which uses
-   the one reusable sign-in action (`UI/Pages/Home.md §6 item 3`), and must not fire while the
-   reader's sign-in state is still being read — the guard the card holds today. The same gap on
+   `useContentItemEngagement`, which records, changes or clears a signed-in reader's reaction, and
+   sends a signed-out reader to sign in through the one reusable sign-in action
+   (`UI/Pages/Home.md §6 item 3`), never while the reader's sign-in state is still being read
+   (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rules 1 to 4; #739). The card raises the
+   hook for a signed-out reader only once `UI/Components/ContentItemPanel.md §10 item 12` (#740)
+   lands, which this item ships with, and until then sends them to sign in itself. The same gap on
    `/` is `UI/Pages/Home.md §6 item 2`, whose evidence stands for this page too.
-   **The cards' counts are this item's work too** (the Likes feature, `DesignFeatures/Likes.md`).
+   **The cards' counts are this item's work** (the Likes feature, `DesignFeatures/Likes.md`).
    The page reads no reaction summary, so no card shows the reactions its item has been given,
-   and the reader's own reaction is the visit's page state rather than the one they hold
-   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-86). The page hands
+   and the reader's own reaction shows only as the overlay of a choice they have just made
+   (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rule 8), never as the one they hold
+   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-86). So the overlay goes
+   as soon as the write that laid it settles, and a reader who then chooses the reaction they hold
+   gives it again, which leaves it held, rather than withdrawing it: until this item is built, a
+   reaction is withdrawn here only when the reader chooses it again before the write that gave it
+   has settled (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rules 4 and 9). The overlay
+   starts from an empty summary where the item has none, so while a choice's write is pending the
+   card shows the chosen reaction counted 1, whatever the item has been given, and no other count,
+   and none after a withdrawal (`DesignFeatures/UI/Views/ChosenReactionSummary.md §1` rules 1 to 3;
+   `DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rule 5). The page hands
    `useContentItemEngagement` the ids of each page of cards it has delivered and renders what
    `withReactions` projects (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
 3. (needs issue) **View and Edit lead to the wrong places.** Rules 2.8 and 2.9 send View to

@@ -1070,9 +1070,9 @@ describe('ContentItemPanel', () => {
             expect(screen.queryByText(/sign in/i)).not.toBeInTheDocument();
         });
 
-        // VACUOUS UNTIL #620 BUILDS AN OPTIMISTIC COUNT, and kept deliberately: it is the
-        // regression guard that keeps one from appearing for a reader whose reaction was
-        // never recorded. It earns a re-run when #620 lands.
+        // IT GUARDS THE CARD ALONE, which moves no count of its own: the handler here is a stub,
+        // so the engagement hook's overlay is out of its sight. Criteria 9, 10 and 16 of #739
+        // guard the overlay for a reader who is not signed in.
         it('should move no count when a signed-out reader chooses a reaction', async () => {
             // given
             signOut(authState);
