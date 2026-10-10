@@ -17,8 +17,8 @@ import {
 
 // The composition: the bar, the results and the filter semantics of the card hooks. The card's
 // own rendering is contentItemPanel.test.tsx's subject; here the cards matter only as the
-// places the filter clicks come from. A router stands over every render: the card sends a
-// signed-out reader to sign in when they choose a reaction, which is a navigation.
+// places the filter clicks come from. A router stands over every render, as one stands over
+// every page the list is rendered on.
 const render = (ui: ReactElement) =>
     renderBare(<MemoryRouter>{ui}</MemoryRouter>);
 

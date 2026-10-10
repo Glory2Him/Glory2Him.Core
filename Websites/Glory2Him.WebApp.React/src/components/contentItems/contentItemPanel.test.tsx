@@ -21,16 +21,15 @@ import {
 // collection, so every gate below is exercised by varying the element itself, which is exactly
 // how a consumer changes one card without refetching a list.
 //
-// A router stands over every render, because one affordance is not an event: a signed-out
-// reader choosing a reaction is sent to sign in, and the card performs that navigation itself.
-// The auth double IS here, because three of the card's decisions are identity decisions: Edit
-// belongs to the item's own submitter, Moderate to the moderation tier, and a reaction to a
-// reader who is signed in at all. Render gates only — the server re-decides every write
-// against the stored row.
+// A router stands over every render, as one stands over every page the card is rendered on.
+// The auth double IS here, because two of the card's decisions are identity decisions: Edit
+// belongs to the item's own submitter, and Moderate to the moderation tier. A reaction is not
+// one: the card raises it for every reader, and what follows is the page's (rule 3.2.4).
+// Render gates only — the server re-decides every write against the stored row.
 const authState = createAuthState();
 
-// The sign-in redirect a signed-out reader's reaction triggers is a navigation, so the router's
-// navigate is doubled here and asserted directly - the same double the pages already use.
+// The router's navigate is doubled here and asserted directly, so a test can prove the card
+// navigates nowhere - the same double the pages already use.
 const navigate = vi.fn();
 
 vi.mock('../../services/foundations/accountService', () => ({
@@ -45,18 +44,15 @@ vi.mock('react-router-dom', async () => {
     return { ...actual, useNavigate: () => navigate };
 });
 
-// The path is a PARAMETER, because the return address the card computes is only proven to
-// track the page if more than one page is exercised: pinned to a single entry, a hard-coded
-// constant is indistinguishable from `location.pathname`. The default is kept for the
-// renders that do not care.
+// The path is a PARAMETER, so a test can place the card on the page it is about. The default
+// is kept for the renders that do not care.
 const renderCard = (ui: ReactElement, path: string = '/myposts/devotional-1') => {
     const rendered = render(
         <MemoryRouter initialEntries={[path]}>
             <AuthProvider>{ui}</AuthProvider>
         </MemoryRouter>);
 
-    // A rerender replaces the whole tree, so the router has to be put back with it — the card
-    // reads the location it would send a signed-out reader back to.
+    // A rerender replaces the whole tree, so the router has to be put back with it.
     return {
         ...rendered,
         rerender: (nextUi: ReactElement) =>
@@ -939,8 +935,8 @@ describe('ContentItemPanel', () => {
 
     describe('giving a reaction', () => {
         it('should open the choices from Like and raise the selection', async () => {
-            // A signed-in reader: choosing is a write, and a signed-out reader is sent to sign
-            // in instead of raising it. Bryan submitted this quote, not the test user.
+            // A signed-in reader: choosing is a write. Bryan submitted this quote, not the
+            // test user.
             signInAs(authState);
             const onReactionSelected = vi.fn();
 
@@ -1122,9 +1118,9 @@ describe('ContentItemPanel', () => {
 
         // NOT SIGNED OUT — NOT YET KNOWN. `isAuthenticated` collapses "no session" and "we
         // have not read one yet" into false, and every full page load starts in the second
-        // state with the cards already on screen. Deciding a navigation there sends a reader
-        // holding a valid session to the sign-in screen, so the card refuses to decide while
-        // the read is unresolved, exactly as SecuredRoute does.
+        // state with the cards already on screen. The card raises the hook here as it does
+        // for every reader, and the page's engagement hook does nothing with a choice while
+        // the reader is not yet known (#739).
         it('should not send a reader to sign in while the sign-in state is still unknown',
             async () => {
             // given
