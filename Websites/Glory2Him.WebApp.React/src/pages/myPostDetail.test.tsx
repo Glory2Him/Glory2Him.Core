@@ -4,6 +4,9 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MyPostDetail } from './myPostDetail';
 import { AuthProvider } from '../components/securitys/authProvider';
+import { EntityType } from '../models/foundations/approvalSettings/approvalSetting';
+import { AssociationRequest } from '../models/foundations/associations/associationRequest';
+import { ContentItemReactionSummary } from '../models/foundations/associations/contentItemReactionSummary';
 import { ContentItem } from '../models/foundations/contentItems/contentItem';
 import { ContentType } from '../models/foundations/contentItemSettings/contentType';
 import { ApprovalStatus } from '../models/components/contentItems/contentItemFormItem';
@@ -89,16 +92,34 @@ vi.mock('../services/foundations/reactionService', () => ({
     }
 }));
 
-// The engagement hook reads the cards' reaction summaries through a query, which a harness with
-// no QueryClientProvider cannot hold, so it is mocked and answers no summary: no card carries
-// counts read from the server, and a chosen reaction's overlay shows its counts while its write
-// is pending. Its writes are mutations, mocked for the same reason, and a write made through
-// them stays pending for the length of the test.
+// The engagement hook reads the card's reaction summary through a query, which a harness with
+// no QueryClientProvider cannot hold, so it is mocked. It answers only for the ids it is handed,
+// as the real one does, and only what a test puts in serverSummaries: the real read answers only
+// for a publicly visible item. Its writes are mutations, mocked for the same reason, and a write
+// made through them stays pending for the length of the test, so a chosen reaction's overlay
+// stands.
+let handedPages: ReadonlyArray<ReadonlyArray<string>> | undefined;
+let serverSummaries: Record<string, ContentItemReactionSummary> = {};
+const upsertAssociation = vi.fn<(association: AssociationRequest) => Promise<unknown>>();
+const removeAssociationByPair = vi.fn<(association: AssociationRequest) => Promise<unknown>>();
+
 vi.mock('../services/foundations/associationService', () => ({
     associationService: {
-        useGetReactionSummaries: () => ({ summaries: {}, isLoading: false, isError: false }),
-        useUpsertAssociation: () => ({ mutateAsync: () => new Promise(() => undefined) }),
-        useRemoveAssociationByPair: () => ({ mutateAsync: () => new Promise(() => undefined) }),
+        useGetReactionSummaries: (contentItemIdPages: ReadonlyArray<ReadonlyArray<string>>) => {
+            handedPages = contentItemIdPages;
+
+            return {
+                summaries: Object.fromEntries(contentItemIdPages
+                    .flat()
+                    .filter((contentItemId) => serverSummaries[contentItemId] !== undefined)
+                    .map((contentItemId) => [contentItemId, serverSummaries[contentItemId]])),
+                isLoading: false,
+                isError: false
+            };
+        },
+
+        useUpsertAssociation: () => ({ mutateAsync: upsertAssociation }),
+        useRemoveAssociationByPair: () => ({ mutateAsync: removeAssociationByPair }),
         useReadReactionSummariesAgain: () => () => new Promise(() => undefined)
     }
 }));
@@ -129,6 +150,61 @@ const draftQuote: ContentItem = {
     deletionReason: null
 };
 
+// The same quote once it is publicly visible: approved and published, the one state the
+// summaries read answers for (Likes.md rule 11a).
+const publishedQuote: ContentItem = {
+    ...draftQuote,
+    publishDate: '2026-07-03T00:00:00Z',
+    isPublished: true,
+    approvalStatus: ApprovalStatus.Approved
+};
+
+const reactionIdOf = (name: string): string => name === 'Amen' ? 'reaction-1' : 'reaction-2';
+const unicodeEmojiOf = (name: string): string => name === 'Amen' ? '👍' : '❤️';
+
+// The post's summary as the server sends it: each reaction given and its count, and the one the
+// reader holds, if any.
+const summaryOf = (
+    counts: ReadonlyArray<[string, number]>,
+    viewerReactionName: string | null = null): ContentItemReactionSummary => ({
+    contentItemId: 'quote-1',
+    reactions: counts.map(([name, count]) => ({
+        reactionId: reactionIdOf(name),
+        name,
+        unicodeEmoji: unicodeEmojiOf(name),
+        count
+    })),
+    viewerReactionId: viewerReactionName === null ? null : reactionIdOf(viewerReactionName),
+    viewerReactionName
+});
+
+const reactionCounts = (): HTMLElement =>
+    screen.getByRole('button', { name: 'Reaction counts' });
+
+// One reaction's own count, read from the counts' expanded face, which lists each reaction
+// given beside its glyph; the collapsed face shows only their sum.
+const reactionCountOf = async (reactionName: string): Promise<string> => {
+    if (reactionCounts().getAttribute('aria-expanded') !== 'true') {
+        await userEvent.click(reactionCounts());
+    }
+
+    const reaction = within(reactionCounts()).getByTitle(reactionName);
+
+    return (reaction.textContent ?? '').replace(unicodeEmojiOf(reactionName), '').trim();
+};
+
+const chooseReaction = async (reactionName: string): Promise<void> => {
+    await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+    await userEvent.click(screen.getByRole('menuitem', { name: reactionName }));
+};
+
+const reactionPairFor = (reactionName: string): AssociationRequest => ({
+    entityAType: EntityType.ContentItem,
+    entityAKeyId: 'quote-1',
+    entityBType: EntityType.Reaction,
+    entityBKeyId: reactionIdOf(reactionName)
+});
+
 const renderPage = (initialEntry: Parameters<typeof MemoryRouter>[0]['initialEntries'] extends
     ReadonlyArray<infer T> | undefined ? T : never = '/myposts/quote-1') =>
     render(
@@ -145,6 +221,12 @@ describe('MyPostDetail', () => {
         modifiedWith.mockResolvedValue(undefined);
         effectiveSettings = [quoteSetting];
         signInAs(authState, ['Users']);
+        handedPages = undefined;
+        serverSummaries = {};
+        upsertAssociation.mockReset();
+        upsertAssociation.mockReturnValue(new Promise(() => undefined));
+        removeAssociationByPair.mockReset();
+        removeAssociationByPair.mockReturnValue(new Promise(() => undefined));
     });
 
     it('should offer the way back to my posts', () => {
@@ -281,6 +363,19 @@ describe('MyPostDetail', () => {
             expect(screen.getByRole('menuitem', { name: 'Amen' }))
                 .toHaveAttribute('aria-pressed', 'true');
         });
+
+    it("should show the post's reaction counts on /myposts/{id}", () => {
+        // given
+        contentItem = publishedQuote;
+        serverSummaries = { 'quote-1': summaryOf([['Amen', 2], ['Love', 3]]) };
+
+        // when
+        renderPage();
+
+        // then
+        expect(handedPages).toEqual([['quote-1']]);
+        expect(reactionCounts()).toHaveTextContent('5');
+    });
 
     /// THE SAVE IS REAL, and it replaced a local merge that could only ever carry the fields
     /// somebody remembered to list. That list held the content fields and not approvalStatus,
