@@ -86,8 +86,14 @@ export function Posts() {
 
     const feedNavigation = buildContentItemFeedNavigation(navigate, location);
 
+    // Each page of results as it was delivered: the summaries read asks once per page it is
+    // handed, so a page loaded later reads its own ids and the earlier pages keep their counts.
+    const contentItemIdPages = useMemo(
+        () => (data?.pages ?? []).map((page) => page.items.map((item) => item.id)),
+        [data]);
+
     const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withReactions } =
-        useContentItemEngagement();
+        useContentItemEngagement(contentItemIdPages);
 
     // Edit renders only for the item's own submitter and Moderate only for the moderation
     // tier — ContentItemPanel decides both from the signed-in identity, so this page

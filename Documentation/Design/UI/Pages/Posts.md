@@ -218,32 +218,18 @@ Every write a card leads to is decided again by the service (§SEC14.6).
    `contentItemSettings ?? []` (lines 81 and 131). The page's alert answers the list read alone
    (rule 2.18), so a failed settings read still shows the cards. The same gap on `/` is
    `UI/Pages/Home.md §6 item 1`.
-2. (#742) **Page gap — the cards show no counts.** Copied from
-   `UI/Components/ContentItemPanel.md §10 item 17`, this page's share. A signed-out reader who
-   chooses a reaction is to be sent to sign in, with return information that brings them back
-   afterwards, and a signed-in reader's reaction recorded or cleared
-   (`UI/Components/ContentItemPanel.md rule 3.2.4`). The page takes `onReactionSelected` from
-   `useContentItemEngagement`, which records, changes or clears a signed-in reader's reaction, and
-   sends a signed-out reader to sign in through the one reusable sign-in action
-   (`UI/Pages/Home.md §6 item 3`), never while the reader's sign-in state is still being read
-   (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rules 1 to 4; #739). The card raises the
-   hook for every reader (`UI/Components/ContentItemPanel.md §10 item 12`; #740). The same work on
-   `/` is `UI/Pages/Home.md §6 item 2`.
-   **The cards' counts are this item's work** (the Likes feature, `DesignFeatures/Likes.md`).
-   The page reads no reaction summary, so no card shows the reactions its item has been given,
-   and the reader's own reaction shows only as the overlay of a choice they have just made
-   (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rule 8), never as the one they hold
-   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-86). So the overlay goes
-   as soon as the write that laid it settles, and a reader who then chooses the reaction they hold
-   gives it again, which leaves it held, rather than withdrawing it: until this item is built, a
-   reaction is withdrawn here only when the reader chooses it again before the write that gave it
-   has settled (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rules 4 and 9). The overlay
-   starts from an empty summary where the item has none, so while a choice's write is pending the
-   card shows the chosen reaction counted 1, whatever the item has been given, and no other count,
-   and none after a withdrawal (`DesignFeatures/UI/Views/ChosenReactionSummary.md §1` rules 1 to 3;
-   `DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rule 5). The page hands
-   `useContentItemEngagement` the ids of each page of cards it has delivered and renders what
-   `withReactions` projects (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
+2. Built (#742) **The page's Like control is wired.** Copied from
+   `UI/Components/ContentItemPanel.md §10 item 17`, this page's share. The page hands
+   `useContentItemEngagement` the ids of each page of results it has delivered and renders what
+   `withReactions` projects, so each card whose item has a reaction summary shows the reactions it
+   has been given and marks the reader's own (`src/pages/posts.tsx`, the hook at lines 95-96, the
+   list at lines 134-153, at 8447db5d; `DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`;
+   `DesignFeatures/Likes.md` rules 5, 6 and 11a; #742). A reaction the reader chooses is recorded,
+   changed or cleared by the same hook, which sends a signed-out reader to sign in through the one
+   reusable sign-in action (`UI/Pages/Home.md §6 item 3`), never while the reader's sign-in state
+   is still being read (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rules 1 to 4; #739),
+   and the card raises the hook for every reader (`UI/Components/ContentItemPanel.md §10 item 12`;
+   #740). The same work on `/` is `UI/Pages/Home.md §6 item 2`.
 3. (needs issue) **View and Edit lead to the wrong places.** Rules 2.8 and 2.9 send View to
    `/posts/{id}` and the owner's Edit to `/myposts/{id}` in edit mode. The card has no View
    (`UI/Components/ContentItemPanel.md §10 item 20`), and the list relabels the owner's Edit as
