@@ -583,5 +583,128 @@ describe('Posts', () => {
             expect(reactionCountsOn('devotional-4')).toHaveTextContent('4');
             expect(reactionCountsOn('devotional-5')).toHaveTextContent('6');
         });
+
+        it("should mark the reader's own reaction on /posts", async () => {
+            // given
+            signInAs(authState, ['Users']);
+            pages = [pageOf(0, ['devotional-1'])];
+
+            serverSummaries = {
+                'devotional-1': summaryOf('devotional-1', [['Love', 3], ['Amen', 2]], 'Love')
+            };
+
+            renderPosts();
+
+            // when
+            await openLikeOn('devotional-1');
+
+            // then
+            expect(within(cardFor('devotional-1')).getByRole('menuitem', { name: 'Love' }))
+                .toHaveAttribute('aria-pressed', 'true');
+
+            expect(within(cardFor('devotional-1')).getByRole('menuitem', { name: 'Amen' }))
+                .toHaveAttribute('aria-pressed', 'false');
+        });
+
+        it('should record a chosen reaction on /posts', async () => {
+            // given
+            signInAs(authState, ['Users']);
+            pages = [pageOf(0, ['devotional-1'])];
+
+            serverSummaries = {
+                'devotional-1': summaryOf('devotional-1', [['Love', 3], ['Amen', 2]])
+            };
+
+            renderPosts();
+
+            // when
+            await chooseOn('devotional-1', 'Love');
+
+            // then
+            expect(upsertAssociation).toHaveBeenCalledTimes(1);
+            expect(upsertAssociation).toHaveBeenCalledWith(reactionPairFor('devotional-1', 'Love'));
+            expect(removeAssociationByPair).not.toHaveBeenCalled();
+            expect(await reactionCountOn('devotional-1', 'Love')).toBe('4');
+            expect(await reactionCountOn('devotional-1', 'Amen')).toBe('2');
+
+            await openLikeOn('devotional-1');
+
+            expect(within(cardFor('devotional-1')).getByRole('menuitem', { name: 'Love' }))
+                .toHaveAttribute('aria-pressed', 'true');
+        });
+
+        it('should withdraw a reaction chosen again on /posts', async () => {
+            // given
+            signInAs(authState, ['Users']);
+            pages = [pageOf(0, ['devotional-1'])];
+
+            serverSummaries = {
+                'devotional-1': summaryOf('devotional-1', [['Love', 3], ['Amen', 2]], 'Love')
+            };
+
+            renderPosts();
+
+            // when
+            await chooseOn('devotional-1', 'Love');
+
+            // then
+            expect(removeAssociationByPair).toHaveBeenCalledTimes(1);
+
+            expect(removeAssociationByPair)
+                .toHaveBeenCalledWith(reactionPairFor('devotional-1', 'Love'));
+
+            expect(upsertAssociation).not.toHaveBeenCalled();
+
+            await openLikeOn('devotional-1');
+
+            within(cardFor('devotional-1')).getAllByRole('menuitem').forEach((choice) =>
+                expect(choice).toHaveAttribute('aria-pressed', 'false'));
+        });
+    });
+
+    describe('the Like control for a reader who is not signed in', () => {
+        it('should send a signed-out reader to sign in and back to the same search on /posts',
+            async () => {
+            // given
+            signOut(authState);
+            pages = [pageOf(0, ['devotional-1'])];
+
+            serverSummaries = {
+                'devotional-1': summaryOf('devotional-1', [['Love', 3]])
+            };
+
+            renderPosts('/posts?q=grace');
+
+            // when
+            await chooseOn('devotional-1', 'Love');
+
+            // then
+            expect(upsertAssociation).not.toHaveBeenCalled();
+            expect(removeAssociationByPair).not.toHaveBeenCalled();
+
+            expect(landedOn())
+                .toBe(`/Account/Login?returnUrl=${encodeURIComponent('/posts?q=grace')}`);
+        });
+
+        it('should do nothing with a reaction while the sign-in state is unknown on /posts',
+            async () => {
+            // given
+            setLoading(authState);
+            pages = [pageOf(0, ['devotional-1'])];
+
+            serverSummaries = {
+                'devotional-1': summaryOf('devotional-1', [['Love', 3]])
+            };
+
+            renderPosts();
+
+            // when
+            await chooseOn('devotional-1', 'Love');
+
+            // then
+            expect(upsertAssociation).not.toHaveBeenCalled();
+            expect(removeAssociationByPair).not.toHaveBeenCalled();
+            expect(landedOn()).toBe('/posts');
+        });
     });
 });
