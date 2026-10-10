@@ -507,6 +507,83 @@ describe('The content item feed pages', () => {
                 expect(reactionCountsOn('post-4')).toHaveTextContent('4');
                 expect(reactionCountsOn('post-5')).toHaveTextContent('6');
             });
+
+            it("should mark the reader's own reaction on /myposts", async () => {
+                // given
+                signInAs(authState, ['Users']);
+                pages = [pageOf(0, ['post-1'])];
+
+                serverSummaries = {
+                    'post-1': summaryOf('post-1', [['Love', 3], ['Amen', 2]], 'Love')
+                };
+
+                renderPage(<MyPosts />, '/myposts');
+
+                // when
+                await openLikeOn('post-1');
+
+                // then
+                expect(within(cardFor('post-1')).getByRole('menuitem', { name: 'Love' }))
+                    .toHaveAttribute('aria-pressed', 'true');
+
+                expect(within(cardFor('post-1')).getByRole('menuitem', { name: 'Amen' }))
+                    .toHaveAttribute('aria-pressed', 'false');
+            });
+
+            it('should record a chosen reaction on /myposts', async () => {
+                // given
+                signInAs(authState, ['Users']);
+                pages = [pageOf(0, ['post-1'])];
+
+                serverSummaries = {
+                    'post-1': summaryOf('post-1', [['Love', 3], ['Amen', 2]])
+                };
+
+                renderPage(<MyPosts />, '/myposts');
+
+                // when
+                await chooseOn('post-1', 'Love');
+
+                // then
+                expect(upsertAssociation).toHaveBeenCalledTimes(1);
+                expect(upsertAssociation).toHaveBeenCalledWith(reactionPairFor('post-1', 'Love'));
+                expect(removeAssociationByPair).not.toHaveBeenCalled();
+                expect(await reactionCountOn('post-1', 'Love')).toBe('4');
+                expect(await reactionCountOn('post-1', 'Amen')).toBe('2');
+
+                await openLikeOn('post-1');
+
+                expect(within(cardFor('post-1')).getByRole('menuitem', { name: 'Love' }))
+                    .toHaveAttribute('aria-pressed', 'true');
+            });
+
+            it('should withdraw a reaction chosen again on /myposts', async () => {
+                // given
+                signInAs(authState, ['Users']);
+                pages = [pageOf(0, ['post-1'])];
+
+                serverSummaries = {
+                    'post-1': summaryOf('post-1', [['Love', 3], ['Amen', 2]], 'Love')
+                };
+
+                renderPage(<MyPosts />, '/myposts');
+
+                // when
+                await chooseOn('post-1', 'Love');
+
+                // then
+                expect(removeAssociationByPair).toHaveBeenCalledTimes(1);
+
+                expect(removeAssociationByPair)
+                    .toHaveBeenCalledWith(reactionPairFor('post-1', 'Love'));
+
+                expect(upsertAssociation).not.toHaveBeenCalled();
+
+                await openLikeOn('post-1');
+
+                within(cardFor('post-1')).getAllByRole('menuitem').forEach((choice) =>
+                    expect(choice).toHaveAttribute('aria-pressed', 'false'));
+            });
         });
     });
 
