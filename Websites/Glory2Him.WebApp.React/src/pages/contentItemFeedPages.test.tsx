@@ -466,6 +466,47 @@ describe('The content item feed pages', () => {
                 expect(reactionCountsOn('post-1')).toHaveTextContent('5');
                 expect(reactionCountsOn('post-2')).toHaveTextContent('7');
             });
+
+            // EACH PAGE AS IT WAS DELIVERED: asking for the third page's ids alone is the
+            // summaries read's, one query per page it is handed, so the page hands every page
+            // it holds and the first two pages' cards keep their counts.
+            it('should hand the engagement hook every page delivered on /myposts', async () => {
+                // given
+                signInAs(authState, ['Users']);
+                pages = [pageOf(0, ['post-1', 'post-2']), pageOf(1, ['post-3'])];
+                undeliveredPages = [pageOf(2, ['post-4', 'post-5'])];
+                hasNextPage = true;
+
+                // Without an IntersectionObserver the list offers Load more, a press the test
+                // can make.
+                vi.stubGlobal('IntersectionObserver', undefined);
+
+                serverSummaries = {
+                    'post-1': summaryOf('post-1', [['Love', 1]]),
+                    'post-2': summaryOf('post-2', [['Amen', 2]]),
+                    'post-3': summaryOf('post-3', [['Joy', 3]]),
+                    'post-4': summaryOf('post-4', [['Love', 4]]),
+                    'post-5': summaryOf('post-5', [['Amen', 5], ['Joy', 1]])
+                };
+
+                renderPage(<MyPosts />, '/myposts');
+
+                // when
+                await userEvent.click(screen.getByRole('button', { name: 'Load more' }));
+
+                // then
+                expect(handedPages).toEqual([
+                    ['post-1', 'post-2'],
+                    ['post-3'],
+                    ['post-4', 'post-5']
+                ]);
+
+                expect(reactionCountsOn('post-1')).toHaveTextContent('1');
+                expect(reactionCountsOn('post-2')).toHaveTextContent('2');
+                expect(reactionCountsOn('post-3')).toHaveTextContent('3');
+                expect(reactionCountsOn('post-4')).toHaveTextContent('4');
+                expect(reactionCountsOn('post-5')).toHaveTextContent('6');
+            });
         });
     });
 
