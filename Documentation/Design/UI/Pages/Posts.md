@@ -227,8 +227,8 @@ Every write a card leads to is decided again by the service (§SEC14.6).
    sends a signed-out reader to sign in through the one reusable sign-in action
    (`UI/Pages/Home.md §6 item 3`), never while the reader's sign-in state is still being read
    (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rules 1 to 4; #739). The card raises the
-   hook for every reader (`UI/Components/ContentItemPanel.md §10 item 12`; #740). The same gap on
-   `/` is `UI/Pages/Home.md §6 item 2`, whose evidence stands for this page too.
+   hook for every reader (`UI/Components/ContentItemPanel.md §10 item 12`; #740). The same work on
+   `/` is `UI/Pages/Home.md §6 item 2`.
    **The cards' counts are this item's work** (the Likes feature, `DesignFeatures/Likes.md`).
    The page reads no reaction summary, so no card shows the reactions its item has been given,
    and the reader's own reaction shows only as the overlay of a choice they have just made
