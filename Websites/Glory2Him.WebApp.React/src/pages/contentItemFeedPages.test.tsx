@@ -191,8 +191,21 @@ const renderPage = (page: ReactElement, initialUrl = '/') =>
 const myPostFor = (id: string): ContentItem =>
     contentItemFor({ id, title: `My post ${id}` });
 
-const pageOf = (pageIndex: number, ids: ReadonlyArray<string>): ContentItemPage => ({
-    items: ids.map(myPostFor),
+// A publicly visible devotional the signed-in moderator did not contribute: the signed-in
+// account is always user-1.
+const devotionalFor = (id: string): ContentItem =>
+    contentItemFor({
+        id,
+        title: `Devotional ${id}`,
+        createdBy: 'contributor-9',
+        updatedBy: 'contributor-9'
+    });
+
+const pageOf = (
+    pageIndex: number,
+    ids: ReadonlyArray<string>,
+    itemFor: (id: string) => ContentItem): ContentItemPage => ({
+    items: ids.map(itemFor),
     pageIndex,
     pageSize: 8,
     hasNextPage: false
@@ -217,7 +230,8 @@ const summaryOf = (
 
 const cardFor = (contentItemId: string): HTMLElement =>
     screen.getAllByRole('article').find((card) =>
-        within(card).queryByText(`My post ${contentItemId}`) !== null)!;
+        within(card).queryByText(`My post ${contentItemId}`) !== null
+        || within(card).queryByText(`Devotional ${contentItemId}`) !== null)!;
 
 const reactionCountsOn = (contentItemId: string): HTMLElement =>
     within(cardFor(contentItemId)).getByRole('button', { name: 'Reaction counts' });
@@ -451,7 +465,7 @@ describe('The content item feed pages', () => {
             it("should show each card's reaction counts on /myposts", () => {
                 // given
                 signInAs(authState, ['Users']);
-                pages = [pageOf(0, ['post-1', 'post-2'])];
+                pages = [pageOf(0, ['post-1', 'post-2'], myPostFor)];
 
                 serverSummaries = {
                     'post-1': summaryOf('post-1', [['Love', 3], ['Amen', 2]]),
@@ -473,8 +487,8 @@ describe('The content item feed pages', () => {
             it('should hand the engagement hook every page delivered on /myposts', async () => {
                 // given
                 signInAs(authState, ['Users']);
-                pages = [pageOf(0, ['post-1', 'post-2']), pageOf(1, ['post-3'])];
-                undeliveredPages = [pageOf(2, ['post-4', 'post-5'])];
+                pages = [pageOf(0, ['post-1', 'post-2'], myPostFor), pageOf(1, ['post-3'], myPostFor)];
+                undeliveredPages = [pageOf(2, ['post-4', 'post-5'], myPostFor)];
                 hasNextPage = true;
 
                 // Without an IntersectionObserver the list offers Load more, a press the test
@@ -511,7 +525,7 @@ describe('The content item feed pages', () => {
             it("should mark the reader's own reaction on /myposts", async () => {
                 // given
                 signInAs(authState, ['Users']);
-                pages = [pageOf(0, ['post-1'])];
+                pages = [pageOf(0, ['post-1'], myPostFor)];
 
                 serverSummaries = {
                     'post-1': summaryOf('post-1', [['Love', 3], ['Amen', 2]], 'Love')
@@ -533,7 +547,7 @@ describe('The content item feed pages', () => {
             it('should record a chosen reaction on /myposts', async () => {
                 // given
                 signInAs(authState, ['Users']);
-                pages = [pageOf(0, ['post-1'])];
+                pages = [pageOf(0, ['post-1'], myPostFor)];
 
                 serverSummaries = {
                     'post-1': summaryOf('post-1', [['Love', 3], ['Amen', 2]])
@@ -560,7 +574,7 @@ describe('The content item feed pages', () => {
             it('should withdraw a reaction chosen again on /myposts', async () => {
                 // given
                 signInAs(authState, ['Users']);
-                pages = [pageOf(0, ['post-1'])];
+                pages = [pageOf(0, ['post-1'], myPostFor)];
 
                 serverSummaries = {
                     'post-1': summaryOf('post-1', [['Love', 3], ['Amen', 2]], 'Love')
@@ -698,6 +712,147 @@ describe('The content item feed pages', () => {
 
             expect(container.querySelector('.card-body > .g2h-content-item-list-panel'))
                 .toBeNull();
+        });
+
+        describe('the Like control', () => {
+            beforeEach(() => {
+                signInAs(authState, ['Administrators']);
+            });
+
+            it("should show each card's reaction counts on /Admin/Posts", () => {
+                // given
+                pages = [pageOf(0, ['devotional-1', 'devotional-2'], devotionalFor)];
+
+                serverSummaries = {
+                    'devotional-1': summaryOf('devotional-1', [['Love', 3], ['Amen', 2]]),
+                    'devotional-2': summaryOf('devotional-2', [['Joy', 7]])
+                };
+
+                // when
+                renderPage(<ContentItemModerationPage />, '/Admin/Posts');
+
+                // then
+                expect(handedPages).toEqual([['devotional-1', 'devotional-2']]);
+                expect(reactionCountsOn('devotional-1')).toHaveTextContent('5');
+                expect(reactionCountsOn('devotional-2')).toHaveTextContent('7');
+            });
+
+            // EACH PAGE AS IT WAS DELIVERED: asking for the third page's ids alone is the
+            // summaries read's, one query per page it is handed, so the page hands every page it
+            // holds and the first two pages' cards keep their counts.
+            it('should hand the engagement hook every page delivered on /Admin/Posts', async () => {
+                // given
+                pages = [pageOf(0, ['devotional-1', 'devotional-2'], devotionalFor), pageOf(1, ['devotional-3'], devotionalFor)];
+                undeliveredPages = [pageOf(2, ['devotional-4', 'devotional-5'], devotionalFor)];
+                hasNextPage = true;
+
+                // Without an IntersectionObserver the list offers Load more, a press the test
+                // can make.
+                vi.stubGlobal('IntersectionObserver', undefined);
+
+                serverSummaries = {
+                    'devotional-1': summaryOf('devotional-1', [['Love', 1]]),
+                    'devotional-2': summaryOf('devotional-2', [['Amen', 2]]),
+                    'devotional-3': summaryOf('devotional-3', [['Joy', 3]]),
+                    'devotional-4': summaryOf('devotional-4', [['Love', 4]]),
+                    'devotional-5': summaryOf('devotional-5', [['Amen', 5], ['Joy', 1]])
+                };
+
+                renderPage(<ContentItemModerationPage />, '/Admin/Posts');
+
+                // when
+                await userEvent.click(screen.getByRole('button', { name: 'Load more' }));
+
+                // then
+                expect(handedPages).toEqual([
+                    ['devotional-1', 'devotional-2'],
+                    ['devotional-3'],
+                    ['devotional-4', 'devotional-5']
+                ]);
+
+                expect(reactionCountsOn('devotional-1')).toHaveTextContent('1');
+                expect(reactionCountsOn('devotional-2')).toHaveTextContent('2');
+                expect(reactionCountsOn('devotional-3')).toHaveTextContent('3');
+                expect(reactionCountsOn('devotional-4')).toHaveTextContent('4');
+                expect(reactionCountsOn('devotional-5')).toHaveTextContent('6');
+            });
+
+            it("should mark the reader's own reaction on /Admin/Posts", async () => {
+                // given
+                pages = [pageOf(0, ['devotional-1'], devotionalFor)];
+
+                serverSummaries = {
+                    'devotional-1': summaryOf('devotional-1', [['Love', 3], ['Amen', 2]], 'Love')
+                };
+
+                renderPage(<ContentItemModerationPage />, '/Admin/Posts');
+
+                // when
+                await openLikeOn('devotional-1');
+
+                // then
+                expect(within(cardFor('devotional-1')).getByRole('menuitem', { name: 'Love' }))
+                    .toHaveAttribute('aria-pressed', 'true');
+
+                expect(within(cardFor('devotional-1')).getByRole('menuitem', { name: 'Amen' }))
+                    .toHaveAttribute('aria-pressed', 'false');
+            });
+
+            it('should record a chosen reaction on /Admin/Posts', async () => {
+                // given
+                pages = [pageOf(0, ['devotional-1'], devotionalFor)];
+
+                serverSummaries = {
+                    'devotional-1': summaryOf('devotional-1', [['Love', 3], ['Amen', 2]])
+                };
+
+                renderPage(<ContentItemModerationPage />, '/Admin/Posts');
+
+                // when
+                await chooseOn('devotional-1', 'Love');
+
+                // then
+                expect(upsertAssociation).toHaveBeenCalledTimes(1);
+
+                expect(upsertAssociation)
+                    .toHaveBeenCalledWith(reactionPairFor('devotional-1', 'Love'));
+
+                expect(removeAssociationByPair).not.toHaveBeenCalled();
+                expect(await reactionCountOn('devotional-1', 'Love')).toBe('4');
+                expect(await reactionCountOn('devotional-1', 'Amen')).toBe('2');
+
+                await openLikeOn('devotional-1');
+
+                expect(within(cardFor('devotional-1')).getByRole('menuitem', { name: 'Love' }))
+                    .toHaveAttribute('aria-pressed', 'true');
+            });
+
+            it('should withdraw a reaction chosen again on /Admin/Posts', async () => {
+                // given
+                pages = [pageOf(0, ['devotional-1'], devotionalFor)];
+
+                serverSummaries = {
+                    'devotional-1': summaryOf('devotional-1', [['Love', 3], ['Amen', 2]], 'Love')
+                };
+
+                renderPage(<ContentItemModerationPage />, '/Admin/Posts');
+
+                // when
+                await chooseOn('devotional-1', 'Love');
+
+                // then
+                expect(removeAssociationByPair).toHaveBeenCalledTimes(1);
+
+                expect(removeAssociationByPair)
+                    .toHaveBeenCalledWith(reactionPairFor('devotional-1', 'Love'));
+
+                expect(upsertAssociation).not.toHaveBeenCalled();
+
+                await openLikeOn('devotional-1');
+
+                within(cardFor('devotional-1')).getAllByRole('menuitem').forEach((choice) =>
+                    expect(choice).toHaveAttribute('aria-pressed', 'false'));
+            });
         });
     });
 

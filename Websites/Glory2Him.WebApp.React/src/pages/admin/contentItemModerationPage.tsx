@@ -97,8 +97,14 @@ export function ContentItemModerationPage() {
     const feedNavigation = buildContentItemFeedNavigation(
         navigate, location, (item) => `/Admin/Posts/${item.id}`);
 
+    // Each page of the queue as it was delivered: the summaries read asks once per page it is
+    // handed, so a page loaded later reads its own ids and the earlier pages keep their counts.
+    const contentItemIdPages = useMemo(
+        () => (data?.pages ?? []).map((page) => page.items.map((item) => item.id)),
+        [data]);
+
     const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withReactions } =
-        useContentItemEngagement();
+        useContentItemEngagement(contentItemIdPages);
 
     // MODERATE STAYS IN THE ADMIN AREA. It leads to the item's admin address, never to the
     // public /posts/{id}: a moderator who steps into a post from here is still working the
