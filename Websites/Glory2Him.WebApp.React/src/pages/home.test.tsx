@@ -191,6 +191,20 @@ const cardFor = (contentItemId: string): HTMLElement =>
 const reactionCountsOn = (contentItemId: string): HTMLElement =>
     within(cardFor(contentItemId)).getByRole('button', { name: 'Reaction counts' });
 
+// One reaction's own count on a card, read from the counts' expanded face, which lists each
+// reaction given beside its glyph; the collapsed face shows only their sum.
+const reactionCountOn = async (contentItemId: string, reactionName: string): Promise<string> => {
+    const reactionCounts = reactionCountsOn(contentItemId);
+
+    if (reactionCounts.getAttribute('aria-expanded') !== 'true') {
+        await userEvent.click(reactionCounts);
+    }
+
+    const reaction = within(reactionCountsOn(contentItemId)).getByTitle(reactionName);
+
+    return (reaction.textContent ?? '').replace(reactionNamed(reactionName).unicodeEmoji, '').trim();
+};
+
 // Opens a card's Like control: the reactions it offers, each pressed or not.
 const openLikeOn = async (contentItemId: string): Promise<void> =>
     await userEvent.click(within(cardFor(contentItemId)).getByRole('button', { name: /Like/ }));
@@ -322,7 +336,8 @@ describe('Home', () => {
             expect(upsertAssociation).toHaveBeenCalledTimes(1);
             expect(upsertAssociation).toHaveBeenCalledWith(reactionPairFor('devotional-1', 'Love'));
             expect(removeAssociationByPair).not.toHaveBeenCalled();
-            expect(reactionCountsOn('devotional-1')).toHaveTextContent('6');
+            expect(await reactionCountOn('devotional-1', 'Love')).toBe('4');
+            expect(await reactionCountOn('devotional-1', 'Amen')).toBe('2');
 
             await openLikeOn('devotional-1');
 
