@@ -97,8 +97,12 @@ export function MyPosts() {
     const feedNavigation = buildContentItemFeedNavigation(
         navigate, location, (item) => `/myposts/${item.id}`);
 
+    const contentItemIdPages = useMemo(
+        () => [loadedContentItems.map((item) => item.id)],
+        [loadedContentItems]);
+
     const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withReactions } =
-        useContentItemEngagement();
+        useContentItemEngagement(contentItemIdPages);
 
     // Straight to the item; the detail surface's edit mode is its own work, so for now Edit
     // and the title share a destination and the origin (and intent) ride along in state.
