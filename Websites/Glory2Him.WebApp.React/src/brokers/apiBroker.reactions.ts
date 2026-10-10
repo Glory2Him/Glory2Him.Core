@@ -1,5 +1,6 @@
 import ApiBroker from './apiBroker';
 import { Reaction } from '../models/foundations/reactions/reaction';
+import { ODataQuery } from '../models/foundations/oDataQueries/oDataQuery';
 
 class ReactionBroker {
     relativeReactionsUrl = '/api/reactions';
@@ -13,6 +14,32 @@ class ReactionBroker {
     async GetApprovedReactionsAsync(): Promise<Reaction[]> {
         const filter = "approvalStatus eq 'Approved' and isPublished eq true and isDeleted eq false";
         const url = `${this.relativeReactionsUrl}?$filter=${encodeURIComponent(filter)}`;
+        const result = await this.apiBroker.GetAsync(url);
+
+        return result.data as Reaction[];
+    }
+
+    async GetReactionsAsync(query: ODataQuery): Promise<Reaction[]> {
+        const parameters = new URLSearchParams();
+
+        if (query.filter !== undefined) {
+            parameters.append('$filter', query.filter);
+        }
+
+        if (query.orderBy !== undefined) {
+            parameters.append('$orderby', query.orderBy);
+        }
+
+        if (query.skip !== undefined) {
+            parameters.append('$skip', String(query.skip));
+        }
+
+        if (query.top !== undefined) {
+            parameters.append('$top', String(query.top));
+        }
+
+        const queryString = parameters.toString();
+        const url = queryString ? `${this.relativeReactionsUrl}?${queryString}` : this.relativeReactionsUrl;
         const result = await this.apiBroker.GetAsync(url);
 
         return result.data as Reaction[];
