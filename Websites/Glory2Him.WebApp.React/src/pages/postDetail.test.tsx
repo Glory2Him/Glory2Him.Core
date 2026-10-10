@@ -1,14 +1,19 @@
 import { createElement } from 'react';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PostDetail } from './postDetail';
 import { AuthProvider } from '../components/securitys/authProvider';
+import { ApprovalStatus } from '../models/components/contentItems/contentItemFormItem';
+import { EntityType } from '../models/foundations/approvalSettings/approvalSetting';
+import { AssociationRequest } from '../models/foundations/associations/associationRequest';
+import { ContentItemReactionSummary } from '../models/foundations/associations/contentItemReactionSummary';
 import { ContentItem } from '../models/foundations/contentItems/contentItem';
 import { ContentItemSetting } from '../models/foundations/contentItemSettings/contentItemSetting';
 import { ContentType } from '../models/foundations/contentItemSettings/contentType';
-import { createAuthState, signInAs, signOut } from '../tests/testAuth';
+import { Reaction } from '../models/foundations/reactions/reaction';
+import { createAuthState, setLoading, signInAs, signOut } from '../tests/testAuth';
 
 import {
     ContentItemPanelProps
@@ -130,31 +135,57 @@ vi.mock('../services/foundations/contentItemSettingService', () => ({
 }));
 
 // The reaction vocabulary behind the Like control, the same read the feeds make.
+const reactionFor = (name: string, unicodeEmoji: string): Reaction => ({
+    id: `reaction-${name.toLowerCase()}`,
+    name,
+    unicodeEmoji,
+    isPublished: true,
+    approvalStatus: ApprovalStatus.Approved,
+    isDeleted: false
+});
+
+const vocabulary: ReadonlyArray<Reaction> = [
+    reactionFor('Amen', '🙏'),
+    reactionFor('Love', '❤️'),
+    reactionFor('Joy', '😊')
+];
+
+const reactionNamed = (name: string): Reaction =>
+    vocabulary.find((reaction) => reaction.name === name)!;
+
 vi.mock('../services/foundations/reactionService', () => ({
     reactionService: {
-        useGetApprovedReactions: () => ({
-            data: [{
-                id: 'reaction-1',
-                name: 'Amen',
-                unicodeEmoji: '🙏',
-                isPublished: true,
-                approvalStatus: 2,
-                isDeleted: false
-            }]
-        })
+        useGetApprovedReactions: () => ({ data: vocabulary })
     }
 }));
 
-// The engagement hook reads the cards' reaction summaries through a query, which a harness with
-// no QueryClientProvider cannot hold, so it is mocked and answers no summary: no card carries
-// counts read from the server, and a chosen reaction's overlay shows its counts while its write
-// is pending. Its writes are mutations, mocked for the same reason, and a write made through
-// them stays pending for the length of the test.
+// The engagement hook reads the card's reaction summary through a query, which a harness with
+// no QueryClientProvider cannot hold, so it is mocked. It answers only for the ids it is handed,
+// as the real one does, so a card whose id the hook was never handed carries no counts. Its
+// writes are mutations, mocked for the same reason, and a write made through them stays pending
+// for the length of the test, so a chosen reaction's overlay stands.
+let handedPages: ReadonlyArray<ReadonlyArray<string>> | undefined;
+let serverSummaries: Record<string, ContentItemReactionSummary> = {};
+const upsertAssociation = vi.fn<(association: AssociationRequest) => Promise<unknown>>();
+const removeAssociationByPair = vi.fn<(association: AssociationRequest) => Promise<unknown>>();
+
 vi.mock('../services/foundations/associationService', () => ({
     associationService: {
-        useGetReactionSummaries: () => ({ summaries: {}, isLoading: false, isError: false }),
-        useUpsertAssociation: () => ({ mutateAsync: () => new Promise(() => undefined) }),
-        useRemoveAssociationByPair: () => ({ mutateAsync: () => new Promise(() => undefined) }),
+        useGetReactionSummaries: (contentItemIdPages: ReadonlyArray<ReadonlyArray<string>>) => {
+            handedPages = contentItemIdPages;
+
+            return {
+                summaries: Object.fromEntries(contentItemIdPages
+                    .flat()
+                    .filter((contentItemId) => serverSummaries[contentItemId] !== undefined)
+                    .map((contentItemId) => [contentItemId, serverSummaries[contentItemId]])),
+                isLoading: false,
+                isError: false
+            };
+        },
+
+        useUpsertAssociation: () => ({ mutateAsync: upsertAssociation }),
+        useRemoveAssociationByPair: () => ({ mutateAsync: removeAssociationByPair }),
         useReadReactionSummariesAgain: () => () => new Promise(() => undefined)
     }
 }));
@@ -211,9 +242,22 @@ const ownedItem: ContentItem = {
     deletionReason: null
 };
 
-const renderPage = () =>
+// Where the reader is, so a test can see where choosing a reaction sent them.
+const LocationProbe = () => {
+    const location = useLocation();
+
+    return (
+        <span data-testid="location">
+            {`${location.pathname}${location.search}${location.hash}`}
+        </span>);
+};
+
+const landedOn = (): string | null =>
+    screen.getByTestId('location').textContent;
+
+const renderPage = (initialUrl = '/posts/content-item-1') =>
     render(
-        <MemoryRouter initialEntries={['/posts/content-item-1']}>
+        <MemoryRouter initialEntries={[initialUrl]}>
             <AuthProvider>
                 <Routes>
                     {/* Declared before the parameter route for the reader's sake — React
@@ -222,9 +266,67 @@ const renderPage = () =>
                         to land on rather than an assertion about a spy. */}
                     <Route path="/posts/contribute" element={<h2>Share something</h2>} />
                     <Route path="/posts/:contentItemId" element={<PostDetail />} />
+                    {/* So a signed-out reader sent to sign in lands on a real destination. */}
+                    <Route path="/Account/Login" element={<h2>Sign in</h2>} />
                 </Routes>
             </AuthProvider>
+            <LocationProbe />
         </MemoryRouter>);
+
+// Somebody else's post, so no test of the Like control rests on the reader owning the item.
+const othersItem: ContentItem = {
+    ...ownedItem,
+    createdBy: 'contributor-9',
+    updatedBy: 'contributor-9'
+};
+
+// The post's summary as the server sends it: each reaction given and its count, and the one
+// the reader holds, if any.
+const summaryOf = (
+    counts: ReadonlyArray<[string, number]>,
+    viewerReactionName: string | null = null): ContentItemReactionSummary => ({
+    contentItemId: 'content-item-1',
+    reactions: counts.map(([name, count]) => ({
+        reactionId: reactionNamed(name).id,
+        name,
+        unicodeEmoji: reactionNamed(name).unicodeEmoji,
+        count
+    })),
+    viewerReactionId: viewerReactionName === null ? null : reactionNamed(viewerReactionName).id,
+    viewerReactionName
+});
+
+const reactionCounts = (): HTMLElement =>
+    screen.getByRole('button', { name: 'Reaction counts' });
+
+// One reaction's own count, read from the counts' expanded face, which lists each reaction
+// given beside its glyph; the collapsed face shows only their sum.
+const reactionCountOf = async (reactionName: string): Promise<string> => {
+    if (reactionCounts().getAttribute('aria-expanded') !== 'true') {
+        await userEvent.click(reactionCounts());
+    }
+
+    const reaction = within(reactionCounts()).getByTitle(reactionName);
+
+    return (reaction.textContent ?? '').replace(reactionNamed(reactionName).unicodeEmoji, '').trim();
+};
+
+// Opens the card's Like control: the reactions it offers, each pressed or not. Choosing
+// closes it, so a test that reads the mark back after a choice opens it again.
+const openLike = async (): Promise<void> =>
+    await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+
+const choose = async (reactionName: string): Promise<void> => {
+    await openLike();
+    await userEvent.click(screen.getByRole('menuitem', { name: reactionName }));
+};
+
+const reactionPairFor = (reactionName: string): AssociationRequest => ({
+    entityAType: EntityType.ContentItem,
+    entityAKeyId: 'content-item-1',
+    entityBType: EntityType.Reaction,
+    entityBKeyId: reactionNamed(reactionName).id
+});
 
 describe('PostDetail', () => {
     afterEach(() => {
@@ -241,6 +343,12 @@ describe('PostDetail', () => {
         contentItemSettings = [testimonySetting, quoteSetting];
         isLoading = false;
         isError = false;
+        handedPages = undefined;
+        serverSummaries = {};
+        upsertAssociation.mockReset();
+        upsertAssociation.mockImplementation(() => new Promise(() => undefined));
+        removeAssociationByPair.mockReset();
+        removeAssociationByPair.mockImplementation(() => new Promise(() => undefined));
     });
 
     it('should read the item named by the route', () => {
@@ -457,55 +565,16 @@ describe('PostDetail', () => {
         expect(screen.queryByRole('button', { name: /Moderate/ })).not.toBeInTheDocument();
     });
 
-    // Choosing CLOSES the picker — the panel's own behaviour — so both tests below reopen it
-    // to read the mark back. While the choice's write is pending the card shows the counts of
-    // its overlay, and it shows no counts read from the server until #743.
-    const chooseReaction = async () => {
-        await userEvent.click(screen.getByRole('button', { name: /Like/ }));
-        await userEvent.click(screen.getByRole('menuitem', { name: 'Amen' }));
-    };
-
-    const reopenPicker = async () => {
-        await userEvent.click(screen.getByRole('button', { name: /Like/ }));
-
-        return screen.getByRole('menuitem', { name: 'Amen' });
-    };
-
-    it('should mark the reaction the reader chose for this visit', async () => {
-        // given: a signed-in reader — the engagement hook records nothing for a signed-out
-        // reader's choice and lays no overlay
-        signInAs(authState);
-        renderPage();
-
-        // when
-        await chooseReaction();
-
-        // then: the mark is the overlay of a choice still being recorded — the write stays
-        // pending for the length of this test, and the overlay stands until the read that
-        // follows it lands — until #743 (criterion 2) brings this test to what the page does
-        expect(await reopenPicker()).toHaveAttribute('aria-pressed', 'true');
-    });
-
-    it('should withdraw the reaction when the reader chooses it again', async () => {
-        // given: signed in, for the same reason as the test above
-        signInAs(authState);
-        renderPage();
-        await chooseReaction();
-
-        // when: the same choice again is a change of mind
-        await userEvent.click(await reopenPicker());
-
-        // then
-        expect(await reopenPicker()).toHaveAttribute('aria-pressed', 'false');
-    });
-
     it('should claim no engagement figures it has no source for', () => {
+        // given: the post's reactions have a source, its summary, and are shown
+        contentItem = othersItem;
+        serverSummaries = { 'content-item-1': summaryOf([['Love', 3], ['Amen', 2]]) };
+
         // when
         renderPage();
 
-        // then: there is no comment, reaction or view client in this app yet, and a zero would
-        // assert an empty conversation rather than an absent one
-        expect(screen.queryByText(/reaction/)).not.toBeInTheDocument();
+        // then: there is no comment or view client in this app yet, and a zero would assert an
+        // empty conversation rather than an absent one (rule 2.17)
         expect(screen.queryByText(/comment/)).not.toBeInTheDocument();
         expect(screen.queryByText(/View/)).not.toBeInTheDocument();
     });
@@ -610,5 +679,127 @@ describe('PostDetail', () => {
         // then
         expect(screen.getByRole('alert')).toBeInTheDocument();
         expect(screen.getByRole('link', { name: /Back to the journal/ })).toBeInTheDocument();
+    });
+
+    describe('the Like control', () => {
+        it("should show the post's reaction counts on /posts/{id}", () => {
+            // given
+            contentItem = othersItem;
+            serverSummaries = { 'content-item-1': summaryOf([['Love', 3], ['Amen', 2]]) };
+
+            // when
+            renderPage();
+
+            // then
+            expect(handedPages).toEqual([['content-item-1']]);
+            expect(reactionCounts()).toHaveTextContent('5');
+        });
+
+        it("should mark the reader's own reaction on /posts/{id}", async () => {
+            // given
+            signInAs(authState, ['Users']);
+            contentItem = othersItem;
+
+            serverSummaries = {
+                'content-item-1': summaryOf([['Love', 3], ['Amen', 2]], 'Love')
+            };
+
+            renderPage();
+
+            // when
+            await openLike();
+
+            // then
+            expect(screen.getByRole('menuitem', { name: 'Love' }))
+                .toHaveAttribute('aria-pressed', 'true');
+
+            expect(screen.getByRole('menuitem', { name: 'Amen' }))
+                .toHaveAttribute('aria-pressed', 'false');
+        });
+
+        it('should record a chosen reaction on /posts/{id}', async () => {
+            // given
+            signInAs(authState, ['Users']);
+            contentItem = othersItem;
+            serverSummaries = { 'content-item-1': summaryOf([['Love', 3], ['Amen', 2]]) };
+            renderPage();
+
+            // when
+            await choose('Love');
+
+            // then
+            expect(upsertAssociation).toHaveBeenCalledTimes(1);
+            expect(upsertAssociation).toHaveBeenCalledWith(reactionPairFor('Love'));
+            expect(removeAssociationByPair).not.toHaveBeenCalled();
+            expect(await reactionCountOf('Love')).toBe('4');
+            expect(await reactionCountOf('Amen')).toBe('2');
+
+            await openLike();
+
+            expect(screen.getByRole('menuitem', { name: 'Love' }))
+                .toHaveAttribute('aria-pressed', 'true');
+        });
+
+        it('should withdraw the reaction when the reader chooses it again', async () => {
+            // given
+            signInAs(authState, ['Users']);
+            contentItem = othersItem;
+
+            serverSummaries = {
+                'content-item-1': summaryOf([['Love', 3], ['Amen', 2]], 'Love')
+            };
+
+            renderPage();
+
+            // when: the reaction the reader holds, chosen again, is a change of mind
+            await choose('Love');
+
+            // then
+            expect(removeAssociationByPair).toHaveBeenCalledTimes(1);
+            expect(removeAssociationByPair).toHaveBeenCalledWith(reactionPairFor('Love'));
+            expect(upsertAssociation).not.toHaveBeenCalled();
+
+            await openLike();
+
+            screen.getAllByRole('menuitem').forEach((choice) =>
+                expect(choice).toHaveAttribute('aria-pressed', 'false'));
+        });
+    });
+
+    describe('the Like control for a reader who is not signed in', () => {
+        it('should send a signed-out reader to sign in and back to the same post', async () => {
+            // given
+            signOut(authState);
+            contentItem = othersItem;
+            serverSummaries = { 'content-item-1': summaryOf([['Love', 3]]) };
+            renderPage('/posts/content-item-1#comments');
+
+            // when
+            await choose('Love');
+
+            // then
+            expect(upsertAssociation).not.toHaveBeenCalled();
+            expect(removeAssociationByPair).not.toHaveBeenCalled();
+
+            expect(landedOn()).toBe(
+                `/Account/Login?returnUrl=${encodeURIComponent('/posts/content-item-1#comments')}`);
+        });
+
+        it('should do nothing with a reaction while the sign-in state is unknown on /posts/{id}',
+            async () => {
+            // given
+            setLoading(authState);
+            contentItem = othersItem;
+            serverSummaries = { 'content-item-1': summaryOf([['Love', 3]]) };
+            renderPage();
+
+            // when
+            await choose('Love');
+
+            // then
+            expect(upsertAssociation).not.toHaveBeenCalled();
+            expect(removeAssociationByPair).not.toHaveBeenCalled();
+            expect(landedOn()).toBe('/posts/content-item-1');
+        });
     });
 });

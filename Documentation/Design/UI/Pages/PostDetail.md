@@ -57,7 +57,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.16 [Should]** An item that cannot be read is said — it may have been removed, or may not be the reader's to read — with a way back to the journal, `/`. *(test: postDetail.test.tsx — "should say so rather than render an empty page when the item cannot be read")*
 
-**2.17 [Should]** The page claims no engagement figure it has no source for: no comment or view count. The post's reaction counts have a source, its reaction summary, and the card shows them. *(`DesignFeatures/Likes.md` rules 5 and 11; test: postDetail.test.tsx — "should claim no engagement figures it has no source for")* ≠ item 2
+**2.17 [Should]** The page claims no engagement figure it has no source for: no comment or view count. The post's reaction counts have a source, its reaction summary, and the card shows them. *(`DesignFeatures/Likes.md` rules 5 and 11; test: postDetail.test.tsx — "should claim no engagement figures it has no source for")*
 
 **2.18 [Must]** A click on the card's type chip, *Submitted by* or *Author* raises its hook, and the page opens the journal's search, `/posts`, handed the value: its search bar shows it in the matching box — Category, Submitted by or Author, each one of the bar's advanced boxes — with the advanced section expanded (`UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md rule 2.23`). *(user, 2026-09-27; `UI/Components/ContentItemPanel.md rule 2.42`)* ≠ item 9
 
@@ -247,32 +247,18 @@ page is a courtesy (§SEC14.6).
    `contentItemSettings ?? []` (line 86). The page's error answers the item read alone (rule
    2.16), so a failed settings read still shows the card. The page's heading already names the
    type while the settings are on their way (rule 2.4). The same gap on `/` is `UI/Pages/Home.md §6 item 1`.
-2. (#743) **Page gap — the card shows no counts.** Copied from
-   `UI/Components/ContentItemPanel.md §10 item 17`, this page's share. A signed-out reader who
-   chooses a reaction is to be sent to sign in, with return information that brings them back
-   afterwards, and a signed-in reader's reaction recorded or cleared
-   (`UI/Components/ContentItemPanel.md rule 3.2.4`). The page takes `onReactionSelected` from
-   `useContentItemEngagement`, which records, changes or clears a signed-in reader's reaction, and
-   sends a signed-out reader to sign in through the one reusable sign-in action
-   (`UI/Pages/Home.md §6 item 3`), never while the reader's sign-in state is still being read
-   (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rules 1 to 4; #739). The card raises the
-   hook for every reader (`UI/Components/ContentItemPanel.md §10 item 12`; #740). The same work on
-   `/` is `UI/Pages/Home.md §6 item 2`.
-   **The card's counts are this item's work** (the Likes feature, `DesignFeatures/Likes.md`).
-   The page reads no reaction summary, so the card shows none of the reactions its item has been
-   given, and the reader's own reaction shows only as the overlay of a choice they have just made
-   (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rule 8), never as the one they hold
-   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-86). So the overlay goes
-   as soon as the write that laid it settles, and a reader who then chooses the reaction they hold
-   gives it again, which leaves it held, rather than withdrawing it: until this item is built, a
-   reaction is withdrawn here only when the reader chooses it again before the write that gave it
-   has settled (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rules 4 and 9). The overlay
-   starts from an empty summary where the item has none, so while a choice's write is pending the
-   card shows the chosen reaction counted 1, whatever the item has been given, and no other count,
-   and none after a withdrawal (`DesignFeatures/UI/Views/ChosenReactionSummary.md §1` rules 1 to 3;
-   `DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rule 5). The page hands
-   `useContentItemEngagement` the id of its one card and renders what `withReactions` projects
-   (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
+2. Built (#743) **The page's Like control is wired.** Copied from
+   `UI/Components/ContentItemPanel.md §10 item 17`, this page's share. The page hands
+   `useContentItemEngagement` the id of its one card and renders the card from what `withReactions`
+   projects, so the card, where its item has a reaction summary, shows the reactions it has been
+   given and marks the reader's own (`src/pages/postDetail.tsx`, the hook at lines 66-72, the card
+   at lines 180-188, at a0015524; `DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`;
+   `DesignFeatures/Likes.md` rules 5, 6 and 11a; #743). A reaction the reader chooses is recorded,
+   changed or cleared by the same hook, which sends a signed-out reader to sign in through the one
+   reusable sign-in action (`UI/Pages/Home.md §6 item 3`), never while the reader's sign-in state is
+   still being read (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rules 1 to 4; #739), and
+   the card raises the hook for every reader (`UI/Components/ContentItemPanel.md §10 item 12`;
+   #740). The same work on `/` is `UI/Pages/Home.md §6 item 2`.
 3. (needs issue) **Save has nothing behind it.** The card offers Save (rule 2.12), and the
    handler only says *Saving posts is coming soon.* (`useContentItemEngagement.ts` —
    `onSaveClick`), to a signed-out reader too. Save has no design yet. The same gap, and its plan
@@ -409,4 +395,4 @@ page is a courtesy (§SEC14.6).
     rules 5 and 11 (commit `1fab9127`, 2026-09-28) superseded it for reactions: every reader sees
     each item's reaction counts, on every page that renders the card with Like, `/posts/{id}`
     among them, read from the item's reaction summary (§ARC16.8). Rule 2.17 now says so and cites
-    them. The card shows no count yet, which is item 2.
+    them. The card shows its counts (item 2).

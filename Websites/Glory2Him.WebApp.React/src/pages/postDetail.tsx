@@ -57,14 +57,19 @@ export function PostDetail() {
     // followed a card here meets the controls it offered rather than losing them at the one
     // address the item permanently has. Share is real (it copies this page's address), and so
     // is the reaction, which the hook records. Save answers honestly, because Save has no design
-    // yet (`UI/Pages/Home.md §6 item 5`).
+    // yet (`UI/Pages/Home.md §6 item 5`). The hook is handed one page holding the read post's
+    // id, so the card carries the post's reaction counts and the reader's own reaction.
+    const contentItemIdPages = useMemo(
+        () => contentItem == null ? [] : [[contentItem.id]],
+        [contentItem]);
+
     const {
         reactionOptions,
         onReactionSelected,
         onShareClick,
         onSaveClick,
         withReactions
-    } = useContentItemEngagement();
+    } = useContentItemEngagement(contentItemIdPages);
 
     // WHO SUBMITTED IT. The item carries CreatedBy — an account id — so the byline needs a second
     // read to turn that into a name and a face. Anonymous, so a signed-out reader gets the byline
@@ -89,7 +94,7 @@ export function PostDetail() {
             },
         [contentItem, contentItemSettings, contributor]);
 
-    // The reader's choice, laid over the projection — and deliberately NOT memoised.
+    // The post's reactions and the reader's choice, laid over it — deliberately NOT memoised.
     // withReactions closes over the choices and is rebuilt every render, so a memo listing
     // it recomputes every render and buys nothing, while a memo keyed on readItem alone would go
     // stale the moment the reader chose. The fold is a map over one item; a plain call is the
