@@ -49,7 +49,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.14 [Must]** The comments control leads to the item's comments on its detail view, `/posts/{id}#comments`. *(code: contentItemFeedNavigation.ts — `onCommentsClick`)* ≠ item 6
 
-**2.15 [Must]** Choosing a reaction is the page's to act on. A signed-out reader is sent to sign in through the one reusable sign-in action, carrying where they came from, and returned there afterwards — but not while their sign-in state is still being read. For a signed-in reader the page records, changes or clears their own reaction. *(§UI20.6.6 rule 2; user, 2026-09-27; `UI/Components/ContentItemPanel.md rule 3.2.4`)* ≠ items 2 and 3
+**2.15 [Must]** Choosing a reaction is the page's to act on. A signed-out reader is sent to sign in through the one reusable sign-in action, carrying where they came from, and returned there afterwards — but not while their sign-in state is still being read. For a signed-in reader the page records, changes or clears their own reaction. *(§UI20.6.6 rule 2; user, 2026-09-27; `UI/Components/ContentItemPanel.md rule 3.2.4`)*
 
 **2.16 [Must]** Share copies the item's address, `/posts/{id}`, to the clipboard and says *Link copied.* *(code: useContentItemEngagement.ts — `onShareClick`)*
 
@@ -162,7 +162,7 @@ type (`UI/Components/ContentItemPanel.md rule 2.3`).
 | View's hook ≠ item 4 | View is clicked | Navigates to `/posts/{id}` (rule 2.9) | ❌ No — the card has no View yet (`UI/Components/ContentItemPanel.md §10 item 20`); item 4 |
 | `onEditClick` ≠ item 4 | The owner's Edit is clicked — labelled *View* today | Navigates to `/myposts/{id}`, opened in edit mode (rule 2.10) | ❌ No — it navigates to `/posts/{id}` with `edit: true`, which that page never reads (`home.tsx`, lines 110-113); item 4 |
 | `onModerateClick` ≠ `UI/Pages/ContentItemModerationDetailPage.md §6 item 1` | Moderate is clicked | Navigates to `/Admin/Posts/{id}`, carrying `from` and `moderate: true` (rule 2.11) | ✅ Yes (`home.tsx`, lines 115-118) |
-| `onReactionSelected` ≠ items 2 and 3 | A reaction is chosen, whatever the sign-in state | Sends a signed-out reader to sign in; records, changes or clears a signed-in reader's own reaction (rule 2.15) | ❌ No — the card redirects a signed-out reader itself (`UI/Components/ContentItemPanel.md §10 item 12`); item 2 |
+| `onReactionSelected` | A reaction is chosen, whatever the sign-in state | Sends a signed-out reader to sign in; records, changes or clears a signed-in reader's own reaction (rule 2.15) | ✅ Yes (`src/hooks/useContentItemEngagement.ts`, lines 150-208 at f376e6b0; #739, #740) |
 | `onShareClick` | Share is clicked | Copies `/posts/{id}` and says so (rule 2.16) | ✅ Yes (`useContentItemEngagement.ts`, lines 210-215 at 3a824fc6) |
 | `onSaveClick` ≠ item 5 | Save is clicked | Nothing designed yet (rule 2.17) | ❌ No — it says *Saving posts is coming soon.* (`useContentItemEngagement.ts` — `onSaveClick`); item 5 |
 | `onTagClick`, `onBibleReferenceClick`, `onContentTypeClick`, `onSubmittedByClick`, `onAuthorClick` | A pill or a meta segment is clicked | The list wraps them (section 4.1) | As section 4.1 |
@@ -207,7 +207,7 @@ The page asks no role of its own. Owner means the item's contributor.
 | View ≠ item 4 | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | The owner's Edit, no read-only role covering the item's type ≠ item 4 | ❌ No | ❌ No | ✅ Yes | ❌ No | ❌ No | ❌ No |
 | Moderate, no read-only role covering the item's type ≠ `UI/Pages/ContentItemModerationDetailPage.md §6 item 1` | ❌ No | ❌ No | ❌ No | ✅ Yes¹ | ✅ Yes¹ | ✅ Yes |
-| Like, where the item's setting allows reactions ≠ items 2 and 3 | ✅ Yes² | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| Like, where the item's setting allows reactions | ✅ Yes² | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | Save ≠ item 5 | ✅ Yes⁴ | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 
 ¹ Offered, and the page sends them to `/Admin/Posts/{id}`, which admits `Administrators` alone today (`UI/Pages/ContentItemModerationDetailPage.md §6 item 1`).
@@ -252,11 +252,9 @@ write a card leads to is decided again by the service (§SEC14.6).
    clears a signed-in reader's reaction, and sends a signed-out reader to sign in through the one
    reusable sign-in action (item 3), never while the reader's sign-in state is still being read
    (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rules 1 to 4; #739). The card raises the
-   hook for a signed-out reader only once `UI/Components/ContentItemPanel.md §10 item 12` (#740)
-   lands, and until then sends them to sign in itself. This item ships with
-   `UI/Components/ContentItemPanel.md §10 item 12`. A signed-out reader meets the card on `/`,
-   `/posts` and `/posts/{id}`; the other two are `UI/Pages/Posts.md §6 item 2` and
-   `UI/Pages/PostDetail.md §6 item 2`.
+   hook for every reader (`UI/Components/ContentItemPanel.md §10 item 12`; #740). A signed-out
+   reader meets the card on `/`, `/posts` and `/posts/{id}`; the other two are
+   `UI/Pages/Posts.md §6 item 2` and `UI/Pages/PostDetail.md §6 item 2`.
    **The cards' counts are this item's work** (the Likes feature, `DesignFeatures/Likes.md`).
    The page reads no reaction summary, so no card shows the reactions its item has been given,
    and the reader's own reaction shows only as the overlay of a choice they have just made
@@ -288,23 +286,22 @@ write a card leads to is decided again by the service (§SEC14.6).
    it (`src/hooks/useContentItemEngagement.ts`; #739).
    **Not yet built:** the invitation's exception (item 10).
    The route `/Account/Login?returnUrl=…` is composed in
-   five places, each from the path alone, so a reader on `/posts?q=grace` would return to `/posts`
+   four places, each from the path alone, so a reader on `/posts?q=grace` would return to `/posts`
    with the search gone: `src/components/securitys/securedRoutes.tsx` — `goToLogin` (line 28);
-   `contentItemPanel.tsx` — the reaction redirect (line 472); `associationPanel.tsx` —
-   `resolvedLoginHref` (line 219); `contentItemFormPanel.tsx` — `resolvedLoginHref` (line 396);
-   and `src/pages/postSingle.tsx` — `loginHref` (line 44). The three component defaults are gaps
-   of their own (`UI/Components/ContentItemPanel.md §10 item 12`,
-   `UI/Components/AssociationPanel.md §10 item 15`, `UI/Components/ContentItemPanel.Add.md §10
-   item 4`). This item is the action every page needs before it can take those over: this page for
-   Like (item 2) and the invitation (item 10), and the pages that cite this item for theirs. The route guard's own loss of the
-   query is `UI/Pages/MyPosts.md §6 item 7`.
+   `associationPanel.tsx` — `resolvedLoginHref` (line 219); `contentItemFormPanel.tsx` —
+   `resolvedLoginHref` (line 396); and `src/pages/postSingle.tsx` — `loginHref` (line 44). The two
+   component defaults are gaps of their own (`UI/Components/AssociationPanel.md §10 item 15`,
+   `UI/Components/ContentItemPanel.Add.md §10 item 4`). This item is the action every page needs
+   before it can take those over: this page for the invitation (item 10), and the pages that cite
+   this item for theirs. The route guard's own loss of the query is `UI/Pages/MyPosts.md §6 item
+   7`.
    **The Likes feature builds the action and its plain return** — back to exactly the place the
    reader left, path, query and fragment — because Like is its first user
    (`DesignFeatures/Likes.md` rule 4), as the user story `DesignFeatures/UI/Hooks/SignIn.md`.
    **The invitation's exception is built with item 10**,
    which is its first user: the return on to `/posts/contribute`, with the origin surviving the
-   sign-in step. The card's own redirect goes with the Likes feature
-   (`UI/Components/ContentItemPanel.md §10 item 12`); moving the other places that compose the
+   sign-in step. The card's own redirect went with the Likes feature
+   (`UI/Components/ContentItemPanel.md §10 item 12`; #740); moving the other places that compose the
    route onto the action belongs to their own gaps, listed above.
 4. (needs issue) **View and Edit lead to the wrong places.** Rules 2.9 and 2.10 (user rulings
    2026-09-26 and 2026-09-27) send View to the read-only detail view, `/posts/{id}`, and the

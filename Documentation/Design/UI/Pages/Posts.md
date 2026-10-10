@@ -48,7 +48,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.14 [Must]** The comments control leads to the item's comments on its detail view, `/posts/{id}#comments`, and reads uncounted where no count is known. *(code: contentItemFeedNavigation.ts — `onCommentsClick`; test: posts.test.tsx — "should offer the comments control uncounted rather than with an invented figure")* ≠ item 5
 
-**2.15 [Must]** Like is offered from the approved reaction vocabulary. A signed-out reader who chooses is sent to sign in through the one reusable sign-in action, carrying where they came from, and returned there afterwards — but not while their sign-in state is still being read; for a signed-in reader the page records, changes or clears their own reaction. *(§UI20.6.6 rule 2; user, 2026-09-27; `UI/Components/ContentItemPanel.md rule 3.2.4`; test: posts.test.tsx — "should offer the Like control fed by the approved vocabulary")* ≠ item 2
+**2.15 [Must]** Like is offered from the approved reaction vocabulary. A signed-out reader who chooses is sent to sign in through the one reusable sign-in action, carrying where they came from, and returned there afterwards — but not while their sign-in state is still being read; for a signed-in reader the page records, changes or clears their own reaction. *(§UI20.6.6 rule 2; user, 2026-09-27; `UI/Components/ContentItemPanel.md rule 3.2.4`; test: posts.test.tsx — "should offer the Like control fed by the approved vocabulary")*
 
 **2.16 [Must]** Share copies the item's address, `/posts/{id}`, to the clipboard and says *Link copied.* *(code: useContentItemEngagement.ts — `onShareClick`)*
 
@@ -159,7 +159,7 @@ list's per-surface defaults (section 4.1).
 | View's hook ≠ item 3 | View is clicked | Navigates to `/posts/{id}` (rule 2.8) | ❌ No — the card has no View yet (`UI/Components/ContentItemPanel.md §10 item 20`); item 3 |
 | `onEditClick` ≠ item 3 | The owner's Edit is clicked — labelled *View* today | Navigates to `/myposts/{id}`, opened in edit mode (rule 2.9) | ❌ No — it navigates to `/posts/{id}` with `edit: true`, which that page never reads (`posts.tsx`, lines 99-102); item 3 |
 | `onModerateClick` ≠ `UI/Pages/ContentItemModerationDetailPage.md §6 item 1` | Moderate is clicked | Navigates to `/Admin/Posts/{id}`, carrying `from` and `moderate: true` (rule 2.10) | ✅ Yes (`posts.tsx`, lines 104-107) |
-| `onReactionSelected` ≠ item 2 | A reaction is chosen, whatever the sign-in state | Sends a signed-out reader to sign in; records, changes or clears a signed-in reader's own reaction (rule 2.15) | ❌ No — the card redirects a signed-out reader itself (`UI/Components/ContentItemPanel.md §10 item 12`); item 2 |
+| `onReactionSelected` | A reaction is chosen, whatever the sign-in state | Sends a signed-out reader to sign in; records, changes or clears a signed-in reader's own reaction (rule 2.15) | ✅ Yes (`src/hooks/useContentItemEngagement.ts`, lines 150-208 at f376e6b0; #739, #740) |
 | `onShareClick` | Share is clicked | Copies `/posts/{id}` and says so (rule 2.16) | ✅ Yes (`useContentItemEngagement.ts`, lines 210-215 at 3a824fc6) |
 | `onSaveClick` ≠ item 4 | Save is clicked | Nothing designed yet (rule 2.17) | ❌ No — it says *Saving posts is coming soon.* (`useContentItemEngagement.ts` — `onSaveClick`); item 4 |
 | `onTagClick`, `onBibleReferenceClick`, `onContentTypeClick`, `onSubmittedByClick`, `onAuthorClick` | A pill or a meta segment is clicked | The list wraps them (section 4.1) | As section 4.1 |
@@ -185,7 +185,7 @@ contributor.
 | View ≠ item 3 | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | The owner's Edit, no read-only role covering the item's type ≠ item 3 | ❌ No | ❌ No | ✅ Yes | ❌ No | ❌ No | ❌ No |
 | Moderate, no read-only role covering the item's type ≠ `UI/Pages/ContentItemModerationDetailPage.md §6 item 1` | ❌ No | ❌ No | ❌ No | ✅ Yes² | ✅ Yes² | ✅ Yes |
-| Like, where the item's setting allows reactions ≠ item 2 | ✅ Yes³ | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| Like, where the item's setting allows reactions | ✅ Yes³ | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | Save ≠ item 4 | ✅ Yes⁵ | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 
 ¹ Listed today, with no status shown: the owner's own rows, and every non-deleted row for a review role (§SEC14.7 posture A rule 4; item 6).
@@ -227,8 +227,7 @@ Every write a card leads to is decided again by the service (§SEC14.6).
    sends a signed-out reader to sign in through the one reusable sign-in action
    (`UI/Pages/Home.md §6 item 3`), never while the reader's sign-in state is still being read
    (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rules 1 to 4; #739). The card raises the
-   hook for a signed-out reader only once `UI/Components/ContentItemPanel.md §10 item 12` (#740)
-   lands, which this item ships with, and until then sends them to sign in itself. The same gap on
+   hook for every reader (`UI/Components/ContentItemPanel.md §10 item 12`; #740). The same gap on
    `/` is `UI/Pages/Home.md §6 item 2`, whose evidence stands for this page too.
    **The cards' counts are this item's work** (the Likes feature, `DesignFeatures/Likes.md`).
    The page reads no reaction summary, so no card shows the reactions its item has been given,

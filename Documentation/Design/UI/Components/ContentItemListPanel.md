@@ -127,7 +127,7 @@ Owner here is the item's contributor: the signed-in account id equals the elemen
 | Any hook wired, the viewer holds a ReadOnly covering the item's type — **Edit** or **Moderate** | ➖ n/a | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
 | The list's View switch on and View's hook wired, any read-only role or none — **View** ≠ item 9 | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | Approved or Rejected item the viewer did not contribute, `onModerateClick` wired — **Moderate is live, not locked** | ❌ No | ❌ No | ❌ No | ✅ Yes¹ | ✅ Yes | ✅ Yes |
-| `reactionOptions` non-empty, `onReactionSelected` wired, the element's setting allows reactions — **Like and its choices** ≠ `UI/Components/ContentItemPanel.md §10 item 12` | ✅ Yes² | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| `reactionOptions` non-empty, `onReactionSelected` wired, the element's setting allows reactions — **Like and its choices** | ✅ Yes² | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 
 ¹ The moderation tier includes the review tier at every §SEC18.6 scope (`UI/Components/ContentItemPanel.md rule 2.19`), although the review tier may not amend content (§SEC14.7 posture A rule 3). What Moderate leads to is the page's decision (`UI/Pages/ContentItemModerationDetailPage.md §6 item 1`). *(code: contentItemPanel.tsx — `viewerModerates`)*
 ² A signed-out reader who picks a choice raises `onReactionSelected` like any reader, and the page sends them to sign in (`UI/Components/ContentItemPanel.md rule 3.2.4`; user, 2026-09-27).
@@ -273,7 +273,7 @@ Each page renders an error alert in place of the panel when its read fails (sect
 
 The paging behind `hasMore` is the consumer's. *(code: services/foundations/contentItemService.ts — `useSearchContentItems`; code: brokers/apiBroker.contentItems.ts — `SearchContentItemsAsync`; code: services/foundations/contentItemSettingService.ts — `useGetEffectiveSettingsFor`; code: hooks/useContentItemEngagement.ts)*
 
-**Indirect dependencies:** the auth context and a router, both through ContentItemPanel. The panel must render under a router, because today a card sends a signed-out reader to sign in itself when they choose a reaction (`UI/Components/ContentItemPanel.md §10 item 12`). *(test: contentItemListPanel.test.tsx — the `render` helper comment)*
+**Indirect dependencies:** the auth context, through ContentItemPanel. *(code: contentItemPanel.tsx — useAuth)*
 
 ## 8. States, Validation and Feedback
 
