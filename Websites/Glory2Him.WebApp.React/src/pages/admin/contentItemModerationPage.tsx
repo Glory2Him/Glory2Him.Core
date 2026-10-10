@@ -98,7 +98,7 @@ export function ContentItemModerationPage() {
         navigate, location, (item) => `/Admin/Posts/${item.id}`);
 
     const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withReactions } =
-        useContentItemEngagement();
+        useContentItemEngagement([loadedContentItems.map((item) => item.id)]);
 
     // MODERATE STAYS IN THE ADMIN AREA. It leads to the item's admin address, never to the
     // public /posts/{id}: a moderator who steps into a post from here is still working the
