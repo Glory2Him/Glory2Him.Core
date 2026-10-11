@@ -87,4 +87,13 @@ describe('the global failure toast', () => {
         // then
         expect(rejections).toEqual([]);
     });
+
+    it('should raise no unhandled rejection when a write that answers for itself fails', async () => {
+        // when
+        const rejections = await unhandledRejectionsWhenAWriteFails(
+            queryClientGlobalOptions, { suppressGlobalErrorToast: true });
+
+        // then
+        expect(rejections).toEqual([]);
+    });
 });
