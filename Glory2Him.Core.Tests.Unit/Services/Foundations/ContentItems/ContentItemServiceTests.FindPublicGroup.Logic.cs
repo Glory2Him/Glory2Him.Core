@@ -88,6 +88,79 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldFindOnlyTheVisibleVersionOfAGroupAsync()
+        {
+            // given: one group holding its visible version beside one version of each kind that
+            // can sit next to it - a draft, a soft-deleted version and an Approved version that
+            // is unpublished. They are stored ahead of the visible version, so a read that
+            // takes the group's first row rather than its visible one answers a hidden version.
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+            ContentItem visibleContentItem =
+                CreateCanonicallyVisibleContentItem(randomDateTimeOffset);
+
+            ContentItem draftContentItem = CreateRandomContentItem(randomDateTimeOffset);
+
+            ContentItem deletedContentItem =
+                CreateCanonicallyVisibleContentItem(randomDateTimeOffset);
+
+            deletedContentItem.IsDeleted = true;
+
+            ContentItem unpublishedContentItem =
+                CreateCanonicallyVisibleContentItem(randomDateTimeOffset);
+
+            unpublishedContentItem.IsPublished = false;
+
+            var hiddenContentItems = new[]
+            {
+                draftContentItem,
+                deletedContentItem,
+                unpublishedContentItem
+            };
+
+            for (int index = 0; index < hiddenContentItems.Length; index++)
+            {
+                hiddenContentItems[index].GroupId = visibleContentItem.GroupId;
+                hiddenContentItems[index].ContentType = visibleContentItem.ContentType;
+                hiddenContentItems[index].Version = visibleContentItem.Version + index + 1;
+            }
+
+            Guid inputGroupId = visibleContentItem.GroupId;
+
+            var storageContentItems = new List<ContentItem>
+            {
+                draftContentItem,
+                deletedContentItem,
+                unpublishedContentItem,
+                visibleContentItem
+            };
+
+            var expectedPublicContentItemGroup = new PublicContentItemGroup(
+                ContentItemId: visibleContentItem.Id,
+                GroupId: visibleContentItem.GroupId,
+                ContentType: visibleContentItem.ContentType);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            SetupPublicContentItemGroupLookupOver(storageContentItems, cancellationToken);
+
+            // when
+            PublicContentItemGroup? actualPublicContentItemGroup =
+                await this.contentItemService.FindPublicContentItemGroupAsync(
+                    groupId: inputGroupId,
+                    cancellationToken: cancellationToken);
+
+            // then
+            actualPublicContentItemGroup.Should().BeEquivalentTo(
+                expectedPublicContentItemGroup);
+
+            VerifyPublicContentItemGroupLookupAsked(cancellationToken, Times.Once());
+        }
+
         // The mock stands in for the storage client: it APPLIES the query-shaping function the
         // service authored to the seeded set, so each test proves the condition by executing it
         // (§ARC12.2.1 rule 5). The function is matched by any value because a lambda cannot be
