@@ -217,7 +217,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             IReadOnlyList<PublicContentItemGroup> publicContentItemGroups =
                 await this.storageBroker.SelectContentItemsAsync(
                     query: contentItems => contentItems
-                        .Where(contentItem => contentItem.GroupId == groupId)
+                        .Where(contentItem => contentItem.GroupId == groupId
+                            && contentItem.IsDeleted == false
+                            && contentItem.ApprovalStatus == ApprovalStatus.Approved
+                            && contentItem.IsPublished)
                         .Select(contentItem => new PublicContentItemGroup(
                             contentItem.Id,
                             contentItem.GroupId,
