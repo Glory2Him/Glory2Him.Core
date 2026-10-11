@@ -20,6 +20,7 @@ using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
 using Glory2Him.Core.Services.Foundations.Tags;
 using Glory2Him.Core.Services.Orchestrations.Associations;
+using Glory2Him.Core.Services.Orchestrations.LiveUpdates;
 using Glory2Him.WebApp.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -45,6 +46,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
         [InlineData(typeof(ITagService))]
         [InlineData(typeof(IApprovalCommentService))]
         [InlineData(typeof(IApprovalReviewService))]
+        [InlineData(typeof(ILiveUpdateOrchestrationService))]
         public void ShouldRegisterRequestBoundServicesAsScoped(Type serviceType)
         {
             // given
