@@ -24,7 +24,9 @@ https://github.com/Glory2Him/Glory2Him.Core/issues/705#issuecomment-6109616859) 
 continuation the same day (rulings 12–17,
 https://github.com/Glory2Him/Glory2Him.Core/issues/705#issuecomment-6109747616), and the rulings on
 failed reads the same day (rulings 18–21,
-https://github.com/Glory2Him/Glory2Him.Core/issues/705#issuecomment-6112986595). Each rule below
+https://github.com/Glory2Him/Glory2Him.Core/issues/705#issuecomment-6112986595), and the rulings on
+the association page's read of the post's settings the same day (rulings 22–23,
+https://github.com/Glory2Him/Glory2Him.Core/issues/705#issuecomment-6113417041). Each rule below
 names its source.
 
 1. **Two screens.** The post page, `/Admin/Posts/{contentItemId}`
@@ -122,6 +124,15 @@ names its source.
     *(ruling 20)*
 21. **The association's review thread cannot be read.** An announced error with a Retry takes the
     thread's place on the association page. It is never shown as an empty thread. *(ruling 21)*
+22. **The post's settings are loading (association page).** What depends on the post's settings
+    waits until they have loaded, and the rest renders once it has what it needs. In the product
+    owner's words: *"anything that is dependent on the settings should wait till the settings are
+    loaded. other things may render as long as it has what's needed to render properly."*
+    *(ruling 22)*
+23. **The post's settings cannot be read (association page).** An announced error with a Retry
+    takes the post card's place, as on the post page
+    (`Design/UI/Pages/ContentItemModerationDetailPage.md rule 2.28`). The association can still be
+    reviewed. *(ruling 23)*
 
 ## User stories
 

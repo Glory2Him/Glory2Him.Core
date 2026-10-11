@@ -83,6 +83,10 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.24 [Should]** The post's card names the post's submitter, under *Submitted by*, from a second read of the contributor, keyed by the post's `CreatedBy`, rendered when it arrives rather than waited on, as on the post page (`UI/Pages/ContentItemModerationDetailPage.md rule 2.19`). It is the post's submitter, not the association's suggester that rule 2.12 names. *(user, 2026-10-11: the mock's "Submitted by")* ≠ item 2
 
+**2.25 [Must]** What depends on the post's effective settings waits for them, and nothing else does. The post's card, whose sections, chips and Like control follow the settings (rule 2.8; `UI/Pages/ContentItemModerationDetailPage.md rule 2.17`), is not rendered until the settings read lands: a spinner, announced (§UI20.6.6 rule 5), stands in its place meanwhile, as on the post page (`UI/Pages/ContentItemModerationDetailPage.md rule 2.28`). The heading, the tab title, the links back, the association's card, its round and its thread render once their own reads have answered (rule 2.4), without waiting for the settings. What the breadcrumb's crumb for the post shows meanwhile is item 26 (`DesignFeatures/PostModeration.md` rule 22). *(user, 2026-10-11)* ≠ items 1 and 2
+
+**2.26 [Must]** When the post's settings read fails, an error stands in the post's card's place, announced, reading "We could not load this post's settings right now.", with *Retry*, which reads the settings again; once a read of them answers, the card stands there. The page never shows the card without the post's settings, and the failure takes nothing else off the page: the association's card, its round and its thread stay, and the association can still be reviewed (`DesignFeatures/PostModeration.md` rule 23). *(user, 2026-10-11)* ≠ items 1 and 2
+
 ## 3. Layout
 
 The admin shell puts its navigation menu in a left-hand column. Inside the page's own column the
@@ -116,7 +120,7 @@ main column, then the right-hand column.
 | --- | --- | --- |
 | Left sidebar (the shell's) | `col-lg-3`; absent when the menu is folded | the admin navigation menu — not the page's |
 | Page head | the shell's `col-lg-9`, or `col-12` folded | the shell's fold toggle; the heading and the `Breadcrumb`; a rule; *Back to Posts* and *Back to Post*. The spinner, or the error alert with *Back to Posts*, stands in for everything below until the post and the association are read. |
-| The post | `col-12` of the page's row | `ContentItemPanel` |
+| The post | `col-12` of the page's row | `ContentItemPanel`, or rule 2.25's spinner or rule 2.26's error in its place |
 | Main | `col-lg-7` of the page's row | `AssociationDetailPanel`; `ReviewCommentPanel`, or rule 2.23's error in its place |
 | Right sidebar | `col-lg-5` of the page's row | `ReviewPanel` |
 
@@ -133,7 +137,7 @@ Nothing on this page is built; every *Built today* cell names the section-6 item
 | Property | Value | Why |
 | --- | --- | --- |
 | `contentItem` | The post projected as the post page projects it, its submitter's name and image from the contributor read (rule 2.24), with `withReactions` laying on it its reaction summary and the overlay of a choice the reader has just made (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1 and §2`) | Rules 2.8 and 2.24. |
-| `contentItemSettingCollection` | The post's effective settings read | Rule 2.8. |
+| `contentItemSettingCollection` | The post's effective settings read; the card is not rendered until it lands | Rules 2.8, 2.25 and 2.26. |
 | `showModerationSection`, `moderationOpensEditor` | `true`, `true`: the action opens the editor — on the post page — so the terminal lock applies as there | Rule 2.10. |
 | `showApprovalStatusRibbon` / `showApprovalStatus` | `true` / `false` | Rule 2.8. |
 | `showContentExpanded` | `true` | Rule 2.8. |
@@ -254,19 +258,22 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
 
 ## 6. Open Questions and Gaps
 
-1. (#1050) **Page gap — the association page does not exist.** Rules 2.1–2.4 and 2.12 (user
-   rulings 2026-10-11): the route, guarded as the post page's; the reads of the post, the
-   association (#857), its far end and its suggester's name; the refusal of an association that is
-   not the post's, and the could-not-load state; and the association's card,
-   `AssociationDetailPanel` (`UI/Components/AssociationDetailPanel.md §10 items 1 and 2`). The
+1. (#1050) **Page gap — the association page does not exist.** Rules 2.1–2.4, 2.12, 2.25 and
+   2.26 (user rulings 2026-10-11): the route, guarded as the post page's; the reads of the post,
+   the association (#857), its far end and its suggester's name; the refusal of an association
+   that is not the post's, and the could-not-load state; and the association's card,
+   `AssociationDetailPanel` (`UI/Components/AssociationDetailPanel.md §10 items 1 and 2`), which
+   waits for none of the post's settings and stays when they cannot be read. The
    heading, the breadcrumb, the two links back and the columns are item 22. No route answers
    `Admin/Posts/:contentItemId/Associations/:associationId` (`src/routes/adminRoutes.tsx`), and
    no page shows an association.
-2. (#1055) **Page gap — the post's card shows no chips here.** Rules 2.7–2.9 and 2.24: the
-   post's card, across the page's full width above both columns, naming the post's submitter
-   from the contributor read, with its association chips, this association's current and
-   ringed, and each other chip leading to its association's page, or the announced error with
-   *Retry* in their place where they cannot be read, as on the post page. It builds on item 1's
+2. (#1055) **Page gap — the post's card shows no chips here.** Rules 2.7–2.9 and 2.24–2.26:
+   the post's card, across the page's full width above both columns, naming the post's
+   submitter from the contributor read, with its association chips, this association's current
+   and ringed, and each other chip leading to its association's page, or the announced error
+   with *Retry* in their place where they cannot be read, as on the post page; held back behind
+   an announced spinner until the post's settings land, and an announced error with *Retry* in
+   its place where they cannot be read. It builds on item 1's
    page and item 22's columns. Where the card's type chip, *Submitted by* and *Author* lead is
    item 23.
 3. (#1056) **Page gap — the post's card offers no Like control here.** Rule 2.8
@@ -354,20 +361,16 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
 24. **Retired.** What the page shows when the post, the association, its tag or Bible reference,
     the post's chips or the review thread cannot be read — the user ruled on 2026-10-11 (#705,
     rulings 18–21): rules 2.4, 2.8 and 2.23. The post's settings read is item 25.
-25. **Question — what the page shows while the post's settings load, and when they cannot be
-    read.** The post's card resolves against the post's effective settings read (rule 2.8;
-    `UI/Pages/ContentItemModerationDetailPage.md rule 2.17`), and so do its chips' facet switches
-    (`DesignFeatures/PostModeration.md` rule 8) and the post's heading in the breadcrumb of rule
-    2.5. A card handed no settings shows every section the switches allow, so a post whose
-    `ShowTags` is off would show its tag chips
-    (`src/components/contentItems/contentItemDefaultPanel.tsx` — `showsTags`). No rule settles
-    that read here: rule 2.4 holds the page for the post and the association alone.
-    On the post page the user ruled that the card waits for its settings behind the page's
-    spinner, and that a failed settings read puts the page's error, announced, with a Retry, in
-    the card's place, never the card without its settings
-    (`UI/Pages/ContentItemModerationDetailPage.md rule 2.28`). (a) While the settings read loads,
-    does the spinner stand in for the whole page, as it does for the post and the association
-    (rule 2.4), or for the post's card alone, as on the post page? (b) When the settings read
-    fails, does the page show its could-not-load state with *Back to Posts*, as it does for the
-    association's tag or Bible reference (rule 2.4), or the announced error with a Retry in the
-    card's place, as on the post page? An answer adds a rule beside rule 2.8.
+25. **Retired.** What the page shows while the post's settings load, and when they cannot be
+    read — the user ruled on 2026-10-11 (#705, rulings 22–23): rules 2.25 and 2.26. What the
+    breadcrumb's crumb for the post shows meanwhile is item 26.
+26. **Question — what the breadcrumb's crumb for the post shows while the post's settings load,
+    and when they cannot be read.** The crumb is the post's heading as the post page words it
+    (rule 2.5; `UI/Pages/ContentItemModerationDetailPage.md rule 2.18`): the post's title where
+    its effective `HasTitle` allows and one exists, and its content type's name otherwise, both
+    resolved against the post's settings. Ruling 22 has what depends on the settings wait for
+    them, and ruling 23 says what takes the card's place when they cannot be read, not the
+    crumb's. (a) While the settings read loads, does the breadcrumb leave the post's crumb out
+    until the settings land, or wait whole? (b) When the settings read fails, does the
+    breadcrumb leave the post's crumb out, or name the post some other way — and if so, how? An
+    answer adds a rule beside rule 2.25.
