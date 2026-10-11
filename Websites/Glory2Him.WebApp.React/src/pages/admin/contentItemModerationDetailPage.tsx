@@ -121,9 +121,15 @@ export const ContentItemModerationDetailPage = () => {
     // very item, so a moderator who opened the item lost a control by reading it — and a page
     // that passes no handler is a second switch no ShowReactions setting can reach (§DOM6.5).
     // Share and Save are deliberately NOT taken: an item under moderation is by definition not
-    // approved, so the /posts/{id} address Share copies answers nothing for it.
+    // approved, so the /posts/{id} address Share copies answers nothing for it. The hook is
+    // handed one page holding the read item's id, so the card carries the item's reaction
+    // counts and the moderator's own reaction once the item is publicly visible.
+    const contentItemIdPages = useMemo(
+        () => contentItem == null ? [] : [[contentItem.id]],
+        [contentItem]);
+
     const { reactionOptions, onReactionSelected, withReactions } =
-        useContentItemEngagement();
+        useContentItemEngagement(contentItemIdPages);
 
     const readItem = useMemo(
         () => contentItem == null
@@ -135,7 +141,7 @@ export const ContentItemModerationDetailPage = () => {
             },
         [contentItem, contentItemSettings, contributor]);
 
-    // The reader's choice, laid over the projection — and deliberately NOT memoised,
+    // The item's reactions and the reader's choice, laid over it — deliberately NOT memoised,
     // for the reason postDetail records: withReactions closes over the choices and is
     // rebuilt every render, so a memo listing it recomputes every render and buys nothing,
     // while a memo keyed on readItem alone would go stale the moment the moderator chose.

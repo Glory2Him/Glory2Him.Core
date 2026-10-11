@@ -7,10 +7,17 @@ import { AuthProvider } from '../../components/securitys/authProvider';
 import { ContentItem } from '../../models/foundations/contentItems/contentItem';
 import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
 import { ApprovalDecision } from '../../models/components/approvals/approvalReviewItem';
+import { EntityType } from '../../models/foundations/approvalSettings/approvalSetting';
+import { AssociationRequest } from '../../models/foundations/associations/associationRequest';
+
 import { ApprovalStatus } from '../../models/components/contentItems/contentItemFormItem';
 import { ShareabilityBasis } from '../../models/components/contentItems/contentItemFormItem';
 import { createAuthState, signInAs } from '../../tests/testAuth';
 import { testContentItemSetting } from '../../tests/testContentItemSettings';
+
+import {
+    ContentItemReactionSummary
+} from '../../models/foundations/associations/contentItemReactionSummary';
 
 import {
     ContentItemSetting
@@ -143,16 +150,33 @@ vi.mock('../../services/foundations/reactionService', () => ({
     }
 }));
 
-// The engagement hook reads the cards' reaction summaries through a query, which a harness with
-// no QueryClientProvider cannot hold, so it is mocked and answers no summary: no card carries
-// counts read from the server, and a chosen reaction's overlay shows its counts while its write
-// is pending. Its writes are mutations, mocked for the same reason, and a write made through
-// them stays pending for the length of the test.
+// The engagement hook reads the card's reaction summary through a query, which a harness with
+// no QueryClientProvider cannot hold, so it is mocked. It answers only for the ids it is handed,
+// as the real one does, so a card whose id the hook was never handed carries no counts. Its
+// writes are mutations, mocked for the same reason, and a write made through them stays pending
+// for the length of the test, so a chosen reaction's overlay stands.
+let handedPages: ReadonlyArray<ReadonlyArray<string>> | undefined;
+let serverSummaries: Record<string, ContentItemReactionSummary> = {};
+const upsertAssociation = vi.fn<(association: AssociationRequest) => Promise<unknown>>();
+const removeAssociationByPair = vi.fn<(association: AssociationRequest) => Promise<unknown>>();
+
 vi.mock('../../services/foundations/associationService', () => ({
     associationService: {
-        useGetReactionSummaries: () => ({ summaries: {}, isLoading: false, isError: false }),
-        useUpsertAssociation: () => ({ mutateAsync: () => new Promise(() => undefined) }),
-        useRemoveAssociationByPair: () => ({ mutateAsync: () => new Promise(() => undefined) }),
+        useGetReactionSummaries: (contentItemIdPages: ReadonlyArray<ReadonlyArray<string>>) => {
+            handedPages = contentItemIdPages;
+
+            return {
+                summaries: Object.fromEntries(contentItemIdPages
+                    .flat()
+                    .filter((contentItemId) => serverSummaries[contentItemId] !== undefined)
+                    .map((contentItemId) => [contentItemId, serverSummaries[contentItemId]])),
+                isLoading: false,
+                isError: false
+            };
+        },
+
+        useUpsertAssociation: () => ({ mutateAsync: upsertAssociation }),
+        useRemoveAssociationByPair: () => ({ mutateAsync: removeAssociationByPair }),
         useReadReactionSummariesAgain: () => () => new Promise(() => undefined)
     }
 }));
@@ -285,6 +309,69 @@ const draftQuote: ContentItem = {
     deletionReason: null
 };
 
+// An item another contributor submitted, approved and published, so publicly visible: the one
+// kind of item the server answers a reaction summary for (`DesignFeatures/Likes.md` rule 11a),
+// and one no test of the Like control holds because the moderator owns it.
+const publicQuote: ContentItem = {
+    ...draftQuote,
+    isPublished: true,
+    publishDate: '2026-07-02T00:00:00Z',
+    approvalStatus: ApprovalStatus.Approved,
+    createdBy: 'contributor-9',
+    updatedBy: 'contributor-9'
+};
+
+const reactionIds: Record<string, string> = { Amen: 'reaction-1', Love: 'reaction-2' };
+const reactionGlyphs: Record<string, string> = { Amen: '👍', Love: '❤️' };
+
+// The item's summary as the server sends it: each reaction given and its count, and the one
+// the reader holds, if any.
+const summaryOf = (
+    counts: ReadonlyArray<[string, number]>,
+    viewerReactionName: string | null = null): ContentItemReactionSummary => ({
+    contentItemId: 'quote-1',
+    reactions: counts.map(([name, count]) => ({
+        reactionId: reactionIds[name],
+        name,
+        unicodeEmoji: reactionGlyphs[name],
+        count
+    })),
+    viewerReactionId: viewerReactionName === null ? null : reactionIds[viewerReactionName],
+    viewerReactionName
+});
+
+const reactionCounts = (): HTMLElement =>
+    screen.getByRole('button', { name: 'Reaction counts' });
+
+// One reaction's own count, read from the counts' expanded face, which lists each reaction
+// given beside its glyph; the collapsed face shows only their sum.
+const reactionCountOf = async (reactionName: string): Promise<string> => {
+    if (reactionCounts().getAttribute('aria-expanded') !== 'true') {
+        await userEvent.click(reactionCounts());
+    }
+
+    const reaction = within(reactionCounts()).getByTitle(reactionName);
+
+    return (reaction.textContent ?? '').replace(reactionGlyphs[reactionName], '').trim();
+};
+
+// Opens the card's Like control: the reactions it offers, each pressed or not. Choosing
+// closes it, so a test that reads the mark back after a choice opens it again.
+const openLike = async (): Promise<void> =>
+    await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+
+const choose = async (reactionName: string): Promise<void> => {
+    await openLike();
+    await userEvent.click(screen.getByRole('menuitem', { name: reactionName }));
+};
+
+const reactionPairFor = (reactionName: string): AssociationRequest => ({
+    entityAType: EntityType.ContentItem,
+    entityAKeyId: 'quote-1',
+    entityBType: EntityType.Reaction,
+    entityBKeyId: reactionIds[reactionName]
+});
+
 // Back NAVIGATES rather than links, so the address it reaches is the only evidence of where
 // it went — and returning to the queue as the moderator left it is the whole point of it.
 const LocationProbe = () => {
@@ -401,6 +488,12 @@ describe('ContentItemModerationDetailPage', () => {
         toastSuccessSpy.mockReset();
 
         effectiveSettings = [quoteSetting];
+        handedPages = undefined;
+        serverSummaries = {};
+        upsertAssociation.mockReset();
+        upsertAssociation.mockImplementation(() => new Promise(() => undefined));
+        removeAssociationByPair.mockReset();
+        removeAssociationByPair.mockImplementation(() => new Promise(() => undefined));
         signInAs(authState, ['Administrators']);
     });
 
@@ -475,24 +568,82 @@ describe('ContentItemModerationDetailPage', () => {
         expect(within(card).queryByRole('button', { name: /Save/ })).not.toBeInTheDocument();
     });
 
-    // THE CHOICE HAS TO SHOW. Choosing closes the picker - the panel's own behaviour - so the
-    // mark is read back by reopening it, the same way /posts/{id} proves the fold.
-    it("should mark the reader's chosen reaction as pressed on the moderation detail page",
-        async () => {
+    describe('the Like control', () => {
+        it("should show the item's reaction counts on /Admin/Posts/{id}", () => {
             // given
-            renderPage();
-            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
-            await userEvent.click(screen.getByRole('menuitem', { name: 'Amen' }));
+            contentItem = publicQuote;
+            serverSummaries = { 'quote-1': summaryOf([['Love', 3], ['Amen', 2]]) };
 
             // when
-            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+            renderPage();
 
-            // then: the mark is the overlay of a choice still being recorded — the write
-            // stays pending for the length of this test, and the overlay stands until the read
-            // that follows it lands — until #747 brings this test to what the page does
+            // then
+            expect(handedPages).toEqual([['quote-1']]);
+            expect(reactionCounts()).toHaveTextContent('5');
+        });
+
+        it("should mark the reader's own reaction on /Admin/Posts/{id}", async () => {
+            // given
+            contentItem = publicQuote;
+            serverSummaries = { 'quote-1': summaryOf([['Love', 3], ['Amen', 2]], 'Love') };
+            renderPage();
+
+            // when
+            await openLike();
+
+            // then
+            expect(screen.getByRole('menuitem', { name: 'Love' }))
+                .toHaveAttribute('aria-pressed', 'true');
+
             expect(screen.getByRole('menuitem', { name: 'Amen' }))
+                .toHaveAttribute('aria-pressed', 'false');
+        });
+
+        it('should record a chosen reaction on /Admin/Posts/{id}', async () => {
+            // given
+            contentItem = publicQuote;
+            serverSummaries = { 'quote-1': summaryOf([['Love', 3], ['Amen', 2]]) };
+            renderPage();
+
+            // when
+            await choose('Love');
+
+            // then
+            expect(upsertAssociation).toHaveBeenCalledTimes(1);
+            expect(upsertAssociation).toHaveBeenCalledWith(reactionPairFor('Love'));
+            expect(removeAssociationByPair).not.toHaveBeenCalled();
+            expect(await reactionCountOf('Love')).toBe('4');
+            expect(await reactionCountOf('Amen')).toBe('2');
+
+            await openLike();
+
+            expect(screen.getByRole('menuitem', { name: 'Love' }))
                 .toHaveAttribute('aria-pressed', 'true');
         });
+
+        it('should withdraw a reaction chosen again on /Admin/Posts/{id}', async () => {
+            // given
+            contentItem = publicQuote;
+            serverSummaries = { 'quote-1': summaryOf([['Love', 3], ['Amen', 2]], 'Love') };
+            renderPage();
+
+            // when
+            await choose('Love');
+
+            // then
+            expect(removeAssociationByPair).toHaveBeenCalledTimes(1);
+            expect(removeAssociationByPair).toHaveBeenCalledWith(reactionPairFor('Love'));
+            expect(upsertAssociation).not.toHaveBeenCalled();
+
+            await openLike();
+
+            expect(screen.getByRole('menuitem', { name: 'Love' }))
+                .toHaveAttribute('aria-pressed', 'false');
+
+            expect(screen.getByRole('menuitem', { name: 'Amen' }))
+                .toHaveAttribute('aria-pressed', 'false');
+        });
+    });
 
     it('should walk back to the bare queue when no origin was carried', async () => {
         // given
