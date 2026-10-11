@@ -23,7 +23,10 @@ namespace Glory2Him.Core.Services.Foundations.LiveUpdates
 
             Validate(
                 message: "Live update is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(liveUpdate.Type), Parameter: nameof(LiveUpdate.Type)));
+                (Rule: IsInvalid(liveUpdate.Type), Parameter: nameof(LiveUpdate.Type)),
+
+                (Rule: IsSetOnASettingChange(liveUpdate.Type, liveUpdate.ContentItemId),
+                    Parameter: nameof(LiveUpdate.ContentItemId)));
         }
 
         private static void ValidateLiveUpdateIsNotNull(LiveUpdate liveUpdate)
@@ -39,6 +42,17 @@ namespace Glory2Him.Core.Services.Foundations.LiveUpdates
             Condition = Enum.IsDefined(liveUpdateType) is false,
             Message = "Value is not a supported live update type"
         };
+
+        // a setting message names nothing else: a page reads every setting it shows again
+        private static dynamic IsSetOnASettingChange(
+            LiveUpdateType liveUpdateType,
+            Guid? contentItemId) => new
+            {
+                Condition = liveUpdateType == LiveUpdateType.ContentItemSettingChanged
+                    && contentItemId is not null,
+
+                Message = "Value is not allowed on a content item setting change"
+            };
 
         private static void Validate(
             string message,
