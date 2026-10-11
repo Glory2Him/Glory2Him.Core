@@ -6,6 +6,7 @@ import { useApprovalRound } from './useApprovalRound';
 import { ApprovalStatus } from '../models/components/approvals/approvalReviewItem';
 
 import {
+    AIReviewerStatus,
     ApprovalReview,
     ApprovalVerdict,
     EntityTypeName
@@ -24,6 +25,7 @@ const getReviewRequestsAsync = vi.fn();
 const getReviewerDisplayNamesAsync = vi.fn();
 
 const getApprovalCommentsAsync = vi.fn();
+const getAIReviewerStatusAsync = vi.fn();
 
 vi.mock('../brokers/apiBroker.approvals', () => ({
     default: class {
@@ -58,6 +60,13 @@ const verdict: ApprovalVerdict = {
     unresolvedApprovalCommentCount: 0
 };
 
+const aiReviewerStatus: AIReviewerStatus = {
+    isOffered: true,
+    isRequested: false,
+    isAIReviewCompleted: false,
+    isAIReviewCommentsPresent: false
+};
+
 const review: ApprovalReview = {
     id: 'review-1',
     approvalId: 'approval-1',
@@ -90,6 +99,7 @@ describe('useApprovalRound', () => {
         getReviewRequestsAsync.mockResolvedValue([]);
         getReviewerDisplayNamesAsync.mockResolvedValue([]);
         getApprovalCommentsAsync.mockResolvedValue([]);
+        getAIReviewerStatusAsync.mockResolvedValue(aiReviewerStatus);
 
         queryClient = new QueryClient({
             defaultOptions: { queries: { retry: false } }
@@ -131,6 +141,19 @@ describe('useApprovalRound', () => {
         // §20.6.1 names "a comment added or resolved" as a trigger, so the thread is in the
         // channel rather than polling on its own
         expect(getApprovalCommentsAsync).toHaveBeenCalledWith('approval-1');
+    });
+
+    // Keyed by the item, as built. Rule 2.23 addresses Berean by the round's approval id; when
+    // §6 item 11 is built, these arguments change with the call.
+    it("should read Berean's status with the round", async () => {
+        // when
+        const { result } = renderRound();
+
+        // then
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+        await waitFor(() => expect(getAIReviewerStatusAsync)
+            .toHaveBeenCalledWith(EntityTypeName.ContentItem, 'quote-1'));
     });
 
     // §7.9 leaves everybody in the candidate list whether or not they have answered, so no round
