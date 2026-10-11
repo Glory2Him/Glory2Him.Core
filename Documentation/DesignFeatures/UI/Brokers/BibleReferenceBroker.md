@@ -18,7 +18,7 @@ receives it. It types what the pages read — `id`, `reference`, `translation` a
 last nullable as the server's `Scripture` is — and leaves the rest of the server's
 `BibleReference` untyped, as `src/models/foundations/approvals/approval.ts` does.
 
-## 1. GetBibleReferenceByIdAsync (needs issue)
+## 1. GetBibleReferenceByIdAsync (#1035)
 
 ```ts
 GetBibleReferenceByIdAsync(bibleReferenceId: string): Promise<BibleReference>
@@ -29,7 +29,7 @@ GetBibleReferenceByIdAsync(bibleReferenceId: string): Promise<BibleReference>
 2. **A refusal reaches its caller as axios raised it.** A reference the caller may not see answers
    `404` (§SEC14.5 rule 1), and the member neither catches nor reads it.
 
-## 2. GetBibleReferencesAsync (needs issue)
+## 2. GetBibleReferencesAsync (#1037)
 
 ```ts
 GetBibleReferencesAsync(query: ODataQuery): Promise<BibleReference[]>

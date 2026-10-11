@@ -723,7 +723,7 @@ context) for the render gates, and the item's `ApprovalStatus` for the non-owner
     board (`contentItemAddPanelDoc.tsx` — `blockRoles`, lines 51, 157, 263 and 334). The rows
     are `UI/Components/ContentItemPanel.Add.md §4.1` and
     `UI/Components/ContentItemPanel.Edit.md §4.1`.
-25. (needs issue) **Gap — the card shows no association chips.** Rules 2.45, 2.46 and 3.1.16
+25. (#1042) **Gap — the card shows no association chips.** Rules 2.45, 2.46 and 3.1.16
     (user rulings 2026-10-11; `DesignFeatures/PostModeration.md` rules 4–8): a page may hand the
     card the post's associations, and the card shows them as status chips in its tag and
     reference sections, each raising `onAssociationChipClick`. The card has no such property and
@@ -732,7 +732,7 @@ context) for the render gates, and the item's `ApprovalStatus` for the non-owner
     (`contentItemSearchItem.ts` — `tags`, `bibleReferences`; `contentItemDefaultPanel.tsx` —
     `showsTags`, `showsBibleReferences`). The rendering half is
     `UI/Components/ContentItemPanel.Default.md rule 3.1.13`, built with this item.
-26. (needs issue) **Gap — the card offers no takedown.** Rules 2.47, 3.1.17, 3.2.7 and 3.3.3
+26. (#1043) **Gap — the card offers no takedown.** Rules 2.47, 3.1.17, 3.2.7 and 3.3.3
     (user rulings 2026-10-11; §APR9.9 rule 7): `Administrators` take the item down from the
     card's footer, at any status, after a confirmation. The view face offers no removal at all;
     the only takedown is the edit face's *Delete*, which an administrator reaches only where the

@@ -248,7 +248,7 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
 
 ## 6. Open Questions and Gaps
 
-1. (needs issue) **Page gap — the association page does not exist.** Rules 2.1–2.7 and 2.12 (user
+1. (#1050) **Page gap — the association page does not exist.** Rules 2.1–2.7 and 2.12 (user
    rulings 2026-10-11): the route, guarded as the post page's; the reads of the post, the
    association (#857), its far end and its suggester's name; the refusal of an association that is
    not the post's, and the could-not-load state; the heading, the breadcrumb, *Back to Posts* and
@@ -256,54 +256,54 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
    (`UI/Components/AssociationDetailPanel.md §10 items 1 and 2`). No route answers
    `Admin/Posts/:contentItemId/Associations/:associationId` (`src/routes/adminRoutes.tsx`), and
    no page shows an association.
-2. (needs issue) **Page gap — the post's card shows no chips here.** Rules 2.8 and 2.9: the post's
+2. (#1055) **Page gap — the post's card shows no chips here.** Rules 2.8 and 2.9: the post's
    card with its association chips, this association's current and ringed, each other chip
    leading to its association's page, and the type chip, *Submitted by* and *Author* opening the
    queue as on the post page. It builds on item 1's page.
-3. (needs issue) **Page gap — the post's card offers no Like control here.** Rule 2.8
+3. (#1056) **Page gap — the post's card offers no Like control here.** Rule 2.8
    (`DesignFeatures/Likes.md` rule 11; user ruling 2026-10-11): the card shows the post's
    reaction counts and the reader's own, and records, changes or clears it, through
    `useContentItemEngagement`, as the post page does (`UI/Pages/ContentItemModerationDetailPage.md
    §6 item 3`).
-4. (needs issue) **Page gap — Edit on the post's card leads nowhere.** Rule 2.10 (user rulings
+4. (#1057) **Page gap — Edit on the post's card leads nowhere.** Rule 2.10 (user rulings
    2026-10-11): it leads to the post page with the editor open, locked as there. The post page's
    half, opening on the editor, is `UI/Pages/ContentItemModerationDetailPage.md §6 item 18`.
-5. (needs issue) **Page gap — the post cannot be taken down here.** Rule 2.11 (user rulings
+5. (#1058) **Page gap — the post cannot be taken down here.** Rule 2.11 (user rulings
    2026-10-11): `Administrators` take the post down from the card's *Take down*. The card's half
    is `UI/Components/ContentItemPanel.md §10 item 26`.
-6. (needs issue) **Page gap — the association's round is not shown.** Rules 2.14–2.18: the
+6. (#1059) **Page gap — the association's round is not shown.** Rules 2.14–2.18: the
    association's round in `ReviewPanel` — its reviews, Berean's row and its *Review Outcome* —
    read by the association's type and id, its tiers composed from the association's endpoints,
    its controls disabled until the approval record exists, and refreshed with the association.
    The panel's halves are `UI/Components/ReviewPanel.md §10 items 13 and 14`. The React app's
    `EntityTypeName` has no `Association` member yet (`src/models/foundations/approvals/approval.ts`).
-7. (needs issue) **Page gap — no vote can be cast on the association.** Rules 2.14 and 2.19:
+7. (#1060) **Page gap — no vote can be cast on the association.** Rules 2.14 and 2.19:
    `onReviewStatusChanged` files or amends the viewer's review.
-8. (needs issue) **Page gap — the association cannot be decided.** Rules 2.14, 2.16 and 2.19:
+8. (#1061) **Page gap — the association cannot be decided.** Rules 2.14, 2.16 and 2.19:
    `onApprovalStatusChanged` sends the decision, with its bypass, on the association's round, and
    toasts the outcome.
-9. (needs issue) **Page gap — a decided association's round cannot be reset.** Rules 2.14 and
+9. (#1062) **Page gap — a decided association's round cannot be reset.** Rules 2.14 and
    2.19: `onApprovalReset`, `Administrators` only.
-10. (needs issue) **Page gap — no reviewer can be asked to review the association.** Rules 2.14
+10. (#1063) **Page gap — no reviewer can be asked to review the association.** Rules 2.14
     and 2.19: the picker reads the candidates when it opens, and `onReviewRequested` asks the
     person picked.
-11. (needs issue) **Page gap — a review request on the association cannot be withdrawn.** Rules
+11. (#1064) **Page gap — a review request on the association cannot be withdrawn.** Rules
     2.14 and 2.19: `onReviewRequestWithdrawn`.
-12. (needs issue) **Page gap — Berean cannot be asked to review the association.** Rules 2.14 and
+12. (#1065) **Page gap — Berean cannot be asked to review the association.** Rules 2.14 and
     2.19: `onAIReviewerRequested`, for a first request and a re-request alike.
-13. (needs issue) **Page gap — Berean cannot be withdrawn from the association's round.** Rules
+13. (#1066) **Page gap — Berean cannot be withdrawn from the association's round.** Rules
     2.14 and 2.19: `onAIReviewerWithdrawn`.
-14. (needs issue) **Page gap — the association's review thread is not shown.** Rules 2.14–2.18:
+14. (#1067) **Page gap — the association's review thread is not shown.** Rules 2.14–2.18:
     the thread in `ReviewCommentPanel`, its tiers composed from the association's endpoints, its
     box disabled until the approval record exists. The panel's halves are
     `UI/Components/ReviewCommentPanel.md §10 items 22 and 23`.
-15. (needs issue) **Page gap — no comment can be added to the association's thread.** Rule 2.19:
+15. (#1068) **Page gap — no comment can be added to the association's thread.** Rule 2.19:
     `onSave`.
-16. (needs issue) **Page gap — a comment on the association's thread cannot be amended.** Rule
+16. (#1069) **Page gap — a comment on the association's thread cannot be amended.** Rule
     2.19: `onModified`.
-17. (needs issue) **Page gap — a comment on the association's thread cannot be withdrawn.** Rules
+17. (#1070) **Page gap — a comment on the association's thread cannot be withdrawn.** Rules
     2.19 and 2.20: `onRemoveRequested`, confirmed first.
-18. (needs issue) **Page gap — a question on the association's thread cannot be marked
+18. (#1071) **Page gap — a question on the association's thread cannot be marked
     resolved.** Rule 2.19: `onResolvedChanged`.
 19. (#863) **Page gap — the confidence block shows no suggestion.** Rule 2.13 (user ruling
     2026-10-11): where the block is shown, it carries the suggestion — an approval, a rejection,

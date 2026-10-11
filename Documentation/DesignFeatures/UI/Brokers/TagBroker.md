@@ -14,7 +14,7 @@ association's tag (`PostModeration.md` rules 6 and 12).
 member that receives it. It types what the pages read, `id` and `name`, and leaves the rest of the
 server's `Tag` untyped, as `src/models/foundations/approvals/approval.ts` does.
 
-## 1. GetTagByIdAsync (needs issue)
+## 1. GetTagByIdAsync (#1034)
 
 ```ts
 GetTagByIdAsync(tagId: string): Promise<Tag>
@@ -25,7 +25,7 @@ GetTagByIdAsync(tagId: string): Promise<Tag>
 2. **A refusal reaches its caller as axios raised it.** A tag the caller may not see answers `404`
    (§SEC14.5 rule 1), and the member neither catches nor reads it.
 
-## 2. GetTagsAsync (needs issue)
+## 2. GetTagsAsync (#1036)
 
 ```ts
 GetTagsAsync(query: ODataQuery): Promise<Tag[]>

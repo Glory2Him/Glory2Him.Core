@@ -9,7 +9,7 @@ exported object whose members are hooks, each that calls the broker constructing
 
 **An id in a filter** is written bare, as `UI/Foundations/TagService.md` writes one: `id eq <id>`.
 
-## 1. useGetBibleReferenceById (needs issue)
+## 1. useGetBibleReferenceById (#1039)
 
 ```ts
 useGetBibleReferenceById: (bibleReferenceId: string, enabled?: boolean) => UseQueryResult<BibleReference>
@@ -21,7 +21,7 @@ useGetBibleReferenceById: (bibleReferenceId: string, enabled?: boolean) => UseQu
    `true`.
 3. **A failed read is the query's error**, which the page reads; the hook adds no toast of its own.
 
-## 2. useGetBibleReferencesByIds (needs issue)
+## 2. useGetBibleReferencesByIds (#1041)
 
 ```ts
 useGetBibleReferencesByIds: (bibleReferenceIds: ReadonlyArray<string>) => UseQueryResult<BibleReference[]>

@@ -161,6 +161,6 @@ its far end, the tag's name or the reference and its scripture (`UI/Foundations/
 
 ## 10. Open Questions and Gaps
 
-1. (needs issue) **Gap — the panel is not built.** Rules 2.1–2.3 and 3.1.1–3.1.4 (user rulings 2026-10-11): nothing in `src/components/` renders one association as its page shows it. The association page that renders it is `UI/Pages/AssociationModerationDetailPage.md`.
-2. (needs issue) **Gap — the confidence block is not built.** Rules 2.4, 2.5, 3.1.5 and 3.1.6 (user ruling 2026-10-11): the block, with the suggestion line it carries when one is handed. The page's half of the suggestion, the band it hands over, is `UI/Pages/AssociationModerationDetailPage.md §6 item 19`.
+1. (#1048) **Gap — the panel is not built.** Rules 2.1–2.3 and 3.1.1–3.1.4 (user rulings 2026-10-11): nothing in `src/components/` renders one association as its page shows it. The association page that renders it is `UI/Pages/AssociationModerationDetailPage.md`.
+2. (#1049) **Gap — the confidence block is not built.** Rules 2.4, 2.5, 3.1.5 and 3.1.6 (user ruling 2026-10-11): the block, with the suggestion line it carries when one is handed. The page's half of the suggestion, the band it hands over, is `UI/Pages/AssociationModerationDetailPage.md §6 item 19`.
 3. (needs issue) **Gap — the takedown is not built.** Rules 2.6, 2.7, 3.1.7, 3.2.1 and 3.3.1 (user rulings 2026-10-11). The page has no route to wire it to: `DELETE /api/associations/{id}` waits on `UI/Components/AssociationPanel.md §10 item 22`, and the page's half is `UI/Pages/AssociationModerationDetailPage.md §6 item 20`, so this is built with it and is not carved before it.

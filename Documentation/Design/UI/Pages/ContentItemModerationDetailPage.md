@@ -474,7 +474,7 @@ everyone who reaches the page; each association's round is the association page'
     `UI/Components/ReviewPanel.md §10 item 12` and `UI/Components/ReviewCommentPanel.md §10 item 18`.
     The association page's share of the same move is
     `UI/Pages/AssociationModerationDetailPage.md §6 item 21`.
-12. (needs issue) **Page gap — `/Admin/Posts/{id}`: an administrator cannot take down a reviewed
+12. (#1052) **Page gap — `/Admin/Posts/{id}`: an administrator cannot take down a reviewed
     item.** Rule 2.24 (user rulings 2026-09-27 and 2026-10-11; §APR9.9 rule 7): `Administrators`
     take the item down from the card's *Take down*, at any status, after its confirmation, and the
     page sends `DELETE api/ContentItems/{contentItemId}` and returns to the queue (rule 2.9). The
@@ -520,7 +520,7 @@ everyone who reaches the page; each association's round is the association page'
     `ContentItemSettingsModifyPanel`), so only a different winning row, an override added or
     removed elsewhere, starts the form again from the new row. The same gap on `/` is
     `UI/Pages/Home.md §6 item 11`, whose evidence stands for this page too.
-17. (needs issue) **Page gap — `/Admin/Posts/{id}`: the post's tags and Bible references are not
+17. (#1051) **Page gap — `/Admin/Posts/{id}`: the post's tags and Bible references are not
     chips on its card.** Rules 2.6, 2.16, 2.22, 2.26, 2.30 and 2.31 (user rulings 2026-10-11;
     `DesignFeatures/PostModeration.md` rules 1 and 3–9): the card shows every tag and Bible
     reference of the post as a chip showing its association's status, in a fixed order, each
@@ -536,13 +536,13 @@ everyone who reaches the page; each association's round is the association page'
     column — "should stand both association surfaces below the item in the seven", "should mount
     the thread under the bible references, not beside the round"
     (`contentItemModerationDetailPage.test.tsx`) — change with it.
-18. (needs issue) **Page gap — `/Admin/Posts/{id}`: the page cannot open on the editor.** Rule 2.32
+18. (#1053) **Page gap — `/Admin/Posts/{id}`: the page cannot open on the editor.** Rule 2.32
     (user rulings 2026-10-11): a moderator the association page's Edit sends here arrives with the
     editor open, unless rule 2.7's lock holds. The page opens on the card whatever brought the
     moderator here: `isEditing` starts `false` and only `onModerateClick` sets it
     (`admin/contentItemModerationDetailPage.tsx` — `isEditing`). The association page's half is
     `UI/Pages/AssociationModerationDetailPage.md §6 item 4`.
-19. (needs issue) **Page gap — `/Admin/Posts/{id}`: the round's controls are live before its
+19. (#1054) **Page gap — `/Admin/Posts/{id}`: the round's controls are live before its
     record exists.** Rule 2.33 (user ruling 2026-10-11): until the approval process has created the
     item's approval record, `ReviewPanel` and `ReviewCommentPanel` render their controls disabled.
     While the verdict read answers not-found, the page hands `ReviewPanel` no verdict and

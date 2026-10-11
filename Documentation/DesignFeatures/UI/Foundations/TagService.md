@@ -10,7 +10,7 @@ Both are reads; this service writes nothing.
 **An id in a filter** is written bare, as `useGetEffectiveSettingsFor` writes one
 (`UI/Foundations/ContentItemSettingService.md §3`): `id eq <id>`.
 
-## 1. useGetTagById (needs issue)
+## 1. useGetTagById (#1038)
 
 ```ts
 useGetTagById: (tagId: string, enabled?: boolean) => UseQueryResult<Tag>
@@ -22,7 +22,7 @@ useGetTagById: (tagId: string, enabled?: boolean) => UseQueryResult<Tag>
    `true`.
 3. **A failed read is the query's error**, which the page reads; the hook adds no toast of its own.
 
-## 2. useGetTagsByIds (needs issue)
+## 2. useGetTagsByIds (#1040)
 
 ```ts
 useGetTagsByIds: (tagIds: ReadonlyArray<string>) => UseQueryResult<Tag[]>

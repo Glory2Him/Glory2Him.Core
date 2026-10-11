@@ -526,7 +526,7 @@ Every write invalidates the thread and the verdict (rule 2.15). On the one consu
     (`reviewCommentAddPanel.tsx`, lines 109-130), and neither the dispatcher nor the add face
     has a tooltip, or a property for one. `ApprovalComment-ReadOnly` is not composed at all (item
     16).
-22. (needs issue) **Gap — an association's thread composes its tiers from `Association`.** Rules
+22. (#1046) **Gap — an association's thread composes its tiers from `Association`.** Rules
     2.35 and 3.2.7 (user ruling 2026-10-11; §SEC14.7 posture A′ rules 1–3): on an association's
     round the publisher tier of the tick and the tick's read-only roles compose from the
     association's two endpoints, and so does the review tier once item 19 builds it. The panel has
@@ -536,7 +536,7 @@ Every write invalidates the thread and the verdict (rule 2.15). On the one consu
     (`Websites/Glory2Him.WebApp/Data/SeedData.cs` — `ScopedRoleEntityTypes`), so a scoped
     publisher of either endpoint would be refused the tick, and a holder of either endpoint's
     block would be offered it.
-23. (needs issue) **Gap — the box is withheld, not disabled, on a round with no record.** Rules
+23. (#1047) **Gap — the box is withheld, not disabled, on a round with no record.** Rules
     2.36, 3.1.8 and 3.3.6 (user ruling 2026-10-11): until the approval process has created the
     round's approval record, the box renders disabled with the no-round line beneath it. The
     panel has no property for it: with no `approvalId` it withholds the box and shows the line in
