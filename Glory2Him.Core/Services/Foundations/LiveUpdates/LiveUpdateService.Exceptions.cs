@@ -40,6 +40,10 @@ namespace Glory2Him.Core.Services.Foundations.LiveUpdates
 
                 throw await CreateAndLogDependencyExceptionAsync(timeoutLiveUpdateException);
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (NullLiveUpdateException nullLiveUpdateException)
             {
                 throw await CreateAndLogValidationExceptionAsync(nullLiveUpdateException);
@@ -47,6 +51,15 @@ namespace Glory2Him.Core.Services.Foundations.LiveUpdates
             catch (InvalidLiveUpdateException invalidLiveUpdateException)
             {
                 throw await CreateAndLogValidationExceptionAsync(invalidLiveUpdateException);
+            }
+            catch (Exception exception)
+            {
+                var failedLiveUpdateServiceException = new FailedLiveUpdateServiceException(
+                    message: "Failed live update service error occurred, please contact support.",
+                    innerException: exception,
+                    data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(failedLiveUpdateServiceException);
             }
         }
 
@@ -72,6 +85,18 @@ namespace Glory2Him.Core.Services.Foundations.LiveUpdates
             await this.loggingBroker.LogErrorAsync(liveUpdateDependencyException);
 
             return liveUpdateDependencyException;
+        }
+
+        private async ValueTask<LiveUpdateServiceException> CreateAndLogServiceExceptionAsync(
+            Xeption exception)
+        {
+            var liveUpdateServiceException = new LiveUpdateServiceException(
+                message: "Live update service error occurred, contact support.",
+                innerException: exception);
+
+            await this.loggingBroker.LogErrorAsync(liveUpdateServiceException);
+
+            return liveUpdateServiceException;
         }
     }
 }
