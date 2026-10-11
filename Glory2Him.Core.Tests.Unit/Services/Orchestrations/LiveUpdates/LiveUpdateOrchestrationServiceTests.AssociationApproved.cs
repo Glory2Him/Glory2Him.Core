@@ -342,5 +342,64 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             this.liveUpdateServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldSendNothingWhenTheHostsSettingHidesReactionsAsync()
+        {
+            // given: the visible version's winning setting turns ShowReactions off, so no card
+            // shows its counts and nobody may read the change (§SEC14.3 rule 6, §SEC14.8 rule 1)
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            Association contentItemReaction = CreateContentItemReaction();
+            EventEnvelope<Association> approvedFact = CreateFactEnvelope(contentItemReaction);
+
+            PublicContentItemGroup visibleVersion =
+                CreateVisibleVersion(groupId: contentItemReaction.EntityAGroupId);
+
+            List<ContentItemSettingKey> expectedSettingKeys = CreateSettingKeysFor(visibleVersion);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    approvedFact,
+                    AssociationApprovedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.FindPublicContentItemGroupAsync(
+                    contentItemReaction.EntityAGroupId,
+                    callerCancellationToken))
+                        .ReturnsAsync(visibleVersion);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    callerCancellationToken))
+                        .ReturnsAsync(CreateWinningSettingsFor(visibleVersion, showReactions: false));
+
+            // when
+            await this.liveUpdateOrchestrationService.OnAssociationApprovedAsync(
+                approvedFact,
+                callerCancellationToken);
+
+            // then
+            this.contentItemServiceMock.Verify(service =>
+                service.FindPublicContentItemGroupAsync(
+                    contentItemReaction.EntityAGroupId,
+                    callerCancellationToken),
+                Times.Once);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    callerCancellationToken),
+                Times.Once);
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
