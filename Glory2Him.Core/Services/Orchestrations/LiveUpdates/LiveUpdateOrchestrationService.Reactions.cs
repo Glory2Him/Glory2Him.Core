@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.LiveUpdates;
 using Glory2Him.Core.Models.Securities;
 
@@ -45,12 +46,17 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
                 return;
             }
 
+            ContentItemSettingKey settingKey = CreateSettingKeyFor(visibleVersion);
+
             IReadOnlyList<EffectiveContentItemSetting> winningSettings =
                 await this.accessBroker.RetrieveEffectiveContentItemSettingsAsync(
-                    new List<ContentItemSettingKey> { CreateSettingKeyFor(visibleVersion) },
+                    new List<ContentItemSettingKey> { settingKey },
                     cancellationToken);
 
-            if (winningSettings.First().ContentItemSetting.ShowReactions is false)
+            // the version's counts are shown only where its winning setting shows reactions, and
+            // a setting that cannot be resolved never means "show": the decision fails closed
+            // (§SEC14.8 rule 3)
+            if (FindWinningSetting(winningSettings, settingKey)?.ShowReactions is not true)
             {
                 return;
             }
@@ -78,5 +84,17 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
                 ContentType = visibleVersion.ContentType,
                 ContentItemId = visibleVersion.ContentItemId,
             };
+
+        // The answer is per key, one item under one content type, and a key that resolves no row
+        // is absent from it (IAccessBroker), so the version takes the row for its own key only.
+        private static ContentItemSetting? FindWinningSetting(
+            IReadOnlyList<EffectiveContentItemSetting> winningSettings,
+            ContentItemSettingKey settingKey) =>
+            winningSettings
+                .Where(winningSetting =>
+                    winningSetting.ContentItemId == settingKey.ContentItemId
+                        && winningSetting.ContentItemSetting.ContentType == settingKey.ContentType)
+                .Select(winningSetting => winningSetting.ContentItemSetting)
+                .FirstOrDefault();
     }
 }
