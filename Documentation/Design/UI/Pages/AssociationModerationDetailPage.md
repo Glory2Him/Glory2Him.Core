@@ -81,6 +81,8 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.23 [Must]** When the read of the association's review thread fails, an error stands in `ReviewCommentPanel`'s place, announced, reading "We could not load the review thread right now.", with *Retry*, which reads the thread again; once a read of the thread answers, the panel stands there again. A thread that could not be read is never shown empty (`DesignFeatures/PostModeration.md` rule 21). *(user, 2026-10-11)* ≠ item 14
 
+**2.24 [Should]** The post's card names the post's submitter, under *Submitted by*, from a second read of the contributor, keyed by the post's `CreatedBy`, rendered when it arrives rather than waited on, as on the post page (`UI/Pages/ContentItemModerationDetailPage.md rule 2.19`). It is the post's submitter, not the association's suggester that rule 2.12 names. *(user, 2026-10-11: the mock's "Submitted by")* ≠ item 2
+
 ## 3. Layout
 
 The admin shell puts its navigation menu in a left-hand column. Inside the page's own column the
@@ -130,7 +132,7 @@ Nothing on this page is built; every *Built today* cell names the section-6 item
 
 | Property | Value | Why |
 | --- | --- | --- |
-| `contentItem` | The post projected as the post page projects it, with `withReactions` laying on it its reaction summary and the overlay of a choice the reader has just made (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1 and §2`) | Rule 2.8. |
+| `contentItem` | The post projected as the post page projects it, its submitter's name and image from the contributor read (rule 2.24), with `withReactions` laying on it its reaction summary and the overlay of a choice the reader has just made (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1 and §2`) | Rules 2.8 and 2.24. |
 | `contentItemSettingCollection` | The post's effective settings read | Rule 2.8. |
 | `showModerationSection`, `moderationOpensEditor` | `true`, `true`: the action opens the editor — on the post page — so the terminal lock applies as there | Rule 2.10. |
 | `showApprovalStatusRibbon` / `showApprovalStatus` | `true` / `false` | Rule 2.8. |
@@ -260,12 +262,13 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
    heading, the breadcrumb, the two links back and the columns are item 22. No route answers
    `Admin/Posts/:contentItemId/Associations/:associationId` (`src/routes/adminRoutes.tsx`), and
    no page shows an association.
-2. (#1055) **Page gap — the post's card shows no chips here.** Rules 2.7–2.9: the post's
-   card, across the page's full width above both columns, with its association chips, this
-   association's current and ringed, and each other chip leading to its association's page, or
-   the announced error with *Retry* in their place where they cannot be read, as on the post page.
-   It builds on item 1's page and item 22's columns. The card's type chip, *Submitted by* and
-   *Author* are item 23.
+2. (#1055) **Page gap — the post's card shows no chips here.** Rules 2.7–2.9 and 2.24: the
+   post's card, across the page's full width above both columns, naming the post's submitter
+   from the contributor read, with its association chips, this association's current and
+   ringed, and each other chip leading to its association's page, or the announced error with
+   *Retry* in their place where they cannot be read, as on the post page. It builds on item 1's
+   page and item 22's columns. Where the card's type chip, *Submitted by* and *Author* lead is
+   item 23.
 3. (#1056) **Page gap — the post's card offers no Like control here.** Rule 2.8
    (`DesignFeatures/Likes.md` rule 11; user ruling 2026-10-11): the card shows the post's
    reaction counts and the reader's own, and records, changes or clears it, through
@@ -348,5 +351,23 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
     `UI/Pages/ContentItemModerationDetailPage.md §6 item 5`, and the queue's half, opening its
     advanced section on the value, is `UI/Pages/ContentItemModerationPage.md §6 item 6`. It builds
     on item 2's card.
-24. **Retired.** What the page shows when one of its reads fails — the user ruled on 2026-10-11
-    (#705, rulings 18–21): rules 2.4, 2.8 and 2.23.
+24. **Retired.** What the page shows when the post, the association, its tag or Bible reference,
+    the post's chips or the review thread cannot be read — the user ruled on 2026-10-11 (#705,
+    rulings 18–21): rules 2.4, 2.8 and 2.23. The post's settings read is item 25.
+25. **Question — what the page shows while the post's settings load, and when they cannot be
+    read.** The post's card resolves against the post's effective settings read (rule 2.8;
+    `UI/Pages/ContentItemModerationDetailPage.md rule 2.17`), and so do its chips' facet switches
+    (`DesignFeatures/PostModeration.md` rule 8) and the post's heading in the breadcrumb of rule
+    2.5. A card handed no settings shows every section the switches allow, so a post whose
+    `ShowTags` is off would show its tag chips
+    (`src/components/contentItems/contentItemDefaultPanel.tsx` — `showsTags`). No rule settles
+    that read here: rule 2.4 holds the page for the post and the association alone.
+    On the post page the user ruled that the card waits for its settings behind the page's
+    spinner, and that a failed settings read puts the page's error, announced, with a Retry, in
+    the card's place, never the card without its settings
+    (`UI/Pages/ContentItemModerationDetailPage.md rule 2.28`). (a) While the settings read loads,
+    does the spinner stand in for the whole page, as it does for the post and the association
+    (rule 2.4), or for the post's card alone, as on the post page? (b) When the settings read
+    fails, does the page show its could-not-load state with *Back to Posts*, as it does for the
+    association's tag or Bible reference (rule 2.4), or the announced error with a Retry in the
+    card's place, as on the post page? An answer adds a rule beside rule 2.8.

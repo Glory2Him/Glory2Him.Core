@@ -185,11 +185,16 @@ changes.
   answers with (rule 17). The move to routes keyed by the approval id (§ARC17.5) is the post
   page's `§6 item 11` and the association page's share of it, and waits on #699's stage-2 build,
   which has no task (`Design/UI/Components/ReviewPanel.md §10 item 12`).
-- **The read-only-role view, `Design/UI/Components/ReviewPanel.md §10 items 1 and 9`.** Rule 15's
-  block on either endpoint bars in `ReviewPanel` once the panel composes read-only roles: it
-  composes none today, on any round, and those two items, which have no task, compose them from
-  an association's endpoints with the view. `ReviewCommentPanel`'s tick composes them from the
-  endpoints in this feature (`Design/UI/Components/ReviewCommentPanel.md §10 item 22`).
+- **The tiers rule 15 waits on, `Design/UI/Components/ReviewPanel.md §10 items 1 and 9` and
+  `Design/UI/Components/ReviewCommentPanel.md §10 item 19`.** Rule 15's block on either endpoint
+  bars in `ReviewPanel` once the panel composes read-only roles: it composes none today, on any
+  round, and those two items, which have no task, compose them from an association's endpoints
+  with the view. In `ReviewCommentPanel` the tick's publisher tier and read-only roles compose
+  from the endpoints in this feature (`Design/UI/Components/ReviewCommentPanel.md §10 item 22`),
+  but the box, Edit and Delete ask no review tier today, on any round. They answer to rule 15's
+  tier, a scoped role matching either endpoint, only once item 19 there, which has no task,
+  builds the review tier, and item 22 composes it from the endpoints
+  (`Design/UI/Components/ReviewCommentPanel.md rule 2.35`).
 
 ## Risks
 
