@@ -94,5 +94,57 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             this.liveUpdateServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldNameTheGroupsVisibleVersionNotTheReactedVersionAsync()
+        {
+            // given: the reader reacted to an earlier version of the host. Only the group's
+            // canonically visible version has a card showing counts (§ARC16.8), so that is the
+            // version the message names, found by the row's group rather than by its key.
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            Association contentItemReaction = CreateContentItemReaction();
+            EventEnvelope<Association> approvedFact = CreateFactEnvelope(contentItemReaction);
+
+            PublicContentItemGroup visibleVersion =
+                CreateVisibleVersion(groupId: contentItemReaction.EntityAGroupId);
+
+            List<ContentItemSettingKey> expectedSettingKeys = CreateSettingKeysFor(visibleVersion);
+            LiveUpdate expectedLiveUpdate = CreateReactionsChangeFor(visibleVersion);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    approvedFact,
+                    AssociationApprovedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.FindPublicContentItemGroupAsync(
+                    contentItemReaction.EntityAGroupId,
+                    callerCancellationToken))
+                        .ReturnsAsync(visibleVersion);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    callerCancellationToken))
+                        .ReturnsAsync(CreateWinningSettingsFor(visibleVersion, showReactions: true));
+
+            // when
+            await this.liveUpdateOrchestrationService.OnAssociationApprovedAsync(
+                approvedFact,
+                callerCancellationToken);
+
+            // then
+            this.liveUpdateServiceMock.Verify(service =>
+                service.SendLiveUpdateAsync(
+                    It.Is(SameLiveUpdateAs(expectedLiveUpdate)),
+                    callerCancellationToken),
+                Times.Once);
+
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+        }
     }
 }
