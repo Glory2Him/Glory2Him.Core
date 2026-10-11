@@ -151,8 +151,10 @@ describe('useApprovalRound', () => {
         expect(getApprovalCommentsAsync).toHaveBeenCalledWith('approval-1');
     });
 
-    // Keyed by the item, as built. Rule 2.23 addresses Berean by the round's approval id; when
-    // §6 item 11 is built, these arguments change with the call.
+    // Keyed by the item, as built. `UI/Pages/ContentItemModerationDetailPage.md rule 2.23`
+    // addresses Berean by the round's approval id; when
+    // `UI/Pages/ContentItemModerationDetailPage.md §6 item 11` is built, these arguments change
+    // with the call.
     it("should read Berean's status with the round", async () => {
         // when
         const { result } = renderRound();
