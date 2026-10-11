@@ -235,6 +235,38 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             VerifyPublicContentItemGroupLookupAsked(cancellationToken, Times.Once());
         }
 
+        [Fact]
+        public async Task ShouldFindNothingForAGroupIdThatNamesNothingAsync()
+        {
+            // given: the group id names no content item, and storage holds a visible version
+            // of some other group
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            Guid unknownGroupId = Guid.NewGuid();
+
+            ContentItem visibleContentItem =
+                CreateCanonicallyVisibleContentItem(randomDateTimeOffset);
+
+            var storageContentItems = new List<ContentItem> { visibleContentItem };
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            SetupPublicContentItemGroupLookupOver(storageContentItems, cancellationToken);
+
+            // when
+            PublicContentItemGroup? actualPublicContentItemGroup =
+                await this.contentItemService.FindPublicContentItemGroupAsync(
+                    groupId: unknownGroupId,
+                    cancellationToken: cancellationToken);
+
+            // then: answered with nothing, not refused - no exception, and nothing logged
+            actualPublicContentItemGroup.Should().BeNull();
+            VerifyPublicContentItemGroupLookupAsked(cancellationToken, Times.Once());
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         public static TheoryData<string> CanonicalVisibilityTerms() =>
             new TheoryData<string>
             {
