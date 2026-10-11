@@ -46,6 +46,14 @@ vi.mock('../brokers/apiBroker.approvalComments', () => ({
     }
 }));
 
+// BEREAN'S STATUS IS PART OF THE ROUND TOO, and comes off its own broker, so it is mocked at
+// that boundary as well — left out, it went to the network and failed against nothing.
+vi.mock('../brokers/apiBroker.aiReviewers', () => ({
+    default: class {
+        GetAIReviewerStatusAsync = getAIReviewerStatusAsync;
+    }
+}));
+
 const verdict: ApprovalVerdict = {
     entityType: 0,
     entityId: 'quote-1',
