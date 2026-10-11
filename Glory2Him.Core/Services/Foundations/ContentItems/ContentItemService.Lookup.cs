@@ -212,7 +212,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             Guid groupId,
             CancellationToken cancellationToken = default)
         {
-            await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+            DateTimeOffset currentDateTime =
+                await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
 
             IReadOnlyList<PublicContentItemGroup> publicContentItemGroups =
                 await this.storageBroker.SelectContentItemsAsync(
@@ -220,7 +221,9 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                         .Where(contentItem => contentItem.GroupId == groupId
                             && contentItem.IsDeleted == false
                             && contentItem.ApprovalStatus == ApprovalStatus.Approved
-                            && contentItem.IsPublished)
+                            && contentItem.IsPublished
+                            && (contentItem.PublishDate == null
+                                || contentItem.PublishDate <= currentDateTime))
                         .Select(contentItem => new PublicContentItemGroup(
                             contentItem.Id,
                             contentItem.GroupId,
