@@ -12,7 +12,10 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using FluentAssertions;
 using Glory2Him.Core.Models.Foundations.LiveUpdates;
+using Glory2Him.Core.Models.Foundations.LiveUpdates.Exceptions;
+using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.LiveUpdates
 {
@@ -39,6 +42,67 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.LiveUpdates
             // then
             await Assert.ThrowsAsync<OperationCanceledException>(
                 sendLiveUpdateTask.AsTask);
+
+            this.liveUpdateBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnSendIfTimeoutOccursAndLogItAsync()
+        {
+            // given
+            var someLiveUpdate = new LiveUpdate
+            {
+                Type = LiveUpdateType.ContentItemSettingChanged,
+                ContentItemId = null
+            };
+
+            var operationCanceledException = new OperationCanceledException();
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutLiveUpdateException =
+                new TimeoutLiveUpdateException(
+                    message: "Failed live update timeout error occurred, contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedLiveUpdateDependencyException =
+                new LiveUpdateDependencyException(
+                    message: "Live update dependency error occurred, contact support.",
+                    innerException: timeoutLiveUpdateException);
+
+            this.liveUpdateBrokerMock.Setup(broker =>
+                broker.SendLiveUpdateAsync(
+                    It.IsAny<LiveUpdate>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(operationCanceledException);
+
+            // when
+            ValueTask sendLiveUpdateTask =
+                this.liveUpdateService.SendLiveUpdateAsync(
+                    someLiveUpdate,
+                    TestContext.Current.CancellationToken);
+
+            LiveUpdateDependencyException actualLiveUpdateDependencyException =
+                await Assert.ThrowsAsync<LiveUpdateDependencyException>(
+                    sendLiveUpdateTask.AsTask);
+
+            // then
+            actualLiveUpdateDependencyException.Should().BeEquivalentTo(
+                expectedLiveUpdateDependencyException);
+
+            this.liveUpdateBrokerMock.Verify(broker =>
+                broker.SendLiveUpdateAsync(
+                    It.IsAny<LiveUpdate>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedLiveUpdateDependencyException))),
+                Times.Once);
 
             this.liveUpdateBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
