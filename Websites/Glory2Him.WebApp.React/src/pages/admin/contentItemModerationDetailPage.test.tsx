@@ -568,25 +568,6 @@ describe('ContentItemModerationDetailPage', () => {
         expect(within(card).queryByRole('button', { name: /Save/ })).not.toBeInTheDocument();
     });
 
-    // THE CHOICE HAS TO SHOW. Choosing closes the picker - the panel's own behaviour - so the
-    // mark is read back by reopening it, the same way /posts/{id} proves the fold.
-    it("should mark the reader's chosen reaction as pressed on the moderation detail page",
-        async () => {
-            // given
-            renderPage();
-            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
-            await userEvent.click(screen.getByRole('menuitem', { name: 'Amen' }));
-
-            // when
-            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
-
-            // then: the mark is the overlay of a choice still being recorded — the write
-            // stays pending for the length of this test, and the overlay stands until the read
-            // that follows it lands — until #747 brings this test to what the page does
-            expect(screen.getByRole('menuitem', { name: 'Amen' }))
-                .toHaveAttribute('aria-pressed', 'true');
-        });
-
     describe('the Like control', () => {
         it("should show the item's reaction counts on /Admin/Posts/{id}", () => {
             // given
@@ -599,6 +580,68 @@ describe('ContentItemModerationDetailPage', () => {
             // then
             expect(handedPages).toEqual([['quote-1']]);
             expect(reactionCounts()).toHaveTextContent('5');
+        });
+
+        it("should mark the reader's own reaction on /Admin/Posts/{id}", async () => {
+            // given
+            contentItem = publicQuote;
+            serverSummaries = { 'quote-1': summaryOf([['Love', 3], ['Amen', 2]], 'Love') };
+            renderPage();
+
+            // when
+            await openLike();
+
+            // then
+            expect(screen.getByRole('menuitem', { name: 'Love' }))
+                .toHaveAttribute('aria-pressed', 'true');
+
+            expect(screen.getByRole('menuitem', { name: 'Amen' }))
+                .toHaveAttribute('aria-pressed', 'false');
+        });
+
+        it('should record a chosen reaction on /Admin/Posts/{id}', async () => {
+            // given
+            contentItem = publicQuote;
+            serverSummaries = { 'quote-1': summaryOf([['Love', 3], ['Amen', 2]]) };
+            renderPage();
+
+            // when
+            await choose('Love');
+
+            // then
+            expect(upsertAssociation).toHaveBeenCalledTimes(1);
+            expect(upsertAssociation).toHaveBeenCalledWith(reactionPairFor('Love'));
+            expect(removeAssociationByPair).not.toHaveBeenCalled();
+            expect(await reactionCountOf('Love')).toBe('4');
+            expect(await reactionCountOf('Amen')).toBe('2');
+
+            await openLike();
+
+            expect(screen.getByRole('menuitem', { name: 'Love' }))
+                .toHaveAttribute('aria-pressed', 'true');
+        });
+
+        it('should withdraw a reaction chosen again on /Admin/Posts/{id}', async () => {
+            // given
+            contentItem = publicQuote;
+            serverSummaries = { 'quote-1': summaryOf([['Love', 3], ['Amen', 2]], 'Love') };
+            renderPage();
+
+            // when
+            await choose('Love');
+
+            // then
+            expect(removeAssociationByPair).toHaveBeenCalledTimes(1);
+            expect(removeAssociationByPair).toHaveBeenCalledWith(reactionPairFor('Love'));
+            expect(upsertAssociation).not.toHaveBeenCalled();
+
+            await openLike();
+
+            expect(screen.getByRole('menuitem', { name: 'Love' }))
+                .toHaveAttribute('aria-pressed', 'false');
+
+            expect(screen.getByRole('menuitem', { name: 'Amen' }))
+                .toHaveAttribute('aria-pressed', 'false');
         });
     });
 
