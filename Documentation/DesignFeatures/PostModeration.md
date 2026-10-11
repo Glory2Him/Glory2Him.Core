@@ -208,7 +208,8 @@ changes.
   round, and those two items, which have no task, compose them from an association's endpoints
   with the view. In `ReviewCommentPanel` the tick's publisher tier and read-only roles compose
   from the endpoints in this feature (`Design/UI/Components/ReviewCommentPanel.md §10 item 22`),
-  but the box, Edit and Delete ask no review tier today, on any round. They answer to rule 15's
+  but the box, Edit, Delete and the author's tick ask no review tier today, on any round
+  (`Design/UI/Components/ReviewCommentPanel.md rule 2.30`). They answer to rule 15's
   tier, a scoped role matching either endpoint, only once item 19 there, which has no task,
   builds the review tier, and item 22 composes it from the endpoints
   (`Design/UI/Components/ReviewCommentPanel.md rule 2.35`).

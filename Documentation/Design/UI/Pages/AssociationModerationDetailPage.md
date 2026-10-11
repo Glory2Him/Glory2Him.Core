@@ -83,9 +83,9 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.24 [Should]** The post's card names the post's submitter, under *Submitted by*, from a second read of the contributor, keyed by the post's `CreatedBy`, rendered when it arrives rather than waited on, as on the post page (`UI/Pages/ContentItemModerationDetailPage.md rule 2.19`). It is the post's submitter, not the association's suggester that rule 2.12 names. *(user, 2026-10-11: the mock's "Submitted by")* ≠ item 2
 
-**2.25 [Must]** What depends on the post's effective settings waits for them, and nothing else does. The post's card, whose sections, chips and Like control follow the settings (rule 2.8; `UI/Pages/ContentItemModerationDetailPage.md rule 2.17`), is not rendered until the settings read lands: a spinner, announced (§UI20.6.6 rule 5), stands in its place meanwhile, as on the post page (`UI/Pages/ContentItemModerationDetailPage.md rule 2.28`). The heading, the tab title, the links back, the association's card, its round and its thread render once their own reads have answered (rule 2.4), without waiting for the settings, and so does the breadcrumb, as rule 2.27 has it (`DesignFeatures/PostModeration.md` rule 22). *(user, 2026-10-11)* ≠ items 1 and 2
+**2.25 [Must]** What depends on the post's effective settings waits for them, and nothing else does. The post's card, whose sections, chips and Like control follow the settings (rule 2.8; `UI/Pages/ContentItemModerationDetailPage.md rule 2.17`), is not rendered until the settings read lands: a spinner, announced (§UI20.6.6 rule 5), stands in its place meanwhile, as on the post page (`UI/Pages/ContentItemModerationDetailPage.md rule 2.28`). The heading, the tab title, the links back, the association's card, its round and its thread render once their own reads have answered (rule 2.4), without waiting for the settings, and so does the breadcrumb, as rule 2.27 has it (`DesignFeatures/PostModeration.md` rule 22). *(user, 2026-10-11)* ≠ items 1, 2, 6, 14 and 22
 
-**2.26 [Must]** When the post's settings read fails, an error stands in the post's card's place, announced, reading "We could not load this post's settings right now.", with *Retry*, which reads the settings again; once a read of them answers, the card stands there. The page never shows the card without the post's settings, and the failure takes nothing else off the page: the association's card, its round and its thread stay, and the association can still be reviewed (`DesignFeatures/PostModeration.md` rule 23). *(user, 2026-10-11: rulings 23 and 26)* ≠ items 1 and 2
+**2.26 [Must]** When the post's settings read fails, an error stands in the post's card's place, announced, reading "We could not load this post's settings right now.", with *Retry*, which reads the settings again; once a read of them answers, the card stands there. The page never shows the card without the post's settings, and the failure takes nothing else off the page: the association's card, its round and its thread stay, and the association can still be reviewed (`DesignFeatures/PostModeration.md` rule 23). *(user, 2026-10-11: rulings 23 and 26)* ≠ items 1, 2, 6, 14 and 22
 
 **2.27 [Should]** The breadcrumb renders at once, without waiting for the post's settings: while they load it reads *Admin* › *Posts* › the association's chip text, with no crumb for the post, and the post's crumb, the post's heading as rule 2.5 words it, linking to the post page, appears once they arrive. When the settings read fails, the post's crumb reads *Post* and still links to the post page, `/Admin/Posts/{contentItemId}`, until a read of the settings answers — rule 2.26's *Retry* — and the crumb then names the post as rule 2.5 has it (`DesignFeatures/PostModeration.md` rule 24). *(user, 2026-10-11: rulings 24 and 25)* ≠ items 2 and 22
 
@@ -289,11 +289,12 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
 5. (#1058) **Page gap — the post cannot be taken down here.** Rule 2.11 (user rulings
    2026-10-11): `Administrators` take the post down from the card's *Take down*. The card's half
    is `UI/Components/ContentItemPanel.md §10 item 26`.
-6. (#1059) **Page gap — the association's round is not shown.** Rules 2.7 and 2.14–2.18: the
-   association's round in `ReviewPanel` — its reviews, Berean's row and its *Review Outcome* —
-   read by the association's type and id, its tiers composed from the association's endpoints,
-   its controls disabled until the approval record exists, refreshed with the association, and
-   standing in the right-hand column (rule 2.7).
+6. (#1059) **Page gap — the association's round is not shown.** Rules 2.7, 2.14–2.18, 2.25 and
+   2.26: the association's round in `ReviewPanel` — its reviews, Berean's row and its *Review
+   Outcome* — read by the association's type and id, its tiers composed from the association's
+   endpoints, its controls disabled until the approval record exists, refreshed with the
+   association, standing in the right-hand column (rule 2.7), and waiting for none of the post's
+   settings and staying when they cannot be read.
    The panel's halves are `UI/Components/ReviewPanel.md §10 items 13 and 14`. The React app's
    `EntityTypeName` has no `Association` member yet (`src/models/foundations/approvals/approval.ts`).
 7. (#1060) **Page gap — no vote can be cast on the association.** Rules 2.14 and 2.19:
@@ -312,10 +313,11 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
     2.19: `onAIReviewerRequested`, for a first request and a re-request alike.
 13. (#1066) **Page gap — Berean cannot be withdrawn from the association's round.** Rules
     2.14 and 2.19: `onAIReviewerWithdrawn`.
-14. (#1067) **Page gap — the association's review thread is not shown.** Rules 2.7, 2.14–2.18 and 2.23:
-    the thread in `ReviewCommentPanel`, beneath the association's card in the left-hand column
-    (rule 2.7), its tiers composed from the association's endpoints, its box disabled until the
-    approval record exists, and an announced error with *Retry* in its place where the thread
+14. (#1067) **Page gap — the association's review thread is not shown.** Rules 2.7, 2.14–2.18,
+    2.23, 2.25 and 2.26: the thread in `ReviewCommentPanel`, beneath the association's card in the
+    left-hand column (rule 2.7), its tiers composed from the association's endpoints, its box
+    disabled until the approval record exists, an announced error with *Retry* in its place where
+    the thread cannot be read, and waiting for none of the post's settings and staying when they
     cannot be read. The panel's halves are
     `UI/Components/ReviewCommentPanel.md §10 items 22 and 23`.
 15. (#1068) **Page gap — no comment can be added to the association's thread.** Rule 2.19:
@@ -348,10 +350,11 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
     #699's stage-2 build, which has no task (`UI/Components/ReviewPanel.md §10 item 12`); the
     page's half is to address every call about the round by the approval id once they are served.
 22. (#1074) **Page gap — the association page has no heading, no way back and no columns.** Rules
-    2.5–2.7 and 2.27 (user rulings 2026-10-11): the heading and the tab title naming the
+    2.5–2.7 and 2.25–2.27 (user rulings 2026-10-11): the heading and the tab title naming the
     association, the breadcrumb through the post, without the post's crumb while the post's
     settings load and with *Post* for it where they cannot be read, *Back to Post* and *Back to
-    Posts*, and §3's regions — a
+    Posts*, none of them waiting for the post's settings or leaving when they cannot be read, and
+    §3's regions — a
     full-width row for the post's card above two columns, the association's card in the left-hand
     one. Items 2, 6 and 14 stand the post's card, the round and the thread in their places. It
     builds on item 1's page.
