@@ -12,6 +12,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.LiveUpdates;
@@ -27,6 +28,11 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
             Association association,
             CancellationToken cancellationToken)
         {
+            if (IsAContentItemsReaction(association) is false)
+            {
+                return;
+            }
+
             PublicContentItemGroup? visibleVersion =
                 await this.contentItemService.FindPublicContentItemGroupAsync(
                     association.EntityAGroupId,
@@ -44,6 +50,12 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
                 },
                 cancellationToken);
         }
+
+        // The pair §ARC16.8's predicate counts: endpoint A a content item, endpoint B a reaction.
+        // No other row can move a count a card shows.
+        private static bool IsAContentItemsReaction(Association association) =>
+            association.EntityAType == EntityType.ContentItem
+                && association.EntityBType == EntityType.Reaction;
 
         // §DOM6.4's key for the version: its own content type and its own id.
         private static ContentItemSettingKey CreateSettingKeyFor(
