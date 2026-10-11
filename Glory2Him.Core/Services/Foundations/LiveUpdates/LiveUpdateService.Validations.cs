@@ -26,6 +26,9 @@ namespace Glory2Him.Core.Services.Foundations.LiveUpdates
                 (Rule: IsInvalid(liveUpdate.Type), Parameter: nameof(LiveUpdate.Type)),
 
                 (Rule: IsSetOnASettingChange(liveUpdate.Type, liveUpdate.ContentItemId),
+                    Parameter: nameof(LiveUpdate.ContentItemId)),
+
+                (Rule: IsMissingOnAReactionsChange(liveUpdate.Type, liveUpdate.ContentItemId),
                     Parameter: nameof(LiveUpdate.ContentItemId)));
         }
 
@@ -52,6 +55,18 @@ namespace Glory2Him.Core.Services.Foundations.LiveUpdates
                     && contentItemId is not null,
 
                 Message = "Value is not allowed on a content item setting change"
+            };
+
+        // a count message names the version whose counts may have moved, so a page can tell
+        // whether it shows that version
+        private static dynamic IsMissingOnAReactionsChange(
+            LiveUpdateType liveUpdateType,
+            Guid? contentItemId) => new
+            {
+                Condition = liveUpdateType == LiveUpdateType.ContentItemReactionsChanged
+                    && (contentItemId is null || contentItemId == Guid.Empty),
+
+                Message = "Id is required"
             };
 
         private static void Validate(
