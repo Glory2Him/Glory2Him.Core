@@ -19,6 +19,7 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.LiveUpdates;
+using Glory2Him.Core.Models.Orchestrations.LiveUpdates.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 
@@ -460,6 +461,71 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
                     callerCancellationToken),
                 Times.Once);
 
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // The forwarder verifies every fact it hears before it reads anything (§SEC14.8 rule 3,
+        // §EVN15 item 10). An envelope this system did not sign — or signed for another address,
+        // or as a reply — is refused, so a forged fact can neither prompt a read nor reach a page.
+        [Fact]
+        public async Task ShouldRefuseATamperedAssociationApprovedEnvelopeAsync()
+        {
+            // given
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            Association contentItemReaction = CreateContentItemReaction();
+            EventEnvelope<Association> tamperedFact = CreateFactEnvelope(contentItemReaction);
+
+            var invalidLiveUpdateOrchestrationException =
+                new InvalidLiveUpdateOrchestrationException(
+                    message: "Invalid live update orchestration fact. " +
+                        "Integrity verification failed.");
+
+            var expectedLiveUpdateOrchestrationValidationException =
+                new LiveUpdateOrchestrationValidationException(
+                    message: "Live update orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidLiveUpdateOrchestrationException);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    tamperedFact,
+                    AssociationApprovedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(false);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAssociationApprovedTask =
+                this.liveUpdateOrchestrationService.OnAssociationApprovedAsync(
+                    tamperedFact,
+                    callerCancellationToken);
+
+            LiveUpdateOrchestrationValidationException
+                actualLiveUpdateOrchestrationValidationException =
+                    await Assert.ThrowsAsync<LiveUpdateOrchestrationValidationException>(
+                        onAssociationApprovedTask.AsTask);
+
+            // then
+            actualLiveUpdateOrchestrationValidationException.Should().BeEquivalentTo(
+                expectedLiveUpdateOrchestrationValidationException);
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    tamperedFact,
+                    AssociationApprovedEventName,
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(
+                    expectedLiveUpdateOrchestrationValidationException))),
+                Times.Once);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.liveUpdateServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
