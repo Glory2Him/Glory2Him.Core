@@ -1,0 +1,15 @@
+# Association
+Parent: [Likes.md](../../Likes.md)
+Level: model — `Association`'s storage configuration (`Glory2Him.Core/Brokers/Storages/Sql/StorageBroker.Association.Configurations.cs`), with one migration
+Inherits: §DOM4.6 rules 2 and 3, §EVN25 (the migration shape this copies), §ARC12.2.1 rule 6
+
+§DOM4.6 rule 3 rules that `Association.UserId` ignores letter case, and that the column's collation answers it in SQL. This user story pins that collation on the column. It adds no property to the model and changes no row.
+
+## 1. UserId's collation (needs issue)
+
+1. **`UserId` takes `SQL_Latin1_General_CP1_CI_AS` on the column**, configured on the property beside its length, as `ReceiverName` takes its collation (`StorageBroker.ProcessedEvent.Configurations.cs`). Its type, `nvarchar(255)`, and its nullability are unchanged.
+2. **A new migration drops both pair indexes, alters the column and recreates both, in one batch.** `UX_Associations_PersonalPair` holds `UserId` in its key and `UX_Associations_EditorialPair` names it in its filter (§DOM4.6 rule 2), and SQL Server refuses to alter a column that an index keys or filters on. EF generates the alter alone, so the drop and the recreate are written by hand, as in `20260922174602_PinProcessedEventReceiverNameToBinaryCollation`. Each index is recreated with the key, the uniqueness, the filter and the name §DOM4.6 rule 2 gives it. Nothing in the batch names something the batch creates, so no statement needs `EXEC`.
+3. **`Down` undoes it the same way**: it drops both indexes, returns the column to no collation of its own, and recreates both.
+4. **On today's catalogues it changes no comparison.** The pinned collation is their default (§DOM4.6 rule 3), so both indexes hold the same keys after the migration as before it. On a catalogue whose default compares exactly, two live personal rows on one host whose `UserId`s differ only in letter case would collide when the personal index is recreated, and the migration would fail rather than keep both.
+5. **The model and its migration are one task**, for the reason `Backend/Models/Reaction.md §1` rule 5 gives: CI fails a model change that no migration carries.
+6. **The pin is proven on the storage model.** A column created with no collation of its own takes the catalogue's default, and the catalogue reports that collation for it, so on today's catalogues the column reports `SQL_Latin1_General_CP1_CI_AS` before the pin as well as after it. Only the model shows that the collation is configured. Integration proves the migration against a catalogue that holds rows, and pins that the personal index takes two letter cases of one id for one reader (§ARC12.2.1 rule 6).

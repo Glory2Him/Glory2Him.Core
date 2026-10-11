@@ -38,6 +38,7 @@ The feature's own user stories, bottom up. Each names this document as its paren
 | [Backend/Brokers/AccessBroker.md](Backend/Brokers/AccessBroker.md) | broker — `IAccessBroker` |
 | [Backend/Models/EntityTypePersonalisation.md](Backend/Models/EntityTypePersonalisation.md) | model — the personal-type lookup |
 | [Backend/Models/Reaction.md](Backend/Models/Reaction.md) | model — `Reaction.SortOrder`, its column, migration and seed |
+| [Backend/Models/Association.md](Backend/Models/Association.md) | model — `Association.UserId`'s collation and its migration |
 | [Backend/Foundations/ContentItemService.md](Backend/Foundations/ContentItemService.md) | foundation — `IContentItemService` |
 | [Backend/Foundations/ReactionService.md](Backend/Foundations/ReactionService.md) | foundation — `IReactionService` |
 | [Backend/Foundations/AssociationService.md](Backend/Foundations/AssociationService.md) | foundation — `IAssociationService` |
@@ -77,13 +78,13 @@ The rest of the UI is already designed in the documents the presentation compone
 
 `Association-Upserting` is **not minted** (§ARC16.2.2), so the upsert has no event path. `Association-Adding` keeps its address and its binding (#631), and refuses a reader's reaction (`Backend/Orchestrations/AssociationOrchestrationService.md §2`).
 
-**Storage and migration.** **One migration**, for rule 5a: it adds `Reactions.SortOrder` and backfills the five seeded reactions (`Backend/Models/Reaction.md §1`). Nothing else needs one. The one-live-row-per-reader guarantee is `UX_Associations_PersonalPair`, built by #627 (`20260923220407_SplitAssociationPairIndexIntoEditorialAndPersonal`, §DOM4.6 rule 2). **One seed change**, for the same rule: the vocabulary's seed writes each reaction's sort order (`ReactionSeedData.cs`). The `(Association, IsPersonal = true)` approval tier that closes a reaction's round on submission is seeded already (`ApprovalSettingSeedData.cs:202-211`). No role is added.
+**Storage and migration.** **Two migrations.** One, for rule 5a, adds `Reactions.SortOrder` and backfills the five seeded reactions (`Backend/Models/Reaction.md §1`). The other, added under #815, pins `Associations.UserId`'s collation, so that the column ignores letter case on every catalogue (§DOM4.6 rule 3; `Backend/Models/Association.md §1`). Nothing else needs one. The one-live-row-per-reader guarantee is `UX_Associations_PersonalPair`, built by #627 (`20260923220407_SplitAssociationPairIndexIntoEditorialAndPersonal`, §DOM4.6 rule 2). **One seed change**, for the same rule: the vocabulary's seed writes each reaction's sort order (`ReactionSeedData.cs`). The `(Association, IsPersonal = true)` approval tier that closes a reaction's round on submission is seeded already (`ApprovalSettingSeedData.cs:202-211`). No role is added.
 
 **The storage client gains one terminal shape** of the three §ARC12.2.1 rule 3 names — the matching rows, optionally projected — and the storage broker a pass-through per entity this feature reads, so every new read here asks its question through a query-shaping function its caller authors and the client awaits (§ARC12.2.1 rules 1–3). The other two shapes, and converting the reads that exist, are §ARC12.2.1's own work and not this feature's.
 
 ## Risks
 
-**Reversible.** Everything here is code but one column, `Reactions.SortOrder`, whose migration's `Down` drops it; there is no new index and no new constraint. `AddAssociationAsync` is renamed `UpsertAssociationAsync` on the orchestration (§ARC16.8.1), and nothing outside the solution calls it — when this feature was designed (#706), no controller served it.
+**Reversible.** Everything here is code but one column, `Reactions.SortOrder`, whose migration's `Down` drops it, and one collation, `Associations.UserId`'s, whose migration's `Down` returns the column to the catalogue's default (`Backend/Models/Association.md §1`); there is no new index and no new constraint. `AddAssociationAsync` is renamed `UpsertAssociationAsync` on the orchestration (§ARC16.8.1), and nothing outside the solution calls it — when this feature was designed (#706), no controller served it.
 
 **Not reversible.** The two new event names, `Association-Restored` and `Association-Repointed`, and their stable identifiers: an event name sits inside the envelope's signature, and an identifier never changes once deployed (`EventBrokerIdentifiers.cs`). The new `AssociationSuggestionStatus` member crosses the wire as a number, so it is appended and never renumbered.
 

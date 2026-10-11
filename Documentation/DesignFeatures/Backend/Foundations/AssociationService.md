@@ -100,7 +100,7 @@ ValueTask<IReadOnlyList<AssociationPairKey>> RetrieveCallerContentItemReactionsA
    - an empty list answers an empty list in SQL;
    - the caller term ignores letter case.
 
-   **`Association.UserId` ignores letter case** — the owner's ruling of 2026-10-01. A caller whose user id differs from a row's only in letter case reads that row as their own. The caller term compares under the column's collation. The column pins none, so that collation is the catalogue's default, which is case-insensitive on the catalogues in use today. It is also the collation `UX_Associations_PersonalPair` keys on (§DOM4.6 rule 2), so this read and that index treat the same rows as one reader's. The unit tests compare ordinally and cannot show this, so the integration proof pins it. **The proof comes before any pin on the column, and that departs from nothing in §EVN25.** In §EVN25 the ruled behaviour, an exact comparison, was the opposite of the catalogue's case-insensitive default. So its case tests could pass only once the column was pinned, and the migration had to come first. Here the ruled behaviour is the default the column already has, so the proof holds today on the catalogue the code is tested against. The proof also depends on the code. A read that compared `UserId` in C#, after the rows came back, would compare ordinally and fail it. On a test catalogue whose default compares exactly, the proof fails because the ruling no longer holds there. The proof runs against the integration suite's own catalogue, never the deployed one, so a deployed catalogue with another default would go unannounced. That is why pinning the collation, so that the ruling holds by construction on every server, is #815's. **The ruling's reach beyond this read is #815's, which is open.** #815 settles whether the ruling becomes a column rule in §DOM4.6, and whether a case-insensitive collation is pinned on the column rather than left to the catalogue's default. It also reconciles every other comparison of an association's `UserId` with a caller's id, wherever the design or the code makes one. Those made in C# are ordinal today. #815 sweeps for them rather than relying on a list here. Until #815 lands, every section and rule that makes such a comparison stands as written.
+   **`Association.UserId` ignores letter case** (§DOM4.6 rule 3), so a caller whose user id differs from a row's only in letter case reads that row as their own. The caller term compares under the column's collation, which `UX_Associations_PersonalPair` keys under too (§DOM4.6 rule 2), so this read and that index treat the same rows as one reader's. The unit tests compare ordinally and cannot show this, so the integration proof pins it. It pins the code as well: a read that compared `UserId` in C#, once the rows were read, would compare ordinally and fail it.
 
 Its caller is the summary read (`Backend/Orchestrations/AssociationOrchestrationService.md §4`), which asks it only for a signed-in caller (§ARC16.8, *What a rendered page costs*, the fifth round trip).
 
@@ -141,3 +141,26 @@ An existing member, changed: §2's write gains one refusal, §DOM4.10 rule 9's. 
 1. **A write whose endpoint A is of a personal type, once canonical order is restored (§2 rule 1), is refused as invalid**, naming `EntityAType`, and before the reader's row is resolved: storage is never asked, nothing is written and no fact is published. Personal is `EntityTypePersonalisation`'s answer (§DOM4.10 rule 4). Today that is a `Reaction` paired with a `Tag`, named in either order, or with another `Reaction`.
 2. **It is asked after §2 rule 2's and rule 9's refusals**: an anonymous caller, a `null` `UserId`, another reader's `UserId` and an endpoint field §2 rule 9 refuses are refused as they are today, whatever pair they name.
 3. **Its caller is unchanged.** The upsert's personal arm (`Backend/Orchestrations/AssociationOrchestrationService.md §1` rule 4) answers the refusal as its dependency validation exception, through the arm every `IAssociationService` refusal reaches (that document's §4 rule 9).
+
+## 9. FindPersonalAssociationAsync — a user id in another letter case (needs issue)
+
+An existing member, changed: §1 rule 3's caller check follows §DOM4.6 rule 3. Its signature, its answer, the place of the check in the member and its other rules are unchanged.
+
+1. **A lookup whose `UserId` differs from the signed caller's only in letter case is the caller's own**, and is answered as §1 rule 1 answers it. Any other `UserId` still answers `null` before storage is asked, and the denial is still logged as a warning (§1 rule 3).
+2. **The personal-key condition is still asked with the caller's user id**, and the column's collation matches it to the reader's row in whatever letter case the row holds it (§DOM4.6 rule 3). An in-memory set compares ordinally, so this is proven against the real catalogue, through this member, from the request to the answer (§ARC12.2.1 rule 6).
+
+## 10. UpsertPersonalAssociationAsync — a user id in another letter case (needs issue)
+
+An existing member, changed: two of §2's comparisons follow §DOM4.6 rule 3. Its signature, its outcomes, its facts and its other rules are unchanged.
+
+1. **A request whose `UserId` differs from the signed caller's only in letter case is the caller's own** (§2 rule 2), and the row is resolved and written as §2 rule 4 has it. Any other `UserId` is still refused as unauthorized. The reader's row is resolved with the personal-key condition, which §9 rule 2 proves against the real catalogue.
+2. **"Withdrawn by the reader" is a `DeletedBy` that differs from the row's `UserId` in nothing but letter case** (§2 rule 4, §DOM4.10 rule 7). Such a row is revived, `Restored` or `Repointed` as §2 rule 4's table has it. A withdrawn row whose `DeletedBy` names anybody else is still `TakenDown`.
+3. **The row it creates keeps the `UserId` it is handed**, as it does today, in the request's letter case. Rule 1 and §DOM4.6 rule 3 make that the caller's own.
+
+## 11. RemoveAssociationByIdAsync — a user id in another letter case (needs issue)
+
+An existing member, changed: §5 rule 3's test of whose row it is follows §DOM4.6 rule 3. Its signature, its facts and its other rules are unchanged.
+
+1. **A personal row whose `UserId` differs from the signed caller's only in letter case is the caller's own**, and is asked none of the three read-only roles (§5 rule 3). Every other row is still asked all three (§5 rule 4).
+2. **The owner test is unchanged** (§5 rule 5). It compares the row's `CreatedBy` with the caller exactly, which §DOM4.6 rule 3 leaves open, so a row whose `CreatedBy` differs from the caller's user id, in letter case alone or in more, is still refused to a caller outside `Administrators`, whatever its `UserId`.
+3. **Both entry paths take it**, because both converge on `DoRemoveAssociationByIdAsync` (§5 rule 6). It is proven on the direct path, where the shared body's gate is proven (§6 rule 4).
