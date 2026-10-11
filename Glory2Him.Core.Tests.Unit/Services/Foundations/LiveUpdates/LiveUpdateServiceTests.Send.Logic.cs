@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.LiveUpdates;
@@ -29,6 +30,33 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.LiveUpdates
             {
                 Type = LiveUpdateType.ContentItemSettingChanged,
                 ContentItemId = null
+            };
+
+            // when
+            await this.liveUpdateService.SendLiveUpdateAsync(
+                inputLiveUpdate,
+                cancellationToken);
+
+            // then
+            this.liveUpdateBrokerMock.Verify(broker =>
+                broker.SendLiveUpdateAsync(inputLiveUpdate, cancellationToken),
+                Times.Once);
+
+            this.liveUpdateBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldSendAContentItemReactionsChangedUpdateAsync()
+        {
+            // given
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+
+            var inputLiveUpdate = new LiveUpdate
+            {
+                Type = LiveUpdateType.ContentItemReactionsChanged,
+                ContentItemId = Guid.NewGuid()
             };
 
             // when
