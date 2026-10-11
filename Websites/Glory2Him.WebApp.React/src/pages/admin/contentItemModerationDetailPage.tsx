@@ -141,7 +141,7 @@ export const ContentItemModerationDetailPage = () => {
             },
         [contentItem, contentItemSettings, contributor]);
 
-    // The reader's choice, laid over the projection — and deliberately NOT memoised,
+    // The item's reactions and the reader's choice, laid over it — deliberately NOT memoised,
     // for the reason postDetail records: withReactions closes over the choices and is
     // rebuilt every render, so a memo listing it recomputes every render and buys nothing,
     // while a memo keyed on readItem alone would go stale the moment the moderator chose.
