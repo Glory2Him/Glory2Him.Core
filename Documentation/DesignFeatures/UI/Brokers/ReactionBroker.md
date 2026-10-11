@@ -3,7 +3,7 @@ Parent: [BrokersHoldNoLogic.md](../../BrokersHoldNoLogic.md)
 Level: broker — `ReactionBroker` (`Websites/Glory2Him.WebApp.React/src/brokers/apiBroker.reactions.ts`), existing
 Inherits: §UI20.9.1, §UI20.9.3, `the-standard-reacttypescript-brokers` as §UI20.9.1 departs from it
 
-The React app's door to `GET api/Reactions`, the reaction vocabulary every Like control offers. It has two members. One writes the vocabulary's `$filter` itself (`BrokersHoldNoLogic.md` rule 2). The other sends the query it is handed (§2); the reaction service is to write the vocabulary's condition and its order and hand them to it (`UI/Foundations/ReactionService.md §1`), and the old member then goes (§UI20.9.3 rule 6).
+The React app's door to `GET api/Reactions`, the reaction vocabulary every Like control offers. It has two members. One writes the vocabulary's `$filter` itself (`BrokersHoldNoLogic.md` rule 2). The other sends the query it is handed (§2); the reaction service writes the vocabulary's condition and its order and hands them to it (`UI/Foundations/ReactionService.md §1`), and the old member then goes (§UI20.9.3 rule 6).
 
 This document was the Likes feature's until #814, for the vocabulary's order (Likes.md rule 5a), which #752 was to add here. Under §UI20.9.3 rule 2 the order is the service's, and #752 delivers it there.
 
