@@ -3,9 +3,19 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { reactionService } from './reactionService';
+import { ApprovalStatus } from '../../models/components/associations/associationItem';
 import { Reaction } from '../../models/foundations/reactions/reaction';
 
 const getReactionsAsync = vi.fn();
+
+const createReaction = (id: string, name: string, unicodeEmoji: string): Reaction => ({
+    id,
+    name,
+    unicodeEmoji,
+    isPublished: true,
+    approvalStatus: ApprovalStatus.Approved,
+    isDeleted: false
+});
 
 vi.mock('../../brokers/apiBroker.reactions', () => ({
     default: class {
@@ -55,5 +65,24 @@ describe('reactionService.useGetApprovedReactions', () => {
 
         expect(getReactionsAsync).toHaveBeenCalledWith(
             expect.objectContaining({ orderBy: expectedOrderBy }));
+    });
+
+    it('should answer with the vocabulary in the order the server sent it', async () => {
+        // given
+        const reactionsInServerOrder: Reaction[] = [
+            createReaction('reaction-3', 'Moved', 'moved-emoji'),
+            createReaction('reaction-1', 'Amen', 'amen-emoji'),
+            createReaction('reaction-2', 'Love', 'love-emoji')
+        ];
+
+        getReactionsAsync.mockResolvedValue(reactionsInServerOrder);
+
+        // when
+        const { result } = renderHook(
+            () => reactionService.useGetApprovedReactions(), { wrapper });
+
+        // then
+        await waitFor(() => expect(result.current.isSuccess).toBe(true));
+        expect(result.current.data).toEqual(reactionsInServerOrder);
     });
 });
