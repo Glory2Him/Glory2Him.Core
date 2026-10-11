@@ -83,9 +83,11 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.24 [Should]** The post's card names the post's submitter, under *Submitted by*, from a second read of the contributor, keyed by the post's `CreatedBy`, rendered when it arrives rather than waited on, as on the post page (`UI/Pages/ContentItemModerationDetailPage.md rule 2.19`). It is the post's submitter, not the association's suggester that rule 2.12 names. *(user, 2026-10-11: the mock's "Submitted by")* ≠ item 2
 
-**2.25 [Must]** What depends on the post's effective settings waits for them, and nothing else does. The post's card, whose sections, chips and Like control follow the settings (rule 2.8; `UI/Pages/ContentItemModerationDetailPage.md rule 2.17`), is not rendered until the settings read lands: a spinner, announced (§UI20.6.6 rule 5), stands in its place meanwhile, as on the post page (`UI/Pages/ContentItemModerationDetailPage.md rule 2.28`). The heading, the tab title, the links back, the association's card, its round and its thread render once their own reads have answered (rule 2.4), without waiting for the settings. What the breadcrumb's crumb for the post shows meanwhile is item 26 (`DesignFeatures/PostModeration.md` rule 22). *(user, 2026-10-11)* ≠ items 1 and 2
+**2.25 [Must]** What depends on the post's effective settings waits for them, and nothing else does. The post's card, whose sections, chips and Like control follow the settings (rule 2.8; `UI/Pages/ContentItemModerationDetailPage.md rule 2.17`), is not rendered until the settings read lands: a spinner, announced (§UI20.6.6 rule 5), stands in its place meanwhile, as on the post page (`UI/Pages/ContentItemModerationDetailPage.md rule 2.28`). The heading, the tab title, the links back, the association's card, its round and its thread render once their own reads have answered (rule 2.4), without waiting for the settings, and so does the breadcrumb, as rule 2.27 has it (`DesignFeatures/PostModeration.md` rule 22). *(user, 2026-10-11)* ≠ items 1 and 2
 
-**2.26 [Must]** When the post's settings read fails, an error stands in the post's card's place, announced, reading "We could not load this post's settings right now.", with *Retry*, which reads the settings again; once a read of them answers, the card stands there. The page never shows the card without the post's settings, and the failure takes nothing else off the page: the association's card, its round and its thread stay, and the association can still be reviewed (`DesignFeatures/PostModeration.md` rule 23). *(user, 2026-10-11)* ≠ items 1 and 2
+**2.26 [Must]** When the post's settings read fails, an error stands in the post's card's place, announced, reading "We could not load this post's settings right now.", with *Retry*, which reads the settings again; once a read of them answers, the card stands there. The page never shows the card without the post's settings, and the failure takes nothing else off the page: the association's card, its round and its thread stay, and the association can still be reviewed (`DesignFeatures/PostModeration.md` rule 23). *(user, 2026-10-11: rulings 23 and 26)* ≠ items 1 and 2
+
+**2.27 [Should]** The breadcrumb renders at once, without waiting for the post's settings: while they load it reads *Admin* › *Posts* › the association's chip text, with no crumb for the post, and the post's crumb, the post's heading as rule 2.5 words it, linking to the post page, appears once they arrive. When the settings read fails, the post's crumb reads *Post* and still links to the post page, `/Admin/Posts/{contentItemId}`, until a read of the settings answers — rule 2.26's *Retry* — and the crumb then names the post as rule 2.5 has it (`DesignFeatures/PostModeration.md` rule 24). *(user, 2026-10-11: rulings 24 and 25)* ≠ items 2 and 22
 
 ## 3. Layout
 
@@ -267,15 +269,15 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
    heading, the breadcrumb, the two links back and the columns are item 22. No route answers
    `Admin/Posts/:contentItemId/Associations/:associationId` (`src/routes/adminRoutes.tsx`), and
    no page shows an association.
-2. (#1055) **Page gap — the post's card shows no chips here.** Rules 2.7–2.9 and 2.24–2.26:
+2. (#1055) **Page gap — the post's card shows no chips here.** Rules 2.7–2.9 and 2.24–2.27:
    the post's card, across the page's full width above both columns, naming the post's
    submitter from the contributor read, with its association chips, this association's current
    and ringed, and each other chip leading to its association's page, or the announced error
    with *Retry* in their place where they cannot be read, as on the post page; held back behind
    an announced spinner until the post's settings land, and an announced error with *Retry* in
-   its place where they cannot be read. It builds on item 1's
-   page and item 22's columns. Where the card's type chip, *Submitted by* and *Author* lead is
-   item 23.
+   its place where they cannot be read, whose *Retry* also brings the breadcrumb's crumb for the
+   post back to its heading (rule 2.27). It builds on item 1's page and item 22's columns.
+   Where the card's type chip, *Submitted by* and *Author* lead is item 23.
 3. (#1056) **Page gap — the post's card offers no Like control here.** Rule 2.8
    (`DesignFeatures/Likes.md` rule 11; user ruling 2026-10-11): the card shows the post's
    reaction counts and the reader's own, and records, changes or clears it, through
@@ -346,8 +348,10 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
     #699's stage-2 build, which has no task (`UI/Components/ReviewPanel.md §10 item 12`); the
     page's half is to address every call about the round by the approval id once they are served.
 22. (#1074) **Page gap — the association page has no heading, no way back and no columns.** Rules
-    2.5–2.7 (user rulings 2026-10-11): the heading and the tab title naming the association, the
-    breadcrumb through the post, *Back to Post* and *Back to Posts*, and §3's regions — a
+    2.5–2.7 and 2.27 (user rulings 2026-10-11): the heading and the tab title naming the
+    association, the breadcrumb through the post, without the post's crumb while the post's
+    settings load and with *Post* for it where they cannot be read, *Back to Post* and *Back to
+    Posts*, and §3's regions — a
     full-width row for the post's card above two columns, the association's card in the left-hand
     one. Items 2, 6 and 14 stand the post's card, the round and the thread in their places. It
     builds on item 1's page.
@@ -362,15 +366,7 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
     the post's chips or the review thread cannot be read — the user ruled on 2026-10-11 (#705,
     rulings 18–21): rules 2.4, 2.8 and 2.23. The post's settings read is item 25.
 25. **Retired.** What the page shows while the post's settings load, and when they cannot be
-    read — the user ruled on 2026-10-11 (#705, rulings 22–23): rules 2.25 and 2.26. What the
-    breadcrumb's crumb for the post shows meanwhile is item 26.
-26. **Question — what the breadcrumb's crumb for the post shows while the post's settings load,
-    and when they cannot be read.** The crumb is the post's heading as the post page words it
-    (rule 2.5; `UI/Pages/ContentItemModerationDetailPage.md rule 2.18`): the post's title where
-    its effective `HasTitle` allows and one exists, and its content type's name otherwise, both
-    resolved against the post's settings. Ruling 22 has what depends on the settings wait for
-    them, and ruling 23 says what takes the card's place when they cannot be read, not the
-    crumb's. (a) While the settings read loads, does the breadcrumb leave the post's crumb out
-    until the settings land, or wait whole? (b) When the settings read fails, does the
-    breadcrumb leave the post's crumb out, or name the post some other way — and if so, how? An
-    answer adds a rule beside rule 2.25.
+    read — the user ruled on 2026-10-11 (#705, rulings 22–23 and 26): rules 2.25 and 2.26. What
+    the breadcrumb's crumb for the post shows meanwhile was item 26.
+26. **Retired.** What the breadcrumb's crumb for the post shows while the post's settings load,
+    and when they cannot be read — the user ruled on 2026-10-11 (#705, rulings 24–25): rule 2.27.

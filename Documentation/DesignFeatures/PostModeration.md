@@ -26,7 +26,9 @@ https://github.com/Glory2Him/Glory2Him.Core/issues/705#issuecomment-6109747616),
 failed reads the same day (rulings 18–21,
 https://github.com/Glory2Him/Glory2Him.Core/issues/705#issuecomment-6112986595), and the rulings on
 the association page's read of the post's settings the same day (rulings 22–23,
-https://github.com/Glory2Him/Glory2Him.Core/issues/705#issuecomment-6113417041). Each rule below
+https://github.com/Glory2Him/Glory2Him.Core/issues/705#issuecomment-6113417041), and the rulings on
+the association page's breadcrumb the same day (rulings 24–26,
+https://github.com/Glory2Him/Glory2Him.Core/issues/705#issuecomment-6113739849). Each rule below
 names its source.
 
 1. **Two screens.** The post page, `/Admin/Posts/{contentItemId}`
@@ -131,8 +133,12 @@ names its source.
     *(ruling 22)*
 23. **The post's settings cannot be read (association page).** An announced error with a Retry
     takes the post card's place, as on the post page
-    (`Design/UI/Pages/ContentItemModerationDetailPage.md rule 2.28`). The association can still be
-    reviewed. *(ruling 23)*
+    (`Design/UI/Pages/ContentItemModerationDetailPage.md rule 2.28`), reading "We could not load
+    this post's settings right now.". The association can still be reviewed. *(rulings 23 and 26)*
+24. **The breadcrumb's crumb for the post (association page).** The breadcrumb renders at once,
+    without the post's crumb while the post's settings load; the crumb appears once they arrive.
+    If the settings read fails, the crumb reads *Post* and still links to the post page.
+    *(rulings 24 and 25)*
 
 ## User stories
 
