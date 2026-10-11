@@ -15,6 +15,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Moq;
 
@@ -159,6 +160,77 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 expectedPublicContentItemGroup);
 
             VerifyPublicContentItemGroupLookupAsked(cancellationToken, Times.Once());
+        }
+
+        [Theory]
+        [MemberData(nameof(CanonicalVisibilityTerms))]
+        public async Task ShouldFindNothingForAGroupWithNoVisibleVersionAsync(string failedTerm)
+        {
+            // given: a group whose one version satisfies every §SEC14.1 term but one, so
+            // dropping or inverting any single term lets that version back in
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+            ContentItem hiddenContentItem =
+                CreateCanonicallyVisibleContentItem(randomDateTimeOffset);
+
+            FailCanonicalVisibilityTerm(hiddenContentItem, failedTerm, randomDateTimeOffset);
+
+            Guid inputGroupId = hiddenContentItem.GroupId;
+            var storageContentItems = new List<ContentItem> { hiddenContentItem };
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            SetupPublicContentItemGroupLookupOver(storageContentItems, cancellationToken);
+
+            // when
+            PublicContentItemGroup? actualPublicContentItemGroup =
+                await this.contentItemService.FindPublicContentItemGroupAsync(
+                    groupId: inputGroupId,
+                    cancellationToken: cancellationToken);
+
+            // then
+            actualPublicContentItemGroup.Should().BeNull();
+            VerifyPublicContentItemGroupLookupAsked(cancellationToken, Times.Once());
+        }
+
+        public static TheoryData<string> CanonicalVisibilityTerms() =>
+            new TheoryData<string>
+            {
+                "Deleted",
+                "NotApproved",
+                "Unpublished",
+                "PublishedAfterTheCurrentMoment"
+            };
+
+        private static void FailCanonicalVisibilityTerm(
+            ContentItem contentItem,
+            string failedTerm,
+            DateTimeOffset currentDateTime)
+        {
+            switch (failedTerm)
+            {
+                case "Deleted":
+                    contentItem.IsDeleted = true;
+                    break;
+
+                case "NotApproved":
+                    contentItem.ApprovalStatus = ApprovalStatus.Submitted;
+                    break;
+
+                case "Unpublished":
+                    contentItem.IsPublished = false;
+                    break;
+
+                case "PublishedAfterTheCurrentMoment":
+                    contentItem.PublishDate = currentDateTime.AddSeconds(1);
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(failedTerm), failedTerm, null);
+            }
         }
 
         // The mock stands in for the storage client: it APPLIES the query-shaping function the
