@@ -22,8 +22,10 @@ where each one's round stands, and give each association a page of its own for i
 The product owner's rulings are on #705: the design session of 2026-10-11 (rulings 1–11,
 https://github.com/Glory2Him/Glory2Him.Core/issues/705#issuecomment-6109616859) and its
 continuation the same day (rulings 12–17,
-https://github.com/Glory2Him/Glory2Him.Core/issues/705#issuecomment-6109747616). Each rule
-below names its source.
+https://github.com/Glory2Him/Glory2Him.Core/issues/705#issuecomment-6109747616), and the rulings on
+failed reads the same day (rulings 18–21,
+https://github.com/Glory2Him/Glory2Him.Core/issues/705#issuecomment-6112986595). Each rule below
+names its source.
 
 1. **Two screens.** The post page, `/Admin/Posts/{contentItemId}`
    (`Design/UI/Pages/ContentItemModerationDetailPage.md`), and the association page, nested under
@@ -110,6 +112,16 @@ below names its source.
     could-not-load state with *Back to Posts*, as the post page does for a post it cannot read
     (`Design/UI/Pages/ContentItemModerationDetailPage.md rule 2.20`). It never shows an association
     under another post. *(ruling 15)*
+19. **The chips cannot be read.** Where the read of the post's associations fails, or the read of
+    their tags or of their Bible references, an announced error with a Retry takes the chips' place
+    on the card, on both pages, as a failed settings read does on the post page
+    (`Design/UI/Pages/ContentItemModerationDetailPage.md rule 2.28`). The card never shows no chips
+    in their place, nor one kind's chips without the other. *(rulings 18 and 19)*
+20. **The association's tag or Bible reference cannot be read.** The association page shows its
+    could-not-load state with *Back to Posts*, as for an association it cannot read (rule 18).
+    *(ruling 20)*
+21. **The association's review thread cannot be read.** An announced error with a Retry takes the
+    thread's place on the association page. It is never shown as an empty thread. *(ruling 21)*
 
 ## User stories
 
@@ -131,7 +143,7 @@ this feature's work on each is a gap of its section 10:
 
 | Component | What this feature changes |
 | --- | --- |
-| [ContentItemPanel.md](../Design/UI/Components/ContentItemPanel.md), with [ContentItemPanel.Default.md](../Design/UI/Components/ContentItemPanel.Default.md) | The association chips on the card (rules 4–8), and the post's *Take down* in its moderation footer (rule 10) |
+| [ContentItemPanel.md](../Design/UI/Components/ContentItemPanel.md), with [ContentItemPanel.Default.md](../Design/UI/Components/ContentItemPanel.Default.md) | The association chips on the card (rules 4–8), the error that takes their place when they cannot be read (rule 19), and the post's *Take down* in its moderation footer (rule 10) |
 | [ReviewPanel.md](../Design/UI/Components/ReviewPanel.md) | Its tiers composed from an association's two endpoints (rule 15), and its controls disabled until the round's record exists (rule 17) |
 | [ReviewCommentPanel.md](../Design/UI/Components/ReviewCommentPanel.md) | The same two changes |
 | [AssociationDetailPanel.md](../Design/UI/Components/AssociationDetailPanel.md), new | The association's card, its confidence block and its takedown (rules 12, 13 and 16) |

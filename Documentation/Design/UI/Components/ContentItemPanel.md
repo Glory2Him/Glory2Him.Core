@@ -131,6 +131,8 @@ has a story of its own; the rules that belong to one face live there, and sectio
 
 **2.47 [Must]** *Take down* is the post's takedown from the card: `Administrators` take the item down — a soft delete — at any status, from an action beside the moderation action, never locked (§APR9.9 rule 7; `DesignFeatures/PostModeration.md` rule 10). It asks before it raises anything: title *Are you sure?*, message "This removes the contribution. It cannot be undone from here.", button *Delete*. *Delete* raises `onTakeDown` with the element, and Cancel raises nothing. *(user, 2026-10-11)* ≠ item 26
 
+**2.48 [Must]** A page whose read of the post's associations, or of the tags or Bible references that name its chips, has failed says so with `isAssociationChipReadFailed`. The card then shows one error in place of its tag and reference sections, announced, with *Retry*, and no chip and no pill of either kind: it never shows no chips in their place, nor one kind's chips without the other. *Retry* raises `onAssociationChipRetry` and does nothing else: reading again is the page's (§UI20.6.4; `DesignFeatures/PostModeration.md` rule 19). *(user, 2026-10-11)* ≠ item 28
+
 ## 3. Presentation / Behaviour rules
 
 The rules below are the dispatcher's own decisions. How each face renders what it is handed is
@@ -171,6 +173,8 @@ in that face's story.
 **3.1.16** With `associationChipCollection` handed, each section renders its kind's chips (rule 2.45): a tag as `#` and its name, a Bible reference as its text after a book glyph (`bi bi-book`), each followed by its status icon — `Approved` `bi-check-circle-fill`, `Submitted` `bi-hourglass-split`, `Draft` `bi-pencil-fill`, `Rejected` `bi-x-circle-fill` — and each a button raising `onAssociationChipClick`, but a chip whose `isCurrent` is set, which is ringed and is not a control (rule 2.46). Its tooltip is `associationChipTooltipText` with `{status}` replaced by the status's label (`associationChipStatusLabels`). With an empty collection handed, the sections show no pills and no chips. *(user, 2026-10-11)* ≠ item 25
 
 **3.1.17** *Take down* renders on the view face where `onTakeDown` is wired and the viewer may take the item down (rule 3.2.7), at the right of the engagement row beside the moderation action, whatever the item's status, and never locked (rule 2.47). Pressed, it opens its confirmation; *Delete* raises `onTakeDown` and Cancel raises nothing. *(user, 2026-10-11)* ≠ item 26
+
+**3.1.18** With `isAssociationChipReadFailed` on, the view face renders `associationChipReadFailedText` in a `role="alert"` region, followed by a button labelled `associationChipRetryText` that raises `onAssociationChipRetry`, in place of the tag and reference sections, and renders neither section's chips or pills. It renders the error wherever either section would show under rule 3.1.12, and not where neither would. It outranks `associationChipCollection` (rule 2.48). *(user, 2026-10-11)* ≠ item 28
 
 ### 3.2 Driven by roles
 
@@ -246,6 +250,8 @@ whose stories hold the detail; row 13 is the restricted face.
 | `showTagSection`, `showBibleReferenceSection`, `showReactionSection`, `showCommentsSection`, `showShareSection`, `showSaveSection` | `boolean` | `true` | The section switches (rule 3.1.12). | View templates |
 | `associationChipCollection` ≠ item 25 | `AssociationChipItem[]?` | — | The post's associations, each `associationId`, `kind` (`Tag` or `BibleReference`), `label`, `approvalStatus` and `isCurrent?`, in the order the page wants them shown (rule 2.45). Absent, the sections show the element's pills. | View templates |
 | `associationChipTooltipText`, `associationChipStatusLabels` ≠ item 25 | `string`, label map | `'{status} — click to review'`; *Draft*, *Submitted*, *Approved*, *Rejected* | A chip's tooltip, and the status it names (rule 3.1.16). | View templates |
+| `isAssociationChipReadFailed` ≠ item 28 | `boolean` | `false` | The page's read of the chips failed, so the card shows the error of rule 2.48 in their place (rule 3.1.18). | View templates |
+| `associationChipReadFailedText`, `associationChipRetryText` ≠ item 28 | `string` | `'We could not load this post's tags and Bible references right now.'`, `'Retry'` | The chips' error and its button (rule 3.1.18). | View templates |
 | `takeDownButtonText`, `takeDownConfirmTitleText`, `takeDownConfirmMessageText`, `takeDownConfirmButtonText`, `takeDownCancelButtonText` ≠ item 26 | `string` | `'Take down'`, `'Are you sure?'`, `'This removes the contribution. It cannot be undone from here.'`, `'Delete'`, `'Cancel'` | The takedown and its confirmation (rule 2.47). | View templates (the button); `ConfirmDialog` (the confirmation) |
 | `isLoading` | `boolean` | `false` | A loading line instead of a half-built form. | Add face, edit face |
 | `isSubmitting` | `boolean` | `false` | Freezes the form buttons while the consumer persists. | Add face, edit face |
@@ -268,6 +274,7 @@ whose stories hold the detail; row 13 is the restricted face.
 | `onReactionSelected` | `ContentItemSearchItem`, `ContentItemReactionOption` | A reader chooses a reaction, whatever the sign-in state (rule 3.2.4). |
 | `onExpandCollapse` | `ContentItemSearchItem` | The in-place toggle is pressed; the panel toggles the expansion and raises the event. |
 | `onAssociationChipClick` ≠ item 25 | `AssociationChipItem` | An association chip not marked current is pressed (rule 2.46). |
+| `onAssociationChipRetry` ≠ item 28 | none | *Retry* is pressed on the chips' error (rule 2.48). |
 | `onTakeDown` ≠ item 26 | `ContentItemSearchItem` | *Delete* is pressed on the takedown's confirmation (rule 3.1.17). |
 | `onContentTypeClick`, `onTitleClick`, `onSubmittedByClick`, `onAuthorClick`, `onTagClick`, `onBibleReferenceClick`, `onCommentsClick`, `onReadMore`, `onShareClick`, `onSaveClick` | the element (and the tag or reference) | Passed through unchanged; `UI/Components/ContentItemPanel.Default.md §4.2` says when each fires. |
 
@@ -340,6 +347,7 @@ writing faces still accept one today, `blockRoles`, which is retired (section 10
 | **Edit**, the owner's (`onEditClick`, or the editor in place) ≠ item 20 | The owner, where the page's Edit switch is on (rules 2.40, 3.1.4 and 3.2.3) | `ReadOnly`, `ContentItem-ReadOnly`, `ContentItem-{ContentType}-ReadOnly` for the item's type (rule 3.2.1) | ❌ Refused: hidden, not locked (rule 3.2.1) | Not offered | §SEC14.7 posture A rule 3; the owner's amendment of a reviewed item forks (§APR9.9) |
 | **Moderate** (`onModerateClick`) | The moderation tier (rule 3.2.2) | The same three (rule 3.2.1) | ❌ Refused: hidden (rule 3.2.1) | Not offered | Nothing of its own: it leads to the page's moderation surface, whose writes are decided there |
 | An association chip (`onAssociationChipClick`) ≠ item 25 | Every persona the page hands the chips to, under the section switches and the setting (rule 2.45) | None — a read (§SEC18.6) | ✅ Allowed | Offered; raises the hook (rule 2.46) | Nothing of its own: the page it leads to reads the association under §SEC14.7 posture A′ |
+| *Retry* on the chips' error (`onAssociationChipRetry`) ≠ item 28 | Every persona the page hands the failed read to, where either section would show (rule 3.1.18) | None — a read (§SEC18.6) | ✅ Allowed | Offered; raises the hook (rule 2.48) | Nothing of its own: the page reads again |
 | ***Take down*** (`onTakeDown`) ≠ item 26 | `Administrators`, at any status (rules 2.47 and 3.2.7) | `ReadOnly`, `ContentItem-ReadOnly`, `ContentItem-{ContentType}-ReadOnly` for the item's type (rule 3.2.1) | ❌ Refused: hidden (rule 3.2.7) | Not offered | §SEC14.7 posture A rules 1 and 3; §APR9.9 rule 7 |
 | **View** ≠ item 20 | Every persona, where the page's switch is on (rule 2.40) | None — a read (§SEC18.6) | ✅ Allowed | Offered; raises View's hook | Nothing of its own, as the title |
 | **The restricted face** (a gated view, in the add face's place) ≠ `UI/Components/ContentItemPanel.Restricted.md §10 item 1` | A signed-in reader with no content type left to contribute (rule 2.43) | None — it is what a reader left with no type is shown | ✅ Shown in the add face's place, whether read-only roles or the settings left no type (rule 2.43) | Not offered: the add face's login link comes first (rule 2.43) | Nothing — it offers no action and sends no request (`UI/Components/ContentItemPanel.Restricted.md §5`) |
@@ -744,3 +752,10 @@ context) for the render gates, and the item's `ApprovalStatus` for the non-owner
     status, on the two admin moderation pages. They were written about this behaviour, so they
     settle it (§UI20.6.4 case 1): rule 2.35 now keeps an association's own actions out of the
     card and lets its chips in, as rule 2.45 has them.
+28. (#1076) **Gap — a failed read of the chips leaves the card showing none.** Rules 2.48 and
+    3.1.18 (user rulings 2026-10-11, #705 rulings 18 and 19; `DesignFeatures/PostModeration.md`
+    rule 19): where the page could not read the post's associations, or their tags or Bible
+    references, the card shows an announced error with *Retry* in place of its tag and reference
+    sections. The card has no property for it: handed no chips, or an empty collection, its
+    sections show the element's pills or nothing, so a post whose chips could not be read looks
+    like one with none. It builds on item 25.

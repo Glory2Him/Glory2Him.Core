@@ -41,7 +41,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.3 [Must]** The page shows an association only under its own post. It reads the post by `contentItemId` and the association by `associationId` (`GET /api/associations/{id}`, #857), and shows the association only where one of its endpoints is a `ContentItem` whose effective id is the post's id or the post's group id (§DOM4.6) and the other is a `Tag` or a `BibleReference`. Otherwise — the association is another post's, is neither a tag nor a Bible reference, or cannot be read — the page shows its could-not-load state, as rule 2.4 has it, and never the association (`DesignFeatures/PostModeration.md` rule 18). *(user, 2026-10-11)* ≠ item 1
 
-**2.4 [Should]** While the post or the association loads, a spinner stands in for the page. When either cannot be read, or rule 2.3 refuses the pair, the page shows the post page's words, "We could not load this post right now. It may have been removed, or it may not be yours to moderate.", and offers *Back to Posts* (`UI/Pages/ContentItemModerationDetailPage.md rule 2.20`). *(user, 2026-10-11)* ≠ item 1
+**2.4 [Should]** While the post or the association loads, a spinner stands in for the page. When either cannot be read, or the tag or Bible reference the association names cannot be read, or rule 2.3 refuses the pair, the page shows the post page's words, "We could not load this post right now. It may have been removed, or it may not be yours to moderate.", and offers *Back to Posts* (`UI/Pages/ContentItemModerationDetailPage.md rule 2.20`; `DesignFeatures/PostModeration.md` rules 18 and 20). *(user, 2026-10-11)* ≠ item 1
 
 **2.5 [Should]** The heading and the tab title name the association: *Tag: #* and the tag's name, or *Bible reference:* and the reference. The breadcrumb reads *Admin* › *Posts* › the post's heading, as the post page words it (`UI/Pages/ContentItemModerationDetailPage.md rule 2.18`), linking to the post page › the association's chip text. *(user, 2026-10-11: the mock's `assocHeading` and breadcrumb)* ≠ item 22
 
@@ -49,7 +49,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.7 [Must]** The post leads: its card stands across the page's full width, above both columns (`DesignFeatures/PostModeration.md` rule 3). Beneath it, what is judged stands on the left — the association's card, then its review thread — and who judges it on the right — its round. *(user, 2026-10-11: the mock's `col-12`, `col-lg-7` and `col-lg-5`)* ≠ items 2, 6, 14 and 22
 
-**2.8 [Must]** The post's card is the post page's moderated card (`UI/Pages/ContentItemModerationDetailPage.md rules 2.15–2.17 and 2.30`): its chips on it, in the same order and with the same statuses, this association's chip marked current and ringed, the status ribbon, the content whole, and the Like control, with Share and Save deliberately not (`DesignFeatures/PostModeration.md` rules 3–8 and 11). *(user, 2026-10-11)* ≠ items 2 and 3
+**2.8 [Must]** The post's card is the post page's moderated card (`UI/Pages/ContentItemModerationDetailPage.md rules 2.15–2.17, 2.30 and 2.34`): its chips on it, in the same order and with the same statuses, or the announced error with *Retry* in their place where they cannot be read, this association's chip marked current and ringed, the status ribbon, the content whole, and the Like control, with Share and Save deliberately not (`DesignFeatures/PostModeration.md` rules 3–8, 11 and 19). *(user, 2026-10-11)* ≠ items 2 and 3
 
 **2.9 [Must]** A chip leads to its association's page, `/Admin/Posts/{contentItemId}/Associations/{associationId}`; the current chip leads nowhere (`DesignFeatures/PostModeration.md` rule 7). *(user, 2026-10-11)* ≠ item 2
 
@@ -78,6 +78,8 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 **2.21 [Must]** `Administrators` take the association down from *Take down* in its card's footer, at any status, after its confirmation (`UI/Components/AssociationDetailPanel.md rule 2.6`). The page sends `DELETE /api/associations/{id}`; on success it returns to the post page, and a failure keeps the moderator here with the reason toasted (`DesignFeatures/PostModeration.md` rule 16). *(user, 2026-10-11)* ≠ item 20
 
 **2.22 [Must]** No box for suggesting a tag or a Bible reference is offered here (`DesignFeatures/PostModeration.md` rule 9). *(user, 2026-10-11)*
+
+**2.23 [Must]** When the read of the association's review thread fails, an error stands in `ReviewCommentPanel`'s place, announced, reading "We could not load the review thread right now.", with *Retry*, which reads the thread again; once a read of the thread answers, the panel stands there again. A thread that could not be read is never shown empty (`DesignFeatures/PostModeration.md` rule 21). *(user, 2026-10-11)* ≠ item 14
 
 ## 3. Layout
 
@@ -113,7 +115,7 @@ main column, then the right-hand column.
 | Left sidebar (the shell's) | `col-lg-3`; absent when the menu is folded | the admin navigation menu — not the page's |
 | Page head | the shell's `col-lg-9`, or `col-12` folded | the shell's fold toggle; the heading and the `Breadcrumb`; a rule; *Back to Posts* and *Back to Post*. The spinner, or the error alert with *Back to Posts*, stands in for everything below until the post and the association are read. |
 | The post | `col-12` of the page's row | `ContentItemPanel` |
-| Main | `col-lg-7` of the page's row | `AssociationDetailPanel`; `ReviewCommentPanel` |
+| Main | `col-lg-7` of the page's row | `AssociationDetailPanel`; `ReviewCommentPanel`, or rule 2.23's error in its place |
 | Right sidebar | `col-lg-5` of the page's row | `ReviewPanel` |
 
 The `ConfirmDialog` that withdraws a comment is modal and belongs to the page (rule 2.20).
@@ -134,6 +136,7 @@ Nothing on this page is built; every *Built today* cell names the section-6 item
 | `showApprovalStatusRibbon` / `showApprovalStatus` | `true` / `false` | Rule 2.8. |
 | `showContentExpanded` | `true` | Rule 2.8. |
 | `associationChipCollection` | The post's associations as the post page builds them (`UI/Pages/ContentItemModerationDetailPage.md rule 2.30`), this association's chip `isCurrent` | Rules 2.8 and 2.9. |
+| `isAssociationChipReadFailed` | `true` while a read of the chips has failed, as on the post page (`UI/Pages/ContentItemModerationDetailPage.md rule 2.34`) | Rule 2.8. |
 | `reactionOptions`, `onReactionSelected` | The approved reactions, and the engagement hook's handler | Rule 2.8. |
 | `onModerateClick`, `onAssociationChipClick`, `onTakeDown` | The handlers below | Rules 2.9–2.11. |
 
@@ -142,6 +145,7 @@ Nothing on this page is built; every *Built today* cell names the section-6 item
 | Hook | Raised when | What the page does | Built today |
 | --- | --- | --- | --- |
 | `onAssociationChipClick` | A chip that is not current is pressed | Opens that association's page, `/Admin/Posts/{contentItemId}/Associations/{associationId}` (rule 2.9). | ❌ No — item 2 |
+| `onAssociationChipRetry` | *Retry* is pressed on the chips' error | Reads again each of the chips' reads that failed, as the post page does (rule 2.8; `UI/Pages/ContentItemModerationDetailPage.md rule 2.34`). | ❌ No — item 2 |
 | `onReactionSelected` | The reader chooses a reaction | Records, changes or clears the reader's own reaction, through `useContentItemEngagement`. | ❌ No — item 3 |
 | `onModerateClick` | The moderation action, labelled *Edit*, is pressed while not locked | Opens the post page, `/Admin/Posts/{contentItemId}`, asking it for the editor (rule 2.10). | ❌ No — item 4 |
 | `onTakeDown` | *Delete* is pressed on *Take down*'s confirmation | `DELETE api/ContentItems/{contentItemId}`, then the queue; a failure is toasted and the moderator stays (rule 2.11). | ❌ No — item 5 |
@@ -182,7 +186,7 @@ and scripture and its suggester's name (rule 2.12), carrying its `ConfidenceScor
 
 | Hook | Raised when | What the page does | Built today |
 | --- | --- | --- | --- |
-| *(the thread itself)* | — | Reads and shows the thread, refreshed with the round (rules 2.16 and 2.18). | ❌ No — item 14 |
+| *(the thread itself)* | — | Reads and shows the thread, refreshed with the round (rules 2.16 and 2.18); where the thread cannot be read, rule 2.23's error stands in the panel's place. | ❌ No — item 14 |
 | `onSave` | *Save* on a non-blank box | `POST api/ApprovalComments`, toasting and rethrowing a refusal, as the post page does. | ❌ No — item 15 |
 | `onModified` | *Save* on the edit face | `PUT api/ApprovalComments` with the stored row, only the words and the type moved, as the post page does. | ❌ No — item 16 |
 | `onRemoveRequested` | *Delete* on the author's own row | Asks the confirmation of rule 2.20, then `DELETE api/ApprovalComments/{id}` with the reason *Withdrawn by the author*. | ❌ No — item 17 |
@@ -258,8 +262,9 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
    no page shows an association.
 2. (#1055) **Page gap — the post's card shows no chips here.** Rules 2.7–2.9: the post's
    card, across the page's full width above both columns, with its association chips, this
-   association's current and ringed, and each other chip leading to its association's page. It
-   builds on item 1's page and item 22's columns. The card's type chip, *Submitted by* and
+   association's current and ringed, and each other chip leading to its association's page, or
+   the announced error with *Retry* in their place where they cannot be read, as on the post page.
+   It builds on item 1's page and item 22's columns. The card's type chip, *Submitted by* and
    *Author* are item 23.
 3. (#1056) **Page gap — the post's card offers no Like control here.** Rule 2.8
    (`DesignFeatures/Likes.md` rule 11; user ruling 2026-10-11): the card shows the post's
@@ -295,10 +300,11 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
     2.19: `onAIReviewerRequested`, for a first request and a re-request alike.
 13. (#1066) **Page gap — Berean cannot be withdrawn from the association's round.** Rules
     2.14 and 2.19: `onAIReviewerWithdrawn`.
-14. (#1067) **Page gap — the association's review thread is not shown.** Rules 2.7 and 2.14–2.18:
+14. (#1067) **Page gap — the association's review thread is not shown.** Rules 2.7, 2.14–2.18 and 2.23:
     the thread in `ReviewCommentPanel`, beneath the association's card in the left-hand column
     (rule 2.7), its tiers composed from the association's endpoints, its box disabled until the
-    approval record exists. The panel's halves are
+    approval record exists, and an announced error with *Retry* in its place where the thread
+    cannot be read. The panel's halves are
     `UI/Components/ReviewCommentPanel.md §10 items 22 and 23`.
 15. (#1068) **Page gap — no comment can be added to the association's thread.** Rule 2.19:
     `onSave`.
@@ -342,15 +348,5 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
     `UI/Pages/ContentItemModerationDetailPage.md §6 item 5`, and the queue's half, opening its
     advanced section on the value, is `UI/Pages/ContentItemModerationPage.md §6 item 6`. It builds
     on item 2's card.
-24. **Question — what the page shows when one of its reads fails.** Rule 2.4 settles a failed read
-    of the post or the association: the could-not-load state. No rule settles three more reads the
-    page makes, and on the post page the user ruled that a failed settings read shows the page's
-    error, announced, with a Retry, never the card without its settings
-    (`UI/Pages/ContentItemModerationDetailPage.md rule 2.28`). (a) When the far end's read — the
-    tag or the Bible reference — fails, does the page show the could-not-load state, or the
-    association's card without its label? (b) When the post's associations read fails, does the
-    post's card show no chips, which reads as a post with none, or an error in their place,
-    announced, with a Retry? The post page asks the same (`UI/Pages/ContentItemModerationDetailPage.md
-    §6 item 20`), and this page's card answers as that one does (rule 2.8). (c) When the thread read
-    fails, does the thread show no rows, which reads as a round nobody has commented on, or an
-    error in its place, announced, with a Retry? An answer adds a rule to section 2 for each.
+24. **Retired.** What the page shows when one of its reads fails — the user ruled on 2026-10-11
+    (#705, rulings 18–21): rules 2.4, 2.8 and 2.23.

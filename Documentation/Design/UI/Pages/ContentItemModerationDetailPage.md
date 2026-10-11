@@ -116,6 +116,8 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.33 [Must]** Until the approval process has created the item's approval record, every control that depends on the round's id is disabled: the page tells `ReviewPanel` and `ReviewCommentPanel` so (`isAwaitingApprovalRecord`; `UI/Components/ReviewPanel.md rule 2.55`, `UI/Components/ReviewCommentPanel.md rule 2.36`). The record is not there while the verdict read answers not-found for the item, and a later read of the round refresh (rule 2.12) that answers with the record enables the controls (`DesignFeatures/PostModeration.md` rule 17). On the route the page reads today, keyed by the item, the verdict read opens a missing round itself for a `Draft` or `Submitted` item, and answers not-found only for an item taken down or a decided item whose round was never recorded, which no read opens (§ARC16.7.2, *The write as built*): there the controls stay disabled. A round the approval process has yet to record reaches the page once it reads the round by its approval id (item 11), a read that opens no round (§ARC16.7.2). *(user, 2026-10-11)* ≠ item 19
 
+**2.34 [Must]** When the read of the post's associations fails, or the tag read or the Bible reference read that names their chips, the page tells the card so (`isAssociationChipReadFailed`; `UI/Components/ContentItemPanel.md rule 2.48`), and the card shows an announced error with *Retry* in the chips' place: never no chips, and never one kind's chips without the other. *Retry* reads again each of those reads that failed, and the chips show once every one answers (`DesignFeatures/PostModeration.md` rule 19). *(user, 2026-10-11)* ≠ item 17
+
 ## 3. Layout
 
 The admin shell puts its navigation menu in a left-hand column. Inside the page's own column, the
@@ -170,6 +172,7 @@ Rendered while the editor is closed.
 | `showContentExpanded` | `true` | Rule 2.16. |
 | `showTagSection`, `showBibleReferenceSection` | `true`, so the setting decides; `false` as built ≠ item 17 | Rules 2.16 and 2.30. |
 | `associationChipCollection` ≠ item 17 | The post's associations, ordered and named (rule 2.30) | Rule 2.30. |
+| `isAssociationChipReadFailed` ≠ item 17 | `true` while the associations read, the tag read or the Bible reference read has failed (rule 2.34) | Rule 2.34. |
 | `reactionOptions`, `onReactionSelected` | The approved reactions, and the engagement hook's handler | Rule 2.15. |
 | `onModerateClick` | Opens the editor | Rule 2.7. |
 | `onAssociationChipClick`, `onTakeDown` ≠ items 17 and 12 | The two handlers below | Rules 2.31 and 2.24. |
@@ -190,6 +193,7 @@ the owner's Edit. The editor is `ContentItemEditPanel`, rendered by the page (se
 | `onReadMore`, `onExpandCollapse` | *read more* is pressed | Never offered: the content stands whole (rule 2.16). | *Not wired — switched off* |
 | `onTagClick`, `onBibleReferenceClick` | A pill on the card is pressed | — | *Never raised*: the page hands the card association chips, which raise `onAssociationChipClick` instead (rule 2.30). As built the sections are off. |
 | `onAssociationChipClick` ≠ item 17 | A chip is pressed | Opens the association's page, `/Admin/Posts/{contentItemId}/Associations/{associationId}` (rule 2.31). | ❌ No — item 17 |
+| `onAssociationChipRetry` ≠ item 17 | *Retry* is pressed on the chips' error | Reads again each of the chips' reads that failed (rule 2.34). | ❌ No — item 17 |
 | `onTakeDown` ≠ item 12 | *Delete* is pressed on *Take down*'s confirmation | `DELETE api/ContentItems/{contentItemId}`, then back to the queue; a failure is toasted and the moderator stays (rules 2.9 and 2.24). | ❌ No — item 12 |
 | `onCommentsClick` | The comments control is pressed | — | *Not wired — switched off*: without it the control does not render (`UI/Components/ContentItemPanel.Default.md rule 2.9`); the review thread is `ReviewCommentPanel`, not an item's comments |
 | `onContentTypeClick` | The type chip is pressed | Opens `/Admin/Posts` handed the type, its search bar showing it in the Category box with the advanced section expanded (rule 2.26). Today nothing: the chip is a button with no hook behind it. ≠ item 5 | ❌ No — item 5 |
@@ -522,18 +526,19 @@ everyone who reaches the page; each association's round is the association page'
     removed elsewhere, starts the form again from the new row. The same gap on `/` is
     `UI/Pages/Home.md §6 item 11`, whose evidence stands for this page too.
 17. (#1051) **Page gap — `/Admin/Posts/{id}`: the post's tags and Bible references are not
-    chips on its card.** Rules 2.6, 2.16, 2.22, 2.26, 2.30 and 2.31 (user rulings 2026-10-11;
-    `DesignFeatures/PostModeration.md` rules 1 and 3–9): the card shows every tag and Bible
-    reference of the post as a chip showing its association's status, in a fixed order, each
-    leading to its association's page, and the page renders no association panel. The page
+    chips on its card.** Rules 2.6, 2.16, 2.22, 2.26, 2.30, 2.31 and 2.34 (user rulings
+    2026-10-11; `DesignFeatures/PostModeration.md` rules 1, 3–9 and 19): the card shows every tag
+    and Bible reference of the post as a chip showing its association's status, in a fixed order,
+    each leading to its association's page, or an announced error with *Retry* in their place
+    where they cannot be read, and the page renders no association panel. The page
     renders `TagAssociationPanel` and `BibleReferenceAssociationPanel` below the card, each handed
     an empty collection and a "coming soon" suggest box, and turns the card's tag and reference
     sections off (`admin/contentItemModerationDetailPage.tsx` lines 738-748 at 70dc72e7, the two
     panel elements, and the card's `showTagSection` and `showBibleReferenceSection`). Nothing reads
     the post's associations: the read is #857's (`GET /api/associations`), and the tag and Bible
     reference reads are `DesignFeatures/UI/Foundations/TagService.md §2` and
-    `DesignFeatures/UI/Foundations/BibleReferenceService.md §2`. The card's half is
-    `UI/Components/ContentItemPanel.md §10 item 25`. The tests that stand the two panels in the
+    `DesignFeatures/UI/Foundations/BibleReferenceService.md §2`. The card's halves are
+    `UI/Components/ContentItemPanel.md §10 items 25 and 28`. The tests that stand the two panels in the
     column — "should stand both association surfaces below the item in the seven", "should mount
     the thread under the bible references, not beside the round"
     (`contentItemModerationDetailPage.test.tsx`) — change with it.
@@ -554,13 +559,5 @@ everyone who reaches the page; each association's round is the association page'
     never recorded, since it opens a missing round only for a `Draft` or `Submitted` item (rule
     2.33). The components' halves are `UI/Components/ReviewPanel.md §10 item 14` and
     `UI/Components/ReviewCommentPanel.md §10 item 23`.
-20. **Question — what the card shows when the post's associations or their names cannot be
-    read.** Rule 2.30 reads the post's associations and names each chip from the tag and Bible
-    reference reads, and no rule settles what the card shows when one of those reads fails. The
-    user ruled that a failed settings read shows the page's error, announced, with a Retry, never
-    the card without its settings (rule 2.28). (a) When the associations read fails, does the card
-    show no chips, which reads as a post with none, or an error in their place, announced, with a
-    Retry? (b) When the tag read or the Bible reference read fails, does the card show the other
-    kind's chips alone, or the same error? An answer adds a rule beside rule 2.30. The association
-    page's card answers as this one does (`UI/Pages/AssociationModerationDetailPage.md §6 item
-    24`).
+20. **Retired.** What the card shows when the post's associations or their names cannot be read —
+    the user ruled on 2026-10-11 (#705, rulings 18 and 19): rule 2.34.
