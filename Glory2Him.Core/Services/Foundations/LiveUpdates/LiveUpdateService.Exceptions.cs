@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.LiveUpdates.Exceptions;
 using Xeptions;
@@ -24,6 +25,20 @@ namespace Glory2Him.Core.Services.Foundations.LiveUpdates
             try
             {
                 await returningNothingFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutLiveUpdateException =
+                    new TimeoutLiveUpdateException(
+                        message: "Failed live update timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogDependencyExceptionAsync(timeoutLiveUpdateException);
             }
             catch (NullLiveUpdateException nullLiveUpdateException)
             {
@@ -45,6 +60,18 @@ namespace Glory2Him.Core.Services.Foundations.LiveUpdates
             await this.loggingBroker.LogErrorAsync(liveUpdateValidationException);
 
             return liveUpdateValidationException;
+        }
+
+        private async ValueTask<LiveUpdateDependencyException> CreateAndLogDependencyExceptionAsync(
+            Xeption exception)
+        {
+            var liveUpdateDependencyException = new LiveUpdateDependencyException(
+                message: "Live update dependency error occurred, contact support.",
+                innerException: exception);
+
+            await this.loggingBroker.LogErrorAsync(liveUpdateDependencyException);
+
+            return liveUpdateDependencyException;
         }
     }
 }
