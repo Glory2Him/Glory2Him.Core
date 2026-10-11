@@ -52,6 +52,7 @@ using Glory2Him.Core.Services.Orchestrations.AIReviewers;
 using Glory2Him.Core.Services.Orchestrations.ApprovalReviewers;
 using Glory2Him.Core.Services.Orchestrations.Associations;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
+using Glory2Him.Core.Services.Orchestrations.LiveUpdates;
 using Glory2Him.Core.Services.Processings.ContentItems;
 using Glory2Him.Core.Services.Processings.Links;
 
@@ -89,6 +90,9 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
 
         private readonly Mock<IAIReviewerOrchestrationService>
             aiReviewerOrchestrationServiceMock;
+
+        private readonly Mock<ILiveUpdateOrchestrationService>
+            liveUpdateOrchestrationServiceMock;
         private readonly IEventSubscriptionRegistration eventSubscriptionRegistration;
 
         public EventSubscriptionRegistrationTests()
@@ -122,6 +126,9 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
 
             this.aiReviewerOrchestrationServiceMock =
                 new Mock<IAIReviewerOrchestrationService>();
+
+            this.liveUpdateOrchestrationServiceMock =
+                new Mock<ILiveUpdateOrchestrationService>();
 
             // The registration no longer holds services; it opens a scope per delivery and
             // resolves from it. The provider hands back the same mocks, so every assertion
@@ -177,6 +184,10 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             serviceProviderMock.Setup(p =>
                 p.GetService(typeof(IAIReviewerOrchestrationService)))
                     .Returns(this.aiReviewerOrchestrationServiceMock.Object);
+
+            serviceProviderMock.Setup(p =>
+                p.GetService(typeof(ILiveUpdateOrchestrationService)))
+                    .Returns(this.liveUpdateOrchestrationServiceMock.Object);
 
             var serviceScopeMock = new Mock<IServiceScope>();
             serviceScopeMock.Setup(scope => scope.ServiceProvider)
@@ -1660,6 +1671,17 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedHandler:
                     this.approvalOrchestrationServiceMock.Object.OnAssociationSubmittedAsync);
 
+            // The forwarder's ears (§EVN26), on the foundation's address: it subscribes at the
+            // foundation tier, where every write to the entity is announced (§EVN26 rule 2).
+            VerifyAssociationSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.LiveUpdateOrchestrationOnAssociationApprovedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.LiveUpdateOrchestrationOnAssociationApprovedSubscriptionName,
+                expectedOperation: AssociationEventOperation.Approved,
+                expectedHandler:
+                    this.liveUpdateOrchestrationServiceMock.Object.OnAssociationApprovedAsync);
+
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.approvalServiceMock.VerifyNoOtherCalls();
@@ -1668,6 +1690,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
             this.contentItemSettingOrchestrationServiceMock.VerifyNoOtherCalls();
             this.aiReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.liveUpdateOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
         // The registration binds a scope-opening lambda, not a method group, so a delegate
@@ -1746,7 +1769,8 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 this.contentItemProcessingServiceMock,
                 this.linkProcessingServiceMock, this.approvalOrchestrationServiceMock,
                 this.approvalReviewerOrchestrationServiceMock,
-                this.aiReviewerOrchestrationServiceMock
+                this.aiReviewerOrchestrationServiceMock,
+                this.liveUpdateOrchestrationServiceMock
             };
     }
 }
