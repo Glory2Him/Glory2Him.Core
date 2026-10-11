@@ -142,14 +142,14 @@ An existing member, changed: §2's write gains one refusal, §DOM4.10 rule 9's. 
 2. **It is asked after §2 rule 2's and rule 9's refusals**: an anonymous caller, a `null` `UserId`, another reader's `UserId` and an endpoint field §2 rule 9 refuses are refused as they are today, whatever pair they name.
 3. **Its caller is unchanged.** The upsert's personal arm (`Backend/Orchestrations/AssociationOrchestrationService.md §1` rule 4) answers the refusal as its dependency validation exception, through the arm every `IAssociationService` refusal reaches (that document's §4 rule 9).
 
-## 9. FindPersonalAssociationAsync — a user id in another letter case (needs issue)
+## 9. FindPersonalAssociationAsync — a user id in another letter case (#1024)
 
 An existing member, changed: §1 rule 3's caller check follows §DOM4.6 rule 3. Its signature, its answer, the place of the check in the member and its other rules are unchanged.
 
 1. **A lookup whose `UserId` differs from the signed caller's only in letter case is the caller's own**, and is answered as §1 rule 1 answers it. Any other `UserId` still answers `null` before storage is asked, and the denial is still logged as a warning (§1 rule 3).
 2. **The personal-key condition is still asked with the caller's user id**, and the column's collation matches it to the reader's row in whatever letter case the row holds it (§DOM4.6 rule 3). An in-memory set compares ordinally, so this is proven against the real catalogue, through this member, from the request to the answer (§ARC12.2.1 rule 6).
 
-## 10. UpsertPersonalAssociationAsync — a user id in another letter case (needs issue)
+## 10. UpsertPersonalAssociationAsync — a user id in another letter case (#1025)
 
 An existing member, changed: two of §2's comparisons follow §DOM4.6 rule 3. Its signature, its outcomes, its facts and its other rules are unchanged.
 
@@ -157,7 +157,7 @@ An existing member, changed: two of §2's comparisons follow §DOM4.6 rule 3. It
 2. **"Withdrawn by the reader" is a `DeletedBy` that differs from the row's `UserId` in nothing but letter case** (§2 rule 4, §DOM4.10 rule 7). Such a row is revived, `Restored` or `Repointed` as §2 rule 4's table has it. A withdrawn row whose `DeletedBy` names anybody else is still `TakenDown`.
 3. **The row it creates keeps the `UserId` it is handed**, as it does today, in the request's letter case. Rule 1 and §DOM4.6 rule 3 make that the caller's own.
 
-## 11. RemoveAssociationByIdAsync — a user id in another letter case (needs issue)
+## 11. RemoveAssociationByIdAsync — a user id in another letter case (#1026)
 
 An existing member, changed: §5 rule 3's test of whose row it is follows §DOM4.6 rule 3. Its signature, its facts and its other rules are unchanged.
 

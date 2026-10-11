@@ -5,7 +5,7 @@ Inherits: §DOM4.6 rules 2 and 3, §EVN25 (the migration shape this copies), §A
 
 §DOM4.6 rule 3 rules that `Association.UserId` ignores letter case, and that the column's collation answers it in SQL. This user story pins that collation on the column. It adds no property to the model and changes no row.
 
-## 1. UserId's collation (needs issue)
+## 1. UserId's collation (#1023)
 
 1. **`UserId` takes `SQL_Latin1_General_CP1_CI_AS` on the column**, configured on the property beside its length, as `ReceiverName` takes its collation (`StorageBroker.ProcessedEvent.Configurations.cs`). Its type, `nvarchar(255)`, and its nullability are unchanged.
 2. **A new migration drops both pair indexes, alters the column and recreates both, in one batch.** `UX_Associations_PersonalPair` holds `UserId` in its key and `UX_Associations_EditorialPair` names it in its filter (§DOM4.6 rule 2), and SQL Server refuses to alter a column that an index keys or filters on. EF generates the alter alone, so the drop and the recreate are written by hand, as in `20260922174602_PinProcessedEventReceiverNameToBinaryCollation`. Each index is recreated with the key, the uniqueness, the filter and the name §DOM4.6 rule 2 gives it. Nothing in the batch names something the batch creates, so no statement needs `EXEC`.
