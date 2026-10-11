@@ -91,7 +91,9 @@ describe('reactionService.useGetApprovedReactions', () => {
 
     it("should report the vocabulary read's failure unchanged", async () => {
         // given
-        const readFailure = new Error('The vocabulary read failed.');
+        const readFailureMessage = 'The vocabulary read failed.';
+        const readFailure = new Error(readFailureMessage);
+        const expectedFailure = new Error(readFailureMessage);
         getReactionsAsync.mockRejectedValue(readFailure);
 
         // when
@@ -101,5 +103,6 @@ describe('reactionService.useGetApprovedReactions', () => {
         // then
         await waitFor(() => expect(result.current.isError).toBe(true));
         expect(result.current.error).toBe(readFailure);
+        expect(result.current.error).toStrictEqual(expectedFailure);
     });
 });
