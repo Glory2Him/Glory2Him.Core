@@ -85,4 +85,18 @@ describe('reactionService.useGetApprovedReactions', () => {
         await waitFor(() => expect(result.current.isSuccess).toBe(true));
         expect(result.current.data).toEqual(reactionsInServerOrder);
     });
+
+    it("should report the vocabulary read's failure unchanged", async () => {
+        // given
+        const readFailure = new Error('The vocabulary read failed.');
+        getReactionsAsync.mockRejectedValue(readFailure);
+
+        // when
+        const { result } = renderHook(
+            () => reactionService.useGetApprovedReactions(), { wrapper });
+
+        // then
+        await waitFor(() => expect(result.current.isError).toBe(true));
+        expect(result.current.error).toBe(readFailure);
+    });
 });
