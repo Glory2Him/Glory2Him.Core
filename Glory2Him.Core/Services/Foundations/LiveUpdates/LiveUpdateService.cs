@@ -35,6 +35,8 @@ namespace Glory2Him.Core.Services.Foundations.LiveUpdates
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 ValidateLiveUpdateOnSend(liveUpdate);
 
                 await this.liveUpdateBroker.SendLiveUpdateAsync(liveUpdate, cancellationToken);
