@@ -49,6 +49,41 @@ namespace Glory2Him.Core.Tests.Unit.Infrastructure.Services
                 "  rejectAiAttribution:\n    name: Reject AI Identity And Attribution\n");
         }
 
+        [Fact]
+        public void ShouldEmitTheCommittedBuildScriptFromTheGenerator()
+        {
+            // given
+            var scriptGenerationService = new ScriptGenerationService();
+            string buildPath = GetWorkflowPath(workflowFileName: "build.yml");
+            byte[] committedBuildBytes = File.ReadAllBytes(buildPath);
+            string expectedBuild = NormalizeLineEndings(File.ReadAllText(buildPath));
+            string actualBuild;
+
+            // when
+            try
+            {
+                GenerateBuildScript(scriptGenerationService);
+                actualBuild = NormalizeLineEndings(File.ReadAllText(buildPath));
+            }
+            finally
+            {
+                File.WriteAllBytes(buildPath, committedBuildBytes);
+            }
+
+            // then
+            actualBuild.Should().Be(expectedBuild);
+        }
+
+        private static void GenerateBuildScript(ScriptGenerationService scriptGenerationService) =>
+            scriptGenerationService.GenerateBuildScript(
+                branchName: "main",
+                projectName: "Glory2Him.Core",
+                dotNetVersion: "10.x");
+
+        private static string GetWorkflowPath(string workflowFileName) =>
+            Path.GetFullPath(
+                Path.Combine(AppContext.BaseDirectory, "../../../../.github/workflows", workflowFileName));
+
         private static string NormalizeLineEndings(string text) =>
             text.Replace("\r\n", "\n");
     }
