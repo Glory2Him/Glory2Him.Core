@@ -38,6 +38,12 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
                     association.EntityAGroupId,
                     cancellationToken);
 
+            // a group nobody may see shows no counts, so nobody may be told they moved
+            if (visibleVersion is null)
+            {
+                return;
+            }
+
             await this.accessBroker.RetrieveEffectiveContentItemSettingsAsync(
                 new List<ContentItemSettingKey> { CreateSettingKeyFor(visibleVersion) },
                 cancellationToken);
