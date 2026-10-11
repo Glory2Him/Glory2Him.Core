@@ -450,6 +450,14 @@ jobs:
         client-id: ${{ secrets.AZURE_DEV_CLIENTID }}
         tenant-id: ${{ secrets.AZURE_DEV_TENANTID }}
         subscription-id: ${{ secrets.AZURE_DEV_SUBSCRIPTIONID }}
+    - name: Switch On Web Sockets
+      run: >-
+        set -euo pipefail
+
+        resourceGroup=$(az webapp list --query "[?name=='g2h-dev'].resourceGroup | [0]" --output tsv)
+
+        az webapp config set --name g2h-dev --resource-group "$resourceGroup" --web-sockets-enabled true
+      shell: bash
     - name: Deploy to Azure Web App
       id: deploy_to_webapp
       uses: azure/webapps-deploy@v3
