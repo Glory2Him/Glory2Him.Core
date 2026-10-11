@@ -9,7 +9,6 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.LiveUpdates;
@@ -34,6 +33,6 @@ namespace Glory2Him.Core.Services.Foundations.LiveUpdates
         public ValueTask SendLiveUpdateAsync(
             LiveUpdate liveUpdate,
             CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            this.liveUpdateBroker.SendLiveUpdateAsync(liveUpdate, cancellationToken);
     }
 }
