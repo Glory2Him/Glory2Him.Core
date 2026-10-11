@@ -155,4 +155,22 @@ describe('DeletePersonalData', () => {
 
         expect(alert.className).toBe('alert alert-danger');
     });
+
+    it('should show a refusal already marked as a failure unchanged when the deletion is refused', () => {
+        // given
+        mocks.deletePersonalDataMutate.mockImplementation(
+            (_password: string, callbacks: DeletePersonalDataCallbacks) =>
+                callbacks.onError(refusedWith('Error: Incorrect password.')));
+
+        renderDeletePersonalData();
+
+        // when
+        submitDeletion();
+
+        // then
+        const alert = screen.getByText('Error: Incorrect password.');
+
+        expect(alert.className).toBe('alert alert-danger');
+        expect(screen.queryByText(/Error: Error:/)).toBeNull();
+    });
 });
