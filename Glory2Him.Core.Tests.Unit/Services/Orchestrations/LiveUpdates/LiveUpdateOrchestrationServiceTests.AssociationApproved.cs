@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
@@ -257,6 +258,45 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
 
             // then
             actualReply.Should().BeNull();
+        }
+
+        // Only a reaction on a content item is counted (§ARC16.8, Which rows are counted), so only
+        // that pair can move a count a card shows. Each end wrong on its own, and both wrong.
+        [Theory]
+        [InlineData(EntityType.ContentItem, EntityType.Tag)]
+        [InlineData(EntityType.Comment, EntityType.Reaction)]
+        [InlineData(EntityType.Reaction, EntityType.Tag)]
+        [InlineData(EntityType.Reaction, EntityType.ContentItem)]
+        public async Task ShouldSendNothingForAPairThatIsNotAContentItemsReactionAsync(
+            EntityType entityAType,
+            EntityType entityBType)
+        {
+            // given
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            Association otherPair = CreateContentItemReaction();
+            otherPair.EntityAType = entityAType;
+            otherPair.EntityBType = entityBType;
+            EventEnvelope<Association> approvedFact = CreateFactEnvelope(otherPair);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    approvedFact,
+                    AssociationApprovedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            // when
+            await this.liveUpdateOrchestrationService.OnAssociationApprovedAsync(
+                approvedFact,
+                callerCancellationToken);
+
+            // then: nothing read, nothing gathered, nothing sent
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
         }
     }
 }
