@@ -104,7 +104,7 @@ The rules below are grouped by the panel's parts: the contract, freshness, the r
 
 **2.36 [Must]** Requested wins the tie. A person handed in both the suggestions and the outstanding requests renders once, under Requested, where a click withdraws; nobody appears in two sections of one open picker. *(code: reviewPanel.tsx — `requestedPickerRows`, `everyoneElseRows`; test: "should keep a suggested person who is also requested under requested", "should not repeat a suggested person under everyone else")*
 
-**2.37 [Must]** The panel does no ranking of its own. Who is suggested, in what order and for what reason is the consumer's, because it depends on history the panel cannot see. *(code: reviewPanel.tsx — `suggestedReviewerCollection` note)*
+**2.37 [Must]** The panel does no ranking of its own. Who is suggested, in what order and for what reason is the consumer's, because it depends on history the panel cannot see. Rule 2.18 is the one exception: the panel leaves the owner and whoever amended the content out of the suggestions it is handed, because neither can ever be asked. *(code: reviewPanel.tsx — `suggestedReviewerCollection` note)* ≠ item 2
 
 **2.38 [Could]** The picker stays open after a pick, because assigning several reviewers is one task. *(code: reviewPanel.tsx — `requestReview`; test: "should raise onReviewRequested and keep the picker open")*
 
