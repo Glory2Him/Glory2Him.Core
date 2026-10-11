@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
@@ -44,9 +45,15 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
                 return;
             }
 
-            await this.accessBroker.RetrieveEffectiveContentItemSettingsAsync(
-                new List<ContentItemSettingKey> { CreateSettingKeyFor(visibleVersion) },
-                cancellationToken);
+            IReadOnlyList<EffectiveContentItemSetting> winningSettings =
+                await this.accessBroker.RetrieveEffectiveContentItemSettingsAsync(
+                    new List<ContentItemSettingKey> { CreateSettingKeyFor(visibleVersion) },
+                    cancellationToken);
+
+            if (winningSettings.First().ContentItemSetting.ShowReactions is false)
+            {
+                return;
+            }
 
             await this.liveUpdateService.SendLiveUpdateAsync(
                 new LiveUpdate
