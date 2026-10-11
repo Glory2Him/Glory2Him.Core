@@ -173,4 +173,29 @@ describe('DeletePersonalData', () => {
         expect(alert.className).toBe('alert alert-danger');
         expect(screen.queryByText(/Error: Error:/)).toBeNull();
     });
+
+    it('should show its own message as a failure when the deletion fails without one', () => {
+        // given
+        const failure = new AxiosError('Request failed', 'ERR_BAD_REQUEST', undefined, undefined, {
+            status: 401,
+            statusText: 'Unauthorized',
+            headers: {},
+            config: { headers: new AxiosHeaders() },
+            data: ''
+        });
+
+        mocks.deletePersonalDataMutate.mockImplementation(
+            (_password: string, callbacks: DeletePersonalDataCallbacks) => callbacks.onError(failure));
+
+        renderDeletePersonalData();
+
+        // when
+        submitDeletion();
+
+        // then
+        const alert = screen.getByText('Error: Unexpected error occurred deleting user.');
+
+        expect(alert.className).toBe('alert alert-danger');
+        expect(screen.queryByText(/Error: Error:/)).toBeNull();
+    });
 });
