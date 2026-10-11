@@ -10,7 +10,9 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using FluentAssertions;
 using Glory2Him.Core.Infrastructure.Services;
 
@@ -72,6 +74,47 @@ namespace Glory2Him.Core.Tests.Unit.Infrastructure.Services
 
             // then
             actualBuild.Should().Be(expectedBuild);
+        }
+
+        [Fact]
+        public void ShouldSwitchOnWebSocketsBeforeTheDeploy()
+        {
+            // given
+            var scriptGenerationService = new ScriptGenerationService();
+            string buildPath = GetWorkflowPath(workflowFileName: "build.yml");
+            byte[] committedBuildBytes = File.ReadAllBytes(buildPath);
+            string actualBuild;
+
+            // when
+            try
+            {
+                GenerateBuildScript(scriptGenerationService);
+                actualBuild = NormalizeLineEndings(File.ReadAllText(buildPath));
+            }
+            finally
+            {
+                File.WriteAllBytes(buildPath, committedBuildBytes);
+            }
+
+            // then
+            string deployJob = actualBuild.Substring(actualBuild.IndexOf("\n  deploy_webapp:\n"));
+
+            List<string> deploySteps = deployJob
+                .Split("\n    - name: ")
+                .Skip(1)
+                .ToList();
+
+            int loginIndex = deploySteps.FindIndex(step => step.StartsWith("Login to Azure\n"));
+            int deployIndex = deploySteps.FindIndex(step => step.StartsWith("Deploy to Azure Web App\n"));
+
+            int webSocketsIndex = deploySteps.FindIndex(step =>
+                step.Contains("az webapp config set")
+                && step.Contains("--name g2h-dev")
+                && step.Contains("--web-sockets-enabled true"));
+
+            loginIndex.Should().BeGreaterThanOrEqualTo(0);
+            webSocketsIndex.Should().BeGreaterThan(loginIndex);
+            deployIndex.Should().BeGreaterThan(webSocketsIndex);
         }
 
         private static void GenerateBuildScript(ScriptGenerationService scriptGenerationService) =>
