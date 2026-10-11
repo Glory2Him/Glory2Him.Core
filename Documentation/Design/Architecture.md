@@ -76,8 +76,8 @@ resolves by grep even though the citable number is now prefixed.
 - [ARC16. Recommended Service Responsibilities](#arc16-recommended-service-responsibilities-formerly-16)
   - [ARC16.1 ContentItemService](#arc161-contentitemservice-formerly-161)
   - [ARC16.2 AssociationService](#arc162-associationservice-formerly-162)
-    - [ARC16.2.1 The §DOM6.10 Facet Gate On The Association Write](#arc1621-the-dom610-facet-gate-on-the-association-write)
-    - [ARC16.2.2 UpsertPersonalAssociationAsync, Its Facts And Their Subscribers](#arc1622-upsertpersonalassociationasync-its-facts-and-their-subscribers)
+    - [ARC16.2.1 The §DOM6.10 Facet Gate On The Association Write](#arc1621-the-dom610-facet-gate-on-the-association-write-new-615)
+    - [ARC16.2.2 UpsertPersonalAssociationAsync, Its Facts And Their Subscribers](#arc1622-upsertpersonalassociationasync-its-facts-and-their-subscribers-new-624)
   - [ARC16.3 ContentItemSettingsService](#arc163-contentitemsettingsservice-formerly-163)
   - [ARC16.4 ApprovalService](#arc164-approvalservice-formerly-164)
   - [ARC16.5 ApprovalReviewService](#arc165-approvalreviewservice-formerly-165)
@@ -88,8 +88,8 @@ resolves by grep even though the citable number is now prefixed.
     - [ARC16.7.5 Resetting a decided round](#arc1675-resetting-a-decided-round-formerly-1675)
     - [ARC16.7.3 What is deliberately not built](#arc1673-what-is-deliberately-not-built-formerly-1673)
     - [ARC16.7.4 Review requests and reviewer candidates](#arc1674-review-requests-and-reviewer-candidates-formerly-1674)
-  - [ARC16.8 AssociationOrchestrationService](#arc168-associationorchestrationservice)
-    - [ARC16.8.1 The reaction write surface](#arc1681-the-reaction-write-surface)
+  - [ARC16.8 AssociationOrchestrationService](#arc168-associationorchestrationservice-new-614)
+    - [ARC16.8.1 The reaction write surface](#arc1681-the-reaction-write-surface-new-624)
 - [ARC17. Recommended API Design](#arc17-recommended-api-design-formerly-17)
   - [ARC17.1 Content Endpoints](#arc171-content-endpoints-formerly-171)
   - [ARC17.2 Feed Endpoints](#arc172-feed-endpoints-formerly-172)
@@ -913,7 +913,7 @@ Responsible for:
 6. Reading topic children.
 7. Applying soft delete fields.
 
-#### ARC16.2.1 The §DOM6.10 Facet Gate On The Association Write
+#### ARC16.2.1 The §DOM6.10 Facet Gate On The Association Write *(new; #615)*
 
 **RULE — the §DOM6.10 facet gate runs on the orchestration, not on the foundation.** Its site is `AssociationOrchestrationService`'s write flow, and its position in that flow is fixed: **after** the contribution gate, **after** both endpoints resolve and **after** the `UserId` derivation, and **before** the canonical-pair probe. The position is not cosmetic. The gate asks the winning setting of **each endpoint that resolves a settings entity**, which is known only once resolution has derived `Entity{A,B}ContentType`, the scope and the version group's effective id from storage rather than from the caller; §DOM6.10 rule 1 (`Domain.md:898`) resolves the switches per endpoint from that endpoint's own settings entity, and rule 2 (`Domain.md:899`) permits the association only when **both** resolving endpoints allow it, denials unioning restrictively, which §DOM4.8's non-content-item host paragraph (`Domain.md:502`) states again in one sentence; and the act it judges is partitioned by `UserId`, which this flow derives and never accepts. Running before the probe means a refused act never reaches a row at all — the refusal is the first thing that happens once the flow knows what is being asked.
 
@@ -969,7 +969,7 @@ Responsible for:
 
 **§SEC14.5's no-existence-leak posture does not apply to these two refusals, and the endpoint-existence half is unchanged by this gate.** That posture exists so that an unprivileged probe cannot distinguish a non-public entity from one that does not exist. This gate runs **after** endpoint resolution has already established that the caller may see both endpoints, so there is no existence left to hide, and naming the switch that refused discloses a policy on a row the caller can already see rather than anything about a row they cannot. Endpoint existence and visibility keep the not-found posture exactly as resolution already gives it — a non-existent or non-visible endpoint still surfaces as not-found, before this gate runs at all.
 
-#### ARC16.2.2 UpsertPersonalAssociationAsync, Its Facts And Their Subscribers
+#### ARC16.2.2 UpsertPersonalAssociationAsync, Its Facts And Their Subscribers *(new; #624)*
 
 **Status: the member and its two new facts are built (#719), and so is the `Association-Repointed` ear (#727); `Association-Upserting` is not minted.** The foundation half of the reaction write surface. The caller-facing half — `UpsertAssociationAsync` and `RemoveAssociationByPairAsync` — is §ARC16.8.1's and is pointed at rather than copied.
 
@@ -1203,7 +1203,7 @@ Five operations serve §APR7.9 and §ARC16.7.2's naming, each spanning the appro
 
 The request rows change no §APR8.5 outcome, so nothing here touches the evaluation, the verdict or the decision paths — the whole feature composes beside §ARC16.7.1–§ARC16.7.2 rather than into them. **That sentence is what licenses §ARC12.5.4**: a feature that composes beside another is a service beside it, and the only reason it was not one from the start is that it was built while §ARC16.7.1's dependency count was still believed to read three.
 
-### ARC16.8 AssociationOrchestrationService
+### ARC16.8 AssociationOrchestrationService *(new; #614)*
 
 `IAssociationOrchestrationService.RetrieveContentItemReactionSummariesAsync` answers, for a set of content items, which reactions each has actually been given, how many of each, and which one the calling reader holds.
 
@@ -1225,7 +1225,7 @@ The read adds **no service dependency**: `IAssociationService`, `IReactionServic
 
 Both neighbours are pointed at rather than copied; a rule stated twice is a rule that will eventually disagree with itself. **The two neighbours land in opposite directions**: §ARC16.2.1 nests under §ARC16.2, well above this section, so **the pointer to it is a backward reference**; §ARC16.8.1's place is under this section, so **the pointer to it is a forward one**. Reference by section number rather than by position is this document's house style for both, which is why neither pointer names a direction.
 
-#### The projection
+#### The projection *(new; #614)*
 
 `ContentItemReactionSummary`, one per answerable id:
 
@@ -1255,7 +1255,7 @@ Both neighbours are pointed at rather than copied; a rule stated twice is a rule
 
 One case is ruled explicitly rather than left to be discovered: **a reaction given before an item was narrowed to love-only still counts and still renders.** The narrowing governs the write — §ARC12.3.1 association rule 1, where `LimitReactionsToLoveOnly` narrows what may be *created* — and not history; unwinding history on a settings change would silently delete readers' reactions.
 
-#### Which rows are counted
+#### Which rows are counted *(new; #614)*
 
 All six §SEC14.3 rules are inside the answer. Where each is evaluated:
 
@@ -1279,7 +1279,7 @@ All six §SEC14.3 rules are inside the answer. Where each is evaluated:
 
 The first **selects a row** within one host; the second **combines two already-selected answers** across two hosts. One is tier selection, the other is agreement between hosts, and they cannot be collapsed into a single sentence.
 
-#### The predicate, and what pins it
+#### The predicate, and what pins it *(new; #614)*
 
 The predicate pins the host on endpoint **A** and the reaction on endpoint **B**, over the effective id:
 
@@ -1305,7 +1305,7 @@ EntityAType = ContentItem  AND  EntityAEffectiveId IN (...)  AND  EntityBType = 
 
 > **Where the `GROUP BY` runs, and which §ARC12.2.1 shape carries it.** No fourth terminal shape is earned and nothing is grouped in memory. `AssociationService` authors the whole shaped query — the predicate above, then a grouping on `(EntityAEffectiveId, EntityBKeyId)` projected to the pair plus its count — as the §ARC12.2.1 rule 3 query-shaping function, in `System.Linq` only; the storage broker hands it down and the storage client awaits rule 3's **first** shape, the matching rows optionally projected, with the caller's `CancellationToken`. The aggregate therefore lives in the **projection**, not in the terminal operator: `Count()` inside a `Select` is part of the expression tree EF translates, never an operator Core runs over a materialised set, so §ARC12.2.1 rule 7 is not engaged and rule 4 holds unchanged. Counting above the read is refused by that same rule 4 — it would materialise every reaction row of up to twenty-five hosts on an `[AllowAnonymous]` route that renders on every page, and the per-page cost recorded below under *What a rendered page costs* assumes the aggregate executes in SQL. The unit test applies the function to an in-memory set, where the grouping and the counts evaluate identically (rule 5); that the grouped projection **translates** is exactly rule 6's case and is proven against the real catalogue in the integration suite. What comes back is a narrow native row — host effective id, reaction key id, count — and `Name` and `UnicodeEmoji` are joined above it from the vocabulary the orchestration already holds.
 
-#### Anonymity, and what a signed-out caller receives
+#### Anonymity, and what a signed-out caller receives *(new; #614)*
 
 The route is **`[AllowAnonymous]`**, and **the counted set is caller-independent**. The same content item returns the identical counts to an anonymous caller, to its own contributor, to a narrow reviewer, to a publisher and to an administrator. A count that changes when you sign in is a visible oddity and this design refuses it.
 
@@ -1315,7 +1315,7 @@ The route is **`[AllowAnonymous]`**, and **the counted set is caller-independent
 
 **An id the read cannot answer for is ABSENT from the response** — an id whose own version is not canonically visible, whatever its group holds, or an id naming nothing. Not an empty summary, and not a `404`. §SEC14.5 rule 4: collection reads apply the same posture by **filtering**, so rows the caller may not see silently drop out of the set rather than producing an error. Because the counted set is caller-independent, "absent" means the item is not canonically visible to **anybody**, so absence reveals only what §SEC14.1 already makes public.
 
-#### The reader's own reaction, and what a withdrawal is keyed on
+#### The reader's own reaction, and what a withdrawal is keyed on *(new; #614)*
 
 **The reader's own reaction is identified pair-keyed, not row-keyed, so the response carries no association id.** It carries `ViewerReactionId` and `ViewerReactionName`, and the caller already holds the other half — the card's content item. The justification is **§DOM4.6 rule 2**, which makes the reader's one personal row for a host unique on its host, its far-end type and `UserId`: the pair already *is* the row's key, so an id would be a second handle on something already addressable, and one that could be probed with. That rule is cited **by section number and never by index name**, because the index behind it is replaced within this same feature while the section is rewritten in place.
 
@@ -1325,7 +1325,7 @@ The route is **`[AllowAnonymous]`**, and **the counted set is caller-independent
 
 **The member that performs the withdrawal — its signature, its route and its response codes — is §ARC16.8.1's**, not this section's. It is a write, and §ARC16.8.1 is the write surface.
 
-#### The set, its bounds, and what a page costs
+#### The set, its bounds, and what a page costs *(new; #614)*
 
 The read **takes a set**, bounded at **1 to 25 ids**. An empty set and a set over 25 are both a `400`, raised by the layer's validation before any storage call. The bound is a **server-side guard on a public read against a hand-formed request**, not a client-side budget: 25 GUIDs in a query string is roughly 1.4 KB, comfortably inside IIS's default `maxQueryString`, so the route needs no host configuration change. Duplicate ids are de-duplicated rather than refused, and the response carries one entry per distinct answerable id.
 
@@ -1344,7 +1344,7 @@ An **authenticated** caller costs a **fifth** round trip: the caller's own rows 
 
 **This read is NOT folded into the content item feed read (#591), and #591's criterion 5 is therefore not amended.** Folding the viewer's own reaction in would contradict that criterion directly — it forbids the feed read resolving a `SecurityContext`, a user id or a role at all; folding only the counts would leave the viewer half needing a second route anyway — the whole cost of the fold with none of the saving. The summary is its own route, and §ARC17.2's feed table gains nothing.
 
-#### The route
+#### The route *(new; #614)*
 
 Served literal: **`GET api/Associations/ReactionSummaries`**, on `AssociationsController`.
 
@@ -1355,7 +1355,7 @@ Served literal: **`GET api/Associations/ReactionSummaries`**, on `AssociationsCo
 
 The §ARC17.4 row for this endpoint carries its **shape** rather than this literal; the served literal lives here, beside the binding it belongs to. The shape-versus-literal convention is **§ARC17.2's**, recorded once there and not restated here.
 
-#### Where each shared rule lives, and what must not re-derive it
+#### Where each shared rule lives, and what must not re-derive it *(new; #614)*
 
 Recorded so a later implementer meets it rather than rediscovering it.
 
@@ -1373,7 +1373,7 @@ Recorded so a later implementer meets it rather than rediscovering it.
 
 Two reads of the reaction vocabulary are **both** needed and are not each other's copy: the client's approved-reactions read feeds the **picker**, the options nobody has chosen yet, while `IReactionService` inside this read names the **counts**. The summary carries `Name` and `UnicodeEmoji` per row so the client never joins the two.
 
-#### ARC16.8.1 The reaction write surface
+#### ARC16.8.1 The reaction write surface *(new; #624)*
 
 **Status: the upsert (#724) and its route (#728) are built, and so are the withdrawal (#725) and its route (#729).** The caller-facing **write** half of `AssociationOrchestrationService`: how a reader gives, changes and withdraws a reaction. §ARC16.8 above is the read and §ARC16.2.1 is the facet gate on the write path; both are pointed at rather than copied. The foundation transition beneath this surface, its field scope and its facts are §ARC16.2.2's. **This section is the SINGLE HOME of `RemoveAssociationByPairAsync`** — its signature, its served route literal and its response codes are recorded here and nowhere else, because it is a **write** and this is the write surface. §ARC17.4 tables the route's **shape** beside the other association routes and points back here for the rest.
 

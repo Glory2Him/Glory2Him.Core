@@ -82,7 +82,7 @@ endpoints.
   - [DOM4.7 Associated Entity Types](#dom47-associated-entity-types-formerly-47)
   - [DOM4.8 Association Approval](#dom48-association-approval-formerly-48)
   - [DOM4.9 Purposeful Placements — Purpose and IsDefault](#dom49-purposeful-placements--purpose-and-isdefault-formerly-49)
-  - [DOM4.10 Personal Associations — Ownership, Replacement and Revival](#dom410-personal-associations--ownership-replacement-and-revival)
+  - [DOM4.10 Personal Associations — Ownership, Replacement and Revival](#dom410-personal-associations--ownership-replacement-and-revival-new-624)
 - [DOM5. Supporting Content Entities](#dom5-supporting-content-entities-formerly-5)
   - [DOM5.1 Tag](#dom51-tag-formerly-51)
   - [DOM5.2 Reaction](#dom52-reaction-formerly-52)
@@ -526,7 +526,7 @@ Rules:
 8. **The orchestration add flow threads `Purpose` through** — the add and both probes match on it — and refuses a caller-supplied `IsDefault`. The `Attachment` arm of endpoint resolution is unblocked by the `AttachmentService` of §ARC12.3 entry 12; until that exists the arm keeps throwing, exactly as today.
 9. **Approval of the attachment itself derives from the host** — §DOM5.6.5. Nothing here changes association approval (§DOM4.8): a purposeful association is approvable like any other.
 
-### DOM4.10 Personal Associations — Ownership, Replacement and Revival
+### DOM4.10 Personal Associations — Ownership, Replacement and Revival *(new; #624)*
 
 **Status: built.** The foundation's upsert keeps rules 6–8 (`UpsertPersonalAssociationAsync`, #719), the caller-facing upsert keeps rules 1 to 4 (`UpsertAssociationAsync`, #724), rule 5's chain ends in the approval tier the foundation selects from `UserId` (`AssociationService.Transitions.Validations.cs`) and in `UX_Associations_PersonalPair`'s filter (§DOM4.6 rule 2), §ARC16.8.1's withdrawal is built (`RemoveAssociationByPairAsync`, #725), and rule 9's refusal is built on the lookup (`FindPersonalAssociationAsync`, #878) and on the write (`UpsertPersonalAssociationAsync`, #879). A **personal** association is one whose `UserId` is set (§DOM4.2) — today a reader's reaction and nothing else; an **editorial** association is one whose `UserId` is null. Every rule in this section is personal-only, and none of them reaches an editorial row. The members that perform these writes are recorded in §ARC16.8.1 (the caller-facing surface) and §ARC16.2.2 (the foundation transition and its facts); this section rules what is true of the row, and points at those two rather than copying them.
 
