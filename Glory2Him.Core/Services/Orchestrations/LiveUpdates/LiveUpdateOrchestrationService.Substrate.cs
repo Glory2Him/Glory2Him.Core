@@ -18,13 +18,23 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
 {
     internal partial class LiveUpdateOrchestrationService
     {
-        public async ValueTask<EventEnvelope<Association>?> OnAssociationApprovedAsync(
+        // The forwarder's ears. Each verifies the fact against the name its address carries, then
+        // hands the verified row to one of the two bodies, and answers null: nothing replies to a
+        // fact (§EVN20). None drops a fact that carries the system identity, unlike the approval
+        // workflow's ears — the workflow's approval is exactly the change a page has to hear
+        // (§EVN26 rule 3).
+        public ValueTask<EventEnvelope<Association>?> OnAssociationApprovedAsync(
             EventEnvelope<Association> envelope,
-            CancellationToken cancellationToken = default)
-        {
-            await SendReactionsChangeAsync(envelope.Content, cancellationToken);
+            CancellationToken cancellationToken = default) =>
+            TryCatch<EventEnvelope<Association>?>(async () =>
+            {
+                await ValidateAssociationFactEnvelopeAsync(
+                    envelope,
+                    eventName: "AssociationApproved");
 
-            return null;
-        }
+                await SendReactionsChangeAsync(envelope.Content, cancellationToken);
+
+                return null;
+            });
     }
 }
