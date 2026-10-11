@@ -42,4 +42,18 @@ describe('reactionService.useGetApprovedReactions', () => {
         expect(getReactionsAsync).toHaveBeenCalledWith(
             expect.objectContaining({ filter: expectedFilter }));
     });
+
+    it('should ask for the vocabulary in its sort order', async () => {
+        // given
+        const expectedOrderBy = 'sortOrder,name';
+
+        // when
+        renderHook(() => reactionService.useGetApprovedReactions(), { wrapper });
+
+        // then
+        await waitFor(() => expect(getReactionsAsync).toHaveBeenCalledTimes(1));
+
+        expect(getReactionsAsync).toHaveBeenCalledWith(
+            expect.objectContaining({ orderBy: expectedOrderBy }));
+    });
 });
