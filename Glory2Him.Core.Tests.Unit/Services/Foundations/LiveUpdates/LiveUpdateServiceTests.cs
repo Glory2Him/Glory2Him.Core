@@ -10,9 +10,11 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Linq.Expressions;
 using Glory2Him.Core.Brokers.LiveUpdates;
 using Glory2Him.Core.Brokers.Loggings;
+using Glory2Him.Core.Models.Foundations.LiveUpdates;
 using Glory2Him.Core.Services.Foundations.LiveUpdates;
 using Moq;
 using Xeptions;
@@ -37,5 +39,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.LiveUpdates
 
         private static Expression<Func<Xeption, bool>> SameExceptionAs(Xeption expectedException) =>
             actualException => actualException.SameExceptionAs(expectedException);
+
+        // 0 is the type of an update whose type was never set; the other is one past the last
+        // member, computed so that appending a member never turns the case into a valid one
+        public static TheoryData<LiveUpdateType> UndefinedLiveUpdateTypes() =>
+            new TheoryData<LiveUpdateType>
+            {
+                (LiveUpdateType)0,
+                (LiveUpdateType)(Enum.GetValues<LiveUpdateType>().Cast<int>().Max() + 1)
+            };
     }
 }

@@ -55,5 +55,53 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.LiveUpdates
             this.liveUpdateBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Theory]
+        [MemberData(nameof(UndefinedLiveUpdateTypes))]
+        public async Task ShouldThrowValidationExceptionOnSendIfTypeIsNotDefinedAndLogItAsync(
+            LiveUpdateType undefinedLiveUpdateType)
+        {
+            // given
+            var invalidLiveUpdate = new LiveUpdate
+            {
+                Type = undefinedLiveUpdateType,
+                ContentItemId = null
+            };
+
+            var invalidLiveUpdateException =
+                new InvalidLiveUpdateException(
+                    message: "Live update is invalid, fix the errors and try again.");
+
+            invalidLiveUpdateException.AddData(
+                key: nameof(LiveUpdate.Type),
+                values: "Value is not a supported live update type");
+
+            var expectedLiveUpdateValidationException =
+                new LiveUpdateValidationException(
+                    message: "Live update validation error occurred, fix the errors and try again.",
+                    innerException: invalidLiveUpdateException);
+
+            // when
+            ValueTask sendLiveUpdateTask =
+                this.liveUpdateService.SendLiveUpdateAsync(
+                    invalidLiveUpdate,
+                    TestContext.Current.CancellationToken);
+
+            LiveUpdateValidationException actualLiveUpdateValidationException =
+                await Assert.ThrowsAsync<LiveUpdateValidationException>(
+                    sendLiveUpdateTask.AsTask);
+
+            // then
+            actualLiveUpdateValidationException.Should().BeEquivalentTo(
+                expectedLiveUpdateValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedLiveUpdateValidationException))),
+                Times.Once);
+
+            this.liveUpdateBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
