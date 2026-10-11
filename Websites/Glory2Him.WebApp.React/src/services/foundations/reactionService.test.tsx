@@ -75,6 +75,9 @@ describe('reactionService.useGetApprovedReactions', () => {
             createReaction('reaction-2', 'Love', 'love-emoji')
         ];
 
+        const expectedReactions: Reaction[] =
+            reactionsInServerOrder.map(reaction => ({ ...reaction }));
+
         getReactionsAsync.mockResolvedValue(reactionsInServerOrder);
 
         // when
@@ -83,7 +86,7 @@ describe('reactionService.useGetApprovedReactions', () => {
 
         // then
         await waitFor(() => expect(result.current.isSuccess).toBe(true));
-        expect(result.current.data).toEqual(reactionsInServerOrder);
+        expect(result.current.data).toEqual(expectedReactions);
     });
 
     it("should report the vocabulary read's failure unchanged", async () => {
