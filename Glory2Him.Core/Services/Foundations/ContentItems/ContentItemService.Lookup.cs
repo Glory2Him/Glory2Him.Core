@@ -213,6 +213,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             CancellationToken cancellationToken = default) =>
             TryCatchPublicContentItemGroup(async () =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 ValidateOnFindPublicContentItemGroup(groupId);
 
                 DateTimeOffset currentDateTime =
