@@ -108,9 +108,12 @@ namespace Glory2Him.Core.Tests.Unit.Infrastructure.Services
             int deployIndex = deploySteps.FindIndex(step => step.StartsWith("Deploy to Azure Web App\n"));
 
             int webSocketsIndex = deploySteps.FindIndex(step =>
-                step.Contains("az webapp config set")
-                && step.Contains("--name g2h-dev")
-                && step.Contains("--web-sockets-enabled true"));
+                step.Contains(
+                    "resourceGroup=$(az webapp list " +
+                    "--query \"[?name=='g2h-dev'].resourceGroup | [0]\" --output tsv)")
+                && step.Contains(
+                    "az webapp config set --name g2h-dev " +
+                    "--resource-group \"$resourceGroup\" --web-sockets-enabled true"));
 
             loginIndex.Should().BeGreaterThanOrEqualTo(0);
             webSocketsIndex.Should().BeGreaterThan(loginIndex);
