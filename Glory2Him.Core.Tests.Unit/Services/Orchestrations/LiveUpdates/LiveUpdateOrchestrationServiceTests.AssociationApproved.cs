@@ -146,5 +146,71 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
 
             this.liveUpdateServiceMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldForwardAnAssociationApprovedFactCarryingTheSystemIdentityAsync()
+        {
+            // given: the fact as the approval workflow's own decision publishes it — under the
+            // seeded tier, the moment a reader gives a reaction. Unlike the workflow's ears, the
+            // forwarder does not drop its writes: an approval is exactly the change a page has to
+            // hear (§EVN26 rule 3).
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            Association contentItemReaction = CreateContentItemReaction();
+
+            var systemSecurityContext = new SecurityContext
+            {
+                SubjectId = SystemIdentity.UserId,
+                Username = SystemIdentity.Username,
+                DelegatedBySubjectId = contentItemReaction.UserId,
+                IsAuthenticated = true,
+                IsSystemIdentity = true,
+                AuthenticationType = AuthenticationType.System,
+            };
+
+            EventEnvelope<Association> approvedFact =
+                CreateFactEnvelope(contentItemReaction, systemSecurityContext);
+
+            PublicContentItemGroup visibleVersion =
+                CreateVisibleVersion(groupId: contentItemReaction.EntityAGroupId);
+
+            List<ContentItemSettingKey> expectedSettingKeys = CreateSettingKeysFor(visibleVersion);
+            LiveUpdate expectedLiveUpdate = CreateReactionsChangeFor(visibleVersion);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    approvedFact,
+                    AssociationApprovedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.FindPublicContentItemGroupAsync(
+                    contentItemReaction.EntityAGroupId,
+                    callerCancellationToken))
+                        .ReturnsAsync(visibleVersion);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    callerCancellationToken))
+                        .ReturnsAsync(CreateWinningSettingsFor(visibleVersion, showReactions: true));
+
+            // when
+            await this.liveUpdateOrchestrationService.OnAssociationApprovedAsync(
+                approvedFact,
+                callerCancellationToken);
+
+            // then
+            this.liveUpdateServiceMock.Verify(service =>
+                service.SendLiveUpdateAsync(
+                    It.Is(SameLiveUpdateAs(expectedLiveUpdate)),
+                    callerCancellationToken),
+                Times.Once);
+
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
