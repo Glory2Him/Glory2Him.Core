@@ -151,11 +151,10 @@ An existing member, changed: §1 rule 3's caller check follows §DOM4.6 rule 3. 
 
 ## 10. UpsertPersonalAssociationAsync — a user id in another letter case (#1025)
 
-An existing member, changed: two of §2's comparisons follow §DOM4.6 rule 3. Its signature, its outcomes, its facts and its other rules are unchanged.
+An existing member, changed: §2 rule 2's caller check follows §DOM4.6 rule 3. Its signature, its outcomes, its facts and its other rules are unchanged. Its revive discriminator follows the same rule under §12.
 
 1. **A request whose `UserId` differs from the signed caller's only in letter case is the caller's own** (§2 rule 2), and the row is resolved and written as §2 rule 4 has it. Any other `UserId` is still refused as unauthorized. The reader's row is resolved with the personal-key condition, which §9 rule 2 proves against the real catalogue.
-2. **"Withdrawn by the reader" is a `DeletedBy` that differs from the row's `UserId` in nothing but letter case** (§2 rule 4, §DOM4.10 rule 7). Such a row is revived, `Restored` or `Repointed` as §2 rule 4's table has it. A withdrawn row whose `DeletedBy` names anybody else is still `TakenDown`.
-3. **The row it creates keeps the `UserId` it is handed**, as it does today, in the request's letter case. Rule 1 and §DOM4.6 rule 3 make that the caller's own.
+2. **The row it creates keeps the `UserId` it is handed**, as it does today, in the request's letter case. Rule 1 and §DOM4.6 rule 3 make that the caller's own.
 
 ## 11. RemoveAssociationByIdAsync — a user id in another letter case (#1026)
 
@@ -164,3 +163,9 @@ An existing member, changed: §5 rule 3's test of whose row it is follows §DOM4
 1. **A personal row whose `UserId` differs from the signed caller's only in letter case is the caller's own**, and is asked none of the three read-only roles (§5 rule 3). Every other row is still asked all three (§5 rule 4).
 2. **The owner test is unchanged** (§5 rule 5). It compares the row's `CreatedBy` with the caller exactly, which §DOM4.6 rule 3 leaves open, so a row whose `CreatedBy` differs from the caller's user id, in letter case alone or in more, is still refused to a caller outside `Administrators`, whatever its `UserId`.
 3. **Both entry paths take it**, because both converge on `DoRemoveAssociationByIdAsync` (§5 rule 6). It is proven on the direct path, where the shared body's gate is proven (§6 rule 4).
+
+## 12. UpsertPersonalAssociationAsync — a withdrawal recorded in another letter case (#1033)
+
+An existing member, changed: §2 rule 4's revive discriminator follows §DOM4.6 rule 3. Its signature, its outcomes, its facts, its caller check (§10) and its other rules are unchanged.
+
+1. **"Withdrawn by the reader" is a `DeletedBy` that differs from the row's `UserId` in nothing but letter case** (§2 rule 4, §DOM4.10 rule 7). Such a row is revived, `Restored` or `Repointed` as §2 rule 4's table has it. A withdrawn row whose `DeletedBy` names anybody else is still `TakenDown`.
