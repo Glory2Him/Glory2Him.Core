@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -401,5 +402,102 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             this.liveUpdateServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        // A key the gather resolves no row for is absent from its answer (IAccessBroker), and a
+        // missing setting never means "show": the decision fails closed (§SEC14.8 rule 3). The
+        // answer is per key, so a row answering another key — another version, or the version
+        // under another content type — is no answer for this one, however it reads.
+        [Theory]
+        [InlineData(UnresolvedSettingAnswer.NoRow)]
+        [InlineData(UnresolvedSettingAnswer.ARowForAnotherVersion)]
+        [InlineData(UnresolvedSettingAnswer.ARowOfAnotherContentType)]
+        public async Task ShouldSendNothingWhenTheHostsSettingIsUnresolvedAsync(
+            UnresolvedSettingAnswer unresolvedSettingAnswer)
+        {
+            // given
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            Association contentItemReaction = CreateContentItemReaction();
+            EventEnvelope<Association> approvedFact = CreateFactEnvelope(contentItemReaction);
+
+            PublicContentItemGroup visibleVersion =
+                CreateVisibleVersion(groupId: contentItemReaction.EntityAGroupId);
+
+            List<ContentItemSettingKey> expectedSettingKeys = CreateSettingKeysFor(visibleVersion);
+
+            List<EffectiveContentItemSetting> unresolvedAnswer =
+                CreateUnresolvedAnswerFor(visibleVersion, unresolvedSettingAnswer);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    approvedFact,
+                    AssociationApprovedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.FindPublicContentItemGroupAsync(
+                    contentItemReaction.EntityAGroupId,
+                    callerCancellationToken))
+                        .ReturnsAsync(visibleVersion);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    callerCancellationToken))
+                        .ReturnsAsync(unresolvedAnswer);
+
+            // when
+            await this.liveUpdateOrchestrationService.OnAssociationApprovedAsync(
+                approvedFact,
+                callerCancellationToken);
+
+            // then
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    callerCancellationToken),
+                Times.Once);
+
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        public enum UnresolvedSettingAnswer
+        {
+            NoRow,
+            ARowForAnotherVersion,
+            ARowOfAnotherContentType
+        }
+
+        // Each row that answers another key shows reactions, so only a forwarder that took it
+        // for this version's would send.
+        private static List<EffectiveContentItemSetting> CreateUnresolvedAnswerFor(
+            PublicContentItemGroup visibleVersion,
+            UnresolvedSettingAnswer unresolvedSettingAnswer) =>
+            unresolvedSettingAnswer switch
+            {
+                UnresolvedSettingAnswer.ARowForAnotherVersion =>
+                    new List<EffectiveContentItemSetting>
+                    {
+                        CreateEffectiveSetting(
+                            contentItemId: Guid.NewGuid(),
+                            contentType: visibleVersion.ContentType,
+                            showReactions: true),
+                    },
+
+                UnresolvedSettingAnswer.ARowOfAnotherContentType =>
+                    new List<EffectiveContentItemSetting>
+                    {
+                        CreateEffectiveSetting(
+                            contentItemId: visibleVersion.ContentItemId,
+                            contentType: ContentType.Story,
+                            showReactions: true),
+                    },
+
+                _ => new List<EffectiveContentItemSetting>(),
+            };
     }
 }
