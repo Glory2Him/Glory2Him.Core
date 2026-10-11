@@ -48,5 +48,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.LiveUpdates
                 (LiveUpdateType)0,
                 (LiveUpdateType)(Enum.GetValues<LiveUpdateType>().Cast<int>().Max() + 1)
             };
+
+        public static TheoryData<Guid?> MissingContentItemIds() =>
+            new TheoryData<Guid?>
+            {
+                null,
+                Guid.Empty
+            };
     }
 }
