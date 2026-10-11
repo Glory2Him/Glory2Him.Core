@@ -33,6 +33,11 @@ namespace Glory2Him.Core.Services.Foundations.LiveUpdates
         public ValueTask SendLiveUpdateAsync(
             LiveUpdate liveUpdate,
             CancellationToken cancellationToken = default) =>
-            this.liveUpdateBroker.SendLiveUpdateAsync(liveUpdate, cancellationToken);
+            TryCatch(async () =>
+            {
+                ValidateLiveUpdateOnSend(liveUpdate);
+
+                await this.liveUpdateBroker.SendLiveUpdateAsync(liveUpdate, cancellationToken);
+            });
     }
 }
