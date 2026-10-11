@@ -23,8 +23,12 @@ export function DeletePersonalData() {
                 location.replace('/');
             },
             onError: (error: unknown) => {
-                setMessage(extractApiErrorMessage(
-                    error, 'Error: Unexpected error occurred deleting user.'));
+                const failure = extractApiErrorMessage(
+                    error, 'Error: Unexpected error occurred deleting user.');
+
+                setMessage(failure.startsWith('Error')
+                    ? failure
+                    : `Error: ${failure}`);
             }
         });
     };
