@@ -38,6 +38,7 @@ using Glory2Him.Core.Services.Foundations.Tags;
 using Glory2Him.Core.Services.Foundations.ApprovalSettings;
 using Glory2Him.Core.Services.Foundations.Reactions;
 using Glory2Him.Core.Services.Foundations.Links;
+using Glory2Him.Core.Services.Foundations.LiveUpdates;
 using Glory2Him.Core.Services.Foundations.ContentItemSettings;
 using Glory2Him.Core.Services.Orchestrations.ContentItemSettings;
 using Glory2Him.Core.Services.Foundations.ContentItems;
@@ -138,6 +139,10 @@ namespace Glory2Him.WebApp.Infrastructure
             // stands.
             services.AddSignalR();
             services.AddScoped<ILiveUpdateBroker, LiveUpdateBroker>();
+
+            // The one way into the live connection (Backend/Foundations/LiveUpdateService.md §1).
+            // Scoped, as the broker it sends through is.
+            services.AddScoped<ILiveUpdateService, LiveUpdateService>();
 
             // The service INTERFACES are public; the implementations are not. Binding the two is
             // only possible from inside Core's friend set, which is the point — the host names
