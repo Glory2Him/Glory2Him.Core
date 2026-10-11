@@ -208,31 +208,34 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     cancellationToken: cancellationToken);
             });
 
-        public async ValueTask<PublicContentItemGroup?> FindPublicContentItemGroupAsync(
+        public ValueTask<PublicContentItemGroup?> FindPublicContentItemGroupAsync(
             Guid groupId,
-            CancellationToken cancellationToken = default)
-        {
-            DateTimeOffset currentDateTime =
-                await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+            CancellationToken cancellationToken = default) =>
+            TryCatchPublicContentItemGroup(async () =>
+            {
+                ValidateOnFindPublicContentItemGroup(groupId);
 
-            IReadOnlyList<PublicContentItemGroup> publicContentItemGroups =
-                await this.storageBroker.SelectContentItemsAsync(
-                    query: contentItems => contentItems
-                        .Where(contentItem => contentItem.GroupId == groupId
-                            && contentItem.IsDeleted == false
-                            && contentItem.ApprovalStatus == ApprovalStatus.Approved
-                            && contentItem.IsPublished
-                            && (contentItem.PublishDate == null
-                                || contentItem.PublishDate <= currentDateTime))
-                        .Select(contentItem => new PublicContentItemGroup(
-                            contentItem.Id,
-                            contentItem.GroupId,
-                            contentItem.ContentType))
-                        .Take(1),
-                    cancellationToken: cancellationToken);
+                DateTimeOffset currentDateTime =
+                    await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
 
-            return publicContentItemGroups.FirstOrDefault();
-        }
+                IReadOnlyList<PublicContentItemGroup> publicContentItemGroups =
+                    await this.storageBroker.SelectContentItemsAsync(
+                        query: contentItems => contentItems
+                            .Where(contentItem => contentItem.GroupId == groupId
+                                && contentItem.IsDeleted == false
+                                && contentItem.ApprovalStatus == ApprovalStatus.Approved
+                                && contentItem.IsPublished
+                                && (contentItem.PublishDate == null
+                                    || contentItem.PublishDate <= currentDateTime))
+                            .Select(contentItem => new PublicContentItemGroup(
+                                contentItem.Id,
+                                contentItem.GroupId,
+                                contentItem.ContentType))
+                            .Take(1),
+                        cancellationToken: cancellationToken);
+
+                return publicContentItemGroups.FirstOrDefault();
+            });
 
         public ValueTask<IReadOnlyList<ContentItem>> RetrieveContentItemsByGroupIdAsync(
             Guid groupId,
@@ -288,6 +291,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItemIds), Parameter: nameof(contentItemIds)),
                 (Rule: HasInvalidId(contentItemIds), Parameter: nameof(contentItemIds)));
+
+        private static void ValidateOnFindPublicContentItemGroup(Guid groupId) =>
+            Validate(
+                message: "Content item is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(groupId), Parameter: nameof(ContentItem.GroupId)));
 
         private static void ValidateOnFindPublishedSiblingContentItem(Guid contentItemId) =>
             Validate(

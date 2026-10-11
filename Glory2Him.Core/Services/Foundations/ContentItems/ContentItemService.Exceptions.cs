@@ -37,6 +37,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         private delegate ValueTask<IReadOnlyList<PublicContentItemGroup>>
             ReturningPublicContentItemGroupsFunction();
 
+        private delegate ValueTask<PublicContentItemGroup?> ReturningPublicContentItemGroupFunction();
+
         private delegate ValueTask<bool> ReturningBooleanFunction();
 
         private delegate ValueTask<EventEnvelope<ContentItem>?>
@@ -499,6 +501,19 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     data: exception.Data);
 
                 throw await CreateAndLogServiceExceptionAsync(exception: failedContentItemServiceException);
+            }
+        }
+
+        private async ValueTask<PublicContentItemGroup?> TryCatchPublicContentItemGroup(
+            ReturningPublicContentItemGroupFunction returningPublicContentItemGroupFunction)
+        {
+            try
+            {
+                return await returningPublicContentItemGroupFunction();
+            }
+            catch (InvalidContentItemException invalidContentItemException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: invalidContentItemException);
             }
         }
 
