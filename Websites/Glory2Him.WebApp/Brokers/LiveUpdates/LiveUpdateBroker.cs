@@ -25,7 +25,7 @@ namespace Glory2Him.WebApp.Brokers.LiveUpdates
 
         // Started, never awaited: the send's task completes only once every connection has
         // taken the update, so awaiting it would let a reader who stops reading hold the
-        // write that caused it (LiveUpdateBroker.md §1 rule 2).
+        // write that caused it (Backend/Brokers/LiveUpdateBroker.md §1 rule 2).
         public ValueTask SendLiveUpdateAsync(
             LiveUpdate liveUpdate,
             CancellationToken cancellationToken = default)
