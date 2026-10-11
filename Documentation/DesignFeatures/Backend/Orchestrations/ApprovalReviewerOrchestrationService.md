@@ -10,6 +10,7 @@ Who may be asked to review a round, and who is offered as a candidate, are this 
 1. **A request aimed at anyone the entity's amender record names is refused**, as one aimed at the owner is (§APR7.9 rule 3, §APR8.6 HR-5), with the same exception family and nothing written.
 2. **The record is `ApprovalReviewerScope.EntityAmenderUserIds`**, matched on the account id as the owner is.
 3. **A pending invitation to someone who amends after it was made stays as it is** (§APR8.6.3 rule 7): this operation neither retires nor refuses to report it.
+4. **The event door walks past it**, as it walks past every target check of §APR7.9 rule 3: `ApprovalReviewRequest-Adding` binds the foundation, which asks none of them (§APR7.9 rule 3, *Where the target is checked, and the gap that leaves*).
 
 ## 2. RetrieveReviewerCandidatesAsync — amenders are not candidates (#1018)
 

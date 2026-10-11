@@ -29,5 +29,6 @@ ValueTask<List<Guid>> FindAmenderApprovalReviewIdsAsync(
 2. **It is unfiltered by the caller**, for the reason `FindDismissableApprovalReviewIdsAsync` records: the flow that reads it runs as whoever made the change, who may see none of the round's reviews, and an identity-filtered read never decides an invariant (§APR9.7.4).
 3. **The reviews are read through `SelectApprovalReviewsAsync`** (`Backend/Brokers/StorageBroker.md §5`), with a condition this broker authors, so the matching runs in SQL.
 4. **An empty record, or an id no approval carries, answers an empty list.**
+5. **Its condition is proven against the real catalogue as well**, because it matches a string column against the record, which LINQ-to-Objects cannot stand in for (§ARC12.2.1 rule 6).
 
 Its caller is the Modified flow (`Backend/Orchestrations/ApprovalOrchestrationService.Amenders.md §1`).

@@ -13,7 +13,5 @@ Inherits: §APR8.6.3 rules 3–5, §APR9.7.1 rules 1 and 2, §DOM3.4 rule 8, §S
 
 ## 2. ModifyContentItemAsync — whoever changes the content is recorded (#998)
 
-1. **The written row carries the stored record**, whatever the caller's copy carries; the caller's value is neither compared nor refused (§APR8.6.3 rule 4).
-2. **The caller's id is appended when the write changes content** — when `Title`, `Author`, `Content`, `ShareabilityBasis` or `SharePermission` differs from the stored row's, compared ordinally, a null string and an empty one counting as the same value — and the id is not already recorded (§APR8.6.3 rule 3). That holds whether or not the same write moves the status between `Draft` and `Submitted` (§APR9.2 rules 4–6).
-3. **A write that changes no content field records nobody**, the carve-out's status move alone included.
-4. **The id is the one that stamps `UpdatedBy`**, from the envelope's signed security context through `ISecurityAuditBroker.GetUserIdAsync`; a blank id is never recorded.
+1. **The written row carries the stored record, extended as §APR8.6.3 rules 3 and 4 have it** — what changes content, how a field is compared, whose id is appended and what is never recorded are theirs, and the caller's copy is ignored.
+2. **Its content fields are `Title`, `Author`, `Content`, `ShareabilityBasis` and `SharePermission`**, this entity's fourth group of §APR9.7.1 rule 2's subtraction test, which rule 3 compares.
