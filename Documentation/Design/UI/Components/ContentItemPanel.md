@@ -9,7 +9,8 @@
   - `/posts/contribute` — `src/pages/contribute.tsx` (the add face, or the restricted face in its place — rule 2.43)
   - `/posts/{contentItemId}` — `src/pages/postDetail.tsx` (the view face, `showEditSection` off)
   - `/myposts/{contentItemId}` — `src/pages/myPostDetail.tsx` (the view face with editing in place)
-  - `/Admin/Posts/{contentItemId}` — `src/pages/admin/contentItemModerationDetailPage.tsx` (the moderated view face; that page renders `ContentItemEditPanel` directly for its editor)
+  - `/Admin/Posts/{contentItemId}` — `src/pages/admin/contentItemModerationDetailPage.tsx` (the moderated view face, with its association chips and *Take down*; that page renders `ContentItemEditPanel` directly for its editor)
+  - `/Admin/Posts/{contentItemId}/Associations/{associationId}` — `src/pages/admin/associationModerationDetailPage.tsx` (the moderated view face, with its association chips and *Take down*; its Edit leads to the post page, `UI/Pages/AssociationModerationDetailPage.md §4.1`)
   - `/`, `/posts`, `/myposts`, `/Admin/Posts` — `src/pages/home.tsx`, `posts.tsx`, `myPosts.tsx`, `admin/contentItemModerationPage.tsx`, each through `ContentItemListPanel`
   - The sample pages listed under **Sample page** below
 - **Inherits:** §SEC14.6, §SEC14.7 posture A, §SEC18.6, §DOM3.4 rule 16, §DOM6.4, §DOM6.5, §DOM6.6, §ARC12.4.1 rule 7a, §ARC12.5.2 business rules 1–2, §APR9.7.1 rule 1, §APR9.9, §UI20.6.4, §UI20.6.5, §UI20.6.6
@@ -104,7 +105,7 @@ has a story of its own; the rules that belong to one face live there, and sectio
 
 **2.34 [Should]** The failure also raises a timed notification through the existing toast framework, carrying the API's own reason rather than a generic one. *(§UI20.6.2)*
 
-**2.35 [Won't]** Associations render beside the panel, never within it. Tags and bible references belong to `AssociationPanel` and its two wrappers, which have their own approval and role rules and need an item to associate to — so they cannot render on an add surface at all. *(§UI20.6.2)*
+**2.35 [Won't]** An association's own actions — suggesting one, withdrawing one, approving or rejecting one — never render within the panel. They belong to `AssociationPanel` and its two wrappers, which render beside the panel, have their own approval and role rules and need an item to associate to — so they cannot render on an add surface at all. Within the card a post's associations are only chips whose press is a hook: its tag and reference pills, or, where the page hands them, its association chips (rule 2.45). *(§UI20.6.2; user, 2026-10-11)* — corrected, section 10, item 27
 
 **2.36 [Won't]** Approval controls are not part of the panel; they belong to `ReviewPanel` (`UI/Components/ReviewPanel.md §6`). *(§UI20.6.2)*
 
@@ -123,6 +124,12 @@ has a story of its own; the rules that belong to one face live there, and sectio
 **2.43 [Must]** Handed no item, the panel shows the restricted face, `ContentItemRestrictedPanel` ([ContentItemPanel.Restricted.md](ContentItemPanel.Restricted.md)), instead of the add face when the reader has no content type left to contribute, whatever the reason none remains: no content type is on offer, or the reader's read-only roles leave no tile (`UI/Components/ContentItemPanel.Add.md rules 2.6 and 3.2.4`). It takes the place of the add face's two refusals and is asked where they were — after the loading line and after sign-in — so a signed-out reader still gets the add face's login link (`UI/Components/ContentItemPanel.Add.md rule 3.3.1`). *(user, 2026-09-27)* ≠ `UI/Components/ContentItemPanel.Restricted.md §10 item 1`
 
 **2.44 [Must]** A setting may change while an item is shown — comments switched off for one item, for example — and the card is to reflect the change without the reader reloading (§ARC12.5.2 business rule 12). The card takes the change when the page hands it the new setting, as it takes any change (rule 2.30): the parts that setting governs then show or go under it (rules 2.29, 3.1.8 and 3.1.12). How the page learns of the change is the page's: the user ruled on 2026-09-27 that live updates across the site — a live connection pushing changes to open pages, potentially driven by the `-Added`, `-Modified` and `-Removed` facts — get their own design, #702 (`DESIGN: Push Live Updates To Open Pages`). That design is `DesignFeatures/LiveUpdates.md`, and §UI20.10 rules how every page hears a change: a setting message makes the page's settings read stale, and the page hands the card the setting it reads again (§ARC12.5.2 business rule 12). *(user, 2026-09-27; §ARC12.5.2 business rule 12)*
+
+**2.45 [Must]** A page may hand the card the post's associations with their statuses, as `associationChipCollection`. Handed, the card's tag section shows its `Tag` chips and its reference section its `BibleReference` chips, each in the order handed, in place of the element's tag and reference pills; the sections' switches and the setting still decide whether each section shows (rule 3.1.12). A chip shows its tag or reference, its status icon, a dashed border on a `Draft` association and its label struck through on a `Rejected` one, a tooltip naming its status followed by "click to review", and a ring when it is marked current (`DesignFeatures/PostModeration.md` rules 6 and 8). *(user, 2026-10-11)* ≠ item 25
+
+**2.46 [Must]** Pressing an association chip raises `onAssociationChipClick` with the chip and does nothing else: where it leads is the page's (§UI20.6.4). A chip marked current is not a control and raises nothing (`DesignFeatures/PostModeration.md` rule 7). *(user, 2026-10-11)* ≠ item 25
+
+**2.47 [Must]** *Take down* is the post's takedown from the card: `Administrators` take the item down — a soft delete — at any status, from an action beside the moderation action, never locked (§APR9.9 rule 7; `DesignFeatures/PostModeration.md` rule 10). It asks before it raises anything: title *Are you sure?*, message "This removes the contribution. It cannot be undone from here.", button *Delete*. *Delete* raises `onTakeDown` with the element, and Cancel raises nothing. *(user, 2026-10-11)* ≠ item 26
 
 ## 3. Presentation / Behaviour rules
 
@@ -161,6 +168,10 @@ in that face's story.
 
 **3.1.15** Every visible string the panel composes itself, and every string it composes for a screen reader alone, is a property whose default is today's text (§UI20.6.6 rule 1). The card's other strings are its templates' (`UI/Components/ContentItemPanel.Default.md rule 3.1.12`). *(user, 2026-09-27)* ≠ item 21
 
+**3.1.16** With `associationChipCollection` handed, each section renders its kind's chips (rule 2.45): a tag as `#` and its name, a Bible reference as its text after a book glyph (`bi bi-book`), each followed by its status icon — `Approved` `bi-check-circle-fill`, `Submitted` `bi-hourglass-split`, `Draft` `bi-pencil-fill`, `Rejected` `bi-x-circle-fill` — and each a button raising `onAssociationChipClick`, but a chip whose `isCurrent` is set, which is ringed and is not a control (rule 2.46). Its tooltip is `associationChipTooltipText` with `{status}` replaced by the status's label (`associationChipStatusLabels`). With an empty collection handed, the sections show no pills and no chips. *(user, 2026-10-11)* ≠ item 25
+
+**3.1.17** *Take down* renders on the view face where `onTakeDown` is wired and the viewer may take the item down (rule 3.2.7), at the right of the engagement row beside the moderation action, whatever the item's status, and never locked (rule 2.47). Pressed, it opens its confirmation; *Delete* raises `onTakeDown` and Cancel raises nothing. *(user, 2026-10-11)* ≠ item 26
+
 ### 3.2 Driven by roles
 
 **3.2.1** A viewer holding `ReadOnly`, `ContentItem-ReadOnly` or `ContentItem-{ContentType}-ReadOnly` for the item's own type sees neither Edit nor Moderate. The action is **hidden**, not locked. *(test: contentItemPanel.test.tsx — "should show no action to a ReadOnly holder rather than a locked one")*
@@ -175,11 +186,15 @@ in that face's story.
 
 **3.2.6** The add gates are `UI/Components/ContentItemPanel.Add.md §3.2`; the edit and delete gates are `UI/Components/ContentItemPanel.Edit.md §3.2`. *(code: contentItemFormPanel.tsx — mayAdd, mayEdit, mayDelete)*
 
+**3.2.7** *Take down* renders for a holder of `Administrators` alone, never for a signed-out viewer, and is hidden, as Edit and Moderate are, from a viewer holding `ReadOnly`, `ContentItem-ReadOnly` or `ContentItem-{ContentType}-ReadOnly` for the item's own type (rule 3.2.1). The owner's own removal stays the editor's *Delete* (`UI/Components/ContentItemPanel.Edit.md rule 3.2.4`). *(§APR9.9 rule 7; §SEC14.7 posture A rules 1 and 3; user, 2026-10-11)* ≠ item 26
+
 ### 3.3 Combinations
 
 **3.3.1** The order the view face asks in: the surface switches first (`showEditSection` only subtracts, rules 2.12–2.14; `showModerationSection` removes the owner's Edit whatever the ownership), then the block veto (hides both actions, the owner included, rule 3.2.1), then ownership and the moderation tier, and last the terminal lock, which greys the moderation action rather than hiding it (rule 3.1.7). *(code: contentItemPanel.tsx — showsEditButton, showsModerateButton, isModerateButtonLocked)*
 
 **3.3.2** An owner who also holds the moderation tier sees Edit and Moderate side by side off the moderated view, and Moderate alone, dressed as Edit, on it. Neither is locked on their own terminal item, because their amendment forks a new version (§DOM3.4 rule 16, §APR9.9). *(test: contentItemPanel.test.tsx — "should offer both, side by side, to an owning moderator off the moderated view", "should leave the contributor's own edit live on a terminal item")*
+
+**3.3.3** *Take down* asks the surface first (`onTakeDown` wired), then the block veto, then `Administrators`; the item's status and the terminal lock never reach it (rules 2.47 and 3.2.7). *(user, 2026-10-11)* ≠ item 26
 
 ### 3.4 Role matrix
 
@@ -202,6 +217,8 @@ whose stories hold the detail; row 13 is the restricted face.
 | 11. No item, a content type left to the reader — **the add form** | ❌ No³ | ✅ Yes | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes |
 | 12. The page's View switch on and View's hook wired, any read-only role or none — **View** ≠ item 20 | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | 13. No item, no content type left to the reader — **the restricted face**, in place of the add form ≠ `UI/Components/ContentItemPanel.Restricted.md §10 item 1` | ❌ No³ | ✅ Yes | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes |
+| 14. `onTakeDown` wired, any status, no ReadOnly — ***Take down*** ≠ item 26 | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No | ✅ Yes |
+| 15. As row 14, any ReadOnly covering the item's type — ***Take down*** ≠ item 26 | ➖ n/a | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
 
 ¹ Shown; choosing raises `onReactionSelected`, and the page sends the reader to sign in (rule 3.2.4).
 ² At the global `Publishers`, `ContentItem-Publishers` or `ContentItem-{ContentType}-Publishers` scope for the item's type.
@@ -227,6 +244,9 @@ whose stories hold the detail; row 13 is the restricted face.
 | `allowInPlaceExpansion` | `boolean` | `false` | Read-more toggles in place rather than raising `onReadMore`. | View templates |
 | `showEditSection` | `boolean` | `false` | The surface switch (rules 2.12–2.14). | Edit face |
 | `showTagSection`, `showBibleReferenceSection`, `showReactionSection`, `showCommentsSection`, `showShareSection`, `showSaveSection` | `boolean` | `true` | The section switches (rule 3.1.12). | View templates |
+| `associationChipCollection` ≠ item 25 | `AssociationChipItem[]?` | — | The post's associations, each `associationId`, `kind` (`Tag` or `BibleReference`), `label`, `approvalStatus` and `isCurrent?`, in the order the page wants them shown (rule 2.45). Absent, the sections show the element's pills. | View templates |
+| `associationChipTooltipText`, `associationChipStatusLabels` ≠ item 25 | `string`, label map | `'{status} — click to review'`; *Draft*, *Submitted*, *Approved*, *Rejected* | A chip's tooltip, and the status it names (rule 3.1.16). | View templates |
+| `takeDownButtonText`, `takeDownConfirmTitleText`, `takeDownConfirmMessageText`, `takeDownConfirmButtonText`, `takeDownCancelButtonText` ≠ item 26 | `string` | `'Take down'`, `'Are you sure?'`, `'This removes the contribution. It cannot be undone from here.'`, `'Delete'`, `'Cancel'` | The takedown and its confirmation (rule 2.47). | View templates (the button); `ConfirmDialog` (the confirmation) |
 | `isLoading` | `boolean` | `false` | A loading line instead of a half-built form. | Add face, edit face |
 | `isSubmitting` | `boolean` | `false` | Freezes the form buttons while the consumer persists. | Add face, edit face |
 | `validationIssues` | `Record<string, string[]>?` | — | The API's field messages (rule 2.33). | Add face, edit face |
@@ -247,6 +267,8 @@ whose stories hold the detail; row 13 is the restricted face.
 | `onModerateClick` | `ContentItemSearchItem` | Moderate is pressed and is not locked. |
 | `onReactionSelected` | `ContentItemSearchItem`, `ContentItemReactionOption` | A reader chooses a reaction, whatever the sign-in state (rule 3.2.4). |
 | `onExpandCollapse` | `ContentItemSearchItem` | The in-place toggle is pressed; the panel toggles the expansion and raises the event. |
+| `onAssociationChipClick` ≠ item 25 | `AssociationChipItem` | An association chip not marked current is pressed (rule 2.46). |
+| `onTakeDown` ≠ item 26 | `ContentItemSearchItem` | *Delete* is pressed on the takedown's confirmation (rule 3.1.17). |
 | `onContentTypeClick`, `onTitleClick`, `onSubmittedByClick`, `onAuthorClick`, `onTagClick`, `onBibleReferenceClick`, `onCommentsClick`, `onReadMore`, `onShareClick`, `onSaveClick` | the element (and the tag or reference) | Passed through unchanged; `UI/Components/ContentItemPanel.Default.md §4.2` says when each fires. |
 
 ### 4.3 Pass-through properties
@@ -317,6 +339,8 @@ writing faces still accept one today, `blockRoles`, which is retired (section 10
 | **Save** (`onSaveClick`) | Every persona, where `showSaveSection` is on and the hook is wired (rule 3.1.12) | None (user rulings 2026-09-27) | ✅ Allowed (user rulings 2026-09-27) | Offered; raises `onSaveClick`, and the page sends them to sign in (§UI20.6.6 rule 2) | Save has no design yet. The user ruled on 2026-09-27 that the read-only veto does not reach a reader's own Save. |
 | **Edit**, the owner's (`onEditClick`, or the editor in place) ≠ item 20 | The owner, where the page's Edit switch is on (rules 2.40, 3.1.4 and 3.2.3) | `ReadOnly`, `ContentItem-ReadOnly`, `ContentItem-{ContentType}-ReadOnly` for the item's type (rule 3.2.1) | ❌ Refused: hidden, not locked (rule 3.2.1) | Not offered | §SEC14.7 posture A rule 3; the owner's amendment of a reviewed item forks (§APR9.9) |
 | **Moderate** (`onModerateClick`) | The moderation tier (rule 3.2.2) | The same three (rule 3.2.1) | ❌ Refused: hidden (rule 3.2.1) | Not offered | Nothing of its own: it leads to the page's moderation surface, whose writes are decided there |
+| An association chip (`onAssociationChipClick`) ≠ item 25 | Every persona the page hands the chips to, under the section switches and the setting (rule 2.45) | None — a read (§SEC18.6) | ✅ Allowed | Offered; raises the hook (rule 2.46) | Nothing of its own: the page it leads to reads the association under §SEC14.7 posture A′ |
+| ***Take down*** (`onTakeDown`) ≠ item 26 | `Administrators`, at any status (rules 2.47 and 3.2.7) | `ReadOnly`, `ContentItem-ReadOnly`, `ContentItem-{ContentType}-ReadOnly` for the item's type (rule 3.2.1) | ❌ Refused: hidden (rule 3.2.7) | Not offered | §SEC14.7 posture A rules 1 and 3; §APR9.9 rule 7 |
 | **View** ≠ item 20 | Every persona, where the page's switch is on (rule 2.40) | None — a read (§SEC18.6) | ✅ Allowed | Offered; raises View's hook | Nothing of its own, as the title |
 | **The restricted face** (a gated view, in the add face's place) ≠ `UI/Components/ContentItemPanel.Restricted.md §10 item 1` | A signed-in reader with no content type left to contribute (rule 2.43) | None — it is what a reader left with no type is shown | ✅ Shown in the add face's place, whether read-only roles or the settings left no type (rule 2.43) | Not offered: the add face's login link comes first (rule 2.43) | Nothing — it offers no action and sends no request (`UI/Components/ContentItemPanel.Restricted.md §5`) |
 
@@ -368,8 +392,9 @@ ContentItemListPanel                   composes the two below
   `UI/Components/AssociationPanel.TagAssociationPanel.md §6` and
   `UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §6`.
   A page that stands them beside the card turns the card's own tag and reference sections off
-  so the same facts never show twice (`postDetail.tsx`, `myPostDetail.tsx`,
-  `contentItemModerationDetailPage.tsx`).
+  so the same facts never show twice (`postDetail.tsx`, `myPostDetail.tsx`). The two admin
+  moderation pages stand none beside it: they hand the card the post's associations as chips
+  instead (rule 2.45; `DesignFeatures/PostModeration.md` rule 1).
 - Approval controls render in `ReviewPanel` (rule 2.36): `UI/Components/ReviewPanel.md §6`.
 
 ### 6.4 Consumers
@@ -397,6 +422,11 @@ the type's name. *(§UI20.6.2)*
 `moderationOpensEditor` on, and opens `ContentItemEditPanel` directly from `onModerateClick`
 *(code: contentItemModerationDetailPage.tsx)*. §UI20.6.2's consumer list does not name it; see
 section 10, item 4.
+`/Admin/Posts/{contentItemId}/Associations/{associationId}` renders it the same way for the
+association's post, with the post's association chips, the association on show marked current,
+and a moderation action that leads to the post page with the editor open
+(`UI/Pages/AssociationModerationDetailPage.md §4.1`). Both admin pages wire `onTakeDown`
+(rule 2.47).
 
 ## 7. Dependencies
 
@@ -693,3 +723,24 @@ context) for the render gates, and the item's `ApprovalStatus` for the non-owner
     board (`contentItemAddPanelDoc.tsx` — `blockRoles`, lines 51, 157, 263 and 334). The rows
     are `UI/Components/ContentItemPanel.Add.md §4.1` and
     `UI/Components/ContentItemPanel.Edit.md §4.1`.
+25. (needs issue) **Gap — the card shows no association chips.** Rules 2.45, 2.46 and 3.1.16
+    (user rulings 2026-10-11; `DesignFeatures/PostModeration.md` rules 4–8): a page may hand the
+    card the post's associations, and the card shows them as status chips in its tag and
+    reference sections, each raising `onAssociationChipClick`. The card has no such property and
+    no such hook: its sections render the element's `tags` and `bibleReferences`, strings with no
+    status, each raising `onTagClick` or `onBibleReferenceClick`
+    (`contentItemSearchItem.ts` — `tags`, `bibleReferences`; `contentItemDefaultPanel.tsx` —
+    `showsTags`, `showsBibleReferences`). The rendering half is
+    `UI/Components/ContentItemPanel.Default.md rule 3.1.13`, built with this item.
+26. (needs issue) **Gap — the card offers no takedown.** Rules 2.47, 3.1.17, 3.2.7 and 3.3.3
+    (user rulings 2026-10-11; §APR9.9 rule 7): `Administrators` take the item down from the
+    card's footer, at any status, after a confirmation. The view face offers no removal at all;
+    the only takedown is the edit face's *Delete*, which an administrator reaches only where the
+    editor opens (`UI/Components/ContentItemPanel.Edit.md rules 3.2.5 and 3.2.1`). The rendering
+    half is `UI/Components/ContentItemPanel.Default.md rule 3.1.14`, built with this item.
+27. **Note — rule 2.35 corrected.** As relocated, rule 2.35 read "Associations render beside the
+    panel, never within it". The product owner's rulings of 2026-10-11 (#705, rulings 10 and 11)
+    put a post's tag and Bible reference chips on its card, each showing its association's
+    status, on the two admin moderation pages. They were written about this behaviour, so they
+    settle it (§UI20.6.4 case 1): rule 2.35 now keeps an association's own actions out of the
+    card and lets its chips in, as rule 2.45 has them.

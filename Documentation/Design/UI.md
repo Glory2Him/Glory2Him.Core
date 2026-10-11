@@ -177,7 +177,8 @@ one code span: `UI/Pages/Home.md rule 2.9`, `UI/Pages/Home.md §6 item 3`; insid
 reference to its own rule or item is written `rule 2.9` or `item 3`.
 
 **The page documents.** The nine product pages that render the documented components (user ruling
-2026-09-27). The other product pages render none of them today, and are candidates for later:
+2026-09-27), and the association page the post moderation feature adds
+(`DesignFeatures/PostModeration.md`; user ruling 2026-10-11). The other product pages render none of them today, and are candidates for later:
 from `src/routes/staticRoutes.tsx`, `/About-Us`, `/Contact-Us`, the Bible reader
 (`/BibleReferences/BibleReader`, and `/BibleReferences/{reference}` for a chapter),
 `/Style-Guide` and `/Not-Found`; from
@@ -199,6 +200,7 @@ from `src/routes/staticRoutes.tsx`, `/About-Us`, `/Contact-Us`, the Bible reader
 | [MyPostDetail.md](UI/Pages/MyPostDetail.md) | `src/pages/myPostDetail.tsx` | `/myposts/{contentItemId}` | user | two columns — main with right sidebar |
 | [ContentItemModerationPage.md](UI/Pages/ContentItemModerationPage.md) | `src/pages/admin/contentItemModerationPage.tsx` | `/Admin/Posts` | admin (moderation) | two columns — left sidebar with main |
 | [ContentItemModerationDetailPage.md](UI/Pages/ContentItemModerationDetailPage.md) | `src/pages/admin/contentItemModerationDetailPage.tsx` | `/Admin/Posts/{contentItemId}` | admin (moderation) | three columns |
+| [AssociationModerationDetailPage.md](UI/Pages/AssociationModerationDetailPage.md) | `src/pages/admin/associationModerationDetailPage.tsx`, not yet built | `/Admin/Posts/{contentItemId}/Associations/{associationId}` | admin (moderation) | three columns, beneath a full-width post card |
 
 **The ported blog.** `/Post-Single` and `/Post-Single/{slug}` render `src/pages/postSingle.tsx`,
 the ported template's post page, which shows one sample story whatever the address. It is a mock,
@@ -257,16 +259,18 @@ blocks under §UI20.6.4 is.
    `UI/Components/AssociationPanel.TagAssociationPanel.md §10 item 5`. An unreadable Bible
    reference's link, which reaches `/Search` today, leads to the Bible reference page instead (user
    ruling 2026-09-28; `UI/Pages/BibleReference.md rule 2.18`), its gap `UI/Pages/Home.md §6 item 14`
-   and the items it names. In the admin section a tag or a Bible reference leads to the queue,
-   `/Admin/Posts`, instead (`UI/Pages/ContentItemModerationPage.md rule 2.13`). Each of these
+   and the items it names. On the queue, `/Admin/Posts`, a card's tag or Bible reference leads to
+   the queue itself instead (`UI/Pages/ContentItemModerationPage.md rule 2.13`), and on an item's
+   two admin moderation pages a tag or Bible reference chip leads to its association's page
+   (`UI/Pages/ContentItemModerationDetailPage.md rule 2.31`). Each of these
    product links changes before the page it points at moves, or with it: a link left pointing at a
    moved page reaches the Not Found page (`src/routes/staticRoutes.tsx`, line 31). Some of the
    links into `/Search` are held by design issues, so `/Search` moves only once they have changed:
    an unreadable Bible reference's and the Bible reference page's own chips, held for #700
-   (`UI/Pages/Home.md §6 item 14` and the items it names, `UI/Pages/BibleReference.md §6 item 4`),
-   and the admin post page's side-panel chips, held for #698
-   (`UI/Pages/ContentItemModerationDetailPage.md §6 item 17`). No held gap links to the other seven
-   pages.
+   (`UI/Pages/Home.md §6 item 14` and the items it names, `UI/Pages/BibleReference.md §6 item 4`).
+   The admin post page's side panels, whose chips would link there too, go before then: the
+   redesign under #705 removes them (`UI/Pages/ContentItemModerationDetailPage.md §6 item 17`).
+   No held gap links to the other seven pages.
 
 ### UI20.6 Components *(formerly §20.6)*
 

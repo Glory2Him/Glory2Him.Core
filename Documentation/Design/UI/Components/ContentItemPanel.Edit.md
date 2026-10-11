@@ -256,10 +256,11 @@ The settings read, the item read, and the identity and roles, are
    would allow cleanup of duplicate items that might have gone through approval" — as §APR9.9
    rule 7 already keeps the takedown. Where that control sits on `/Admin/Posts/{contentItemId}` is
    the page's, tracked as `UI/Pages/ContentItemModerationDetailPage.md §6 item 12`. The page's
-   redesign, #698 (https://github.com/Glory2Him/Glory2Him.Core/issues/698), holds that placement:
-   its item 7, *Where the post's own takedown sits*, has the redesign place the `Administrators`'
-   takedown on that page. Until the page's design places it, this face's gates stand as rules
-   3.2.1 and 3.2.5 state them.
+   redesign placed it on 2026-10-11 (#705, rulings 6 and 14): a *Take down* action in the card's
+   moderation footer, beside Edit, on the post page and on the association page alike, at any
+   status, `Administrators` only, confirmed before it is sent
+   (`UI/Components/ContentItemPanel.md rule 2.47`). *Delete* stays on this face as it is, so this
+   face's gates stand as rules 3.2.1 and 3.2.5 state them.
 7. (needs issue) **Visible strings that are not properties.** Rule 3.1.8 (§UI20.6.6 rule 1). The
    status ribbon's labels — Draft, Submitted, Approved, Rejected — come from a fixed table
    (`contentItemFormPanel.tsx` — `ribbonLabel`, line 1260 at 70dc72e7;

@@ -585,9 +585,12 @@ Tag-ReadOnly,                    Tag-Reviewers,                    Tag-Publisher
 BibleReference-ReadOnly,         BibleReference-Reviewers,         BibleReference-Publishers,
 Comment-ReadOnly,                Comment-Reviewers,                Comment-Publishers,
 Link-ReadOnly,                   Link-Reviewers,                   Link-Publishers,
-Attachment-ReadOnly,             Attachment-Reviewers,             Attachment-Publishers,
-Association-ReadOnly,            Association-Reviewers,            Association-Publishers
+Attachment-ReadOnly,             Attachment-Reviewers,             Attachment-Publishers
 ```
+
+`Association` has none: an association has no scoped roles of its own, and every scoped question
+about one is answered from its two endpoints (§SEC14.7 posture A′; *Composing an association's role
+check*, below; user ruling 2026-10-11, #705).
 
 The same convention applies to any further approvable entity types (e.g. `Reaction`, `ContentItemSetting`).
 

@@ -352,8 +352,7 @@ page is a courtesy (§SEC14.6).
     the type (`postDetail.tsx`, lines 195-205), although it holds the item and its type. The panel
     has no property to receive it yet, and composes no role for the post's end
     (`UI/Components/AssociationPanel.md §10 item 20`); the page's half is to pass the type once it
-    can. The same gap stands on `/myposts/{id}` (`UI/Pages/MyPostDetail.md §6 item 13`) and
-    `/Admin/Posts/{id}` (`UI/Pages/ContentItemModerationDetailPage.md §6 item 10`).
+    can. The same gap stands on `/myposts/{id}` (`UI/Pages/MyPostDetail.md §6 item 13`).
 12. (needs issue) **Page gap — `/posts/{id}` shows an item that is not public.** Rule 2.1 (user
     ruling 2026-09-27): a public page shows approved content only, to every reader, the owner and
     the moderators included; an owner reads their own unreviewed item on `/myposts/{id}`, and a

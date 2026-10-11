@@ -1,19 +1,20 @@
 # 1. ContentItemModerationDetailPage
 
 One item from the moderation queue, in the admin shell. On the left is what is being judged: the
-post, and the tags, Bible references and review thread attached to it. On the right is who is
-judging it: the approval round, then the settings that govern the item. Moderate on every list
-leads here. Reviewers place their review here, and publishers and administrators decide the item,
-amend it and narrow its settings. Only administrators reach it today.
+post, with its tags and Bible references as chips on its card, each showing where its own round
+stands, and the post's review thread. On the right is who is judging it: the approval round, then
+the settings that govern the item. Moderate on every list leads here. Reviewers place their review
+here, and publishers and administrators decide the item, amend it and narrow its settings. Only
+administrators reach it today.
 
-**This page is to be redesigned: issue #698**, *Redesign The Post Moderation Page For Association
-Approvals*, from the product owner's mocks in the design session of #705 (user rulings 2026-09-27
-and 2026-09-28). Every tag and Bible reference on a post is an
-approvable association with a round of its own, and the redesign must show each one's review
-outcome the way the post's own is shown. This document records the page **as built** at
-70dc72e7. Several matters belong to #698 and are cited here, not asked: moderating tags and Bible
-references on this page, the suggest box for moderators, and what the page puts first (section 6).
-Which server call decides a suggestion is settled: the same approval routes as the post's own
+**This page is redesigned under #705** (`DesignFeatures/PostModeration.md`, its parent feature),
+from the product owner's mocks `Admin Post Detail.dc.html` and `Admin Association Detail.dc.html`
+in the design session of 2026-10-11, which settled the questions #698 asked. Every tag and Bible
+reference on a post is an approvable association with a round of its own, and each one's round is
+moderated on a page of its own, `/Admin/Posts/{contentItemId}/Associations/{associationId}`
+(`UI/Pages/AssociationModerationDetailPage.md`), which the post's chips lead to. The rules below
+are the design. Section 4 records the page as built at 70dc72e7, and section 6 what is not built
+yet. Which server call decides a suggestion is settled: the same approval routes as the post's own
 round, addressed by the association's own approval id (#698, #699).
 
 - **Route:** `/Admin/Posts/{contentItemId}` (`src/routes/adminRoutes.tsx` lines 101-115 at
@@ -34,12 +35,13 @@ round, addressed by the association's own approval id (#698, #699).
   or [ContentItemPanel.ContentItemVerseImagePanel.md](../Components/ContentItemPanel.ContentItemVerseImagePanel.md));
   [ContentItemPanel.Edit.md](../Components/ContentItemPanel.Edit.md), which the page renders
   directly as its editor;
-  [AssociationPanel.TagAssociationPanel.md](../Components/AssociationPanel.TagAssociationPanel.md)
-  and [AssociationPanel.BibleReferenceAssociationPanel.md](../Components/AssociationPanel.BibleReferenceAssociationPanel.md),
-  each rendering [AssociationPanel.md](../Components/AssociationPanel.md);
   [ReviewCommentPanel.md](../Components/ReviewCommentPanel.md);
   [ReviewPanel.md](../Components/ReviewPanel.md);
-  [ContentItemSettingsPanel.md](../Components/ContentItemSettingsPanel.md). The undocumented
+  [ContentItemSettingsPanel.md](../Components/ContentItemSettingsPanel.md). As built it also renders
+  [AssociationPanel.TagAssociationPanel.md](../Components/AssociationPanel.TagAssociationPanel.md)
+  and [AssociationPanel.BibleReferenceAssociationPanel.md](../Components/AssociationPanel.BibleReferenceAssociationPanel.md),
+  each rendering [AssociationPanel.md](../Components/AssociationPanel.md), which the redesign
+  removes (rule 2.22, item 17). The undocumented
   building blocks are the core-UI primitives `Breadcrumb`, `Button`, `Spinner` and two
   `ConfirmDialog`s (`src/components/coreUI/`). The breadcrumb is navigation (§UI20.6.4).
 
@@ -58,13 +60,13 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.5 [Must]** Administrators and the publisher tier for the item's content type define and remove the item's override settings here, through `ContentItemSettingsPanel`, which owns the grant set (`UI/Components/ContentItemSettingsPanel.md rule 2.11`). *(user, 2026-09-27)* ≠ item 1
 
-**2.6 [Must]** What is judged stands on the left and who judges it on the right. The item, its tags, its Bible references and the review thread form one column. The round, then the settings, form the other, so the decision stays readable at a glance while a thread grows without limit. *(code: contentItemModerationDetailPage.tsx — the comments in the layout; test: contentItemModerationDetailPage.test.tsx — "should stand the item in the seven beside a five", "should stand both association surfaces below the item in the seven", "should stand the review round in the five", "should mount the thread under the bible references, not beside the round")*
+**2.6 [Must]** What is judged stands on the left and who judges it on the right. The item, its tags and Bible references on its card (rule 2.30), and the review thread form one column. The round, then the settings, form the other, so the decision stays readable at a glance while a thread grows without limit. *(code: contentItemModerationDetailPage.tsx — the comments in the layout; test: contentItemModerationDetailPage.test.tsx — "should stand the item in the seven beside a five", "should stand both association surfaces below the item in the seven", "should stand the review round in the five", "should mount the thread under the bible references, not beside the round"; user, 2026-10-11)* ≠ item 17
 
-**2.7 [Must]** The page opens on the item read-only, and the moderator chooses Edit to modify it: here, moderating means editing. The card is on its moderated face with `moderationOpensEditor` on. Its one action, Moderate wearing Edit's pencil and label — in the admin area Moderate may be labelled *Edit*, since there it opens the item for modification — opens `ContentItemEditPanel` in the card's place, and never navigates, because this page is the destination. On a decided item the moderator did not contribute, the action is greyed out as locked. *(user, 2026-09-27; code: contentItemModerationDetailPage.tsx — the comment above `isEditing`; test: contentItemModerationDetailPage.test.tsx — "should open the editor in place when the moderator takes Edit", "should lock the editor on a decided row the moderator did not contribute", "should open the editor on a submitted row the moderator did not contribute")*
+**2.7 [Must]** The page opens on the item read-only, and the moderator chooses Edit to modify it — save where the association page's Edit sent them here asking for the editor (rule 2.32): here, moderating means editing. The card is on its moderated face with `moderationOpensEditor` on. Its one action, Moderate wearing Edit's pencil and label — in the admin area Moderate may be labelled *Edit*, since there it opens the item for modification — opens `ContentItemEditPanel` in the card's place, and never navigates, because this page is the destination. On a decided item the moderator did not contribute, the action is greyed out as locked. *(user, 2026-09-27; code: contentItemModerationDetailPage.tsx — the comment above `isEditing`; test: contentItemModerationDetailPage.test.tsx — "should open the editor in place when the moderator takes Edit", "should lock the editor on a decided row the moderator did not contribute", "should open the editor on a submitted row the moderator did not contribute")*
 
 **2.8 [Must]** An amendment sends the stored row with the edit laid over it. The editor closes once the save lands. Where the save forks a new version — the moderator's own `Approved` or `Rejected` item — the card shows that new version, so the amendment appears (`UI/Components/ContentItemPanel.md rule 2.11`). A refusal is read back onto the form and toasted, and Cancel puts the item back as it was. *(test: contentItemModerationDetailPage.test.tsx — "should send the stored row with the edit laid over it", "should put the item back as it was when the edit is cancelled"; §APR9.9)* ≠ item 15
 
-**2.9 [Must]** A takedown returns the moderator to the queue they came from, as they left it, or to the bare queue. The panel confirms before it raises the removal, so the page asks nothing more. A failed takedown keeps the moderator on the item with the reason toasted. *(code: contentItemModerationDetailPage.tsx — `removeContentItemAsync`; test: contentItemModerationDetailPage.test.tsx — "should take the item down and go back to the queue", "should keep the moderator on the item when the takedown fails")*
+**2.9 [Must]** A takedown — the card's *Take down* (rule 2.24) or the editor's *Delete* — returns the moderator to the queue they came from, as they left it, or to the bare queue. The panel confirms before it raises the removal, so the page asks nothing more. A failed takedown keeps the moderator on the item with the reason toasted. *(user, 2026-10-11; code: contentItemModerationDetailPage.tsx — `removeContentItemAsync`; test: contentItemModerationDetailPage.test.tsx — "should take the item down and go back to the queue", "should keep the moderator on the item when the takedown fails")*
 
 **2.10 [Must]** The round is read, not invented. The verdict, the reviews, the outstanding requests, the reviewer candidates, Berean's status, the names and the thread all come off the approval endpoints through `useApprovalRound`. `ReviewPanel`'s owner and status come off the stored item. A caller the verdict refuses gets the round read-only. *(code: contentItemModerationDetailPage.tsx — the comments above `useApprovalRound` and `ReviewPanel`; test: contentItemModerationDetailPage.test.tsx — "should ask for the round of the item in the url", "should show the round the approval endpoints answer with", "should claim nothing about a round the verdict would not answer for")*
 
@@ -78,7 +80,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.15 [Must]** The page offers the Like control on the card, and Share and Save deliberately not. The item here may be at any status, `Draft`, `Submitted` and `Rejected` as well as `Approved`, and the address Share copies, `/posts/{id}`, shows an approved item alone (`UI/Pages/PostDetail.md rule 2.1`). *(code: contentItemModerationDetailPage.tsx — the comment above `useContentItemEngagement`; test: contentItemModerationDetailPage.test.tsx — "should add only the like control to the newly wired pages")*
 
-**2.16 [Must]** The card's tag and Bible reference sections are off, and the pill beside the type chip is off against the corner ribbon, so the same facts never show twice. The content stands whole, because a moderator rules on what is actually there. *(code: contentItemModerationDetailPage.tsx — the comment above the card; test: contentItemModerationDetailPage.test.tsx — "should not repeat the status as a pill beside the ribbon")*
+**2.16 [Must]** The card's tag and Bible reference sections show the post's associations as chips (rule 2.30), and the pill beside the type chip is off against the corner ribbon, so the same facts never show twice. The content stands whole, because a moderator rules on what is actually there. *(code: contentItemModerationDetailPage.tsx — the comment above the card; test: contentItemModerationDetailPage.test.tsx — "should not repeat the status as a pill beside the ribbon"; user, 2026-10-11)* ≠ item 17
 
 **2.17 [Must]** Each panel's settings come from one read: the defaults plus this item's own override. The card, the heading and `ContentItemSettingsPanel` resolve against that same collection, so they cannot disagree about which row is in force (§DOM6.4). *(code: contentItemModerationDetailPage.tsx — `useGetEffectiveSettingsFor`, the comment above the settings wiring)* ≠ item 2
 
@@ -90,21 +92,29 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.21 [Could]** *Back to Posts* always leads to the list it names, the queue, `/Admin/Posts`: as the moderator left it when they came from it, and the bare queue otherwise — never to another page an origin in router state names. *(user, 2026-09-27; test: contentItemModerationDetailPage.test.tsx — "should walk back to the bare queue when no origin was carried", "should walk back to the filtered queue a redirect carried in state")* ≠ item 13
 
-**2.22 [Won't]** How tags and Bible references are moderated on this page is not designed here. The page is to be redesigned under #698, from the product owner's mocks in the design session of #705, which shows each association's own round. *(user, 2026-09-27)*
+**2.22 [Must]** Each tag and Bible reference's round is moderated on its association's page, `/Admin/Posts/{contentItemId}/Associations/{associationId}` (`UI/Pages/AssociationModerationDetailPage.md`), not on this one: the page renders no association panel, and offers a moderator no box for suggesting a tag or a Bible reference (`DesignFeatures/PostModeration.md` rules 1 and 9). *(user, 2026-09-27; user, 2026-10-11)* ≠ item 17
 
 **2.23 [Must]** Every call about the item's round is addressed by the round's approval id, which the item carries: the verdict, `GET api/Approvals/{approvalId}/Verdict`; the decision, `PUT` or `POST api/Approvals/{approvalId}` with a body of the decision, whether a bypass is requested and the bypass reason, and nothing else; the reset, `POST api/Approvals/{approvalId}/Reset`; and the reviewer candidates, the reviewer display names, the review requests and Berean's resource. The reviews and the thread are addressed by it already. The page reads the id off the stored item (§ARC17.5, §ARC16.7). *(user, 2026-09-27)* ≠ item 11
 
-**2.24 [Must]** `Administrators` may take the item down — a soft delete — at any status here, to clean up, for example, duplicates that went through approval. The item's owner is never offered *Delete* on an `Approved` or `Rejected` item. Where the control sits on the redesigned page is #698's. *(user, 2026-09-27; §APR9.9 rules 2 and 7)* ≠ item 12
+**2.24 [Must]** `Administrators` may take the item down — a soft delete — at any status here, to clean up, for example, duplicates that went through approval. The control is the card's *Take down*, in its moderation footer beside Edit, which asks first and is wired to `onTakeDown` (`DesignFeatures/PostModeration.md` rule 10; `UI/Components/ContentItemPanel.md rule 2.47`); *Delete* stays in the editor as it is. The item's owner is never offered *Delete* on an `Approved` or `Rejected` item. *(user, 2026-09-27; user, 2026-10-11; §APR9.9 rules 2 and 7)* ≠ item 12
 
 **2.25 [Must]** View is switched off: this page is the item's detail view in the admin section, where View on the queue (`UI/Pages/ContentItemModerationPage.md rule 2.3`) and Moderate on the other lists (rule 2.1) lead, so the card does not offer View. *(user, 2026-09-27: View and Edit are each "configurable via the Show* properties"; `UI/Components/ContentItemPanel.md rule 2.40`)* ≠ item 14
 
-**2.26 [Must]** In the admin section, a click on the card's type chip, *Submitted by* or *Author*, or on a tag or Bible reference chip in the side panels, raises its hook, and the page opens the queue, `/Admin/Posts`, handed the value: the value in its query string, its search bar showing it in the matching box with the advanced section expanded (`UI/Pages/ContentItemModerationPage.md rules 2.12 and 2.13`). The page is to be redesigned from the product owner's mocks in a design session, which settles where the side panels' tag and Bible reference chips lead (#705; user ruling 2026-09-28). *(user, 2026-09-27)* ≠ items 5 and 17
+**2.26 [Must]** A click on the card's type chip, *Submitted by* or *Author* raises its hook, and the page opens the queue, `/Admin/Posts`, handed the value: the value in its query string, its search bar showing it in the matching box with the advanced section expanded (`UI/Pages/ContentItemModerationPage.md rules 2.12 and 2.13`). A tag or Bible reference chip on the card leads to its association's page instead (rule 2.31). *(user, 2026-09-27; user, 2026-10-11)* ≠ items 5 and 17
 
 **2.27 [Must]** The reviewer candidates are read when `ReviewPanel`'s request picker opens, on the hook it raises then, and not before (`UI/Components/ReviewPanel.md rule 2.32`). *(user, 2026-09-27)* ≠ item 6
 
 **2.28 [Must]** The card and the settings panel are rendered only once the item's setting has loaded: until the effective settings read lands, the page holds them back and shows its spinner, announced (§UI20.6.6 rule 5). If the settings read fails, the page shows its error, announced, with a Retry, in their place — never the card or the settings panel without the item's settings. *(user, 2026-09-27)* ≠ item 2
 
 **2.29 [Must]** A change to the item's setting reaches the open page without a reload: an override written elsewhere, say, reshapes the card and the settings panel here (§ARC12.5.2 business rule 12). How the page learns of the change is §UI20.10's: the live connection makes the page's settings read stale, and the page reads it again, with no code of its own (`DesignFeatures/LiveUpdates.md` rule 1, #702). *(user, 2026-09-27; §ARC12.5.2 business rule 12)* ≠ item 16
+
+**2.30 [Must]** The card shows every tag and Bible reference associated with the post, at every status, as chips: tags, then Bible references, each kind oldest first by the association's `CreatedWhen`, each with its status as `DesignFeatures/PostModeration.md` rule 6 shows it, and under the post's facet switches (rules 4–8 there). The page reads the post's associations (`GET /api/associations`, #857), names each tag and each reference from the tag and Bible reference reads (`DesignFeatures/UI/Foundations/TagService.md §2`, `DesignFeatures/UI/Foundations/BibleReferenceService.md §2`), and hands the chips to the card as `associationChipCollection` (`UI/Components/ContentItemPanel.md rule 2.45`). *(user, 2026-10-11)* ≠ item 17
+
+**2.31 [Must]** A chip leads to its association's page, `/Admin/Posts/{contentItemId}/Associations/{associationId}`, from the card's `onAssociationChipClick` (`DesignFeatures/PostModeration.md` rule 7). *(user, 2026-10-11)* ≠ item 17
+
+**2.32 [Must]** A moderator the association page's Edit sends here arrives with the editor open, as if they had taken Edit on this card (rule 2.7; `DesignFeatures/PostModeration.md` rule 11). Where rule 2.7's lock holds on the item, the page opens on the card as it always does, and the editor stays shut. *(user, 2026-10-11)* ≠ item 18
+
+**2.33 [Must]** Until the approval process has created the item's approval record, every control that depends on the round's id is disabled: the page tells `ReviewPanel` and `ReviewCommentPanel` so (`isAwaitingApprovalRecord`; `UI/Components/ReviewPanel.md rule 2.55`, `UI/Components/ReviewCommentPanel.md rule 2.36`). The record is not there while the verdict read answers not-found for the item (§ARC16.7.2), and the round refresh (rule 2.12) enables the controls once it is (`DesignFeatures/PostModeration.md` rule 17). *(user, 2026-10-11)* ≠ item 19
 
 ## 3. Layout
 
@@ -123,9 +133,9 @@ everything stacks: the menu, then the main column, then the right-hand column.
 | | (NavMenu) | |                                          [<- Back to Posts] | |
 | |           | | +------------------------------+ +------------------------+ | |
 | |           | | | ContentItemPanel             | | ReviewPanel            | | |
-| |           | | |   or ContentItemEditPanel    | |   Approval Reviews     | | |
-| |           | | | TagAssociationPanel          | |   Review Outcome       | | |
-| |           | | | BibleReferenceAssoc...       | | ContentItemSettings... | | |
+| |           | | |   (its tag and reference     | |   Approval Reviews     | | |
+| |           | | |   chips on the card)         | |   Review Outcome       | | |
+| |           | | |   or ContentItemEditPanel    | | ContentItemSettings... | | |
 | |           | | | ReviewCommentPanel           | |                        | | |
 | |           | | +------------------------------+ +------------------------+ | |
 | +-----------+ +-------------------------------------------------------------+ |
@@ -138,7 +148,7 @@ everything stacks: the menu, then the main column, then the right-hand column.
 | --- | --- | --- |
 | Left sidebar (the shell's) | `col-lg-3`; absent when the menu is folded | the admin navigation menu — not the page's |
 | Page head | the shell's `col-lg-9`, or `col-12` folded | the shell's fold toggle; the heading and the `Breadcrumb`; a rule; *Back to Posts*. The spinner, or the error alert with *Back to Posts*, stands in for both columns below until the item is read. |
-| Main | `col-lg-7` of the page's row | `ContentItemPanel`, or `ContentItemEditPanel` while editing; `TagAssociationPanel`; `BibleReferenceAssociationPanel`; `ReviewCommentPanel` |
+| Main | `col-lg-7` of the page's row | `ContentItemPanel`, with the post's association chips on it, or `ContentItemEditPanel` while editing; `ReviewCommentPanel`. As built, `TagAssociationPanel` and `BibleReferenceAssociationPanel` stand between the two (item 17). |
 | Right sidebar | `col-lg-5` of the page's row | `ReviewPanel`; `ContentItemSettingsPanel` |
 
 The two `ConfirmDialog`s are modal, and belong to the page (rule 2.14).
@@ -158,9 +168,11 @@ Rendered while the editor is closed.
 | `showModerationSection`, `moderationOpensEditor` | `true`, `true` | Rule 2.7. |
 | `showApprovalStatusRibbon` / `showApprovalStatus` | `true` / `false` | Rule 2.16. |
 | `showContentExpanded` | `true` | Rule 2.16. |
-| `showTagSection`, `showBibleReferenceSection` | `false` | Rule 2.16. |
+| `showTagSection`, `showBibleReferenceSection` | `true`, so the setting decides; `false` as built ≠ item 17 | Rules 2.16 and 2.30. |
+| `associationChipCollection` ≠ item 17 | The post's associations, ordered and named (rule 2.30) | Rule 2.30. |
 | `reactionOptions`, `onReactionSelected` | The approved reactions, and the engagement hook's handler | Rule 2.15. |
 | `onModerateClick` | Opens the editor | Rule 2.7. |
+| `onAssociationChipClick`, `onTakeDown` ≠ items 17 and 12 | The two handlers below | Rules 2.31 and 2.24. |
 
 `showEditSection` stays off on the card, so its one action is the moderation action rather than
 the owner's Edit. The editor is `ContentItemEditPanel`, rendered by the page (section 4.2).
@@ -176,7 +188,9 @@ the owner's Edit. The editor is `ContentItemEditPanel`, rendered by the page (se
 | `onShareClick`, `onSaveClick` | *Share* or *Save* is pressed | Not offered (rule 2.15). | *Not wired — switched off* (the comment above `useContentItemEngagement`) |
 | `onTitleClick` | The title is pressed | The title is plain heading text: this page is the detail surface. | *Not wired — switched off* (`UI/Components/ContentItemPanel.md rule 3.1.10`) |
 | `onReadMore`, `onExpandCollapse` | *read more* is pressed | Never offered: the content stands whole (rule 2.16). | *Not wired — switched off* |
-| `onTagClick`, `onBibleReferenceClick` | A pill on the card is pressed | The card's sections are off (rule 2.16). The panels below carry the tags and references (section 4.3). | *Not wired — switched off* |
+| `onTagClick`, `onBibleReferenceClick` | A pill on the card is pressed | — | *Never raised*: the page hands the card association chips, which raise `onAssociationChipClick` instead (rule 2.30). As built the sections are off. |
+| `onAssociationChipClick` ≠ item 17 | A chip is pressed | Opens the association's page, `/Admin/Posts/{contentItemId}/Associations/{associationId}` (rule 2.31). | ❌ No — item 17 |
+| `onTakeDown` ≠ item 12 | *Delete* is pressed on *Take down*'s confirmation | `DELETE api/ContentItems/{contentItemId}`, then back to the queue; a failure is toasted and the moderator stays (rules 2.9 and 2.24). | ❌ No — item 12 |
 | `onCommentsClick` | The comments control is pressed | — | *Not wired — switched off*: without it the control does not render (`UI/Components/ContentItemPanel.Default.md rule 2.9`); the review thread is `ReviewCommentPanel`, not an item's comments |
 | `onContentTypeClick` | The type chip is pressed | Opens `/Admin/Posts` handed the type, its search bar showing it in the Category box with the advanced section expanded (rule 2.26). Today nothing: the chip is a button with no hook behind it. ≠ item 5 | ❌ No — item 5 |
 | `onSubmittedByClick` | *Submitted by* is pressed; it renders here, from the contributor read | Opens `/Admin/Posts` handed the submitter, as the type chip (rule 2.26). Today nothing: the segment is a button with no hook behind it. ≠ item 5 | ❌ No — item 5 |
@@ -207,25 +221,23 @@ The page passes no `submittedByDisplayName`, although it holds the contributor's
 | `onRemoved` ≠ item 12 | *Delete* is confirmed. It is offered to `Administrators`, and to the owner while the item is `Draft` or `Submitted`, on an item the editor is open for (`UI/Components/ContentItemPanel.Edit.md rules 3.2.4 and 3.2.5`) | `DELETE api/ContentItems/{contentItemId}`, then back to the queue. A failure is toasted and the moderator stays (rule 2.9). An administrator may take the item down at any status (rule 2.24). | ✅ Yes (`contentItemModerationDetailPage.tsx`, lines 202 and 711), where the editor opens; item 12 |
 | `onCancelled` | *Cancel* is pressed, on the form or on a refusal | Clears the field messages and closes the editor. | ✅ Yes (`contentItemModerationDetailPage.tsx`, line 712) |
 
-### 4.3 TagAssociationPanel and BibleReferenceAssociationPanel — as built, pending #698
+### 4.3 TagAssociationPanel and BibleReferenceAssociationPanel — as built, to be removed
 
-The two panels are rendered as they are on a reader's page. The user's redesign replaces them
-(#698). The page renders both stories the same way.
+The redesign removes both panels (rule 2.22): the post's tags and Bible references are chips on
+the card (rule 2.30), each association's round is moderated on its own page, and no moderator is
+offered a suggest box. Until item 17 removes them, the page renders both as on a reader's page.
 
 **Properties the page sets:** `associationCollection` `[]`, since associations have no HTTP
-exposer yet (§ARC17.4, not yet built); `onAdd`, a toast saying that suggesting is coming soon; `showBorder`; and
-`cssClass` `mt-4`. Everything else keeps the story's defaults, so `showAdd` is on,
-`showModerationActions` is off, and the add box carries the reader-facing invitation. Neither
-panel follows the item's facet switches (item 9), and neither is handed the post's content type
-(item 10).
+exposer yet (§ARC17.4, not yet built); `onAdd`, a toast saying that suggesting is coming soon;
+`showBorder`; and `cssClass` `mt-4`. Everything else keeps the story's defaults.
 
 **Hooks**
 
 | Hook | Raised when | What the page does | Built today |
 | --- | --- | --- | --- |
-| `onAdd` | A suggestion is committed | Toasts "Suggesting tags is coming soon." or "Suggesting bible references is coming soon.", and sends nothing. Whether a moderator is offered the box at all belongs to #698. | ❌ No — #698 |
-| `chipOnClick` | A chip's label is pressed | Opens `/Admin/Posts` handed the tag or the reference, as the card's type chip (rule 2.26). Today unreachable: each story's default link wins, and no chip renders while the lists are empty, until the association read is exposed over HTTP (§ARC17.4, not yet built). ≠ item 17 | ❌ No — item 17; the panels themselves await #698 |
-| `onRemove`, `onReject`, `onApprove` | Remove, Reject or Approve is pressed | Not wired, and `showModerationActions` is off. Moderating tags and Bible references here belongs to #698 (`UI/Components/AssociationPanel.md §10 item 10`). A decision on one goes through the approval routes addressed by the association's own approval id (#698, #699; `UI/Components/AssociationPanel.md §10 item 9`). | ❌ No — #698 |
+| `onAdd` | A suggestion is committed | Toasts "Suggesting tags is coming soon." or "Suggesting bible references is coming soon.", and sends nothing. The panel goes with item 17. | *Not wired — the panel is removed (item 17)* |
+| `chipOnClick` | A chip's label is pressed | — | *Never raised*: no chip renders while the lists are empty, and the panel is removed (item 17) |
+| `onRemove`, `onReject`, `onApprove` | Remove, Reject or Approve is pressed | — | *Not wired — switched off*: `showModerationActions` is off, and an association is decided on its own page (rule 2.22) |
 | `loginButtonOnClick` | The login prompt is pressed | — | *Never raised*: the route admits no signed-out reader, so the prompt does not render |
 
 ### 4.4 ReviewCommentPanel — the review thread
@@ -238,6 +250,7 @@ panel follows the item's facet switches (item 9), and neither is handed the post
 | `reviewComments`, `isLoading` | The round's thread and its loading state, from `useApprovalRound` | Rule 2.10. |
 | `entityType`, `contentType` | `ContentItem`, and the content type's enum member name | They compose the resolve tier and the read-only roles; a renamed type keeps its role names. |
 | `isSubmitting` | Any of the four comment writes pending | One click is one write. |
+| `isAwaitingApprovalRecord` ≠ item 19 | `true` while the verdict read answers not-found (rule 2.33) | Rule 2.33. |
 | `showBorder`, `cssClass` | `true`, `mt-4` | Spacing in the column. |
 
 **Hooks**
@@ -262,6 +275,7 @@ panel follows the item's facet switches (item 9), and neither is handed the post
 | `entityOwnerId`, `approvalStatus` | The stored item's `createdBy` and status | The panel's own gates decide against the real row (rule 2.10). |
 | `approvalVerdict`, `approvalReviewCollection`, `requestedReviewerCollection`, `reviewerCandidateCollection`, `isLoading` | From `useApprovalRound`, which reads the verdict, the candidates, the requests and the names by the item today (item 11) | Rules 2.10 and 2.23. |
 | `aiReviewerCandidate`, `aiReviewerAssignment` | Derived from Berean's status read | Offers Berean, and gives it a row once assigned. |
+| `isAwaitingApprovalRecord` ≠ item 19 | `true` while the verdict read answers not-found (rule 2.33) | Rule 2.33. |
 | `showBorder` | `true` | — |
 
 The page passes no `suggestedReviewerCollection` and no `isCandidatesLoading`, so Berean is the
@@ -304,7 +318,9 @@ counted in that tier's column, with the row's condition. What each panel offers 
 the read-only roles each action answers to, are the components' own role matrices and security and
 access matrices: `UI/Components/ContentItemPanel.md §5`, `UI/Components/ContentItemPanel.Edit.md §5`,
 `UI/Components/ReviewCommentPanel.md §5`, `UI/Components/ReviewPanel.md §5` and
-`UI/Components/ContentItemSettingsPanel.md §5`. The association panels' rows are left to #698.
+`UI/Components/ContentItemSettingsPanel.md §5`. The association chips are a read, offered to
+everyone who reaches the page; each association's round is the association page's
+(`UI/Pages/AssociationModerationDetailPage.md §5`).
 
 | Property and/or Role Condition | Anonymous | Signed-in reader | Owner | Reviewer | Publisher | Administrator |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -312,7 +328,8 @@ access matrices: `UI/Components/ContentItemPanel.md §5`, `UI/Components/Content
 | Item `Draft` or `Submitted`, no ReadOnly covering its type — **the moderation action opens the editor**; fields, *Save* and *Submit as* | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No² | ✅ Yes³ | ✅ Yes |
 | Item `Approved` or `Rejected`, not the viewer's — **the moderation action**, rendered locked | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes⁴ | ✅ Yes | ✅ Yes |
 | Item `Draft` or `Submitted` — ***Delete*** in the editor (a takedown) | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ✅ Yes |
-| Item `Approved` or `Rejected`, not the viewer's — **the takedown** ≠ item 12 | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ✅ Yes |
+| Any status — ***Take down*** on the card ≠ item 12 | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ✅ Yes |
+| **The association chips**, each leading to its association's page ≠ item 17 | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes |
 | **View** on the card ≠ item 14 | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ❌ No |
 | Item `Submitted`, no ReadOnly the round composes — **a vote** in `ReviewPanel` | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes |
 | Item `Submitted` — **the decision**, and the bypass where the verdict allows it | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ✅ Yes | ✅ Yes |
@@ -357,7 +374,9 @@ access matrices: `UI/Components/ContentItemPanel.md §5`, `UI/Components/Content
    aligned", and not reachable today only because of this page's gate. The route
    comment in `adminRoutes.tsx` (lines 91-94 at 70dc72e7) assigns "widening who reaches this surface"
    to #361, which is closed: the widening is this item's own work, and the route comment goes
-   with it.
+   with it. The association page, `/Admin/Posts/{contentItemId}/Associations/{associationId}`,
+   takes the same security point and widens with this page (user ruling 2026-10-11;
+   `UI/Pages/AssociationModerationDetailPage.md rule 2.2`), so the widening covers its route too.
    Copied from `UI/Components/ContentItemPanel.md §10 item 9` and
    `UI/Components/ContentItemListPanel.md §10 item 5`. `UI/Components/ReviewPanel.md §10 item 7` and
    `UI/Components/ContentItemSettingsPanel.md §10 item 6` point here too.
@@ -397,8 +416,8 @@ access matrices: `UI/Components/ContentItemPanel.md §5`, `UI/Components/Content
    *Submitted by* (from the contributor read) and *Author*, where the type has one, as buttons
    raising `onContentTypeClick`, `onSubmittedByClick` and `onAuthorClick`
    (`UI/Components/ContentItemPanel.Default.md rules 3.1.1 and 3.1.4`). This page wires none of
-   them, so all three are dead actions (§UI20.6.6 rule 4). The side panels' chips, which rule 2.26
-   covers too, are item 17. The queue's half — its
+   them, so all three are dead actions (§UI20.6.6 rule 4). The card's tag and Bible reference chips,
+   which lead to their association's page instead (rule 2.31), are item 17. The queue's half — its
    query string, and opening its advanced section — is `UI/Pages/ContentItemModerationPage.md §6
    item 6`.
 6. (needs issue) **Page gap — `/Admin/Posts/{id}`: the reviewer candidates are read when the page
@@ -411,51 +430,31 @@ access matrices: `UI/Components/ContentItemPanel.md §5`, `UI/Components/Content
 7. (needs issue) **Stale code comments.** The page's header comment says "the review panel, the
    decision controls, the association verdicts — is #350's work; until it lands this page is the
    item in the admin shell". The review panel and the decision controls are on the page. #350, *Add
-   The Freshness Channel To The Review Panel*, is closed. The association verdicts are #698's. The
+   The Freshness Channel To The Review Panel*, is closed. The association verdicts are the association page's (`UI/Pages/AssociationModerationDetailPage.md`). The
    comment above `useContentItemEngagement` gives Share's absence as "an item under moderation is
    by definition not approved" (lines 120-124), but the page opens on approved items too: Moderate
    leads here from `/` and `/posts`, whose rows are all approved, and the queue reads every status
    (rule 2.15). The comment above `ContentItemEditPanel`, which says `mode="edit"` is "refused back
    to read", is `UI/Components/ContentItemPanel.Edit.md §10 item 4`.
-8. **Note — what belongs to #698.** These are the redesign's, and are cited rather than asked here:
-   where each association's round appears, and what a moderator can do on it
-   (`UI/Components/AssociationPanel.md §10 item 10`); whether a moderator is offered the suggest box,
-   and in what words (`UI/Components/AssociationPanel.TagAssociationPanel.md §10 item 3`); and what
-   the page puts first. Two of #698's questions are settled. Which server call decides a suggestion
-   was settled on 2026-09-27: a suggestion is an association with its own approval round, decided
-   through the same approval routes as the post, addressed by the association's own approval id
-   (#698, #699; `UI/Components/AssociationPanel.md §10 item 9`). Where a submitter sees and answers
-   the review thread is settled by the user's ruling of the same day (rules 2.2 and 2.3): the thread
-   belongs to the admin area and is offered to no general user. That also answers
+8. **Note — what belonged to #698, settled.** The redesign's questions were cited here rather
+   than asked: where each association's round appears, and what a moderator can do on it
+   (`UI/Components/AssociationPanel.md §10 item 10`); whether a moderator is offered the suggest
+   box, and in what words (`UI/Components/AssociationPanel.TagAssociationPanel.md §10 item 3`);
+   and what the page puts first. The product owner settled them on 2026-10-11 in the design
+   session of #705 (`DesignFeatures/PostModeration.md`): each association's round has a page of
+   its own, offering everything `ReviewPanel` offers, its thread and its takedown (rules 1 and
+   14 there); no moderator is offered the suggest box (rule 9 there); and the post leads, its
+   card first, with its tag chips and then its Bible reference chips on it, in a fixed order, not
+   ordered by what still needs a decision (rules 3 and 5 there). Two of #698's questions were
+   settled before. Which server call decides a suggestion was settled on 2026-09-27: a suggestion
+   is an association with its own approval round, decided through the same approval routes as the
+   post, addressed by the association's own approval id (#698, #699;
+   `UI/Components/AssociationPanel.md §10 item 9`). Where a submitter sees and answers the review
+   thread is settled by the user's ruling of the same day (rules 2.2 and 2.3): the thread belongs
+   to the admin area and is offered to no general user. That also answers
    `UI/Components/ReviewCommentPanel.md §10 item 6`.
-9. (#698) **Page gap — `/Admin/Posts/{id}`: the tag and Bible reference facet switches are
-   not wired.** Each panel renders only where the item's effective `ShowTags` or
-   `ShowBibleReferences` is on, and its add box shows only where `TagsAllowed` or
-   `BibleReferenceAllowed` is on, each ANDed with the page's own switch
-   (`UI/Components/AssociationPanel.TagAssociationPanel.md rule 2.8`,
-   `UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md rule 2.11`). This page renders
-   both panels unconditionally and leaves `showAdd` at its default, on
-   (`admin/contentItemModerationDetailPage.tsx` lines 738-748 at 70dc72e7, the two panel elements),
-   although it already resolves the item's winning setting for its heading (`headingSetting`) from
-   the same settings read the card and `ContentItemSettingsPanel` take (rule 2.17). The page is to
-   be redesigned under #698, which replaces these two panels (section 4.3); this item records the
-   page as built, and whether a moderator is offered the suggest box at all stays #698's (item 8).
-   The same gap on `/posts/{id}` is `UI/Pages/PostDetail.md §6 item 8`. Copied from
-   `UI/Components/AssociationPanel.TagAssociationPanel.md §10 item 2` and
-   `UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 4`, this page's share
-   of them.
-10. (#698) **Page gap — `/Admin/Posts/{id}`: the association panels are not handed the
-    post's content type.** Every page that renders the tag or Bible reference panel hands it the
-    host post's content type, as data, so that the panel composes the post's `ContentItem-ReadOnly`
-    and its `ContentItem-{ContentType}-ReadOnly` and withholds its suggest box from a holder, the
-    chips staying visible (`UI/Components/AssociationPanel.md rule 2.30`; user ruling 2026-09-27).
-    This page renders both panels with the add box on and passes neither the type
-    (`admin/contentItemModerationDetailPage.tsx` lines 738-748 at 70dc72e7, the two panel
-    elements), although it holds the item and its type. The panel has no property to receive it
-    yet (`UI/Components/AssociationPanel.md §10 item 20`). The page is to be redesigned under
-    #698, which replaces these two panels (section 4.3); this item records the page as built, and
-    whether a moderator is offered the suggest box at all stays #698's (item 8). The same gap on
-    `/posts/{id}` is `UI/Pages/PostDetail.md §6 item 11`.
+9. **Retired.** The side panels' facet switches — the redesign under #705 removes both panels (rule 2.22); the card's chips follow the post's facet switches (rule 2.30).
+10. **Retired.** The side panels and the post's content type — the redesign under #705 removes both panels (rule 2.22), so neither is handed anything.
 11. (needs issue) **Page gap — `/Admin/Posts/{id}`: the round is addressed by the item, not by its
     approval id.** Rule 2.23 (user rulings 2026-09-27; #699): every call about the round is
     addressed by the round's approval id, which every item that implements `IApproval` carries,
@@ -473,14 +472,18 @@ access matrices: `UI/Components/ContentItemPanel.md §5`, `UI/Components/Content
     is not built (§ARC17.5); the page's half is to read the id off the stored item and address every
     call about the round by it, once the routes are served. The components' halves are
     `UI/Components/ReviewPanel.md §10 item 12` and `UI/Components/ReviewCommentPanel.md §10 item 18`.
-12. (#698) **Page gap — `/Admin/Posts/{id}`: an administrator cannot take down a reviewed
-    item.** Rule 2.24 (user ruling 2026-09-27; §APR9.9 rule 7): `Administrators` may soft-delete the
-    item here at any status. The page offers the takedown only as *Delete* in the editor
-    (section 4.2), and on a decided item the administrator did not contribute the moderation action
-    is locked and the editor never opens (rule 2.7; `UI/Components/ContentItemPanel.Edit.md rule
-    3.2.5`), so an administrator can take down a `Draft` or `Submitted` item, or their own reviewed
-    one, and no other reviewed item. Where the control sits on the redesigned page is #698's; the
-    component's half of the question was `UI/Components/ContentItemPanel.Edit.md §10 item 6`.
+    The association page's share of the same move is
+    `UI/Pages/AssociationModerationDetailPage.md §6 item 21`.
+12. (needs issue) **Page gap — `/Admin/Posts/{id}`: an administrator cannot take down a reviewed
+    item.** Rule 2.24 (user rulings 2026-09-27 and 2026-10-11; §APR9.9 rule 7): `Administrators`
+    take the item down from the card's *Take down*, at any status, after its confirmation, and the
+    page sends `DELETE api/ContentItems/{contentItemId}` and returns to the queue (rule 2.9). The
+    page offers the takedown only as *Delete* in the editor (section 4.2), and on a decided item
+    the administrator did not contribute the moderation action is locked and the editor never
+    opens (rule 2.7; `UI/Components/ContentItemPanel.Edit.md rule 3.2.5`), so an administrator can
+    take down a `Draft` or `Submitted` item, or their own reviewed one, and no other reviewed
+    item. The card has no *Take down* yet (`UI/Components/ContentItemPanel.md §10 item 26`); the
+    page's half is to wire `onTakeDown`.
 13. (needs issue) **Page gap — `/Admin/Posts/{id}`: *Back to Posts* follows any origin.** Rule
     2.21 (user ruling 2026-09-27): the link always leads to the list it names, the queue,
     `/Admin/Posts`. It leads to whatever origin a redirect carried in router state, and to the bare
@@ -517,15 +520,34 @@ access matrices: `UI/Components/ContentItemPanel.md §5`, `UI/Components/Content
     `ContentItemSettingsModifyPanel`), so only a different winning row, an override added or
     removed elsewhere, starts the form again from the new row. The same gap on `/` is
     `UI/Pages/Home.md §6 item 11`, whose evidence stands for this page too.
-17. (#698) **Page gap — `/Admin/Posts/{id}`: the side panels' chips do not open the queue.** Rule
-    2.26 (user ruling 2026-09-27): in the admin section a tag or Bible reference chip in the side
-    panels raises its hook, and the page opens `/Admin/Posts` handed the value, as item 5 does for
-    the card. The page passes neither panel a chip link or `chipOnClick`
-    (`admin/contentItemModerationDetailPage.tsx` lines 738-748 at 70dc72e7, the two panel
-    elements), so a tag chip would follow the tag story's own `/Search?q=<tag>` and a reference
-    chip the reference story's own `/BibleReferences/{USFM}`, or `/Search?q=<reference>` for a
-    reference it cannot read. No chip renders while the lists are empty (the association read is not yet
-    exposed over HTTP, §ARC17.4). The page is to be redesigned under #698, from the product owner's
-    mocks `Admin Post Detail.dc.html` and `Admin Association Detail.dc.html` in the design session of
-    #705 (user ruling 2026-09-28), which replaces these two panels (section 4.3) and settles where a
-    tag or Bible reference chip leads; this item records the page as built.
+17. (needs issue) **Page gap — `/Admin/Posts/{id}`: the post's tags and Bible references are not
+    chips on its card.** Rules 2.6, 2.16, 2.22, 2.26, 2.30 and 2.31 (user rulings 2026-10-11;
+    `DesignFeatures/PostModeration.md` rules 1 and 3–9): the card shows every tag and Bible
+    reference of the post as a chip showing its association's status, in a fixed order, each
+    leading to its association's page, and the page renders no association panel. The page
+    renders `TagAssociationPanel` and `BibleReferenceAssociationPanel` below the card, each handed
+    an empty collection and a "coming soon" suggest box, and turns the card's tag and reference
+    sections off (`admin/contentItemModerationDetailPage.tsx` lines 738-748 at 70dc72e7, the two
+    panel elements, and the card's `showTagSection` and `showBibleReferenceSection`). Nothing reads
+    the post's associations: the read is #857's (`GET /api/associations`), and the tag and Bible
+    reference reads are `DesignFeatures/UI/Foundations/TagService.md §2` and
+    `DesignFeatures/UI/Foundations/BibleReferenceService.md §2`. The card's half is
+    `UI/Components/ContentItemPanel.md §10 item 25`. The tests that stand the two panels in the
+    column — "should stand both association surfaces below the item in the seven", "should mount
+    the thread under the bible references, not beside the round"
+    (`contentItemModerationDetailPage.test.tsx`) — change with it.
+18. (needs issue) **Page gap — `/Admin/Posts/{id}`: the page cannot open on the editor.** Rule 2.32
+    (user rulings 2026-10-11): a moderator the association page's Edit sends here arrives with the
+    editor open, unless rule 2.7's lock holds. The page opens on the card whatever brought the
+    moderator here: `isEditing` starts `false` and only `onModerateClick` sets it
+    (`admin/contentItemModerationDetailPage.tsx` — `isEditing`). The association page's half is
+    `UI/Pages/AssociationModerationDetailPage.md §6 item 4`.
+19. (needs issue) **Page gap — `/Admin/Posts/{id}`: the round's controls are live before its
+    record exists.** Rule 2.33 (user ruling 2026-10-11): until the approval process has created the
+    item's approval record, `ReviewPanel` and `ReviewCommentPanel` render their controls disabled.
+    While the verdict read answers not-found, the page hands `ReviewPanel` no verdict and
+    `ReviewCommentPanel` an empty `approvalId` (`admin/contentItemModerationDetailPage.tsx` — the
+    `approvalVerdict?.approvalId ?? ''` handed to the thread; `src/hooks/useApprovalRound.ts`), so
+    the vote, the request cog and the decision stay live with no round for their writes to land
+    on. The components' halves are `UI/Components/ReviewPanel.md §10 item 14` and
+    `UI/Components/ReviewCommentPanel.md §10 item 23`.
