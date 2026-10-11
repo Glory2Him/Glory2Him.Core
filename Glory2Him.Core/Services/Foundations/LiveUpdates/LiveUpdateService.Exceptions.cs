@@ -29,6 +29,10 @@ namespace Glory2Him.Core.Services.Foundations.LiveUpdates
             {
                 throw await CreateAndLogValidationExceptionAsync(nullLiveUpdateException);
             }
+            catch (InvalidLiveUpdateException invalidLiveUpdateException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(invalidLiveUpdateException);
+            }
         }
 
         private async ValueTask<LiveUpdateValidationException> CreateAndLogValidationExceptionAsync(

@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using Glory2Him.Core.Models.Foundations.LiveUpdates;
 using Glory2Him.Core.Models.Foundations.LiveUpdates.Exceptions;
 
@@ -19,6 +20,10 @@ namespace Glory2Him.Core.Services.Foundations.LiveUpdates
         private static void ValidateLiveUpdateOnSend(LiveUpdate liveUpdate)
         {
             ValidateLiveUpdateIsNotNull(liveUpdate);
+
+            Validate(
+                message: "Live update is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(liveUpdate.Type), Parameter: nameof(LiveUpdate.Type)));
         }
 
         private static void ValidateLiveUpdateIsNotNull(LiveUpdate liveUpdate)
@@ -27,6 +32,31 @@ namespace Glory2Him.Core.Services.Foundations.LiveUpdates
             {
                 throw new NullLiveUpdateException(message: "Live update is null.");
             }
+        }
+
+        private static dynamic IsInvalid(LiveUpdateType liveUpdateType) => new
+        {
+            Condition = Enum.IsDefined(liveUpdateType) is false,
+            Message = "Value is not a supported live update type"
+        };
+
+        private static void Validate(
+            string message,
+            params (dynamic Rule, string Parameter)[] validations)
+        {
+            var invalidLiveUpdateException = new InvalidLiveUpdateException(message);
+
+            foreach ((dynamic rule, string parameter) in validations)
+            {
+                if (rule.Condition)
+                {
+                    invalidLiveUpdateException.UpsertDataList(
+                        key: parameter,
+                        value: rule.Message);
+                }
+            }
+
+            invalidLiveUpdateException.ThrowIfContainsErrors();
         }
     }
 }
