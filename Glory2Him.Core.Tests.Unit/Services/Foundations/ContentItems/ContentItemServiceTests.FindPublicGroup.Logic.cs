@@ -16,7 +16,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
@@ -265,6 +267,59 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             actualPublicContentItemGroup.Should().BeNull();
             VerifyPublicContentItemGroupLookupAsked(cancellationToken, Times.Once());
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldFindThePublicVersionWithoutReadingTheCallerAsync()
+        {
+            // given: a group whose only version is Submitted - a row an administrator could see
+            // through the caller-filtered reads, and an anonymous visitor could not. Here both
+            // must receive the same answer.
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+            ContentItem submittedContentItem =
+                CreateCanonicallyVisibleContentItem(randomDateTimeOffset);
+
+            submittedContentItem.ApprovalStatus = ApprovalStatus.Submitted;
+            submittedContentItem.IsPublished = false;
+            submittedContentItem.PublishDate = null;
+
+            Guid inputGroupId = submittedContentItem.GroupId;
+            var storageContentItems = new List<ContentItem> { submittedContentItem };
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            SetupPublicContentItemGroupLookupOver(storageContentItems, cancellationToken);
+
+            // when
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
+
+            PublicContentItemGroup? administratorPublicContentItemGroup =
+                await this.contentItemService.FindPublicContentItemGroupAsync(
+                    groupId: inputGroupId,
+                    cancellationToken: cancellationToken);
+
+            this.ambientSecurityContext = new SecurityContext { IsAuthenticated = false };
+
+            PublicContentItemGroup? anonymousPublicContentItemGroup =
+                await this.contentItemService.FindPublicContentItemGroupAsync(
+                    groupId: inputGroupId,
+                    cancellationToken: cancellationToken);
+
+            // then
+            administratorPublicContentItemGroup.Should().BeNull();
+            anonymousPublicContentItemGroup.Should().BeNull();
+
+            // CALLER-INDEPENDENT, structurally: no envelope is minted, no identity resolved and
+            // no access decision asked for, so there is nothing a privilege could widen
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
         }
 
         public static TheoryData<string> CanonicalVisibilityTerms() =>
