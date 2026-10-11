@@ -120,6 +120,54 @@ namespace Glory2Him.Core.Tests.Unit.Infrastructure.Services
             deployIndex.Should().BeGreaterThan(webSocketsIndex);
         }
 
+        [Fact]
+        public void ShouldStopTheDeployWhenTheAppRunsOnMoreThanOneInstance()
+        {
+            // given
+            var scriptGenerationService = new ScriptGenerationService();
+            string buildPath = GetWorkflowPath(workflowFileName: "build.yml");
+            byte[] committedBuildBytes = File.ReadAllBytes(buildPath);
+            string actualBuild;
+
+            // when
+            try
+            {
+                GenerateBuildScript(scriptGenerationService);
+                actualBuild = NormalizeLineEndings(File.ReadAllText(buildPath));
+            }
+            finally
+            {
+                File.WriteAllBytes(buildPath, committedBuildBytes);
+            }
+
+            // then
+            string deployJob = actualBuild.Substring(actualBuild.IndexOf("\n  deploy_webapp:\n"));
+
+            List<string> deploySteps = deployJob
+                .Split("\n    - name: ")
+                .Skip(1)
+                .ToList();
+
+            int loginIndex = deploySteps.FindIndex(step => step.StartsWith("Login to Azure\n"));
+            int deployIndex = deploySteps.FindIndex(step => step.StartsWith("Deploy to Azure Web App\n"));
+
+            int instanceCountIndex = deploySteps.FindIndex(step =>
+                step.Contains("set -euo pipefail")
+                && step.Contains(
+                    "resourceGroup=$(az webapp list " +
+                    "--query \"[?name=='g2h-dev'].resourceGroup | [0]\" --output tsv)")
+                && step.Contains(
+                    "instanceCount=$(az webapp list-instances --name g2h-dev " +
+                    "--resource-group \"$resourceGroup\" --query \"length(@)\" --output tsv)")
+                && step.Contains("if ! [ \"$instanceCount\" -le 1 ]; then")
+                && step.Contains("§ARC12.12 rule 5")
+                && step.Contains("exit 1"));
+
+            loginIndex.Should().BeGreaterThanOrEqualTo(0);
+            instanceCountIndex.Should().BeGreaterThan(loginIndex);
+            deployIndex.Should().BeGreaterThan(instanceCountIndex);
+        }
+
         private static void GenerateBuildScript(ScriptGenerationService scriptGenerationService) =>
             scriptGenerationService.GenerateBuildScript(
                 branchName: "main",
