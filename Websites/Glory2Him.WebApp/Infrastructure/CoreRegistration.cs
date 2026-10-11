@@ -16,6 +16,7 @@ using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Hashes;
 using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Integrities;
+using Glory2Him.Core.Brokers.LiveUpdates;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
@@ -43,6 +44,7 @@ using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.Comments;
 using Glory2Him.Core.Services.Foundations.BibleReferences;
 using Glory2Him.Core.Services.Foundations.Associations;
+using Glory2Him.WebApp.Brokers.LiveUpdates;
 
 namespace Glory2Him.WebApp.Infrastructure
 {
@@ -128,6 +130,15 @@ namespace Glory2Him.WebApp.Infrastructure
             // once per process — AccessBroker above pays the identical cost independently for the
             // same reason, since nothing here shares a single ISecurityClient between the two.
             services.AddScoped<ISecurityAuditBroker, SecurityAuditBroker>();
+
+            // The live connection (§ARC12.12 rule 3). AddSignalR provides the hub context the
+            // broker sends through. The broker captures no caller, so its lifetime decides
+            // nothing about identity; it is scoped all the same, beside the other request-bound
+            // brokers, which leaves §SEC14.6.1's list of the host's singleton brokers as it
+            // stands.
+            services.AddSignalR();
+            services.AddScoped<ILiveUpdateBroker, LiveUpdateBroker>();
+
             // The service INTERFACES are public; the implementations are not. Binding the two is
             // only possible from inside Core's friend set, which is the point — the host names
             // the contract, Core keeps the implementation. Each controller then takes its one
