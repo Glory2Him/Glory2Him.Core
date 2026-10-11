@@ -196,6 +196,45 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             VerifyPublicContentItemGroupLookupAsked(cancellationToken, Times.Once());
         }
 
+        [Fact]
+        public async Task ShouldFindNothingFromAnotherGroupAsync()
+        {
+            // given: the asked-for group holds only a draft, and another group holds a
+            // canonically visible version. A read that asked §SEC14.1 of any version rather than
+            // of this group's versions would answer the other group's.
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+            ContentItem draftContentItem = CreateRandomContentItem(randomDateTimeOffset);
+
+            ContentItem otherGroupVisibleContentItem =
+                CreateCanonicallyVisibleContentItem(randomDateTimeOffset);
+
+            Guid inputGroupId = draftContentItem.GroupId;
+
+            var storageContentItems = new List<ContentItem>
+            {
+                draftContentItem,
+                otherGroupVisibleContentItem
+            };
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            SetupPublicContentItemGroupLookupOver(storageContentItems, cancellationToken);
+
+            // when
+            PublicContentItemGroup? actualPublicContentItemGroup =
+                await this.contentItemService.FindPublicContentItemGroupAsync(
+                    groupId: inputGroupId,
+                    cancellationToken: cancellationToken);
+
+            // then
+            actualPublicContentItemGroup.Should().BeNull();
+            VerifyPublicContentItemGroupLookupAsked(cancellationToken, Times.Once());
+        }
+
         public static TheoryData<string> CanonicalVisibilityTerms() =>
             new TheoryData<string>
             {
