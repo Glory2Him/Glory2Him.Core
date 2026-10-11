@@ -37,6 +37,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         private delegate ValueTask<IReadOnlyList<PublicContentItemGroup>>
             ReturningPublicContentItemGroupsFunction();
 
+        private delegate ValueTask<PublicContentItemGroup?> ReturningPublicContentItemGroupFunction();
+
         private delegate ValueTask<bool> ReturningBooleanFunction();
 
         private delegate ValueTask<EventEnvelope<ContentItem>?>
@@ -459,6 +461,55 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             try
             {
                 return await returningPublicContentItemGroupsFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutContentItemException =
+                    new TimeoutContentItemException(
+                        message: "Failed content item timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(exception: timeoutContentItemException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (InvalidContentItemException invalidContentItemException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: invalidContentItemException);
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageContentItemException = new FailedStorageContentItemException(
+                    message: "Failed content item storage error occurred, contact support.",
+                    innerException: sqlException,
+                    data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(exception: failedStorageContentItemException);
+            }
+            catch (Exception exception)
+            {
+                var failedContentItemServiceException = new FailedContentItemServiceException(
+                    message: "Failed content item service error occurred, please contact support.",
+                    innerException: exception,
+                    data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(exception: failedContentItemServiceException);
+            }
+        }
+
+        private async ValueTask<PublicContentItemGroup?> TryCatchPublicContentItemGroup(
+            ReturningPublicContentItemGroupFunction returningPublicContentItemGroupFunction)
+        {
+            try
+            {
+                return await returningPublicContentItemGroupFunction();
             }
             catch (OperationCanceledException operationCanceledException)
                 when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
