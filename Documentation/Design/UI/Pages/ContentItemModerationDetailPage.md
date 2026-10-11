@@ -114,7 +114,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.32 [Must]** A moderator the association page's Edit sends here arrives with the editor open, as if they had taken Edit on this card (rule 2.7; `DesignFeatures/PostModeration.md` rule 11). Where rule 2.7's lock holds on the item, the page opens on the card as it always does, and the editor stays shut. *(user, 2026-10-11)* ≠ item 18
 
-**2.33 [Must]** Until the approval process has created the item's approval record, every control that depends on the round's id is disabled: the page tells `ReviewPanel` and `ReviewCommentPanel` so (`isAwaitingApprovalRecord`; `UI/Components/ReviewPanel.md rule 2.55`, `UI/Components/ReviewCommentPanel.md rule 2.36`). The record is not there while the verdict read answers not-found for the item (§ARC16.7.2), and the round refresh (rule 2.12) enables the controls once it is (`DesignFeatures/PostModeration.md` rule 17). *(user, 2026-10-11)* ≠ item 19
+**2.33 [Must]** Until the approval process has created the item's approval record, every control that depends on the round's id is disabled: the page tells `ReviewPanel` and `ReviewCommentPanel` so (`isAwaitingApprovalRecord`; `UI/Components/ReviewPanel.md rule 2.55`, `UI/Components/ReviewCommentPanel.md rule 2.36`). The record is not there while the verdict read answers not-found for the item, and a later read of the round refresh (rule 2.12) that answers with the record enables the controls (`DesignFeatures/PostModeration.md` rule 17). On the route the page reads today, keyed by the item, the verdict read opens a missing round itself for a `Draft` or `Submitted` item, and answers not-found only for an item taken down or a decided item whose round was never recorded, which no read opens (§ARC16.7.2, *The write as built*): there the controls stay disabled. A round the approval process has yet to record reaches the page once it reads the round by its approval id (item 11), a read that opens no round (§ARC16.7.2). *(user, 2026-10-11)* ≠ item 19
 
 ## 3. Layout
 
@@ -419,7 +419,8 @@ everyone who reaches the page; each association's round is the association page'
    them, so all three are dead actions (§UI20.6.6 rule 4). The card's tag and Bible reference chips,
    which lead to their association's page instead (rule 2.31), are item 17. The queue's half — its
    query string, and opening its advanced section — is `UI/Pages/ContentItemModerationPage.md §6
-   item 6`.
+   item 6`. The same gap on the association page is
+   `UI/Pages/AssociationModerationDetailPage.md §6 item 23`.
 6. (needs issue) **Page gap — `/Admin/Posts/{id}`: the reviewer candidates are read when the page
    loads.** Rule 2.27 (user ruling 2026-09-27): the candidates are read when the request picker
    opens (`UI/Components/ReviewPanel.md rule 2.32`), on the `onReviewerLookupRequested` the picker
@@ -549,5 +550,17 @@ everyone who reaches the page; each association's round is the association page'
     `ReviewCommentPanel` an empty `approvalId` (`admin/contentItemModerationDetailPage.tsx` — the
     `approvalVerdict?.approvalId ?? ''` handed to the thread; `src/hooks/useApprovalRound.ts`), so
     the vote, the request cog and the decision stay live with no round for their writes to land
-    on. The components' halves are `UI/Components/ReviewPanel.md §10 item 14` and
+    on. On today's route the verdict read answers not-found for a decided item whose round was
+    never recorded, since it opens a missing round only for a `Draft` or `Submitted` item (rule
+    2.33). The components' halves are `UI/Components/ReviewPanel.md §10 item 14` and
     `UI/Components/ReviewCommentPanel.md §10 item 23`.
+20. **Question — what the card shows when the post's associations or their names cannot be
+    read.** Rule 2.30 reads the post's associations and names each chip from the tag and Bible
+    reference reads, and no rule settles what the card shows when one of those reads fails. The
+    user ruled that a failed settings read shows the page's error, announced, with a Retry, never
+    the card without its settings (rule 2.28). (a) When the associations read fails, does the card
+    show no chips, which reads as a post with none, or an error in their place, announced, with a
+    Retry? (b) When the tag read or the Bible reference read fails, does the card show the other
+    kind's chips alone, or the same error? An answer adds a rule beside rule 2.30. The association
+    page's card answers as this one does (`UI/Pages/AssociationModerationDetailPage.md §6 item
+    24`).

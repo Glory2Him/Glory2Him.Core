@@ -173,15 +173,25 @@ changes.
   answers with (rule 17). The move to routes keyed by the approval id (§ARC17.5) is the post
   page's `§6 item 11` and the association page's share of it, and waits on #699's stage-2 build,
   which has no task (`Design/UI/Components/ReviewPanel.md §10 item 12`).
+- **The read-only-role view, `Design/UI/Components/ReviewPanel.md §10 items 1 and 9`.** Rule 15's
+  block on either endpoint bars in `ReviewPanel` once the panel composes read-only roles: it
+  composes none today, on any round, and those two items, which have no task, compose them from
+  an association's endpoints with the view. `ReviewCommentPanel`'s tick composes them from the
+  endpoints in this feature (`Design/UI/Components/ReviewCommentPanel.md §10 item 22`).
 
 ## Risks
 
 - **Reversible throughout.** No schema, no event and no route changes. The side panels the post
   page drops are still rendered by the reader pages.
-- **A round with no record.** Until the approval process has created an association's approval
-  record, its round's controls stay disabled (rule 17); the round refresh enables them once the
-  record exists. If the process never creates one, the controls stay disabled, which is the safe
-  side.
+- **A round with no record.** While the verdict read answers not-found, a round's controls stay
+  disabled (rule 17), and a refresh that finds the record enables them. On the routes the pages
+  read today, keyed by the item, that read opens a missing round itself for a `Draft` or
+  `Submitted` item, so the page's own read creates the record. It answers not-found only for an
+  item taken down, or for a decided item whose round was never recorded, which no read opens
+  (§ARC16.7.2, *The write as built*): there the controls stay disabled, which is the safe side.
+  The window rule 17 names, a round the approval process has yet to record, reaches the pages once
+  they read the round by its approval id, a read that opens no round (§ARC16.7.2, §ARC17.5; *The
+  round's routes* above).
 
 ## Out of scope
 

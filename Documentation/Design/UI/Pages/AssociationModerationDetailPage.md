@@ -35,7 +35,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 ## 2. Business Rules
 
-**2.1 [Must]** The page shows one association of the post in its address: the post, the association, its confidence block, its review thread, and its reviews and *Review Outcome*, with *Back to Posts* and *Back to Post* (`DesignFeatures/PostModeration.md` rules 1 and 12). *(user, 2026-10-11)* ≠ item 1
+**2.1 [Must]** The page shows one association of the post in its address: the post, the association, its confidence block, its review thread, and its reviews and *Review Outcome*, with *Back to Posts* and *Back to Post* (`DesignFeatures/PostModeration.md` rules 1 and 12). *(user, 2026-10-11)* ≠ items 1, 2, 6, 14 and 22
 
 **2.2 [Must]** Whoever reaches the post page reaches this one: the same security point, `securityPoints.contentItems.view`, which admits `Administrators` today. When the post page widens to the review and publisher tiers (`UI/Pages/ContentItemModerationDetailPage.md §6 item 1`), this page widens with it (`DesignFeatures/PostModeration.md` rule 2). *(user, 2026-10-11)* ≠ item 1
 
@@ -43,11 +43,11 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.4 [Should]** While the post or the association loads, a spinner stands in for the page. When either cannot be read, or rule 2.3 refuses the pair, the page shows the post page's words, "We could not load this post right now. It may have been removed, or it may not be yours to moderate.", and offers *Back to Posts* (`UI/Pages/ContentItemModerationDetailPage.md rule 2.20`). *(user, 2026-10-11)* ≠ item 1
 
-**2.5 [Should]** The heading and the tab title name the association: *Tag: #* and the tag's name, or *Bible reference:* and the reference. The breadcrumb reads *Admin* › *Posts* › the post's heading, as the post page words it (`UI/Pages/ContentItemModerationDetailPage.md rule 2.18`), linking to the post page › the association's chip text. *(user, 2026-10-11: the mock's `assocHeading` and breadcrumb)* ≠ item 1
+**2.5 [Should]** The heading and the tab title name the association: *Tag: #* and the tag's name, or *Bible reference:* and the reference. The breadcrumb reads *Admin* › *Posts* › the post's heading, as the post page words it (`UI/Pages/ContentItemModerationDetailPage.md rule 2.18`), linking to the post page › the association's chip text. *(user, 2026-10-11: the mock's `assocHeading` and breadcrumb)* ≠ item 22
 
-**2.6 [Could]** *Back to Posts* leads to the queue, `/Admin/Posts`, as the post page's does (`UI/Pages/ContentItemModerationDetailPage.md rule 2.21`): as the moderator left it where the state that brought them here carries the queue's address, the bare queue otherwise. *Back to Post* leads to the post page, `/Admin/Posts/{contentItemId}`. Both always render, *Back to Post* the primary of the two. *(user, 2026-10-11: the mock's two links)* ≠ item 1
+**2.6 [Could]** *Back to Posts* leads to the queue, `/Admin/Posts`, as the post page's does (`UI/Pages/ContentItemModerationDetailPage.md rule 2.21`): as the moderator left it where the state that brought them here carries the queue's address, the bare queue otherwise. *Back to Post* leads to the post page, `/Admin/Posts/{contentItemId}`. Both always render, *Back to Post* the primary of the two. *(user, 2026-10-11: the mock's two links)* ≠ item 22
 
-**2.7 [Must]** The post leads: its card stands across the page's full width, above both columns (`DesignFeatures/PostModeration.md` rule 3). Beneath it, what is judged stands on the left — the association's card, then its review thread — and who judges it on the right — its round. *(user, 2026-10-11: the mock's `col-12`, `col-lg-7` and `col-lg-5`)* ≠ item 1
+**2.7 [Must]** The post leads: its card stands across the page's full width, above both columns (`DesignFeatures/PostModeration.md` rule 3). Beneath it, what is judged stands on the left — the association's card, then its review thread — and who judges it on the right — its round. *(user, 2026-10-11: the mock's `col-12`, `col-lg-7` and `col-lg-5`)* ≠ items 2, 6, 14 and 22
 
 **2.8 [Must]** The post's card is the post page's moderated card (`UI/Pages/ContentItemModerationDetailPage.md rules 2.15–2.17 and 2.30`): its chips on it, in the same order and with the same statuses, this association's chip marked current and ringed, the status ribbon, the content whole, and the Like control, with Share and Save deliberately not (`DesignFeatures/PostModeration.md` rules 3–8 and 11). *(user, 2026-10-11)* ≠ items 2 and 3
 
@@ -67,7 +67,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.16 [Must]** The round is read, not invented, as the post page reads its own (`UI/Pages/ContentItemModerationDetailPage.md rule 2.10`): the verdict, the reviews, the outstanding requests, the reviewer names, Berean's status and the thread come off the approval endpoints, asked by the association's type and id, `Association` and `associationId`, on the routes served today (§ARC17.5, *As built*). The round's approval id is the one the approval record carries, taken off the verdict the record answers with (`DesignFeatures/PostModeration.md` rule 17). `ReviewPanel`'s owner and status come off the stored association: its `CreatedBy` and its `ApprovalStatus`. *(user, 2026-10-11)* ≠ items 6, 14 and 21
 
-**2.17 [Must]** Until the approval process has created the association's approval record — the verdict read answering not-found — every control that depends on the round's id is disabled: the page tells both panels so (`isAwaitingApprovalRecord`; `UI/Components/ReviewPanel.md rule 2.55`, `UI/Components/ReviewCommentPanel.md rule 2.36`), and the round refresh (rule 2.18) enables them once the record exists (`DesignFeatures/PostModeration.md` rule 17). *(user, 2026-10-11)* ≠ items 6 and 14
+**2.17 [Must]** Until the association's approval record exists — the verdict read answering not-found — every control that depends on the round's id is disabled: the page tells both panels so (`isAwaitingApprovalRecord`; `UI/Components/ReviewPanel.md rule 2.55`, `UI/Components/ReviewCommentPanel.md rule 2.36`), and a later read of the round refresh (rule 2.18) that answers with the record enables them (`DesignFeatures/PostModeration.md` rule 17). On the route the page reads today, keyed by the association, the verdict read opens a missing round itself for a `Draft` or `Submitted` association, and answers not-found only for an association taken down or a decided one whose round was never recorded, which no read opens (§ARC16.7.2, *The write as built*): there the controls stay disabled. A round the approval process has yet to record reaches the page once it reads the round by its approval id (item 21), a read that opens no round (§ARC16.7.2). *(user, 2026-10-11)* ≠ items 6 and 14
 
 **2.18 [Must]** The page's single round refresh keeps the round and the thread current as the post page's does (`UI/Pages/ContentItemModerationDetailPage.md rule 2.12`): every 15 seconds while the tab is visible, on returning to the tab, and on reconnect. The association is re-read with the round, because `ReviewPanel` takes its status from the stored association, and the reviewer candidates are left out of it (`UI/Components/ReviewPanel.md rules 2.8 and 2.32`). *(user, 2026-09-27; user, 2026-10-11)* ≠ item 6
 
@@ -148,7 +148,7 @@ Nothing on this page is built; every *Built today* cell names the section-6 item
 | `onEditClick` | The owner's Edit is pressed | Never offered: the moderated face removes it (`UI/Components/ContentItemPanel.md rule 3.1.6`). | *Not wired — switched off* |
 | `onShareClick`, `onSaveClick` | *Share* or *Save* is pressed | Not offered (rule 2.8). | *Not wired — switched off* |
 | `onTagClick`, `onBibleReferenceClick` | A pill is pressed | — | *Never raised*: the card shows association chips (rule 2.8) |
-| `onContentTypeClick`, `onSubmittedByClick`, `onAuthorClick` | The type chip, *Submitted by* or *Author* is pressed | Opens the queue handed the value, as the post page does (`UI/Pages/ContentItemModerationDetailPage.md rule 2.26`). | ❌ No — item 2 |
+| `onContentTypeClick`, `onSubmittedByClick`, `onAuthorClick` | The type chip, *Submitted by* or *Author* is pressed | Opens the queue handed the value, as the post page is to (`UI/Pages/ContentItemModerationDetailPage.md rule 2.26`). | ❌ No — item 23 |
 | `onTitleClick`, `onReadMore`, `onExpandCollapse`, `onCommentsClick` | — | As the post page (`UI/Pages/ContentItemModerationDetailPage.md §4.1`). | *Not wired — switched off* |
 | `onModified`, `onRemoved`, `onCancelled`, `onAdded` | The panel's writing faces | — | *Never raised*: `showEditSection` is off, and the editor is the post page's |
 
@@ -233,7 +233,7 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
 
 | Property and/or Role Condition | Anonymous | Signed-in reader | Owner | Reviewer | Publisher | Administrator |
 | --- | --- | --- | --- | --- | --- | --- |
-| The page — the post, the association, its round and its thread, read ≠ item 1 | ❌ No¹ | ❌ No | ❌ No | ✅ Yes² | ✅ Yes² | ✅ Yes |
+| The page — the post, the association, its round and its thread, read ≠ items 1, 2, 6 and 14 | ❌ No¹ | ❌ No | ❌ No | ✅ Yes² | ✅ Yes² | ✅ Yes |
 | Association `Submitted`, no read-only role in scope — **a vote** ≠ item 7 | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes |
 | Association `Submitted` — **the decision**, and the bypass where the verdict allows it ≠ item 8 | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ✅ Yes | ✅ Yes |
 | Association `Approved` or `Rejected` — **the reset** ≠ item 9 | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ✅ Yes |
@@ -248,18 +248,19 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
 
 ## 6. Open Questions and Gaps
 
-1. (#1050) **Page gap — the association page does not exist.** Rules 2.1–2.7 and 2.12 (user
+1. (#1050) **Page gap — the association page does not exist.** Rules 2.1–2.4 and 2.12 (user
    rulings 2026-10-11): the route, guarded as the post page's; the reads of the post, the
    association (#857), its far end and its suggester's name; the refusal of an association that is
-   not the post's, and the could-not-load state; the heading, the breadcrumb, *Back to Posts* and
-   *Back to Post*; the layout; and the association's card, `AssociationDetailPanel`
-   (`UI/Components/AssociationDetailPanel.md §10 items 1 and 2`). No route answers
+   not the post's, and the could-not-load state; and the association's card,
+   `AssociationDetailPanel` (`UI/Components/AssociationDetailPanel.md §10 items 1 and 2`). The
+   heading, the breadcrumb, the two links back and the columns are item 22. No route answers
    `Admin/Posts/:contentItemId/Associations/:associationId` (`src/routes/adminRoutes.tsx`), and
    no page shows an association.
-2. (#1055) **Page gap — the post's card shows no chips here.** Rules 2.8 and 2.9: the post's
-   card with its association chips, this association's current and ringed, each other chip
-   leading to its association's page, and the type chip, *Submitted by* and *Author* opening the
-   queue as on the post page. It builds on item 1's page.
+2. (#1055) **Page gap — the post's card shows no chips here.** Rules 2.7–2.9: the post's
+   card, across the page's full width above both columns, with its association chips, this
+   association's current and ringed, and each other chip leading to its association's page. It
+   builds on item 1's page and item 22's columns. The card's type chip, *Submitted by* and
+   *Author* are item 23.
 3. (#1056) **Page gap — the post's card offers no Like control here.** Rule 2.8
    (`DesignFeatures/Likes.md` rule 11; user ruling 2026-10-11): the card shows the post's
    reaction counts and the reader's own, and records, changes or clears it, through
@@ -271,10 +272,11 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
 5. (#1058) **Page gap — the post cannot be taken down here.** Rule 2.11 (user rulings
    2026-10-11): `Administrators` take the post down from the card's *Take down*. The card's half
    is `UI/Components/ContentItemPanel.md §10 item 26`.
-6. (#1059) **Page gap — the association's round is not shown.** Rules 2.14–2.18: the
+6. (#1059) **Page gap — the association's round is not shown.** Rules 2.7 and 2.14–2.18: the
    association's round in `ReviewPanel` — its reviews, Berean's row and its *Review Outcome* —
    read by the association's type and id, its tiers composed from the association's endpoints,
-   its controls disabled until the approval record exists, and refreshed with the association.
+   its controls disabled until the approval record exists, refreshed with the association, and
+   standing in the right-hand column (rule 2.7).
    The panel's halves are `UI/Components/ReviewPanel.md §10 items 13 and 14`. The React app's
    `EntityTypeName` has no `Association` member yet (`src/models/foundations/approvals/approval.ts`).
 7. (#1060) **Page gap — no vote can be cast on the association.** Rules 2.14 and 2.19:
@@ -293,9 +295,10 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
     2.19: `onAIReviewerRequested`, for a first request and a re-request alike.
 13. (#1066) **Page gap — Berean cannot be withdrawn from the association's round.** Rules
     2.14 and 2.19: `onAIReviewerWithdrawn`.
-14. (#1067) **Page gap — the association's review thread is not shown.** Rules 2.14–2.18:
-    the thread in `ReviewCommentPanel`, its tiers composed from the association's endpoints, its
-    box disabled until the approval record exists. The panel's halves are
+14. (#1067) **Page gap — the association's review thread is not shown.** Rules 2.7 and 2.14–2.18:
+    the thread in `ReviewCommentPanel`, beneath the association's card in the left-hand column
+    (rule 2.7), its tiers composed from the association's endpoints, its box disabled until the
+    approval record exists. The panel's halves are
     `UI/Components/ReviewCommentPanel.md §10 items 22 and 23`.
 15. (#1068) **Page gap — no comment can be added to the association's thread.** Rule 2.19:
     `onSave`.
@@ -326,3 +329,28 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
     addressed by its approval id (§ARC17.5; ruled under #699, not built). The routes wait on
     #699's stage-2 build, which has no task (`UI/Components/ReviewPanel.md §10 item 12`); the
     page's half is to address every call about the round by the approval id once they are served.
+22. (#1074) **Page gap — the association page has no heading, no way back and no columns.** Rules
+    2.5–2.7 (user rulings 2026-10-11): the heading and the tab title naming the association, the
+    breadcrumb through the post, *Back to Post* and *Back to Posts*, and §3's regions — a
+    full-width row for the post's card above two columns, the association's card in the left-hand
+    one. Items 2, 6 and 14 stand the post's card, the round and the thread in their places. It
+    builds on item 1's page.
+23. (#1075) **Page gap — the post card's type chip, *Submitted by* and *Author* lead nowhere
+    here.** `UI/Pages/ContentItemModerationDetailPage.md rule 2.26` (user ruling 2026-09-27), which
+    the card here follows (section 4.1): each click opens the queue, `/Admin/Posts`, handed the
+    value in its query string. The same gap on the post page is
+    `UI/Pages/ContentItemModerationDetailPage.md §6 item 5`, and the queue's half, opening its
+    advanced section on the value, is `UI/Pages/ContentItemModerationPage.md §6 item 6`. It builds
+    on item 2's card.
+24. **Question — what the page shows when one of its reads fails.** Rule 2.4 settles a failed read
+    of the post or the association: the could-not-load state. No rule settles three more reads the
+    page makes, and on the post page the user ruled that a failed settings read shows the page's
+    error, announced, with a Retry, never the card without its settings
+    (`UI/Pages/ContentItemModerationDetailPage.md rule 2.28`). (a) When the far end's read — the
+    tag or the Bible reference — fails, does the page show the could-not-load state, or the
+    association's card without its label? (b) When the post's associations read fails, does the
+    post's card show no chips, which reads as a post with none, or an error in their place,
+    announced, with a Retry? The post page asks the same (`UI/Pages/ContentItemModerationDetailPage.md
+    §6 item 20`), and this page's card answers as that one does (rule 2.8). (c) When the thread read
+    fails, does the thread show no rows, which reads as a round nobody has commented on, or an
+    error in its place, announced, with a Retry? An answer adds a rule to section 2 for each.
