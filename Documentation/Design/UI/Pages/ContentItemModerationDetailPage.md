@@ -76,7 +76,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.14 [Must]** Two removals are confirmed by the page before they are sent. Withdrawing a review comment asks "This comment will be removed from the review thread. This action cannot be undone." Removing a settings override asks *Remove override?*, "This content item will go back to its content type defaults. The override is deleted permanently and cannot be recovered." Nothing is sent on Cancel. *(code: contentItemModerationDetailPage.tsx — the two `ConfirmDialog`s; test: contentItemModerationDetailPage.test.tsx — "should confirm before withdrawing a comment, and soft delete on OK", "should send nothing when the withdrawal is cancelled")*
 
-**2.15 [Must]** The page offers the Like control on the card, and Share and Save deliberately not. The item here may be at any status, `Draft`, `Submitted` and `Rejected` as well as `Approved`, and the address Share copies, `/posts/{id}`, shows an approved item alone (`UI/Pages/PostDetail.md rule 2.1`). *(code: contentItemModerationDetailPage.tsx — the comment above `useContentItemEngagement`; test: contentItemModerationDetailPage.test.tsx — "should add only the like control to the newly wired pages")* ≠ item 3
+**2.15 [Must]** The page offers the Like control on the card, and Share and Save deliberately not. The item here may be at any status, `Draft`, `Submitted` and `Rejected` as well as `Approved`, and the address Share copies, `/posts/{id}`, shows an approved item alone (`UI/Pages/PostDetail.md rule 2.1`). *(code: contentItemModerationDetailPage.tsx — the comment above `useContentItemEngagement`; test: contentItemModerationDetailPage.test.tsx — "should add only the like control to the newly wired pages")*
 
 **2.16 [Must]** The card's tag and Bible reference sections are off, and the pill beside the type chip is off against the corner ribbon, so the same facts never show twice. The content stands whole, because a moderator rules on what is actually there. *(code: contentItemModerationDetailPage.tsx — the comment above the card; test: contentItemModerationDetailPage.test.tsx — "should not repeat the status as a pill beside the ribbon")*
 
@@ -373,26 +373,16 @@ access matrices: `UI/Components/ContentItemPanel.md §5`, `UI/Components/Content
    `admin/contentItemModerationDetailPage.tsx` — `contentItemSettings ?? []` (lines 847-850 at
    70dc72e7 for the settings panel). Copied from `UI/Components/ContentItemPanel.md §10 item 15`, this
    page's share of it. `UI/Components/ContentItemSettingsPanel.md §10 item 5` points to it.
-3. (#747) **Page gap — `/Admin/Posts/{id}`: the card shows no counts.** A chosen reaction is
-   recorded, changed or cleared by `useContentItemEngagement`, which the page takes
-   `onReactionSelected` from (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2`; #739), and no
-   signed-out reader chooses one here, because `SecuredRoute` admits none. Copied from
-   `UI/Components/ContentItemPanel.md §10 item 17`, this page's share of it.
-   **The card's counts are this item's work** (the Likes feature, `DesignFeatures/Likes.md`).
-   The page reads no reaction summary, so the card shows none of the reactions its item has been
-   given, and the reader's own reaction shows only as the overlay of a choice they have just made
-   (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rule 8), never as the one they hold
-   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-86). So the overlay goes
-   as soon as the write that laid it settles, and a reader who then chooses the reaction they hold
-   gives it again, which leaves it held, rather than withdrawing it: until this item is built, a
-   reaction is withdrawn here only when the reader chooses it again before the write that gave it
-   has settled (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rules 4 and 9). The overlay
-   starts from an empty summary where the item has none, so while a choice's write is pending the
-   card shows the chosen reaction counted 1, whatever the item has been given, and no other count,
-   and none after a withdrawal (`DesignFeatures/UI/Views/ChosenReactionSummary.md §1` rules 1 to 3;
-   `DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rule 5). The page hands
-   `useContentItemEngagement` the id of its one card and renders what `withReactions` projects
-   (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
+3. Built (#747) **`/Admin/Posts/{id}`: the page's Like control is wired.** Copied from
+   `UI/Components/ContentItemPanel.md §10 item 17`, this page's share of it. The page hands
+   `useContentItemEngagement` the id of its one card and renders the card from what `withReactions`
+   projects, so the card, where its item has a reaction summary, shows the reactions it has been
+   given and marks the reader's own (`src/pages/admin/contentItemModerationDetailPage.tsx`, the hook
+   at lines 131-132, the card at lines 724-736, at 2e532447;
+   `DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; `DesignFeatures/Likes.md` rules 5, 6 and
+   11a; #747). A reaction the reader chooses is recorded, changed or cleared by the same hook
+   (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2`; #739), and no signed-out reader chooses
+   one here, because `SecuredRoute` admits none.
 4. (needs issue) **Page gap — `/Admin/Posts/{id}`: the moderator's editor prefills the moderator's
    name.** The editor's owned-basis prefill takes the submitter's name from `submittedByDisplayName`,
    not the editor's (`UI/Components/ContentItemPanel.Edit.md rule 2.15`). Without it, the form falls

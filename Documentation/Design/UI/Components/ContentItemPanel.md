@@ -605,7 +605,7 @@ context) for the render gates, and the item's `ApprovalStatus` for the non-owner
     a state the design relies on, and rules 2.26 and 2.29 and
     `UI/Components/ContentItemPanel.Default.md rules 2.5 and 3.3.1` stand as written. Holding the
     card is each page's: the pages' gaps are those item 5 lists.
-17. **Moved to the page documents.** Page gap — the cards show no counts — now
+17. **Moved to the page documents.** The pages' Like controls are wired — now
     `UI/Pages/Home.md §6 item 2`, `UI/Pages/Posts.md §6 item 2`, `UI/Pages/PostDetail.md §6 item
     2`, `UI/Pages/MyPosts.md §6 item 2`, `UI/Pages/MyPostDetail.md §6 item 4`,
     `UI/Pages/ContentItemModerationPage.md §6 item 2` and
