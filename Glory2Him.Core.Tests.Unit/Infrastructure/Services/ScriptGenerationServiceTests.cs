@@ -151,21 +151,32 @@ namespace Glory2Him.Core.Tests.Unit.Infrastructure.Services
             int loginIndex = deploySteps.FindIndex(step => step.StartsWith("Login to Azure\n"));
             int deployIndex = deploySteps.FindIndex(step => step.StartsWith("Deploy to Azure Web App\n"));
 
+            string expectedInstanceCountStep =
+                """
+                Refuse More Than One Instance
+                      run: >-
+                        set -euo pipefail
+
+                        resourceGroup=$(az webapp list --query "[?name=='g2h-dev'].resourceGroup | [0]" --output tsv)
+
+                        instanceCount=$(az webapp list-instances --name g2h-dev --resource-group "$resourceGroup" --query "length(@)" --output tsv)
+
+                        if ! [ "$instanceCount" -le 1 ]; then
+                          echo "::error::g2h-dev runs on '$instanceCount' instances. §ARC12.12 rule 5 keeps it on one until a backplane is designed; scale it back to one instance and deploy again."
+                          exit 1
+                        fi
+                      shell: bash
+                """;
+
             int instanceCountIndex = deploySteps.FindIndex(step =>
-                step.Contains("set -euo pipefail")
-                && step.Contains(
-                    "resourceGroup=$(az webapp list " +
-                    "--query \"[?name=='g2h-dev'].resourceGroup | [0]\" --output tsv)")
-                && step.Contains(
-                    "instanceCount=$(az webapp list-instances --name g2h-dev " +
-                    "--resource-group \"$resourceGroup\" --query \"length(@)\" --output tsv)")
-                && step.Contains("if ! [ \"$instanceCount\" -le 1 ]; then")
-                && step.Contains("§ARC12.12 rule 5")
-                && step.Contains("exit 1"));
+                step.StartsWith("Refuse More Than One Instance\n"));
 
             loginIndex.Should().BeGreaterThanOrEqualTo(0);
             instanceCountIndex.Should().BeGreaterThan(loginIndex);
             deployIndex.Should().BeGreaterThan(instanceCountIndex);
+
+            NormalizeLineEndings(deploySteps[instanceCountIndex])
+                .Should().Be(NormalizeLineEndings(expectedInstanceCountStep));
         }
 
         private static void GenerateBuildScript(ScriptGenerationService scriptGenerationService) =>
