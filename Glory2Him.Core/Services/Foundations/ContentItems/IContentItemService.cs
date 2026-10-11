@@ -104,6 +104,24 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// The one version of a group anybody may see, with its group and content type, or
+        /// <c>null</c> — what the live-updates forwarder asks before it names a version in a count
+        /// message (<c>ContentItemService.LiveUpdates.md</c> §1).
+        ///
+        /// <para>Asked of EACH version of the group under §SEC14.1. A group has at most one
+        /// published, non-deleted version (<c>IX_ContentItem_IsPublished</c>), so at most one is
+        /// answered. A group with no such version and an id that names no group both answer
+        /// <c>null</c>, and are not told apart (§SEC14.5 rules 1 and 4).</para>
+        ///
+        /// <para><b>CALLER-INDEPENDENT</b>, exactly as
+        /// <see cref="RetrievePublicContentItemGroupsAsync"/> is: no envelope is minted and no
+        /// <c>SecurityContext</c> is resolved, so every caller receives the same answer.</para>
+        /// </summary>
+        ValueTask<PublicContentItemGroup?> FindPublicContentItemGroupAsync(
+            Guid groupId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Answers whether any non-deleted content item of the given type already carries
         /// the given content hash, optionally ignoring one group (the duplicate-content
         /// rule of design §3.4.2). Deliberately computed over the UNFILTERED store —

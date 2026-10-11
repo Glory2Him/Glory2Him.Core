@@ -15,11 +15,12 @@ using Glory2Him.Core.Models.Enums;
 namespace Glory2Him.Core.Models.Foundations.ContentItems
 {
     /// <summary>
-    /// One supplied content item id that names a canonically visible version (§SEC14.1), with
-    /// that version's group and content type — the answer
-    /// <c>IContentItemService.RetrievePublicContentItemGroupsAsync</c> gives the reaction summary
-    /// read (§ARC16.8). The content type is carried because the summary keys each host's winning
-    /// setting on it.
+    /// A canonically visible version (§SEC14.1), with that version's group and content type —
+    /// the answer <c>IContentItemService.RetrievePublicContentItemGroupsAsync</c> gives the
+    /// reaction summary read (§ARC16.8) for each supplied id that names one, and
+    /// <c>IContentItemService.FindPublicContentItemGroupAsync</c> gives the live-updates
+    /// forwarder for a group. The content type is carried because each caller keys the
+    /// version's winning setting on it.
     /// </summary>
     public sealed record PublicContentItemGroup(
         Guid ContentItemId,
