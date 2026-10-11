@@ -520,6 +520,22 @@ namespace Glory2Him.Core.Infrastructure.Services
                                     }
                                 },
 
+                                // §ARC12.12 rule 6: without Web sockets the live connection falls back to
+                                // Server-Sent Events. Switching it on when it is already on changes nothing,
+                                // so the step runs on every deploy. The repository names the app and not its
+                                // resource group, so the step looks the group up by the app's name.
+                                new GithubTask
+                                {
+                                    Name = "Switch On Web Sockets",
+                                    Shell = "bash",
+                                    Run =
+                                        """
+                                        set -euo pipefail
+                                        resourceGroup=$(az webapp list --query "[?name=='g2h-dev'].resourceGroup | [0]" --output tsv)
+                                        az webapp config set --name g2h-dev --resource-group "$resourceGroup" --web-sockets-enabled true
+                                        """
+                                },
+
                                 new GithubTask
                                 {
                                     Name = "Deploy to Azure Web App",
