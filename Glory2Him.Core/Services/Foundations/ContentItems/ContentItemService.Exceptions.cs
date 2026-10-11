@@ -511,6 +511,20 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             {
                 return await returningPublicContentItemGroupFunction();
             }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutContentItemException =
+                    new TimeoutContentItemException(
+                        message: "Failed content item timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(exception: timeoutContentItemException);
+            }
             catch (InvalidContentItemException invalidContentItemException)
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: invalidContentItemException);
