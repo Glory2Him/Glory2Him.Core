@@ -9,7 +9,6 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
@@ -19,9 +18,13 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
 {
     internal partial class LiveUpdateOrchestrationService
     {
-        public ValueTask<EventEnvelope<Association>?> OnAssociationApprovedAsync(
+        public async ValueTask<EventEnvelope<Association>?> OnAssociationApprovedAsync(
             EventEnvelope<Association> envelope,
-            CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            CancellationToken cancellationToken = default)
+        {
+            await SendReactionsChangeAsync(envelope.Content, cancellationToken);
+
+            return null;
+        }
     }
 }
