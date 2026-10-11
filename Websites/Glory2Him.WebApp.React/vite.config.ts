@@ -206,7 +206,7 @@ export default defineConfig({
     },
     server: {
         proxy: {
-            '^/api/*': { target, secure: false },
+            '^/api/*': { target, secure: false, ws: true },
             '^/assets/*': { target, secure: false },
             '^/Profile-Image/*': { target, secure: false }
         },
