@@ -216,9 +216,17 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateOnFindPublicContentItemGroup(groupId);
 
+                // NO ENVELOPE, and none is missing - the public-groups read's reason: §SEC14.1 is
+                // applied to every caller identically, so a context would be resolved and then
+                // ignored.
                 DateTimeOffset currentDateTime =
                     await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
 
+                // THE CONDITION IS AUTHORED HERE (§ARC12.2.1 rule 3): the group match, and
+                // §SEC14.1 asked of each version of the group. At most one version qualifies,
+                // because a group has at most one published, non-deleted version
+                // (IX_ContentItem_IsPublished), so one row is taken and a group with none reads
+                // exactly as a group id that names nothing (§SEC14.5 rules 1 and 4).
                 IReadOnlyList<PublicContentItemGroup> publicContentItemGroups =
                     await this.storageBroker.SelectContentItemsAsync(
                         query: contentItems => contentItems
