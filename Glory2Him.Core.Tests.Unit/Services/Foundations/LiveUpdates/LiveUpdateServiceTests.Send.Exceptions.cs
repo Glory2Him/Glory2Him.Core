@@ -107,5 +107,63 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.LiveUpdates
             this.liveUpdateBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnSendIfServiceErrorOccursAndLogItAsync()
+        {
+            // given
+            var someLiveUpdate = new LiveUpdate
+            {
+                Type = LiveUpdateType.ContentItemSettingChanged,
+                ContentItemId = null
+            };
+
+            var serviceException = new Exception();
+
+            var failedLiveUpdateServiceException =
+                new FailedLiveUpdateServiceException(
+                    message: "Failed live update service error occurred, please contact support.",
+                    innerException: serviceException,
+                    data: serviceException.Data);
+
+            var expectedLiveUpdateServiceException =
+                new LiveUpdateServiceException(
+                    message: "Live update service error occurred, contact support.",
+                    innerException: failedLiveUpdateServiceException);
+
+            this.liveUpdateBrokerMock.Setup(broker =>
+                broker.SendLiveUpdateAsync(
+                    It.IsAny<LiveUpdate>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask sendLiveUpdateTask =
+                this.liveUpdateService.SendLiveUpdateAsync(
+                    someLiveUpdate,
+                    TestContext.Current.CancellationToken);
+
+            LiveUpdateServiceException actualLiveUpdateServiceException =
+                await Assert.ThrowsAsync<LiveUpdateServiceException>(
+                    sendLiveUpdateTask.AsTask);
+
+            // then
+            actualLiveUpdateServiceException.Should().BeEquivalentTo(
+                expectedLiveUpdateServiceException);
+
+            this.liveUpdateBrokerMock.Verify(broker =>
+                broker.SendLiveUpdateAsync(
+                    It.IsAny<LiveUpdate>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedLiveUpdateServiceException))),
+                Times.Once);
+
+            this.liveUpdateBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
