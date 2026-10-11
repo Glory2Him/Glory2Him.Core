@@ -185,6 +185,7 @@ The content item model should contain the following design-relevant properties:
 | `IsPublished` | Identifies the currently published version. Only one row per `GroupId` may be published. |
 | `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`). Mirrors the linked `Approval` record. `Approval` remains the source of truth. |
 | `ApprovalId` | The id of this row's approval round. An `IApproval` member, so every entity that implements `IApproval` carries it, not `ContentItem` alone (§APR7.4 item 6). A plain column with no foreign key: minted by the server when the row is inserted, never accepted from a caller, and never changed (§SEC14.7 posture A rule 5). *(Ruled 2026-09-27, #699; not yet built.)* |
+| `AmenderUserIds` | Everyone who has changed this row's content, as a set of account ids — an `IAmendment` member, never accepted from a caller, appended to by the general modify and cleared by nothing; §APR8.6 HR-5 refuses each of them a review of the row (§APR8.6.3, §SEC14.7 posture A rule 6). *(Designed under #701; not yet built.)* |
 | `PublishDate` | Optional date/time from which the content can be visible. |
 | `IsDeleted` | Soft-delete flag. When `true` the item is excluded from all public visibility. |
 | `CreatedBy` | User who created the item. |
@@ -571,6 +572,7 @@ Rules:
 | `IsPublished` | Identifies whether the current version of this tag is published. |
 | `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`). |
 | `ApprovalId` | The id of this row's approval round — an `IApproval` member, a plain column with no foreign key, minted when the row is inserted and never taken from a caller (§APR7.4 item 6). *(Ruled 2026-09-27, #699; not yet built.)* |
+| `AmenderUserIds` | Everyone who has changed this row's content, as a set of account ids — an `IAmendment` member, never accepted from a caller, appended to by the general modify and cleared by nothing; §APR8.6 HR-5 refuses each of them a review of the row (§APR8.6.3, §SEC14.7 posture A rule 6). *(Designed under #701; not yet built.)* |
 | `IsDeleted` | Soft-delete flag. When `true` the tag is excluded from all public visibility. |
 | `CreatedBy` | User who created the tag. |
 | `CreatedWhen` | Creation timestamp. |
@@ -599,6 +601,7 @@ Rules:
 | `IsPublished` | Identifies whether the current version of this reaction is published. |
 | `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`). |
 | `ApprovalId` | The id of this row's approval round — an `IApproval` member, a plain column with no foreign key, minted when the row is inserted and never taken from a caller (§APR7.4 item 6). *(Ruled 2026-09-27, #699; not yet built.)* |
+| `AmenderUserIds` | Everyone who has changed this row's content, as a set of account ids — an `IAmendment` member, never accepted from a caller, appended to by the general modify and cleared by nothing; §APR8.6 HR-5 refuses each of them a review of the row (§APR8.6.3, §SEC14.7 posture A rule 6). *(Designed under #701; not yet built.)* |
 | `IsDeleted` | Soft-delete flag. When `true` the reaction is excluded from all public visibility. |
 | `CreatedBy` | User who created the reaction. |
 | `CreatedWhen` | Creation timestamp. |
@@ -623,6 +626,7 @@ Rules:
 | `DeletedBy` | User who deleted the item. |
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
+| `AmenderUserIds` | Everyone who has changed this row's content, as a set of account ids — an `IAmendment` member, never accepted from a caller, appended to by the general modify and cleared by nothing; §APR8.6 HR-5 refuses each of them a review of the row (§APR8.6.3, §SEC14.7 posture A rule 6). *(Designed under #701; not yet built.)* |
 
 ### DOM5.4 BibleReference *(formerly §5.4)*
 
@@ -642,6 +646,7 @@ Rules:
 | `DeletedBy` | User who deleted the item. |
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
+| `AmenderUserIds` | Everyone who has changed this row's content, as a set of account ids — an `IAmendment` member, never accepted from a caller, appended to by the general modify and cleared by nothing; §APR8.6 HR-5 refuses each of them a review of the row (§APR8.6.3, §SEC14.7 posture A rule 6). *(Designed under #701; not yet built.)* |
 
 ### DOM5.5 Link *(formerly §5.5)*
 
@@ -660,6 +665,7 @@ Rules:
 | `DeletedBy` | User who deleted the item. |
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
+| `AmenderUserIds` | Everyone who has changed this row's content, as a set of account ids — an `IAmendment` member, never accepted from a caller, appended to by the general modify and cleared by nothing; §APR8.6 HR-5 refuses each of them a review of the row (§APR8.6.3, §SEC14.7 posture A rule 6). *(Designed under #701; not yet built.)* |
 
 ### DOM5.6 Attachment *(formerly §5.6)*
 

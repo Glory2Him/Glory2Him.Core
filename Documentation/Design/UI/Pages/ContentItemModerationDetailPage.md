@@ -260,6 +260,7 @@ panel follows the item's facet switches (item 9), and neither is handed the post
 | --- | --- | --- |
 | `entityType`, `contentType` | `ContentItem`, and the content type's enum member name | They compose the vote, decision and read-only tiers. |
 | `entityOwnerId`, `approvalStatus` | The stored item's `createdBy` and status | The panel's own gates decide against the real row (rule 2.10). |
+| `entityAmenderUserIds` ≠ item 18 | The stored item's `amenderUserIds` (§APR8.6.3) | The panel withholds the vote from whoever amended the post, as from its owner (`UI/Components/ReviewPanel.md rule 2.18`). |
 | `approvalVerdict`, `approvalReviewCollection`, `requestedReviewerCollection`, `reviewerCandidateCollection`, `isLoading` | From `useApprovalRound`, which reads the verdict, the candidates, the requests and the names by the item today (item 11) | Rules 2.10 and 2.23. |
 | `aiReviewerCandidate`, `aiReviewerAssignment` | Derived from Berean's status read | Offers Berean, and gives it a row once assigned. |
 | `showBorder` | `true` | — |
@@ -529,3 +530,11 @@ access matrices: `UI/Components/ContentItemPanel.md §5`, `UI/Components/Content
     mocks `Admin Post Detail.dc.html` and `Admin Association Detail.dc.html` in the design session of
     #705 (user ruling 2026-09-28), which replaces these two panels (section 4.3) and settles where a
     tag or Bible reference chip leads; this item records the page as built.
+18. (#1021) **Page gap — `/Admin/Posts/{id}`: `ReviewPanel` is not handed who amended the post.**
+    `UI/Components/ReviewPanel.md rule 2.18` withholds the vote from whoever amended the item's
+    content, as from its owner, and the panel learns who did from the `entityAmenderUserIds` the
+    page hands it, off the stored item's own record (§APR8.6.3 rule 8). The page hands it
+    `entityOwnerId` alone (`admin/contentItemModerationDetailPage.tsx` line 823 at b0614925), and
+    the item's model carries no record yet (`UI/Models/ContentItem.md §1`). The panel's half is
+    `UI/Components/ReviewPanel.md §10 item 2`, and the server refuses such a review whatever the
+    panel offers (§APR8.6 HR-5).

@@ -1782,8 +1782,8 @@ Three things about this pair, and each is a question a reviewer will ask:
    (e) condition 4). Contrast the round's own dismissal, which cannot be
    driven this way: dismissing stale reviews is conditional on
    `RequireReapprovalOnChange` on the edit path and unconditional on the §APR8.6
-   HR-4 reset and on a changed reaction (§ARC12.5.3 business rule 12,
-   §ARC16.7.5), and a bare
+   HR-4 reset, on a changed reaction and on an amender's own review (§ARC12.5.3
+   business rule 12, §ARC16.7.5, §APR8.6.3 rule 7), and a bare
    `Approval-Modified` cannot tell those apart — which is why the dismissal and
    Berean's return-to-pending stay direct calls on the round's own service
    (§ARC12.5.3 rule 19). Introducing a discriminated `Approval-Reset` fact to move
@@ -2134,7 +2134,10 @@ itself is at-least-once.**
      One delta rides with that evaluation and carries no check: under
      `RequireReapprovalOnChange = true` the `-Modified` and `-Submitted` ears
      dismiss the round's active reviews on every delivery, so a redelivered
-     one dismisses reviews already cast since (§APR9.7.4's residual).
+     one dismisses reviews already cast since (§APR9.7.4's residual). A second,
+     the dismissal of an amender's own review whatever that setting says
+     (§APR8.6.3 rule 7; not yet built), needs no check: §APR8.6 HR-5 refuses
+     an amender every review cast since, so a redelivery finds none to dismiss.
    - **Gate on signed state, then find nothing left to do.** The two
      non-re-testing subscriber sets of §EVN18(e) read the round's status out of
      the HMAC before any gather, and their gather or presence check is empty on
@@ -2342,10 +2345,12 @@ Avoiding event spaghetti:
    `ApprovalOrchestrationService` fact handler run again on a redelivery. What
    makes that tolerable for the fact handlers is that they re-evaluate the round
    rather than apply a delta — idempotence by construction, not deduplication —
-   save two deltas. The `Association-Repointed` ear's carries the check
+   save three deltas. The `Association-Repointed` ear's carries the check
    §APR9.7.4 names (built by #727); the `-Modified` and `-Submitted` ears'
    dismissal under `RequireReapprovalOnChange = true` carries none
-   (§APR9.7.4's residual). A handler added above the foundation that applies
+   (§APR9.7.4's residual); and their dismissal of an amender's own review
+   (§APR8.6.3 rule 7; not yet built) needs none, because §APR8.6 HR-5 leaves
+   it nothing to dismiss on a redelivery. A handler added above the foundation that applies
    a delta owns the check that makes it safe.
 5. Do not rely on the relative order of two subscribers on one address, or on
    the order of two publishes. `ApprovalReview-Added` and `Approval-Modified`
