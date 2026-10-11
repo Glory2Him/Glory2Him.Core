@@ -164,6 +164,20 @@ describe('useApprovalRound', () => {
             .toHaveBeenCalledWith(EntityTypeName.ContentItem, 'quote-1'));
     });
 
+    it("should re-read Berean's status on refresh", async () => {
+        // given
+        const { result } = renderRound();
+        await waitFor(() => expect(getAIReviewerStatusAsync).toHaveBeenCalledTimes(1));
+        vi.clearAllMocks();
+
+        // when
+        await act(async () => { await result.current.refresh(); });
+
+        // then
+        expect(getAIReviewerStatusAsync)
+            .toHaveBeenCalledWith(EntityTypeName.ContentItem, 'quote-1');
+    });
+
     // §7.9 leaves everybody in the candidate list whether or not they have answered, so no round
     // event moves it — and it is the most expensive of the five reads. Polling it four times a
     // minute for an answer that cannot change is the one read worth leaving out.
