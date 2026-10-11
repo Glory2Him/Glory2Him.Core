@@ -6,6 +6,7 @@ import { useApprovalRound } from './useApprovalRound';
 import { ApprovalStatus } from '../models/components/approvals/approvalReviewItem';
 
 import {
+    AIReviewerStatus,
     ApprovalReview,
     ApprovalVerdict,
     EntityTypeName
@@ -24,6 +25,7 @@ const getReviewRequestsAsync = vi.fn();
 const getReviewerDisplayNamesAsync = vi.fn();
 
 const getApprovalCommentsAsync = vi.fn();
+const getAIReviewerStatusAsync = vi.fn();
 
 vi.mock('../brokers/apiBroker.approvals', () => ({
     default: class {
@@ -44,6 +46,14 @@ vi.mock('../brokers/apiBroker.approvalComments', () => ({
     }
 }));
 
+// BEREAN'S STATUS IS PART OF THE ROUND TOO, and comes off its own broker, so it is mocked at
+// that boundary as well — left out, it went to the network and failed against nothing.
+vi.mock('../brokers/apiBroker.aiReviewers', () => ({
+    default: class {
+        GetAIReviewerStatusAsync = getAIReviewerStatusAsync;
+    }
+}));
+
 const verdict: ApprovalVerdict = {
     entityType: 0,
     entityId: 'quote-1',
@@ -56,6 +66,13 @@ const verdict: ApprovalVerdict = {
     approvalCount: 1,
     requiredNumberOfApprovals: 3,
     unresolvedApprovalCommentCount: 0
+};
+
+const aiReviewerStatus: AIReviewerStatus = {
+    isOffered: true,
+    isRequested: false,
+    isAIReviewCompleted: false,
+    isAIReviewCommentsPresent: false
 };
 
 const review: ApprovalReview = {
@@ -90,6 +107,7 @@ describe('useApprovalRound', () => {
         getReviewRequestsAsync.mockResolvedValue([]);
         getReviewerDisplayNamesAsync.mockResolvedValue([]);
         getApprovalCommentsAsync.mockResolvedValue([]);
+        getAIReviewerStatusAsync.mockResolvedValue(aiReviewerStatus);
 
         queryClient = new QueryClient({
             defaultOptions: { queries: { retry: false } }
@@ -131,6 +149,35 @@ describe('useApprovalRound', () => {
         // §20.6.1 names "a comment added or resolved" as a trigger, so the thread is in the
         // channel rather than polling on its own
         expect(getApprovalCommentsAsync).toHaveBeenCalledWith('approval-1');
+    });
+
+    // Keyed by the item, as built. `UI/Pages/ContentItemModerationDetailPage.md rule 2.23`
+    // addresses Berean by the round's approval id; when
+    // `UI/Pages/ContentItemModerationDetailPage.md §6 item 11` is built, these arguments change
+    // with the call.
+    it("should read Berean's status with the round", async () => {
+        // when
+        const { result } = renderRound();
+
+        // then
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+        await waitFor(() => expect(getAIReviewerStatusAsync)
+            .toHaveBeenCalledWith(EntityTypeName.ContentItem, 'quote-1'));
+    });
+
+    it("should re-read Berean's status on refresh", async () => {
+        // given
+        const { result } = renderRound();
+        await waitFor(() => expect(getAIReviewerStatusAsync).toHaveBeenCalledTimes(1));
+        vi.clearAllMocks();
+
+        // when
+        await act(async () => { await result.current.refresh(); });
+
+        // then
+        expect(getAIReviewerStatusAsync)
+            .toHaveBeenCalledWith(EntityTypeName.ContentItem, 'quote-1');
     });
 
     // §7.9 leaves everybody in the candidate list whether or not they have answered, so no round
