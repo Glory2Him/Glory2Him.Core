@@ -45,8 +45,6 @@ export const queryClientGlobalOptions = new QueryClient({
             if (error && suppressesGlobalErrorToast(mutation) === false) {
                 toastError("An unknown error has occurred, please try again.");
             }
-
-            throw error;
         }
     })
 });

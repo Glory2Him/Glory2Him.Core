@@ -194,8 +194,6 @@ describe('associationService.useUpsertAssociation', () => {
 
     // A FAILED REACTION IS ANNOUNCED as every failed write is. Driven through the app's own
     // global handler, so what is proven is the toast the reader sees, not the absence of a flag.
-    // The handler rethrows by design, which react-query surfaces as an unhandled rejection; it
-    // is swallowed here and nowhere else, so the decision to toast stays the app's.
     it("should fail with the broker's error and leave the global toast on", async () => {
         // given
         const brokerError = new Error('refused');
@@ -206,13 +204,7 @@ describe('associationService.useUpsertAssociation', () => {
 
         const globalClient = new QueryClient({
             mutationCache: new MutationCache({
-                onError: (...args) => {
-                    try {
-                        globalOnError(...args);
-                    } catch {
-                        // the global handler's deliberate rethrow
-                    }
-                }
+                onError: globalOnError
             })
         });
 
@@ -373,10 +365,8 @@ describe('associationService.useRemoveAssociationByPair', () => {
 
     // A FAILED WITHDRAWAL IS ANNOUNCED as every failed write is. Driven through the app's own
     // global handler, so what is proven is the toast the reader sees, not the absence of a flag.
-    // The handler rethrows by design, which react-query surfaces as an unhandled rejection; it
-    // is swallowed here and nowhere else, so the decision to toast stays the app's. The toasts
-    // are counted inside the global handler, so a hook that suppresses it and raises its own
-    // toast is not mistaken for one that leaves it on.
+    // The toasts are counted inside the global handler, so a hook that suppresses it and raises
+    // its own toast is not mistaken for one that leaves it on.
     it("should fail a withdrawal with the broker's error and leave the global toast on", async () => {
         // given
         const brokerError = new Error('refused');
@@ -394,8 +384,6 @@ describe('associationService.useRemoveAssociationByPair', () => {
 
                     try {
                         globalOnError(...args);
-                    } catch {
-                        // the global handler's deliberate rethrow
                     } finally {
                         toastsRaisedByTheGlobalHandler +=
                             toastErrorMock.mock.calls.length - toastsBefore;
