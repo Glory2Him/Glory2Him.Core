@@ -1,4 +1,5 @@
 import ApiBroker from './apiBroker';
+import { ODataQuery } from '../models/foundations/oDataQueries/oDataQuery';
 
 import {
     ApprovalOutcome,
@@ -23,6 +24,25 @@ import { ApprovalDecision } from '../models/components/approvals/approvalReviewI
 // (api/AIReviewers, design §8.6.2) and its own broker beside this one — see
 // apiBroker.aiReviewers. It used to hang off api/Approvals/{entityType}/{entityId}/AIReviewer,
 // which gave this broker two subjects the way it gave the server's contract two.
+// The OData query written onto the wire as it is handed: an option the query does not carry
+// does not travel.
+const toODataParameters = (query: ODataQuery): URLSearchParams => {
+    const parameters = new URLSearchParams();
+
+    if (query.filter !== undefined) parameters.set('$filter', query.filter);
+    if (query.orderBy !== undefined) parameters.set('$orderby', query.orderBy);
+    if (query.skip !== undefined) parameters.set('$skip', String(query.skip));
+    if (query.top !== undefined) parameters.set('$top', String(query.top));
+
+    return parameters;
+};
+
+const withQueryString = (url: string, parameters: URLSearchParams): string => {
+    const queryString = parameters.toString();
+
+    return queryString ? `${url}?${queryString}` : url;
+};
+
 class ApprovalBroker {
     relativeApprovalsUrl = '/api/approvals';
     relativeApprovalReviewsUrl = '/api/approvalreviews';
@@ -178,6 +198,37 @@ class ApprovalBroker {
         const result = await this.apiBroker.DeleteAsync(url);
 
         return result.data as ApprovalReviewRequest;
+    }
+
+    async GetApprovalReviewsByQueryAsync(query: ODataQuery): Promise<ApprovalReview[]> {
+        const url = withQueryString(this.relativeApprovalReviewsUrl, toODataParameters(query));
+        const result = await this.apiBroker.GetAsync(url);
+
+        return result.data as ApprovalReview[];
+    }
+
+    // The bypass reason travels exactly as handed, a blank one included; one handed as
+    // undefined does not travel at all.
+    async PostApprovalDecisionByQueryAsync(
+        entityType: EntityTypeName,
+        entityId: string,
+        decision: ApprovalDecision,
+        isBypassRequested: boolean,
+        bypassReason?: string): Promise<ApprovalOutcome> {
+        const parameters = new URLSearchParams();
+        parameters.set('decision', String(decision));
+        parameters.set('isBypassRequested', String(isBypassRequested));
+
+        if (bypassReason !== undefined) {
+            parameters.set('bypassReason', bypassReason);
+        }
+
+        const url =
+            `${this.relativeApprovalsUrl}/${entityType}/${entityId}/Decision?${parameters}`;
+
+        const result = await this.apiBroker.PostAsync(url, {});
+
+        return result.data as ApprovalOutcome;
     }
 }
 
