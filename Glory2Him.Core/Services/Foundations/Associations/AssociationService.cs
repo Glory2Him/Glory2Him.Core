@@ -557,10 +557,14 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             // a reaction is not a contribution: the caller's own personal row is asked none of
             // the read-only roles (§SEC14.7 posture A′ rule 1). Every other row is asked the
             // whole veto, now that both endpoints are known — a globally blocked caller
-            // reaches the table as any signed-in caller does and is refused here (rule 4)
+            // reaches the table as any signed-in caller does and is refused here (rule 4). Two
+            // ids differing only in letter case name one reader (§DOM4.6 rule 3)
             bool isCallersOwnPersonalRow =
                 maybeAssociation.UserId is not null
-                    && maybeAssociation.UserId == actorUserId;
+                    && string.Equals(
+                        maybeAssociation.UserId,
+                        actorUserId,
+                        StringComparison.OrdinalIgnoreCase);
 
             if (isCallersOwnPersonalRow is false)
             {

@@ -166,6 +166,132 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         }
 
         [Fact]
+        public async Task ShouldCreateTheReadersRowWhenTheirUserIdDiffersOnlyInLetterCaseAsync()
+        {
+            // given: the request names the caller's id in upper case and the caller is signed in
+            // with it in lower case; two ids differing only in letter case name one reader
+            // (§DOM4.6 rule 3), and the reader has no row on the item
+            string callerUserId = Guid.NewGuid().ToString().ToLowerInvariant();
+            string requestUserId = callerUserId.ToUpperInvariant();
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association upsertRequest = CreatePersonalUpsertRequest(requestUserId);
+            upsertRequest.Id = Guid.Empty;
+            Guid mintedId = Guid.NewGuid();
+            List<Association> storageAssociations = CreateRandomAssociations().ToList();
+
+            // the row keeps the request's UserId, and its CreatedBy is stamped from the caller
+            // (Backend/Foundations/AssociationService.md §10 rule 2)
+            Association expectedInsertedAssociation =
+                StampAddAudit(upsertRequest.DeepClone(), callerUserId, currentDateTime);
+
+            expectedInsertedAssociation.Id = mintedId;
+
+            Association insertedAssociation = null;
+
+            Association storedAssociation =
+                WithDatabaseComputedEffectiveIds(expectedInsertedAssociation.DeepClone());
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(callerUserId);
+
+            SetupPersonalUpsertLookupOver(storageAssociations, inputCancellationToken);
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(mintedId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTime);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.Is(SameAssociationBeforeItsAddStampAs(expectedInsertedAssociation)),
+                    this.ambientSecurityContext))
+                        .ReturnsAsync((Association entity, SecurityContext _) =>
+                            StampAddAudit(entity.DeepClone(), callerUserId, currentDateTime));
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertAssociationAsync(
+                    It.Is(SameAssociationAs(expectedInsertedAssociation)),
+                    inputCancellationToken))
+                        .Callback<Association, CancellationToken>((entity, _) =>
+                            insertedAssociation = entity.DeepClone())
+                        .ReturnsAsync(storedAssociation);
+
+            EventEnvelope<Association> inboundEnvelope = SetupInboundEnvelopeFor(upsertRequest);
+
+            EventEnvelope<Association> outboundEnvelope =
+                SetupOutboundEnvelopeFor(inboundEnvelope, storedAssociation);
+
+            // when
+            PersonalAssociationUpsert actualUpsert =
+                await this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    inputCancellationToken);
+
+            // then
+            requestUserId.Should().NotBe(callerUserId);
+            requestUserId.Should().BeEquivalentTo(callerUserId);
+            insertedAssociation.Should().BeEquivalentTo(expectedInsertedAssociation);
+            insertedAssociation.UserId.Should().Be(requestUserId);
+            insertedAssociation.CreatedBy.Should().Be(callerUserId);
+            actualUpsert.Outcome.Should().Be(PersonalAssociationUpsertOutcome.Created);
+            actualUpsert.Association.Should().BeSameAs(storedAssociation);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(upsertRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalUpsertLookupAsked(inputCancellationToken, Times.Once());
+
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                    Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.Is(SameAssociationBeforeItsAddStampAs(expectedInsertedAssociation)),
+                    this.ambientSecurityContext),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAssociationAsync(
+                    It.Is(SameAssociationAs(expectedInsertedAssociation)),
+                    inputCancellationToken),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateNextAsync(inboundEnvelope, storedAssociation),
+                    Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAssociationAsync(outboundEnvelope, AssociationEventOperation.Added),
+                    Times.Once);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldCreateTheReadersRowOnAHostThatIsNotAContentItemAsync()
         {
             // given: a reaction on a Bible reference. "BibleReference" sorts before "Reaction", so
@@ -862,6 +988,133 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     Times.Once);
 
             VerifyPersonalUpsertLookupAsked(inputCancellationToken, Times.Once());
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task ShouldReviveTheReadersWithdrawnRowWhenItsDeletedByDiffersOnlyInLetterCaseAsync(
+            bool isTheSameReaction)
+        {
+            // given: the reader withdrew the row themselves, and the withdrawal recorded their id
+            // in upper case while the row's UserId, the request's and the caller's hold it in lower
+            // case. Two ids differing only in letter case name one reader (§DOM4.6 rule 3), so
+            // this is the reader's own withdrawal and not a takedown (§DOM4.10 rule 7).
+            string readerUserId = Guid.NewGuid().ToString().ToLowerInvariant();
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association upsertRequest = CreatePersonalUpsertRequest(readerUserId);
+
+            Association readersWithdrawnRow = isTheSameReaction
+                ? CreateStoredPersonalRowOnTheSameReaction(upsertRequest, isDeleted: true)
+                : CreateStoredPersonalRow(upsertRequest, isDeleted: true);
+
+            string withdrawnBy = readerUserId.ToUpperInvariant();
+            readersWithdrawnRow.DeletedBy = withdrawnBy;
+
+            List<Association> storageAssociations =
+                CreateRandomAssociations().Append(readersWithdrawnRow).ToList();
+
+            Association expectedSavedAssociation = readersWithdrawnRow.DeepClone();
+            expectedSavedAssociation.IsDeleted = false;
+            expectedSavedAssociation.DeletedBy = null;
+            expectedSavedAssociation.DeletedWhen = null;
+            expectedSavedAssociation.EntityBKeyId = upsertRequest.EntityBKeyId;
+            expectedSavedAssociation.EntityBGroupId = upsertRequest.EntityBGroupId;
+            StampModifyAudit(expectedSavedAssociation, readerUserId, currentDateTime);
+
+            Association savedAssociation = null;
+            Association updatedAssociation = expectedSavedAssociation.DeepClone();
+
+            PersonalAssociationUpsertOutcome expectedOutcome = isTheSameReaction
+                ? PersonalAssociationUpsertOutcome.Restored
+                : PersonalAssociationUpsertOutcome.Repointed;
+
+            AssociationEventOperation expectedOperation = isTheSameReaction
+                ? AssociationEventOperation.Restored
+                : AssociationEventOperation.Repointed;
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(storageAssociations, inputCancellationToken);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.Is(SameAssociationBeforeItsModifyStampAs(expectedSavedAssociation)),
+                    this.ambientSecurityContext))
+                        .ReturnsAsync((Association entity, SecurityContext _) =>
+                            StampModifyAudit(entity.DeepClone(), readerUserId, currentDateTime));
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateAssociationAsync(
+                    It.Is(SameAssociationAs(expectedSavedAssociation)),
+                    inputCancellationToken))
+                        .Callback<Association, CancellationToken>((entity, _) =>
+                            savedAssociation = entity.DeepClone())
+                        .ReturnsAsync(updatedAssociation);
+
+            EventEnvelope<Association> inboundEnvelope = SetupInboundEnvelopeFor(upsertRequest);
+
+            EventEnvelope<Association> outboundEnvelope =
+                SetupOutboundEnvelopeFor(inboundEnvelope, updatedAssociation);
+
+            // when
+            PersonalAssociationUpsert actualUpsert =
+                await this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    inputCancellationToken);
+
+            // then: revived, with the withdrawal cleared
+            withdrawnBy.Should().NotBe(expectedSavedAssociation.UserId);
+            withdrawnBy.Should().BeEquivalentTo(expectedSavedAssociation.UserId);
+            savedAssociation.Should().BeEquivalentTo(expectedSavedAssociation);
+            savedAssociation.IsDeleted.Should().BeFalse();
+            savedAssociation.DeletedBy.Should().BeNull();
+            savedAssociation.DeletedWhen.Should().BeNull();
+            actualUpsert.Outcome.Should().Be(expectedOutcome);
+            actualUpsert.Association.Should().BeSameAs(updatedAssociation);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(upsertRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalUpsertLookupAsked(inputCancellationToken, Times.Once());
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.Is(SameAssociationBeforeItsModifyStampAs(expectedSavedAssociation)),
+                    this.ambientSecurityContext),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAssociationAsync(
+                    It.Is(SameAssociationAs(expectedSavedAssociation)),
+                    inputCancellationToken),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateNextAsync(inboundEnvelope, updatedAssociation),
+                    Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAssociationAsync(outboundEnvelope, expectedOperation),
+                    Times.Once);
 
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

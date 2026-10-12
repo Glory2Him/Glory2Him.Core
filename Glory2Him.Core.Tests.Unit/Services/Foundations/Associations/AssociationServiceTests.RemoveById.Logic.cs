@@ -451,5 +451,106 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Theory]
+        [MemberData(nameof(ReadOnlyRolesOverAReaction))]
+        public async Task ShouldRemoveTheCallersOwnReactionWhenItsUserIdDiffersOnlyInLetterCaseAsync(
+            string readOnlyRole)
+        {
+            // given: the row's UserId holds the caller's id in upper case and the caller is signed
+            // in with it in lower case. Two ids differing only in letter case name one reader
+            // (§DOM4.6 rule 3), so the row is the caller's own and is asked none of the read-only
+            // roles (§SEC14.7 posture A′ rule 1). Its CreatedBy is the caller's id exactly, so the
+            // owner test, which stays exact, admits them and only the exemption is under test.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(readOnlyRole);
+            string readerUserId = Guid.NewGuid().ToString().ToLowerInvariant();
+            Association storageAssociation = CreateRandomReaction(readerUserId);
+            storageAssociation.UserId = readerUserId.ToUpperInvariant();
+
+            Association auditedAssociation = storageAssociation.DeepClone();
+            auditedAssociation.IsDeleted = true;
+
+            Association expectedAssociation = auditedAssociation.DeepClone();
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyRemoveAuditValuesAsync(storageAssociation, this.ambientSecurityContext))
+                    .ReturnsAsync(auditedAssociation);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateAssociationAsync(auditedAssociation, TestContext.Current.CancellationToken))
+                    .ReturnsAsync(expectedAssociation);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishAssociationAsync(
+                    It.Is(SameOutboundEnvelopeAs(expectedAssociation)),
+                    AssociationEventOperation.Removed))
+                    .Returns(new ValueTask<EventPublishResult<Association>>(
+                        new EventPublishResult<Association>()));
+
+            // when
+            Association actualAssociation =
+                await this.associationService.RemoveAssociationByIdAsync(
+                    storageAssociation.Id,
+                    deletionReason: null,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            storageAssociation.UserId.Should().NotBe(readerUserId);
+            storageAssociation.UserId.Should().BeEquivalentTo(readerUserId);
+            actualAssociation.Should().BeEquivalentTo(expectedAssociation);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyRemoveAuditValuesAsync(storageAssociation, this.ambientSecurityContext),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAssociationAsync(auditedAssociation, TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAssociationAsync(
+                    It.Is(SameOutboundEnvelopeAs(expectedAssociation)),
+                    AssociationEventOperation.Removed),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.ReceiverName ==
+                            EventBrokerIdentifiers
+                                .AssociationOnRemovingAssociationByIdSubscriptionName),
+                    TestContext.Current.CancellationToken),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                    broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Exactly(2));
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
