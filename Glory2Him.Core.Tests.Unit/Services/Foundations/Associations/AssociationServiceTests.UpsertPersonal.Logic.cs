@@ -1281,6 +1281,50 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [MemberData(nameof(UpsertArmsThatWriteTheReadersRow))]
+        public async Task ShouldKeepTheStoredOperationOwnedFieldsWhenTheReadersRowIsWrittenOnUpsertPersonalAsync(
+            string arm)
+        {
+            // given: the reader's row is revived or repointed, and the request sets all seven
+            // fields an operation owns to values other than the stored row's. The arm writes the
+            // enumerated fields and nothing else (§17 rule 2; §2 rule 6).
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            (Association upsertRequest, Association readersRow) =
+                ArrangeUpsertArmThatFindsTheReadersRow(arm, inputCancellationToken);
+
+            Association storedRow = readersRow.DeepClone();
+            Association writtenRow = null;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateAssociationAsync(
+                    It.Is<Association>(association => association.Id == readersRow.Id),
+                    inputCancellationToken))
+                        .ReturnsAsync((Association entity, CancellationToken _) =>
+                        {
+                            writtenRow = entity.DeepClone();
+
+                            return entity;
+                        });
+
+            // when
+            await this.associationService.UpsertPersonalAssociationAsync(
+                upsertRequest,
+                inputCancellationToken);
+
+            // then: the row written keeps its stored values of the seven
+            OperationOwnedFieldsOf(writtenRow).Should().Be(OperationOwnedFieldsOf(storedRow));
+            OperationOwnedFieldsOf(writtenRow).Should().NotBe(OperationOwnedFieldsOf(upsertRequest));
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAssociationAsync(
+                    It.Is<Association>(association => association.Id == readersRow.Id),
+                    inputCancellationToken),
+                Times.Once);
+        }
+
         // every arm that finds the reader's row, with the outcome §2 rule 4 gives it
         public static TheoryData<string, PersonalAssociationUpsertOutcome> UpsertArmsThatFindTheReadersRow() =>
             new TheoryData<string, PersonalAssociationUpsertOutcome>
@@ -1290,6 +1334,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 { "LiveRepoint", PersonalAssociationUpsertOutcome.Repointed },
                 { "Unchanged", PersonalAssociationUpsertOutcome.Unchanged },
                 { "TakenDown", PersonalAssociationUpsertOutcome.TakenDown }
+            };
+
+        // every arm that writes the reader's row
+        public static TheoryData<string> UpsertArmsThatWriteTheReadersRow() =>
+            new TheoryData<string>
+            {
+                "Revive",
+                "ReviveAndRepoint",
+                "LiveRepoint"
             };
 
         // A signed-in reader's request that sets all seven fields an operation owns and reaches the
@@ -1357,6 +1410,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             return (upsertRequest, readersRow);
         }
+
+        private static (int?, decimal?, string, Guid?, string, bool, string) OperationOwnedFieldsOf(
+            Association association) =>
+            (
+                association.SortOrder,
+                association.ConfidenceScore,
+                association.ConfidenceReason,
+                association.SourceBatchId,
+                association.ModelVersion,
+                association.IsApprovedByBypass,
+                association.ApprovedByBypassReason
+            );
 
         [Fact]
         public async Task ShouldNormaliseTheEndpointsBeforeResolvingTheRowAsync()
