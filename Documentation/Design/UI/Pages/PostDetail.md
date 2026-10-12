@@ -269,7 +269,7 @@ page is a courtesy (§SEC14.6).
    soon* notice, and wires no `onRemove` (`postDetail.tsx`, lines 135-138 and 195-205; test:
    `postDetail.test.tsx` — "should answer a suggested tag honestly rather than dropping it",
    "should answer a suggested bible reference honestly rather than dropping it"). The read and the
-   two writes are designed (§ARC17.4) and not yet served: `AssociationsController` serves a reader's reaction alone (#728), and an editorial suggestion waits on #1088; the page's
+   two writes are designed (§ARC17.4), and of them only the suggestion is served: `AssociationsController` serves a reader's reaction (#728) and an editorial suggestion (#1088), and neither the read nor the remove; the page's
    wiring is its own work on top of it. With the collection empty, no chip renders, so the missing
    `onRemove` would surface as a dead withdrawal only once the read is wired
    (`UI/Components/AssociationPanel.md §10 item 8`).

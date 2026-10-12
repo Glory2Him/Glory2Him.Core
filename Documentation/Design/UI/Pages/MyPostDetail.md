@@ -160,7 +160,7 @@ The page renders both stories the same way and sets the same properties on each.
 | Property | Value | Why |
 | --- | --- | --- |
 | `associationCollection` | `[]` | Rule 2.14. |
-| `onAdd` | a toast, "Suggesting tags is coming soon." or "Suggesting bible references is coming soon." | The association writes are not yet built (rule 2.14; item 5). |
+| `onAdd` | a toast, "Suggesting tags is coming soon." or "Suggesting bible references is coming soon." | The page is not yet wired to the suggestion write (rule 2.14; item 5). |
 | `showBorder`, `cssClass` | `true`, `mb-4` | Spacing in the column. |
 | The post's content type (`UI/Components/AssociationPanel.md rule 2.30`) | Not passed; the panel has no such property yet (`UI/Components/AssociationPanel.md §10 item 20`) | Rule 2.16; item 13. |
 
@@ -261,8 +261,8 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
 5. (needs issue) **Page gap — `/myposts/{id}`: suggesting a tag or a Bible reference sends
    nothing.** The page answers each panel's `onAdd` with a "coming soon" toast and reads no
    associations, so both lists are always empty (`myPostDetail.tsx` — `suggestTag`,
-   `suggestBibleReference`, `associationCollection={[]}`). The server work is not yet built: the association read `GET /api/associations` is not served,
-   and the suggestion, an editorial pairing sent to `POST /api/associations` (#728), waits on #1088
+   `suggestBibleReference`, `associationCollection={[]}`). The server work is part built: the suggestion, an editorial pairing sent to `POST /api/associations`,
+   is served (#728, #1088), and the association read `GET /api/associations` is not
    (§ARC17.4; `UI/Components/AssociationPanel.md §7`). The page's half is to read the item's associations, project
    them to the panels, and send each suggestion with the viewer as its owner
    (`UI/Components/AssociationPanel.md §7`, the note on `asSuggestedAssociation`).

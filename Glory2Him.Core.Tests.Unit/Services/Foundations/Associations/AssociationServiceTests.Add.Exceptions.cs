@@ -297,5 +297,58 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnAddIfIdentifierBrokerFailsAndLogItAsync()
+        {
+            // given
+            Association someAssociation = CreateRandomAssociation();
+            var serviceException = new Exception();
+
+            var failedAssociationServiceException = new FailedAssociationServiceException(
+                message: "Failed content item association service error occurred, please contact support.",
+                innerException: serviceException,
+                data: serviceException.Data);
+
+            var expectedAssociationServiceException = new AssociationServiceException(
+                message: "Content item association service error occurred, contact support.",
+                innerException: failedAssociationServiceException);
+
+            // the identifier broker raises no family of its own, so its failure reaches the
+            // closing catch-all arm
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<Association> addAssociationTask =
+                this.associationService.AddAssociationAsync(
+                    someAssociation,
+                    TestContext.Current.CancellationToken);
+
+            AssociationServiceException actualAssociationServiceException =
+                await Assert.ThrowsAsync<AssociationServiceException>(
+                    addAssociationTask.AsTask);
+
+            // then: nothing is inserted or published
+            actualAssociationServiceException.Should().BeEquivalentTo(
+                expectedAssociationServiceException);
+
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationServiceException))),
+                Times.Once);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }

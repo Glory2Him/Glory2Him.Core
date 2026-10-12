@@ -88,10 +88,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     message: "Content item association is invalid, fix the errors and try again.");
 
             invalidAssociationException.AddData(
-                key: nameof(Association.Id),
-                values: "Id is required");
-
-            invalidAssociationException.AddData(
                 key: nameof(Association.EntityAKeyId),
                 values: "Id is required");
 
@@ -134,6 +130,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     message: "Content item association validation error occurred, fix the errors and try again.",
                     innerException: invalidAssociationException);
 
+            // the minted Id is empty here on purpose: were the add still to ask its empty-Id
+            // rule of the row, the Id entry would come back, and were the mint to follow
+            // validation, the call below would be missing (§13 rules 2 and 3)
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(Guid.Empty);
+
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(invalidAssociation, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(invalidAssociation);
@@ -160,6 +163,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             actualAssociationValidationException.Should().BeEquivalentTo(
                 expectedAssociationValidationException);
 
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Once);
+
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.ApplyAddAuditValuesAsync(invalidAssociation, It.IsAny<SecurityContext>()),
                 Times.Once);
@@ -177,6 +184,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     SameExceptionAs(expectedAssociationValidationException))),
                 Times.Once);
 
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
@@ -756,6 +764,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     SameExceptionAs(expectedAssociationValidationException))),
                 Times.Once);
 
+            // a caller the contribution gate refuses mints nothing (§13 rule 2)
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Never);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
@@ -797,6 +811,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     SameExceptionAs(expectedAssociationValidationException))),
                 Times.Once);
 
+            // a caller the contribution gate refuses mints nothing (§13 rule 2)
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Never);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();

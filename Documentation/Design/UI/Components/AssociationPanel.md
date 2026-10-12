@@ -299,7 +299,7 @@ Every page renders the family through its stories. No page renders `AssociationP
 | Purpose | Endpoint | State |
 | --- | --- | --- |
 | Read the associations for an entity — "associations for this entity", keyed on the effective id (§DOM4.6 rule 1) | `GET /api/associations` (§ARC17.4) | designed; not yet served (section 10, item 21) |
-| Suggest an association (`onAdd`) | `POST /api/associations` (§ARC17.4, §ARC16.8.1) | served for a reader's reaction alone (#728); an editorial suggestion waits on #1088 (section 10, item 24) |
+| Suggest an association (`onAdd`) | `POST /api/associations` (§ARC17.4, §ARC16.8.1) | served for a reader's reaction (#728) and an editorial suggestion (#1088; section 10, item 24) |
 | Remove an association (`onRemove`) | `DELETE /api/associations/{id}` (§ARC17.4) — owner or `Administrators` | designed; not yet exposed (section 10, item 22) |
 | Approve or reject (`onApprove`, `onReject`) | not ruled — see section 10 | — |
 
@@ -375,11 +375,11 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
     property through their rest spread
     (`UI/Components/AssociationPanel.TagAssociationPanel.md §4.3`), so the property reaches them
     with the panel's. The panel's own end's roles, which it does not compose either, are item 1.
-21. (#857) **Gap — this family cannot read or write its associations over HTTP.** The reads and writes the
+21. (#857) **Gap — this family cannot read or remove its associations over HTTP.** The reads and writes the
     page calls for this family — reading an entity's associations, suggesting one and removing
-    one (section 7; §ARC17.4) — are designed and not built: `AssociationsController` serves only a reader's
-    reaction (#728) and the reaction summaries (#730), so no product page can read or write an
-    association through the family, and every
+    one (section 7; §ARC17.4) — are designed and part built: `AssociationsController` serves a reader's
+    reaction (#728), the reaction summaries (#730) and an editorial suggestion (#1088), yet no
+    product page reads or writes an association through the family, and every
     page in section 6 passes an empty collection or holds suggestions in its own state. A page
     list narrowed by tag or Bible reference waits on the same read, and the narrowing itself is
     not this item's: it is `UI/Components/ContentItemListPanel.md §10 item 15`, since #857 plans
@@ -387,6 +387,8 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
     one is item 24. Reading an entity's associations is #857's, which
     designs §ARC17.4's two reads with §SEC14.7 posture A′ rule 7 ahead of them (user ruling
     2026-10-02). Removing one is item 22.
+    **Built:** suggesting one, `POST /api/associations` (item 24; #1088).
+    **Not yet built:** reading an entity's associations (#857), and removing one (item 22).
 22. (#700) **Gap — an association cannot be removed over HTTP.** Removing one, the third part of
     item 21's gap, `DELETE /api/associations/{id}` (section 7; §ARC17.4), is held by a design task
     other than item 21's: #700's point 6 plans the remove by id and the two gates beneath it.
@@ -421,9 +423,8 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
     to say that the counts arrive through its hook, which rewrites line 80. The task carved from
     this item leaves those three lines to #738, and takes up any of them that still names #318
     once #738 has merged.
-24. (#1088) **Gap — an editorial association cannot be suggested over HTTP.** Suggesting one, the
-    second part of item 21's gap, `POST /api/associations` (section 7; §ARC16.8.1), is not item
-    21's. The route is #728's, which serves a reader's reaction alone (user ruling 2026-10-05).
-    Its editorial arm refuses the two-endpoint body, because the foundation's add takes the new
-    row's `Id` from its caller. #1088 has the add mint it instead (§APR9.7.1 rule 2;
-    `DesignFeatures/Backend/Foundations/AssociationService.md §13`).
+24. Built (#1088) **An editorial association is suggested over HTTP.** Suggesting one, the
+    second part of item 21's gap, `POST /api/associations` (section 7; §ARC16.8.1), is served.
+    The route is #728's, and #1088 has the foundation's add mint the new row's `Id` rather than
+    take it from the caller, so the route's editorial arm takes the two-endpoint body (§APR9.7.1
+    rule 2; `DesignFeatures/Backend/Foundations/AssociationService.md §13`).

@@ -68,6 +68,15 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 EntityBKeyId = reactionId
             };
 
+        private static Association CreateTagPair(Guid contentItemId, Guid tagId) =>
+            new Association
+            {
+                EntityAType = EntityType.ContentItem,
+                EntityAKeyId = contentItemId,
+                EntityBType = EntityType.Tag,
+                EntityBKeyId = tagId
+            };
+
         private static async ValueTask<AssociationSuggestionResult> ReadResultAsync(
             HttpResponseMessage response) =>
             await response.Content.ReadFromJsonAsync<AssociationSuggestionResult>();
