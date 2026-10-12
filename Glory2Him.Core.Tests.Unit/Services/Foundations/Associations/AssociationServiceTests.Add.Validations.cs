@@ -200,7 +200,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             Association invalidAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
 
             var invalidAssociationException =
                 new InvalidAssociationException(
@@ -278,7 +278,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             Association invalidAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
 
             invalidAssociation.ConfidenceReason = GetRandomStringWithLengthOf(501);
 
@@ -357,7 +357,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             Association invalidAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
 
             invalidAssociation.ConfidenceScore = outOfRangeConfidenceScore;
 
@@ -431,7 +431,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             Association randomAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
             Association invalidAssociation = randomAssociation;
             invalidAssociation.UpdatedWhen = GetRandomDateTimeOffset();
 
@@ -506,7 +506,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             string differentUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             Association randomAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
             Association invalidAssociation = randomAssociation;
             invalidAssociation.CreatedBy = differentUserId;
             invalidAssociation.UpdatedBy = differentUserId;
@@ -581,7 +581,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             Association randomAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
             Association invalidAssociation = randomAssociation;
             invalidAssociation.UpdatedBy = GetRandomString();
 
@@ -656,7 +656,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             Association randomAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
             Association invalidAssociation = randomAssociation;
             DateTimeOffset currentDateTime = randomDateTimeOffset;
             DateTimeOffset startDate = currentDateTime.AddSeconds(-90);

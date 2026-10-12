@@ -141,7 +141,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             Association inputAssociation =
-                CreateAssociationFiller(randomDateTimeOffset).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset);
 
             inputAssociation.EntityAType = EntityType.BibleReference;
             inputAssociation.EntityAKeyId = Guid.NewGuid();

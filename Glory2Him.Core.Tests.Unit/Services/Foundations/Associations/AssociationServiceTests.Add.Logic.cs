@@ -32,7 +32,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // given
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             Association randomAssociation =
-                CreateAssociationFiller(randomDateTimeOffset).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset);
             Association inputAssociation = randomAssociation;
             Guid mintedId = Guid.NewGuid();
             Association auditAppliedAssociation = inputAssociation.DeepClone();
@@ -138,7 +138,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             string contributorUserId = GetRandomString();
 
             Association inputAssociation =
-                CreateAssociationFiller(currentDateTime, contributorUserId).Create();
+                CreateRandomAddAssociation(currentDateTime, contributorUserId);
 
             // a contributor's suggestion sends two endpoints and nothing else, so its Id is
             // empty; the new row takes the Id the service mints (§13 rules 1 and 4)
@@ -246,7 +246,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             string contributorUserId = GetRandomString();
 
             Association inputAssociation =
-                CreateAssociationFiller(currentDateTime, contributorUserId).Create();
+                CreateRandomAddAssociation(currentDateTime, contributorUserId);
 
             // the caller's Id is overwritten, neither compared nor refused (§13 rule 1)
             Guid callersId = Guid.NewGuid();

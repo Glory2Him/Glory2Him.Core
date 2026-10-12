@@ -31,7 +31,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // given
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             Association randomAssociation =
-                CreateAssociationFiller(randomDateTimeOffset).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset);
             Association inputAssociation = randomAssociation;
             Association auditAppliedAssociation = inputAssociation.DeepClone();
             Association storageAssociation = auditAppliedAssociation.DeepClone();

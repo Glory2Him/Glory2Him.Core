@@ -387,6 +387,27 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         private static Association CreateRandomAssociation() =>
             CreateAssociationFiller(dateTimeOffset: GetRandomDateTimeOffset()).Create();
 
+        // the add refuses the seven fields an operation owns (§15 rule 1), and the filler
+        // draws them for modify and the transitions, so an add that is about something else
+        // takes its input from here with the seven unset
+        private static Association CreateRandomAddAssociation(
+            DateTimeOffset dateTimeOffset,
+            string userId = "") =>
+                UnsetOperationOwnedFields(CreateAssociationFiller(dateTimeOffset, userId).Create());
+
+        private static Association UnsetOperationOwnedFields(Association association)
+        {
+            association.SortOrder = null;
+            association.ConfidenceScore = null;
+            association.ConfidenceReason = null;
+            association.SourceBatchId = null;
+            association.ModelVersion = null;
+            association.IsApprovedByBypass = false;
+            association.ApprovedByBypassReason = null;
+
+            return association;
+        }
+
         // a reader's reaction on a Quote: a personal row, created and keyed by one reader
         private static Association CreateRandomReaction(string readerUserId)
         {
