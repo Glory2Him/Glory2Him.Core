@@ -1755,6 +1755,55 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         }
 
 
+        [Theory]
+        [MemberData(nameof(WritingFoundRowUpsertArms))]
+        public async Task ShouldKeepTheStoredOperationOwnedFieldsWhenTheReadersRowIsWrittenOnUpsertPersonalAsync(
+            string arm)
+        {
+            // given: the request sets every field an operation owns, each to a value different from
+            // the stored row's, and the arm writes the reader's row (§17 rule 2; §2 rule 6)
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            (Association upsertRequest, Association readersRow) =
+                ArrangeFoundRowUpsertArm(arm, inputCancellationToken);
+
+            Association storedRow = readersRow.DeepClone();
+            Association writtenRow = null;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateAssociationAsync(
+                    It.Is<Association>(association => association.Id == readersRow.Id),
+                    inputCancellationToken))
+                        .ReturnsAsync((Association entity, CancellationToken _) =>
+                        {
+                            writtenRow = entity.DeepClone();
+
+                            return entity;
+                        });
+
+            // when
+            await this.associationService.UpsertPersonalAssociationAsync(
+                upsertRequest,
+                inputCancellationToken);
+
+            // then: the row written keeps its stored value of each of the seven
+            writtenRow.Should().BeEquivalentTo(storedRow, options => options
+                .Including(association => association.SortOrder)
+                .Including(association => association.ConfidenceScore)
+                .Including(association => association.ConfidenceReason)
+                .Including(association => association.SourceBatchId)
+                .Including(association => association.ModelVersion)
+                .Including(association => association.IsApprovedByBypass)
+                .Including(association => association.ApprovedByBypassReason));
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAssociationAsync(
+                    It.Is<Association>(association => association.Id == readersRow.Id),
+                    inputCancellationToken),
+                Times.Once);
+        }
+
         // each sink failure, an exception and a cancellation, on each arm that publishes
         public static TheoryData<string, PersonalAssociationUpsertOutcome, AssociationEventOperation, Exception>
             SinkFailuresOnEachPublishingUpsertArm()
@@ -2135,6 +2184,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 { "Unchanged", PersonalAssociationUpsertOutcome.Unchanged },
                 { "TakenDown", PersonalAssociationUpsertOutcome.TakenDown }
             };
+
+        public static TheoryData<string> WritingFoundRowUpsertArms() =>
+            new TheoryData<string> { "Revive", "ReviveAndRepoint", "LiveRepoint" };
 
         // A signed-in reader's request that finds their row on the given arm and sets every field an
         // operation owns, with every broker the arm asks answering as it would. The stored row holds
