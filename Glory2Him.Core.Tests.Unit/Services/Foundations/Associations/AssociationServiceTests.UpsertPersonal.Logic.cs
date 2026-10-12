@@ -1804,6 +1804,88 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 Times.Once);
         }
 
+        [Theory]
+        [MemberData(nameof(CallersWhoAreNotTheReader))]
+        public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfCallerIsNotTheReaderBeforeTheFieldsAreAskedAndLogItAsync(
+            SecurityContext callersSecurityContext,
+            int expectedCallerUserIdReads,
+            string expectedMessage)
+        {
+            // given: the request names another reader and sets every field an operation owns. The
+            // caller check comes before the row is resolved, and the refusals after it (§17 rule 2;
+            // §2 rule 2), so the caller hears that, and not which fields the request sets.
+            string callerUserId = GetRandomString();
+            string anotherReaderUserId = GetRandomString();
+            this.ambientSecurityContext = callersSecurityContext;
+
+            Association upsertRequest =
+                SetEveryOperationOwnedField(CreatePersonalUpsertRequest(anotherReaderUserId));
+
+            var unauthorizedAssociationException =
+                new UnauthorizedAssociationException(message: expectedMessage);
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedAssociationException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(callerUserId);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(upsertTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(upsertRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Exactly(expectedCallerUserIdReads));
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // an anonymous caller, refused before the caller's account is read, and a signed caller
+        // acting for another reader, refused once it is
+        public static TheoryData<SecurityContext, int, string> CallersWhoAreNotTheReader() =>
+            new TheoryData<SecurityContext, int, string>
+            {
+                {
+                    new SecurityContext { IsAuthenticated = false },
+                    0,
+                    "The current user is not authenticated."
+                },
+                {
+                    CreateAuthenticatedSecurityContext(),
+                    1,
+                    "The current user is not allowed to write another user's " +
+                        "personal content item association."
+                }
+            };
+
         // each sink failure, an exception and a cancellation, on each arm that publishes
         public static TheoryData<string, PersonalAssociationUpsertOutcome, AssociationEventOperation, Exception>
             SinkFailuresOnEachPublishingUpsertArm()
