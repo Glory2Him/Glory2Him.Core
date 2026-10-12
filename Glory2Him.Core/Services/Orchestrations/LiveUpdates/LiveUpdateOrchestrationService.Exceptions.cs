@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.LiveUpdates.Exceptions;
@@ -27,6 +28,10 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
             try
             {
                 return await returningValueFunction();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (InvalidLiveUpdateOrchestrationException invalidLiveUpdateOrchestrationException)
             {
@@ -54,6 +59,21 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
             {
                 throw await CreateAndLogDependencyExceptionAsync(
                     exception: contentItemServiceException);
+            }
+
+            // anything else, a broker's raw failure included: a broker raises no family of its
+            // own (§ARC12.5)
+            catch (Exception exception)
+            {
+                var failedLiveUpdateOrchestrationServiceException =
+                    new FailedLiveUpdateOrchestrationServiceException(
+                        message: "Failed live update orchestration service error occurred, " +
+                            "please contact support.",
+                        innerException: exception,
+                        data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(
+                    exception: failedLiveUpdateOrchestrationServiceException);
             }
         }
 
@@ -99,6 +119,20 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
                 exception: liveUpdateOrchestrationDependencyException);
 
             return liveUpdateOrchestrationDependencyException;
+        }
+
+        private async ValueTask<LiveUpdateOrchestrationServiceException>
+            CreateAndLogServiceExceptionAsync(Xeption exception)
+        {
+            var liveUpdateOrchestrationServiceException =
+                new LiveUpdateOrchestrationServiceException(
+                    message: "Live update orchestration service error occurred, contact support.",
+                    innerException: exception);
+
+            await this.loggingBroker.LogErrorAsync(
+                exception: liveUpdateOrchestrationServiceException);
+
+            return liveUpdateOrchestrationServiceException;
         }
     }
 }
