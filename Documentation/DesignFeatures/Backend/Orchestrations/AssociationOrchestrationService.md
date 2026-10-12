@@ -17,7 +17,7 @@ ValueTask<AssociationSuggestionResult> UpsertAssociationAsync(
     CancellationToken cancellationToken = default);
 ```
 
-§ARC16.8.1 owns the member: it **replaces** `AddAssociationAsync`, which leaves the interface; it takes two endpoints and nothing else; one flow runs up to the branch, and the two personalities branch after it.
+§ARC16.8.1 owns the member: it **replaces** `AddAssociationAsync`, which leaves the interface; it takes two endpoints and nothing else; one flow runs up to the branch, and the two personalities branch after it. §ARC16.8.1 also rules which layer enforces that shape, what a caller gets for a field outside it, and the status an editorial suggestion opens at; §6 builds them.
 
 1. **The flow is the add's, with the reaction exemption and the gate in it** — one flow, still shared with the event door (§2), in this order:
    1. authentication; and, for an **editorial** pair only, the global `ReadOnly` — a **personal** pair asks none of the read-only roles (§SEC14.7 posture A′ rule 1);
@@ -91,6 +91,17 @@ ValueTask<IReadOnlyList<ContentItemReactionSummary>> RetrieveContentItemReaction
 1. **An editorial pair the host's setting refuses is refused here as §1 rule 2 refuses it**: nothing written, no fact published, no `ProcessedEvents` row recorded. A host whose setting resolves no row is refused the same way.
 2. **A settings read that fails reaches this service's closing catch** as its service exception, which the handler logs and rethrows.
 3. **Its tests are pins.** §1 puts the gate into this door's flow, so they pass as soon as they are written, and they are committed as pins. A personal pair never reaches the gate on this door, because #723 refuses it first.
+
+## 6. UpsertAssociationAsync — the two-endpoint working copy (#1095)
+
+An existing member, changed. §ARC16.8.1 rules where its caller shape is enforced, what a caller gets for a field outside it, and that an editorial suggestion opens at `Submitted`; this section is how the member reaches them. Its signature, the flow (§1 rule 1), the facet gate (§1 rule 2), the branch, the result (§1 rule 5) and its catch arms are unchanged.
+
+1. **The flow runs on a working copy.** Once the null check has passed, the member builds a new `Association` carrying the caller's `EntityAType`, `EntityAKeyId`, `EntityBType` and `EntityBKeyId`, and nothing else. Everything after the null check, the envelope the member mints included, reads and writes that copy: the flow of §1 rule 1 and both arms. Nothing reads the caller's object again. The `Association-Adding` door already builds the same copy (§2; §ARC12.5.2 rule 6), and the two doors build it the same way, written once.
+2. **A field outside the shape gets the answer the same body gets without it** (§ARC16.8.1, the table of fields), because neither the copy nor anything handed down from it carries the field.
+3. **The editorial arm writes `Submitted` on the copy before it hands it to the foundation's add** (§ARC16.8.1, *An editorial suggestion is created at `Submitted` too*). Where §1 rule 3 has the arm hand the caller's request to the add as it stands, the arm now hands it the copy, carrying the derived fields and `Submitted`. Its two probes, its insert of a free pair and its statuses are unchanged, and so is the `Id` the add mints.
+4. **The personal arm is unchanged.** §1 rule 4 sets `Submitted` on the copy and hands the copy to `IAssociationService.UpsertPersonalAssociationAsync`.
+5. **The foundation's refusals are not reached through this member** once the copy is built. They stay the foundation's own, for every caller that reaches the foundation by another way (`Backend/Foundations/AssociationService.md` §15, §16 and §17).
+6. **The drop is proven over HTTP on a reader's reaction.** A reaction is approved inside its own request, because the seeded personal tier closes its round on submission (§ARC16.8.1, *A reaction row is created at `Submitted`*). The approval then writes the bypass pair from the access decision, never from the caller's entity (§APR9.7.1 rule 3), so the stored pair reads the same whether or not the caller's pair was dropped. So the pair's drop is proven by the response, once the create arm refuses the pair (`Backend/Foundations/AssociationService.md §17`): a pair that got past the copy would be refused there. `IsPublished` and `PublishDate` are proven by the response alone too, because the approval publishes the row, and the create arm already refuses both. The other five fields are proven by the stored row as well.
 
 ## Deviations
 

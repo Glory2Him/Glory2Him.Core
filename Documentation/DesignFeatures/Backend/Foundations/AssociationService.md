@@ -1,7 +1,7 @@
 # Association service
 Parent: [Likes.md](../../Likes.md)
 Level: foundation — `IAssociationService` (`Glory2Him.Core/Services/Foundations/Associations/`)
-Inherits: §DOM4.3, §DOM4.4 rule 4, §DOM4.5 rules 1, 2 and 4, §DOM4.6, §DOM4.10, §SEC14.3 rules 1, 2 and 5, §SEC14.5, §SEC14.6, §SEC14.7 posture A′ rules 1, 2, 4 and 7, §APR7.5.1, §APR9.7.1 rule 2, §APR9.9 rule 6, §ARC12.2.1 rules 3–6, §ARC12.5, §ARC16.2.2, §ARC16.8, §ARC16.8.1, §EVN2, §EVN17 rule 3, §EVN20 rule 9, §EVN23 rules 1–3, Likes.md rules 1–3, 5, 6, 8 and 10
+Inherits: §DOM4.3, §DOM4.4 rule 4, §DOM4.5 rules 1, 2 and 4, §DOM4.6, §DOM4.10, §SEC14.3 rules 1, 2 and 5, §SEC14.5, §SEC14.6, §SEC14.7 posture A′ rules 1, 2, 4 and 7, §APR7.5.1, §APR8.6.1, §APR9.7.1 rules 1, 2, 3 and 5, §APR9.9 rule 6, §ARC12.2.1 rules 3–6, §ARC12.5, §ARC16.2.2, §ARC16.8, §ARC16.8.1, §EVN2, §EVN17 rule 3, §EVN20 rule 9, §EVN23 rules 1–3, Likes.md rules 1–3, 5, 6, 8 and 10
 
 The foundation half of a reader's reaction: the one write that gives, changes and revives it, the lookup that finds it, the two reads the summary counts and marks with, and the one change to the soft remove that lets a reader withdraw their own. Every condition below is authored here as a query-shaping function and handed to `SelectAssociationsAsync` (`Backend/Brokers/StorageBroker.md §1`), which the client awaits with the caller's token (§ARC12.2.1 rule 3); each is unit-tested by executing it (rule 5), and integration proves what an in-memory set cannot (rule 6).
 
@@ -195,3 +195,32 @@ An existing member, unchanged: the handler for `Association-Adding`, which since
 1. **The row is written under the `Id` this service mints, never the one the publisher named.** §APR9.7.1 rule 2 holds on this path too, so no deviation is recorded. The envelope's content, which its signature covers (§SEC14.6 rule 4), is not refused for its `Id`, and the claim is neither compared nor refused, as on the direct path. The reply and the `Association-Added` fact carry the minted `Id`, and they are how the publisher learns which row was written.
 2. **Deduplication on `Metadata.EventId` and the contribution gate run before the mint**, so a replay, or a caller the gate refuses, mints nothing and writes nothing (§13 rule 2).
 3. **Its tests are pins.** §13 puts the mint in the shared body, so they pass as soon as they are written, and they are committed as pins.
+
+## 15. AddAssociationAsync — the add refuses the fields an operation owns (#1092)
+
+An existing member, changed: its validation gains seven refusals. Its signature, its gate, the mint (§13), its derivations, its other validations, canonical order, the write, the `Association-Added` fact and its `ProcessedEvents` records are unchanged.
+
+§APR9.7.1 rule 2 puts `ISortOrder`, `IConfidence`, `IsApprovedByBypass` and `ApprovedByBypassReason` in the group *"never accepted from a caller at all"*. Rule 3 writes the bypass pair from the access decision, never from the caller's entity, and rule 5 never accepts `SourceBatchId` or `ModelVersion` from a caller. The add checks the confidence fields for range alone and the bypass pair not at all, and stores what it is handed. The foundation is the last line of defence (§APR8.6.1), so this section closes that on both entry paths, and records no deviation.
+
+1. **The add refuses each of these fields when its caller sets it, naming the field**: `SortOrder`, `ConfidenceScore`, `ConfidenceReason`, `SourceBatchId`, `ModelVersion` and `ApprovedByBypassReason` when not `null`, and `IsApprovedByBypass` when `true`. An empty or whitespace string is not `null`, so it is refused too. Each refusal is a validation failure of the add, reported beside the add's other refusals in one validation exception, as `IsPublished` and `PublishDate` are refused today.
+2. **The refusals are asked in `DoAddAssociationAsync`**, the private write body both entry paths share, with the add's other validations, after the contribution gate and the mint (§13 rule 2). So they hold on `Association-Adding` as well (§16). A refused add inserts nothing, publishes no fact and records no `ProcessedEvents` row.
+3. **The rest of rule 2's first group already stays off the row**, and nothing here changes it. The `Id` is minted (§13). The eight `IAudit` members are written or cleared by the add stamp before validation. `IsPublished` and `PublishDate` are refused (§APR9.7.1's add row). `ApprovalStatus` is the one member of the group an add takes from its caller, `Draft` or `Submitted` only (§APR9.7.1 rule 1). The upsert's editorial arm asks for `Submitted` (§ARC16.8.1).
+4. **Its caller on the direct path sends none of these fields.** The upsert hands its flow a copy carrying the two endpoints alone (§ARC16.8.1; `Backend/Orchestrations/AssociationOrchestrationService.md §6`). So once that copy is built, an HTTP caller never reaches these refusals. They are the foundation's own, for every caller that reaches it by another way (§APR8.6.1).
+5. **The narrow operations that own these fields are unchanged.** `SortAssociationAsync` writes `SortOrder`, `SetAssociationConfidenceAsync` writes the four `IConfidence` fields, and the approval transition writes the bypass pair (§APR9.7.1 rules 3–5).
+
+## 16. OnAddingAssociationAsync — the add's refusals on the event door (#1093)
+
+An existing member, unchanged: the handler for `Association-Adding`, which the orchestration's handler reaches with the same envelope (`Backend/Orchestrations/AssociationOrchestrationService.md §2`). It converges on `DoAddAssociationAsync`, so §15 binds it by construction. This section records what that means on this door, and proves it here.
+
+1. **An envelope whose content sets any field §15 rule 1 names is refused as the direct path refuses it.** Nothing is inserted, no fact is published and no `ProcessedEvents` row is recorded, and the handler logs the refusal and rethrows it. The claim is refused, not dropped. The content is covered by the envelope's signature and is what the add writes, so no receiver edits it (§ARC12.5.2 rule 6, *"the difference is the signature"*; §SEC14.6 rule 4). §APR9.7.1 holds on this path as on the direct one, so no deviation is recorded.
+2. **The orchestration's handler is unchanged.** Its refusal set compares none of these fields (§ARC12.5.2 rule 6, refusal-set rule 1), so the envelope reaches this handler with them still set, and this handler refuses it.
+3. **Its tests are pins.** §15 puts the refusals in the shared body, so they pass as soon as they are written, and they are committed as pins.
+
+## 17. UpsertPersonalAssociationAsync — the create arm refuses the fields an operation owns (#1094)
+
+An existing member, changed: §2 rule 4's create arm gains §15's refusals, as §ARC16.2.2 records in the member's field scope. Its signature, its outcomes, its facts, its other arms and its other rules are unchanged.
+
+1. **On the create arm, a new row that sets any field §15 rule 1 names is refused as invalid, naming the field**, on §15 rule 1's terms. The refusal comes before the `Id` is minted (§2 rule 10) and before anything is written, so no fact is published.
+2. **It is asked with the create arm's other validations**, once the reader's row is resolved and none is found (§2 rule 4: *validated as the add validates one*). A request that finds the reader's row is not refused for these fields. The revive and repoint arms write the enumerated fields and nothing else (§2 rule 6; §ARC16.2.2), so the caller's values never reach the row on those arms.
+3. **The rest of rule 2's first group already stays off the new row**, and nothing here changes it. The `Id` is minted (§2 rule 10). The eight `IAudit` members are written or cleared by the add stamp. `IsPublished` and `PublishDate` are refused, and so is any status but `Draft` or `Submitted`. The upsert's personal arm asks for `Submitted` (`Backend/Orchestrations/AssociationOrchestrationService.md §1` rule 4).
+4. **Its caller sends none of these fields** once the upsert's working copy is built (§ARC16.8.1; `Backend/Orchestrations/AssociationOrchestrationService.md §6`). The refusal is the foundation's own (§APR8.6.1). Until the copy is built, a reaction posted with any of these fields reaches it and is answered `400` (`Backend/Controllers/AssociationsController.md`, the shared mapping).
