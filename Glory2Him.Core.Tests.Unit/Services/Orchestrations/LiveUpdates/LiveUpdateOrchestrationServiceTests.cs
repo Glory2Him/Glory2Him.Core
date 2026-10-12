@@ -19,8 +19,10 @@ using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.LiveUpdates;
+using Glory2Him.Core.Models.Orchestrations.LiveUpdates.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.LiveUpdates;
@@ -64,6 +66,58 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
                 envelopeIntegrityBroker: this.envelopeIntegrityBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
         }
+
+        // Each family the content item foundation raises, beside what this service rethrows it as
+        // (AssociationOrchestrationService.Exceptions.cs): its validation and dependency
+        // validation failures as this service's dependency validation failure, its dependency
+        // and service failures as this service's dependency failure, each around the
+        // foundation's own inner exception.
+        public static TheoryData<Xeption, Xeption> ContentItemFailures()
+        {
+            string randomMessage = GetRandomString();
+            var innerException = new Xeption(message: randomMessage);
+
+            return new TheoryData<Xeption, Xeption>
+            {
+                {
+                    new ContentItemValidationException(
+                        message: randomMessage, innerException: innerException),
+
+                    CreateDependencyValidationException(innerException)
+                },
+                {
+                    new ContentItemDependencyValidationException(
+                        message: randomMessage, innerException: innerException),
+
+                    CreateDependencyValidationException(innerException)
+                },
+                {
+                    new ContentItemDependencyException(
+                        message: randomMessage, innerException: innerException),
+
+                    CreateDependencyException(innerException)
+                },
+                {
+                    new ContentItemServiceException(
+                        message: randomMessage, innerException: innerException),
+
+                    CreateDependencyException(innerException)
+                },
+            };
+        }
+
+        private static LiveUpdateOrchestrationDependencyValidationException
+            CreateDependencyValidationException(Xeption innerException) =>
+            new LiveUpdateOrchestrationDependencyValidationException(
+                message: "Live update orchestration dependency validation error occurred, " +
+                    "fix the errors and try again.",
+                innerException: innerException);
+
+        private static LiveUpdateOrchestrationDependencyException CreateDependencyException(
+            Xeption innerException) =>
+            new LiveUpdateOrchestrationDependencyException(
+                message: "Live update orchestration dependency error occurred, contact support.",
+                innerException: innerException);
 
         // A reader's reaction on a content item, as the row stands once it is approved: endpoint A
         // the item, at its group, and endpoint B the reaction. Every id is drawn on its own, so no

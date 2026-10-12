@@ -12,9 +12,11 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Moq;
+using Xeptions;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
 {
@@ -49,6 +51,67 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
                 onAssociationApprovedTask.AsTask);
 
             this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // A row whose EntityAGroupId is missing reaches the read as an empty group id, which the
+        // read refuses; mapped here, that defect is logged rather than passed over in silence.
+        [Theory]
+        [MemberData(nameof(ContentItemFailures))]
+        public async Task ShouldRethrowAContentItemFailureOnAssociationApprovedAndLogItAsync(
+            Xeption contentItemException,
+            Xeption expectedLiveUpdateOrchestrationException)
+        {
+            // given
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            Association contentItemReaction = CreateContentItemReaction();
+            EventEnvelope<Association> approvedFact = CreateFactEnvelope(contentItemReaction);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    approvedFact,
+                    AssociationApprovedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.FindPublicContentItemGroupAsync(
+                    contentItemReaction.EntityAGroupId,
+                    callerCancellationToken))
+                        .ThrowsAsync(contentItemException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAssociationApprovedTask =
+                this.liveUpdateOrchestrationService.OnAssociationApprovedAsync(
+                    approvedFact,
+                    callerCancellationToken);
+
+            Xeption actualLiveUpdateOrchestrationException =
+                await Assert.ThrowsAnyAsync<Xeption>(onAssociationApprovedTask.AsTask);
+
+            // then
+            actualLiveUpdateOrchestrationException.Should()
+                .BeOfType(expectedLiveUpdateOrchestrationException.GetType());
+
+            actualLiveUpdateOrchestrationException.Should().BeEquivalentTo(
+                expectedLiveUpdateOrchestrationException);
+
+            this.contentItemServiceMock.Verify(service =>
+                service.FindPublicContentItemGroupAsync(
+                    contentItemReaction.EntityAGroupId,
+                    callerCancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(
+                    expectedLiveUpdateOrchestrationException))),
+                Times.Once);
+
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.liveUpdateServiceMock.VerifyNoOtherCalls();
