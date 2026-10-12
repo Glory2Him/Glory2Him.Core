@@ -13,7 +13,7 @@ ListenToResponses(listeners: ResponseListeners): () => void
 
 `ResponseListeners` is `{ onResponse: (response: AxiosResponse) => void; onFailure: (error: unknown) => void }`, in `src/models/foundations/networkStatuses/responseListeners.ts`, new.
 
-1. **It adds one response interceptor to the shared axios module**, as the interceptor today is added, so it hears every request the app makes, through `ApiBroker` or not (the comment above `isSameOriginRequest` in `apiBroker.ts`).
+1. **It adds one response interceptor to the shared axios module**, so it hears every request the app makes, through `ApiBroker` or not.
 2. **The interceptor calls `onResponse` with each response, and `onFailure` with each failure, as axios raised them.**
 3. **It passes each response on, and rejects with each failure, unchanged.** Listening changes no request's outcome.
 4. **It returns a function that takes that interceptor out again**, and no other.
@@ -21,4 +21,4 @@ ListenToResponses(listeners: ResponseListeners): () => void
 
 ## 2. The connectivity interceptor — deleted (#975)
 
-Deleted once `useOnlineStatus` hears the API through `networkStatusService` (`UI/Hooks/OnlineStatus.md §1`) and nothing imports what it exports. It is `isSameOriginRequest`, `markNetworkReachable`, `markNetworkUnreachableIfUnreachable`, the two event names `NETWORK_REACHABLE_EVENT` and `NETWORK_UNREACHABLE_EVENT`, and the line that adds them to axios, `axios.interceptors.response.use(markNetworkReachable, markNetworkUnreachableIfUnreachable)`, with the comments that explain them. `apiBroker.networkStatus.test.ts` goes with them: its first seven cases have moved to `networkStatusService`'s tests, and its eighth tests the registration being deleted (`BrokersHoldNoLogic.md` rule 5).
+Deleted once `useOnlineStatus` hears the API through `networkStatusService` (`UI/Hooks/OnlineStatus.md §1`) and nothing imports what it exports. It is `isSameOriginRequest`, `markNetworkReachable`, `markNetworkUnreachableIfUnreachable`, the two event names `NETWORK_REACHABLE_EVENT` and `NETWORK_UNREACHABLE_EVENT`, and the line that adds them to axios, `axios.interceptors.response.use(markNetworkReachable, markNetworkUnreachableIfUnreachable)`, with the comments that explain them. `apiBroker.networkStatus.test.ts` goes with them: its first seven cases have moved to `networkStatusService`'s tests, and its eighth tests the registration being deleted (`BrokersHoldNoLogic.md` rule 5). The comment on `ListenToResponses` loses its one clause that points at the deleted interceptor, "as the interceptor above is", and the rest of `ListenToResponses` stays as it is.
