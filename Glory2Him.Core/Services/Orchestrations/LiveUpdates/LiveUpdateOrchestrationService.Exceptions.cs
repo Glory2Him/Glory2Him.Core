@@ -12,6 +12,7 @@
 using System;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
+using Glory2Him.Core.Models.Foundations.LiveUpdates.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.LiveUpdates.Exceptions;
 using Xeptions;
 
@@ -59,6 +60,13 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
             {
                 throw await CreateAndLogDependencyExceptionAsync(
                     exception: contentItemServiceException);
+            }
+
+            // the LiveUpdate foundation's exceptions
+            catch (LiveUpdateValidationException liveUpdateValidationException)
+            {
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: liveUpdateValidationException);
             }
 
             // anything else, a broker's raw failure included: a broker raises no family of its
