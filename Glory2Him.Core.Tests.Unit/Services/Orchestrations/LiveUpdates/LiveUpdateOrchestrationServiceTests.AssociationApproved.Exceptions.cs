@@ -284,5 +284,84 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             this.liveUpdateServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        // A send that fails is a dependency failure, so the substrate records a failed delivery
+        // (§EVN11) and nothing retries it (§EVN23 rule 6).
+        [Theory]
+        [MemberData(nameof(LiveUpdateFailures))]
+        public async Task ShouldRethrowDependencyExceptionOnAssociationApprovedIfTheSendFailsAndLogItAsync(
+            Xeption liveUpdateException)
+        {
+            // given
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            Association contentItemReaction = CreateContentItemReaction();
+            EventEnvelope<Association> approvedFact = CreateFactEnvelope(contentItemReaction);
+
+            PublicContentItemGroup visibleVersion =
+                CreateVisibleVersion(groupId: contentItemReaction.EntityAGroupId);
+
+            List<ContentItemSettingKey> expectedSettingKeys = CreateSettingKeysFor(visibleVersion);
+            LiveUpdate expectedLiveUpdate = CreateReactionsChangeFor(visibleVersion);
+
+            LiveUpdateOrchestrationDependencyException
+                expectedLiveUpdateOrchestrationDependencyException =
+                    CreateDependencyException((Xeption)liveUpdateException.InnerException);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    approvedFact,
+                    AssociationApprovedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.FindPublicContentItemGroupAsync(
+                    contentItemReaction.EntityAGroupId,
+                    callerCancellationToken))
+                        .ReturnsAsync(visibleVersion);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    callerCancellationToken))
+                        .ReturnsAsync(CreateWinningSettingsFor(visibleVersion, showReactions: true));
+
+            this.liveUpdateServiceMock.Setup(service =>
+                service.SendLiveUpdateAsync(
+                    It.Is(SameLiveUpdateAs(expectedLiveUpdate)),
+                    callerCancellationToken))
+                        .ThrowsAsync(liveUpdateException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAssociationApprovedTask =
+                this.liveUpdateOrchestrationService.OnAssociationApprovedAsync(
+                    approvedFact,
+                    callerCancellationToken);
+
+            LiveUpdateOrchestrationDependencyException
+                actualLiveUpdateOrchestrationDependencyException =
+                    await Assert.ThrowsAsync<LiveUpdateOrchestrationDependencyException>(
+                        onAssociationApprovedTask.AsTask);
+
+            // then
+            actualLiveUpdateOrchestrationDependencyException.Should().BeEquivalentTo(
+                expectedLiveUpdateOrchestrationDependencyException);
+
+            this.liveUpdateServiceMock.Verify(service =>
+                service.SendLiveUpdateAsync(
+                    It.Is(SameLiveUpdateAs(expectedLiveUpdate)),
+                    callerCancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(
+                    expectedLiveUpdateOrchestrationDependencyException))),
+                Times.Once);
+
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }

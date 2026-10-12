@@ -22,6 +22,7 @@ using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.LiveUpdates;
+using Glory2Him.Core.Models.Foundations.LiveUpdates.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.LiveUpdates.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Services.Foundations.ContentItems;
@@ -103,6 +104,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
 
                     CreateDependencyException(innerException)
                 },
+            };
+        }
+
+        // The live update foundation's failures that are not a refusal: its dependency and its
+        // service exception, each this service's dependency failure.
+        public static TheoryData<Xeption> LiveUpdateFailures()
+        {
+            string randomMessage = GetRandomString();
+            var innerException = new Xeption(message: randomMessage);
+
+            return new TheoryData<Xeption>
+            {
+                new LiveUpdateDependencyException(
+                    message: randomMessage, innerException: innerException),
+
+                new LiveUpdateServiceException(
+                    message: randomMessage, innerException: innerException),
             };
         }
 
