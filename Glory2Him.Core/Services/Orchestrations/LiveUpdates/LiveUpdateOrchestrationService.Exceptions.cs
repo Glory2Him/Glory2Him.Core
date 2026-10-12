@@ -30,6 +30,22 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
             {
                 return await returningValueFunction();
             }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutLiveUpdateOrchestrationException =
+                    new TimeoutLiveUpdateOrchestrationException(
+                        message: "Failed live update orchestration timeout error occurred, " +
+                            "contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogDependencyExceptionAsync(
+                    exception: timeoutLiveUpdateOrchestrationException);
+            }
             catch (OperationCanceledException)
             {
                 throw;
