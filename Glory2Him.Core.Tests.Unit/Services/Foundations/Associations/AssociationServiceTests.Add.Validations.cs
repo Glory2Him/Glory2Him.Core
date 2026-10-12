@@ -764,6 +764,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     SameExceptionAs(expectedAssociationValidationException))),
                 Times.Once);
 
+            // a caller the contribution gate refuses mints nothing (§13 rule 2)
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Never);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
@@ -805,6 +811,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     SameExceptionAs(expectedAssociationValidationException))),
                 Times.Once);
 
+            // a caller the contribution gate refuses mints nothing (§13 rule 2)
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Never);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
