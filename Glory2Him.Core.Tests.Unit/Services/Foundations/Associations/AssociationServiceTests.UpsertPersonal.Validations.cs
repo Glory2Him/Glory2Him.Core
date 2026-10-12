@@ -608,12 +608,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfTheNewRowIsInvalidAndLogItAsync(
             string invalidity,
             string invalidField,
-            string expectedMessage)
+            string[] expectedMessages)
         {
             // given: the reader has no row, so the request would be inserted, and it breaks one of
             // the add's rules that no earlier check asks. The new row is validated as the add
             // validates one, after canonical order is restored, so a content type names the field
-            // the new row stores it in (§2 rules 1 and 4).
+            // the new row stores it in (§2 rules 1 and 4). A field an operation owns that breaks
+            // its range or length is also set, so it is refused for being set as well, in the same
+            // exception (§17 rule 1).
             string readerUserId = invalidity == nameof(Association.UserId)
                 ? GetRandomStringWithLengthOf(256)
                 : GetRandomString();
@@ -627,9 +629,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             var invalidAssociationException = new InvalidAssociationException(
                 message: "Content item association is invalid, fix the errors and try again.");
 
-            invalidAssociationException.UpsertDataList(
-                key: invalidField,
-                value: expectedMessage);
+            foreach (string expectedMessage in expectedMessages)
+            {
+                invalidAssociationException.UpsertDataList(
+                    key: invalidField,
+                    value: expectedMessage);
+            }
 
             var expectedAssociationValidationException =
                 new AssociationValidationException(
@@ -683,59 +688,59 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         }
 
         // each rule of the add that no earlier check of the upsert asks, save the empty Id the
-        // create arm mints over (§2 rule 10), with the field and the add's message for it
-        public static TheoryData<string, string, string> InvalidNewPersonalRows() =>
-            new TheoryData<string, string, string>
+        // create arm mints over (§2 rule 10), with the field and the add's messages for it
+        public static TheoryData<string, string, string[]> InvalidNewPersonalRows() =>
+            new TheoryData<string, string, string[]>
             {
                 {
                     "EntityAContentTypeNotApplicable",
                     nameof(Association.EntityAContentType),
-                    "Value is only applicable to a ContentItem endpoint"
+                    new[] { "Value is only applicable to a ContentItem endpoint" }
                 },
                 {
                     "EntityAContentTypeUndefined",
                     nameof(Association.EntityAContentType),
-                    "Value is not a supported content type"
+                    new[] { "Value is not a supported content type" }
                 },
                 {
                     "EntityBContentTypeNotApplicable",
                     nameof(Association.EntityBContentType),
-                    "Value is only applicable to a ContentItem endpoint"
+                    new[] { "Value is only applicable to a ContentItem endpoint" }
                 },
                 {
                     "EntityBContentTypeUndefined",
                     nameof(Association.EntityBContentType),
-                    "Value is not a supported content type"
+                    new[] { "Value is not a supported content type" }
                 },
                 {
                     "ReactionNamedAsEndpointACarryingAContentType",
                     nameof(Association.EntityBContentType),
-                    "Value is only applicable to a ContentItem endpoint"
+                    new[] { "Value is only applicable to a ContentItem endpoint" }
                 },
                 {
                     nameof(Association.UserId),
                     nameof(Association.UserId),
-                    "Text exceed max length of 255 characters"
+                    new[] { "Text exceed max length of 255 characters" }
                 },
                 {
                     nameof(Association.ConfidenceReason),
                     nameof(Association.ConfidenceReason),
-                    "Text exceed max length of 500 characters"
+                    new[] { "Text exceed max length of 500 characters", "Text is not allowed on add" }
                 },
                 {
                     nameof(Association.ModelVersion),
                     nameof(Association.ModelVersion),
-                    "Text exceed max length of 128 characters"
+                    new[] { "Text exceed max length of 128 characters", "Text is not allowed on add" }
                 },
                 {
                     "ConfidenceScoreBelowZero",
                     nameof(Association.ConfidenceScore),
-                    "Value is not within range of 0 and 10"
+                    new[] { "Value is not within range of 0 and 10", "Value is not allowed on add" }
                 },
                 {
                     "ConfidenceScoreAboveTen",
                     nameof(Association.ConfidenceScore),
-                    "Value is not within range of 0 and 10"
+                    new[] { "Value is not within range of 0 and 10", "Value is not allowed on add" }
                 }
             };
 

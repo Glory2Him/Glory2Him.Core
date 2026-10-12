@@ -268,7 +268,10 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // minted after this, so the add's empty-Id rule is not asked (§2 rule 10). A new row is a
         // contribution, so it is created unpublished at Draft or Submitted, as the add creates
         // one: publication and a verdict are the approval workflow's to record. Only the create
-        // arm takes ApprovalStatus at all (§ARC16.2.2).
+        // arm takes ApprovalStatus at all (§ARC16.2.2). The fields an operation owns are refused
+        // when set, naming each, because no caller may set them on a new row (§17 rule 1;
+        // §APR9.7.1 rules 2, 3 and 5). The arms that find the reader's row never write them
+        // (§2 rule 6), so they are asked here and nowhere else (§17 rule 2).
         private static void ValidatePersonalAssociationOnCreate(Association association) =>
             Validate(
                 message: "Content item association is invalid, fix the errors and try again.",
@@ -299,7 +302,19 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 (Rule: IsSetOnAdd(association.PublishDate), Parameter: nameof(Association.PublishDate)),
 
                 (Rule: IsNotContributableStatus(association.ApprovalStatus),
-                    Parameter: nameof(Association.ApprovalStatus)));
+                    Parameter: nameof(Association.ApprovalStatus)),
+
+                (Rule: IsSetOnAdd(association.SortOrder), Parameter: nameof(Association.SortOrder)),
+                (Rule: IsSetOnAdd(association.ConfidenceScore), Parameter: nameof(Association.ConfidenceScore)),
+                (Rule: IsSetOnAdd(association.ConfidenceReason), Parameter: nameof(Association.ConfidenceReason)),
+                (Rule: IsSetOnAdd(association.SourceBatchId), Parameter: nameof(Association.SourceBatchId)),
+                (Rule: IsSetOnAdd(association.ModelVersion), Parameter: nameof(Association.ModelVersion)),
+
+                (Rule: IsSetOnAdd(association.IsApprovedByBypass),
+                    Parameter: nameof(Association.IsApprovedByBypass)),
+
+                (Rule: IsSetOnAdd(association.ApprovedByBypassReason),
+                    Parameter: nameof(Association.ApprovedByBypassReason)));
 
         // The add's audit rules, asked of the row the audit broker stamped, before the insert, as
         // the add asks them (§2 rule 4)

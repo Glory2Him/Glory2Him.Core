@@ -1114,6 +1114,31 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             Message = "Date is not allowed on add"
         };
 
+        private static dynamic IsSetOnAdd(int? value) => new
+        {
+            Condition = value is not null,
+            Message = "Value is not allowed on add"
+        };
+
+        private static dynamic IsSetOnAdd(decimal? value) => new
+        {
+            Condition = value is not null,
+            Message = "Value is not allowed on add"
+        };
+
+        private static dynamic IsSetOnAdd(Guid? id) => new
+        {
+            Condition = id is not null,
+            Message = "Id is not allowed on add"
+        };
+
+        // an empty or whitespace string is not null, so it counts as set (§15 rule 1)
+        private static dynamic IsSetOnAdd(string? text) => new
+        {
+            Condition = text is not null,
+            Message = "Text is not allowed on add"
+        };
+
         // a caller may save work in progress or submit it for review; the remaining states
         // are verdicts, and a verdict is the approval workflow's to record (design §9.7.1
         // rule 1)
