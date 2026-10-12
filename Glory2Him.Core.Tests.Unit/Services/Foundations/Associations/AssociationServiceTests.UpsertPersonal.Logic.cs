@@ -301,7 +301,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             string readerUserId = GetRandomString();
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
-            Association upsertRequest = CreateBibleReferenceLookupRequest(readerUserId);
+            Association upsertRequest =
+                UnsetOperationOwnedFields(CreateBibleReferenceLookupRequest(readerUserId));
+
             upsertRequest.EntityBScope = Scope.ThisVersionOnly;
             upsertRequest.ApprovalStatus = ApprovalStatus.Submitted;
             upsertRequest.Id = Guid.Empty;
@@ -1928,10 +1930,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
         // A reader's reaction on a Quote as the orchestration hands it over (§ARC16.8.1): the host on
         // endpoint A under AllVersions, with a group id that differs from its key id, and the
-        // reaction on B, a non-versioned endpoint, so ThisVersionOnly with its group its key.
+        // reaction on B, a non-versioned endpoint, so ThisVersionOnly with its group its key. It
+        // sets none of the fields an operation owns, which the create arm refuses (§17 rules 1
+        // and 4).
         private static Association CreatePersonalUpsertRequest(string readerUserId)
         {
-            Association upsertRequest = CreatePersonalLookupRequest(readerUserId);
+            Association upsertRequest =
+                UnsetOperationOwnedFields(CreatePersonalLookupRequest(readerUserId));
+
             upsertRequest.EntityBScope = Scope.ThisVersionOnly;
             upsertRequest.ApprovalStatus = ApprovalStatus.Submitted;
 
