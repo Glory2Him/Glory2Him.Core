@@ -28,6 +28,10 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
             CancellationToken cancellationToken = default) =>
             TryCatch<EventEnvelope<Association>?>(async () =>
             {
+                // ahead of the verify: a caller who has already cancelled should not pay for an
+                // HMAC computation, let alone the reads
+                cancellationToken.ThrowIfCancellationRequested();
+
                 await ValidateAssociationFactEnvelopeAsync(
                     envelope,
                     eventName: "AssociationApproved");
