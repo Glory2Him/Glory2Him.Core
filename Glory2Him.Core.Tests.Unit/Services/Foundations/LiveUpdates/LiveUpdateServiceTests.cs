@@ -40,6 +40,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.LiveUpdates
         private static Expression<Func<Xeption, bool>> SameExceptionAs(Xeption expectedException) =>
             actualException => actualException.SameExceptionAs(expectedException);
 
+        // the same instance, still saying what it said when it was handed over: the instance
+        // alone would let the service rewrite it in place before sending
+        private static Expression<Func<LiveUpdate, bool>> SameLiveUpdateAs(
+            LiveUpdate inputLiveUpdate,
+            LiveUpdate expectedLiveUpdate) =>
+            actualLiveUpdate => ReferenceEquals(actualLiveUpdate, inputLiveUpdate)
+                && actualLiveUpdate.Type == expectedLiveUpdate.Type
+                && actualLiveUpdate.ContentItemId == expectedLiveUpdate.ContentItemId;
+
         // 0 is the type of an update whose type was never set; the other is one past the last
         // member, computed so that appending a member never turns the case into a valid one
         public static TheoryData<LiveUpdateType> UndefinedLiveUpdateTypes() =>
