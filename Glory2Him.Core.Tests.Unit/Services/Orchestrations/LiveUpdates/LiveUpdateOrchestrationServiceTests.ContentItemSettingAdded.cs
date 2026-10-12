@@ -16,9 +16,11 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.LiveUpdates;
+using Glory2Him.Core.Models.Foundations.LiveUpdates.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.LiveUpdates.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
+using Xeptions;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
 {
@@ -355,6 +357,73 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
                 onContentItemSettingAddedTask.AsTask);
 
             this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldRethrowDependencyValidationExceptionOnContentItemSettingAddedIfTheUpdateIsRefusedAndLogItAsync()
+        {
+            // given
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            ContentItemSetting settingOverride = CreateContentItemSettingOverride();
+            EventEnvelope<ContentItemSetting> addedFact = CreateSettingFactEnvelope(settingOverride);
+            LiveUpdate expectedLiveUpdate = CreateSettingChange();
+            string randomMessage = GetRandomString();
+            var innerException = new Xeption(message: randomMessage);
+
+            var liveUpdateValidationException =
+                new LiveUpdateValidationException(
+                    message: randomMessage,
+                    innerException: innerException);
+
+            LiveUpdateOrchestrationDependencyValidationException
+                expectedLiveUpdateOrchestrationDependencyValidationException =
+                    CreateDependencyValidationException(innerException);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    addedFact,
+                    ContentItemSettingAddedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            this.liveUpdateServiceMock.Setup(service =>
+                service.SendLiveUpdateAsync(
+                    It.Is(SameLiveUpdateAs(expectedLiveUpdate)),
+                    callerCancellationToken))
+                        .ThrowsAsync(liveUpdateValidationException);
+
+            // when
+            ValueTask<EventEnvelope<ContentItemSetting>> onContentItemSettingAddedTask =
+                this.liveUpdateOrchestrationService.OnContentItemSettingAddedAsync(
+                    addedFact,
+                    callerCancellationToken);
+
+            LiveUpdateOrchestrationDependencyValidationException
+                actualLiveUpdateOrchestrationDependencyValidationException =
+                    await Assert.ThrowsAsync<LiveUpdateOrchestrationDependencyValidationException>(
+                        onContentItemSettingAddedTask.AsTask);
+
+            // then
+            actualLiveUpdateOrchestrationDependencyValidationException.Should().BeEquivalentTo(
+                expectedLiveUpdateOrchestrationDependencyValidationException);
+
+            this.liveUpdateServiceMock.Verify(service =>
+                service.SendLiveUpdateAsync(
+                    It.Is(SameLiveUpdateAs(expectedLiveUpdate)),
+                    callerCancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(
+                    expectedLiveUpdateOrchestrationDependencyValidationException))),
+                Times.Once);
+
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.liveUpdateServiceMock.VerifyNoOtherCalls();
