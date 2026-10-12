@@ -47,10 +47,9 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
             CancellationToken cancellationToken = default) =>
             TryCatch<EventEnvelope<ContentItemSetting>?>(async () =>
             {
-                await this.envelopeIntegrityBroker.VerifyAsync(
+                await ValidateContentItemSettingFactEnvelopeAsync(
                     envelope,
-                    "ContentItemSettingAdded",
-                    EnvelopeDirection.Request);
+                    eventName: "ContentItemSettingAdded");
 
                 await SendSettingsChangeAsync(cancellationToken);
 

@@ -12,6 +12,7 @@
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Orchestrations.LiveUpdates.Exceptions;
 
 namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
@@ -34,6 +35,23 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
                         "The fact envelope and its content are required.");
             }
 
+            bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
+                envelope, eventName, EnvelopeDirection.Request);
+
+            if (isSignatureValid is false)
+            {
+                throw new InvalidLiveUpdateOrchestrationException(
+                    message: "Invalid live update orchestration fact. " +
+                        "Integrity verification failed.");
+            }
+        }
+
+        // The setting facts' own check, kept apart from the association facts' so that one can
+        // change without the other.
+        private async ValueTask ValidateContentItemSettingFactEnvelopeAsync(
+            EventEnvelope<ContentItemSetting> envelope,
+            string eventName)
+        {
             bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
                 envelope, eventName, EnvelopeDirection.Request);
 
