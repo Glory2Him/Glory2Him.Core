@@ -115,8 +115,13 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             }
 
             // "withdrawn by the reader" is DeletedBy equal to the row's UserId, and nothing else: a
-            // takedown is never revived, whatever reaction is given (§DOM4.10 rule 7)
-            if (readersRow.IsDeleted && readersRow.DeletedBy != readersRow.UserId)
+            // takedown is never revived, whatever reaction is given (§DOM4.10 rule 7). Two ids
+            // differing only in letter case name one reader (§DOM4.6 rule 3).
+            if (readersRow.IsDeleted
+                && string.Equals(
+                    readersRow.DeletedBy,
+                    readersRow.UserId,
+                    StringComparison.OrdinalIgnoreCase) is false)
             {
                 return new PersonalAssociationUpsert
                 {
