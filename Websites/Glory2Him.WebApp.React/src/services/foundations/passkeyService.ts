@@ -63,8 +63,12 @@ export const passkeyService = {
         const queryClient = useQueryClient();
 
         return useMutation({
-            mutationFn: async (email: string) =>
-                await requestPasskeyAndSignInAsync(email.trim()),
+            mutationFn: async (email: string) => {
+                const username = email.trim();
+
+                return await requestPasskeyAndSignInAsync(
+                    username.length > 0 ? username : undefined);
+            },
             onSuccess: (currentUser: CurrentUser) => {
                 queryClient.setQueryData(["AccountsGetCurrentUser"], currentUser);
                 queryClient.invalidateQueries({ queryKey: ["AccountsGetCurrentUser"] });
