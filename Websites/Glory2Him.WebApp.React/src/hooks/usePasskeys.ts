@@ -85,13 +85,15 @@ export async function createAndRegisterPasskeyAsync(): Promise<string> {
 
 // Runs the assertion (get) ceremony and signs in — the Blazor Login page's
 // PasskeySubmit Request flow.
-export async function requestPasskeyAndSignInAsync(email: string): Promise<CurrentUser> {
+export async function requestPasskeyAndSignInAsync(
+    username: string | undefined): Promise<CurrentUser> {
+
     if (!browserSupportsPasskeys()) {
         throw new PasskeyCeremonyError(unsupportedBrowserMessage);
     }
 
     const passkeyBroker = new PasskeyBroker();
-    const optionsJson = await passkeyBroker.GetRequestOptionsAsync(email.trim());
+    const optionsJson = await passkeyBroker.PostRequestOptionsAsync(username);
 
     const options = publicKeyCredentialStatics()!
         .parseRequestOptionsFromJSON!(optionsJson);
