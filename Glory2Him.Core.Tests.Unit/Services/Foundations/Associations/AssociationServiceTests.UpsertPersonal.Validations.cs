@@ -274,7 +274,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
 
             Association upsertRequest = SetApprovalState(
-                CreatePersonalUpsertRequest(readerUserId),
+                WithNoOperationOwnedFieldSet(CreatePersonalUpsertRequest(readerUserId)),
                 invalidField,
                 invalidValue);
 
@@ -621,7 +621,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
 
             Association upsertRequest = MakeNewPersonalRowInvalid(
-                CreatePersonalUpsertRequest(readerUserId),
+                WithNoOperationOwnedFieldSet(CreatePersonalUpsertRequest(readerUserId)),
                 invalidity);
 
             var invalidAssociationException = new InvalidAssociationException(
@@ -823,7 +823,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             string readerUserId = GetRandomString();
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
-            Association upsertRequest = CreatePersonalUpsertRequest(readerUserId);
+
+            Association upsertRequest =
+                WithNoOperationOwnedFieldSet(CreatePersonalUpsertRequest(readerUserId));
 
             (Action<Association> breakStamp, (string Field, string Message)[] expectedErrors) =
                 BreakNewRowsAuditStamp(invalidity, readerUserId, currentDateTime);

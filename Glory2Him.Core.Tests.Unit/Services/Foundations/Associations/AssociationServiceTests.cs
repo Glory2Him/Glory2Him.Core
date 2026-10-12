@@ -428,6 +428,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             return reaction;
         }
 
+        // The filler sets the seven fields an operation owns, which no caller may set on a new row
+        // (§APR9.7.1 rules 2, 3 and 5). A create arm that is to succeed is handed none of them.
+        private static Association WithNoOperationOwnedFieldSet(Association association)
+        {
+            association.SortOrder = null;
+            association.ConfidenceScore = null;
+            association.ConfidenceReason = null;
+            association.SourceBatchId = null;
+            association.ModelVersion = null;
+            association.IsApprovedByBypass = false;
+            association.ApprovedByBypassReason = null;
+
+            return association;
+        }
+
         private static EventEnvelope<Association>
             CreateRandomAssociationRequestEnvelope(
                 SecurityContext? securityContext = null) =>

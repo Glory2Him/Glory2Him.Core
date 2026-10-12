@@ -35,7 +35,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // given: the reader had no row when it was looked up, and a second first reaction of
             // theirs landed before this one was inserted, so the personal index refuses it
             // (§DOM4.6 rule 2)
-            Association upsertRequest = CreateAllowedPersonalUpsertRequest();
+            Association upsertRequest =
+                WithNoOperationOwnedFieldSet(CreateAllowedPersonalUpsertRequest());
+
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
             string someMessage = GetRandomString();
 
@@ -463,7 +465,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         }
 
         // A reader's request that reaches a write: the create arm's insert, or, with the reader's
-        // live row on another reaction stored, an existing row's update. The write throws.
+        // live row on another reaction stored, an existing row's update. The write throws. The
+        // create arm is handed none of the fields an operation owns, which it refuses (§17 rule 1).
         private Association ArrangePersonalUpsertWriteToThrow(bool isUpdate, Exception exception)
         {
             Association upsertRequest = CreateAllowedPersonalUpsertRequest();
@@ -473,6 +476,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             if (isUpdate)
             {
                 storageAssociations.Add(CreateStoredPersonalRow(upsertRequest, isDeleted: false));
+            }
+            else
+            {
+                WithNoOperationOwnedFieldSet(upsertRequest);
             }
 
             SetupPersonalUpsertLookupOver(

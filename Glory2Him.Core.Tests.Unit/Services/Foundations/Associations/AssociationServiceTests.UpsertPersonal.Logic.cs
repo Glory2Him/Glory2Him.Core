@@ -38,11 +38,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given: the reader has no row on the item. For each term of the personal key the store
             // holds a live row that misses on that term alone, so a condition that dropped or
-            // inverted any term would find one of them and take another arm (§ARC12.2.1 rule 5).
+            // inverted any term would find one of them and take another arm (§ARC12.2.1 rule 5). The
+            // request sets none of the fields an operation owns, which the create arm refuses (§17
+            // rule 1).
             string readerUserId = GetRandomString();
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
-            Association upsertRequest = CreatePersonalUpsertRequest(readerUserId);
+
+            Association upsertRequest =
+                WithNoOperationOwnedFieldSet(CreatePersonalUpsertRequest(readerUserId));
+
             upsertRequest.ApprovalStatus = callersStatus;
 
             // the like card sends two endpoints and nothing else, so a real request's Id is empty;
@@ -175,7 +180,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             string requestUserId = callerUserId.ToUpperInvariant();
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
-            Association upsertRequest = CreatePersonalUpsertRequest(requestUserId);
+
+            Association upsertRequest =
+                WithNoOperationOwnedFieldSet(CreatePersonalUpsertRequest(requestUserId));
+
             upsertRequest.Id = Guid.Empty;
             Guid mintedId = Guid.NewGuid();
             List<Association> storageAssociations = CreateRandomAssociations().ToList();
@@ -301,7 +309,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             string readerUserId = GetRandomString();
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
-            Association upsertRequest = CreateBibleReferenceLookupRequest(readerUserId);
+            Association upsertRequest =
+                WithNoOperationOwnedFieldSet(CreateBibleReferenceLookupRequest(readerUserId));
+
             upsertRequest.EntityBScope = Scope.ThisVersionOnly;
             upsertRequest.ApprovalStatus = ApprovalStatus.Submitted;
             upsertRequest.Id = Guid.Empty;
@@ -1322,6 +1332,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // the row each act writes: a new one under the minted Id, or the reader's own
             Guid writtenRowId = Guid.NewGuid();
 
+            if (act == PersonalAssociationUpsertOutcome.Created)
+            {
+                WithNoOperationOwnedFieldSet(upsertRequest);
+            }
+
             if (act == PersonalAssociationUpsertOutcome.Repointed)
             {
                 Association readersLiveRow = CreateStoredPersonalRow(upsertRequest, isDeleted: false);
@@ -1786,6 +1801,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             switch (arm)
             {
+                case "Create":
+                    WithNoOperationOwnedFieldSet(upsertRequest);
+                    break;
+
                 case "Revive":
                     readersRow = CreateStoredPersonalRowOnTheSameReaction(upsertRequest, isDeleted: true);
                     break;
