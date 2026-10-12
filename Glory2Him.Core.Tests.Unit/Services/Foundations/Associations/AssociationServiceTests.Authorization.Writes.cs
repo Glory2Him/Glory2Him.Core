@@ -1078,6 +1078,70 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldBlockRemovingTheCallersPersonalRowWhenItsCreatedByDiffersOnlyInLetterCaseAndLogItAsync()
+        {
+            // given: the row's UserId is the caller's id exactly, so the veto does not refuse
+            // them, and its CreatedBy holds the caller's id in upper case. The owner test compares
+            // CreatedBy exactly, which §DOM4.6 rule 3 leaves open
+            // (Backend/Foundations/AssociationService.md §11 rule 2), so it refuses them.
+            string readerUserId = Guid.NewGuid().ToString().ToLowerInvariant();
+            Association storageAssociation = CreateRandomReaction(readerUserId);
+            storageAssociation.CreatedBy = readerUserId.ToUpperInvariant();
+
+            var unauthorizedAssociationException = new UnauthorizedAssociationException(
+                message: "The current user is not allowed to remove this content item association.");
+
+            var expectedAssociationValidationException = new AssociationValidationException(
+                message: "Content item association validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedAssociationException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            // when
+            ValueTask<Association> removeTask =
+                this.associationService.RemoveAssociationByIdAsync(
+                    storageAssociation.Id,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            AssociationValidationException actual =
+                await Assert.ThrowsAsync<AssociationValidationException>(removeTask.AsTask);
+
+            // then
+            storageAssociation.CreatedBy.Should().NotBe(readerUserId);
+            storageAssociation.CreatedBy.Should().BeEquivalentTo(readerUserId);
+            actual.Should().BeEquivalentTo(expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         [Theory]
         [MemberData(nameof(ReadOnlyRolesOverAReaction))]
         public async Task ShouldBlockAReadOnlyCallerFromRemovingAnotherReadersReactionTheyCreatedAndLogItAsync(
