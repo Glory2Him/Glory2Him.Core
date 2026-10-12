@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.LiveUpdates.Exceptions;
 using Xeptions;
 
@@ -32,6 +33,28 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
                 throw await CreateAndLogValidationExceptionAsync(
                     exception: invalidLiveUpdateOrchestrationException);
             }
+
+            // the ContentItem foundation's exceptions
+            catch (ContentItemValidationException contentItemValidationException)
+            {
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: contentItemValidationException);
+            }
+            catch (ContentItemDependencyValidationException contentItemDependencyValidationException)
+            {
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: contentItemDependencyValidationException);
+            }
+            catch (ContentItemDependencyException contentItemDependencyException)
+            {
+                throw await CreateAndLogDependencyExceptionAsync(
+                    exception: contentItemDependencyException);
+            }
+            catch (ContentItemServiceException contentItemServiceException)
+            {
+                throw await CreateAndLogDependencyExceptionAsync(
+                    exception: contentItemServiceException);
+            }
         }
 
         private async ValueTask<LiveUpdateOrchestrationValidationException>
@@ -47,6 +70,35 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
                 exception: liveUpdateOrchestrationValidationException);
 
             return liveUpdateOrchestrationValidationException;
+        }
+
+        private async ValueTask<LiveUpdateOrchestrationDependencyValidationException>
+            CreateAndLogDependencyValidationExceptionAsync(Xeption exception)
+        {
+            var liveUpdateOrchestrationDependencyValidationException =
+                new LiveUpdateOrchestrationDependencyValidationException(
+                    message: "Live update orchestration dependency validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: (exception.InnerException as Xeption) ?? exception);
+
+            await this.loggingBroker.LogErrorAsync(
+                exception: liveUpdateOrchestrationDependencyValidationException);
+
+            return liveUpdateOrchestrationDependencyValidationException;
+        }
+
+        private async ValueTask<LiveUpdateOrchestrationDependencyException>
+            CreateAndLogDependencyExceptionAsync(Xeption exception)
+        {
+            var liveUpdateOrchestrationDependencyException =
+                new LiveUpdateOrchestrationDependencyException(
+                    message: "Live update orchestration dependency error occurred, contact support.",
+                    innerException: (exception.InnerException as Xeption) ?? exception);
+
+            await this.loggingBroker.LogErrorAsync(
+                exception: liveUpdateOrchestrationDependencyException);
+
+            return liveUpdateOrchestrationDependencyException;
         }
     }
 }
