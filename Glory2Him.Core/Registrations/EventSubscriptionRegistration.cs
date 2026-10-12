@@ -2285,6 +2285,24 @@ namespace Glory2Him.Core.Registrations
                     Scoped<ILiveUpdateOrchestrationService, Association>(
                         service => service.OnAssociationApprovedAsync),
                 cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnContentItemSettingAddedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnContentItemSettingAddedSubscriptionName,
+
+                    Description = "Tells every open page that the content item settings it " +
+                        "shows may have changed, naming no content item."
+                },
+                operation: ContentItemSettingEventOperation.Added,
+                contentItemSettingEventHandler:
+                    Scoped<ILiveUpdateOrchestrationService, ContentItemSetting>(
+                        service => service.OnContentItemSettingAddedAsync),
+                cancellationToken: cancellationToken);
         }
     }
 }
