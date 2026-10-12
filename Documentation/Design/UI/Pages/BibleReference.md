@@ -212,7 +212,7 @@ are decided under §SEC14.7 posture A′, and a reaction under posture A′ rule
    `isCuratedReference`, lines 66-72). Each suggestion is held on the page, as the reader's own,
    until they navigate away, and nothing is written (the comment above the suggestion state,
    lines 54-60; the two panels' `onAdd` and `onRemove`). The association read and the two writes
-   are designed (§ARC17.4) and not yet served: `AssociationsController` serves a reader's reaction alone (#728), and an editorial suggestion waits on #1088. One step before them
+   are designed (§ARC17.4), and of them only the suggestion is served: `AssociationsController` serves a reader's reaction (#728) and an editorial suggestion (#1088), and neither the read nor the remove. One step before them
    is not designed: the association read is keyed on the host's id (§DOM4.6 rule 1), while this
    page is addressed by the passage's USFM (rule 2.2), which §DOM5.4 makes the `BibleReference`
    row's unique key, and no section says how the page finds the passage's row from its address,
