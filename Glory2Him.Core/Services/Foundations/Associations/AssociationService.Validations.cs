@@ -1132,7 +1132,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             Message = "Id is not allowed on add"
         };
 
-        // an empty or whitespace string is not null, so it counts as set (§15 rule 1)
+        // an empty or whitespace string is not null, so it counts as set
+        // (Backend/Foundations/AssociationService.md §15 rule 1)
         private static dynamic IsSetOnAdd(string? text) => new
         {
             Condition = text is not null,
