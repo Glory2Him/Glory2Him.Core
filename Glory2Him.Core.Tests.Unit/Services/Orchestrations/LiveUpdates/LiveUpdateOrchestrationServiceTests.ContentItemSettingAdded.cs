@@ -15,6 +15,7 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.LiveUpdates;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
@@ -99,6 +100,54 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
 
             // then
             actualReply.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task ShouldForwardAContentItemSettingAddedFactCarryingTheSystemIdentityAsync()
+        {
+            // given: the fact as a system write publishes it. Unlike the approval workflow's
+            // ears, the forwarder does not drop it: a page has to hear every change to what it
+            // shows, whoever made it (§EVN26 rule 3).
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            ContentItemSetting settingOverride = CreateContentItemSettingOverride();
+
+            var systemSecurityContext = new SecurityContext
+            {
+                SubjectId = SystemIdentity.UserId,
+                Username = SystemIdentity.Username,
+                IsAuthenticated = true,
+                IsSystemIdentity = true,
+                AuthenticationType = AuthenticationType.System,
+            };
+
+            EventEnvelope<ContentItemSetting> addedFact =
+                CreateSettingFactEnvelope(settingOverride, systemSecurityContext);
+
+            LiveUpdate expectedLiveUpdate = CreateSettingChange();
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    addedFact,
+                    ContentItemSettingAddedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            // when
+            await this.liveUpdateOrchestrationService.OnContentItemSettingAddedAsync(
+                addedFact,
+                callerCancellationToken);
+
+            // then
+            this.liveUpdateServiceMock.Verify(service =>
+                service.SendLiveUpdateAsync(
+                    It.Is(SameLiveUpdateAs(expectedLiveUpdate)),
+                    callerCancellationToken),
+                Times.Once);
+
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
         }
     }
 }
