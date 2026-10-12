@@ -422,6 +422,52 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public static TheoryData<string> OperationOwnedFields() =>
             new TheoryData<string>(OperationOwnedFieldNames);
 
+        public static TheoryData<string, string> EmptyOrWhitespaceOperationOwnedTexts()
+        {
+            string[] operationOwnedTextFields =
+            [
+                nameof(Association.ConfidenceReason),
+                nameof(Association.ModelVersion),
+                nameof(Association.ApprovedByBypassReason)
+            ];
+
+            var emptyOrWhitespaceTexts = new TheoryData<string, string>();
+
+            foreach (string operationOwnedTextField in operationOwnedTextFields)
+            {
+                emptyOrWhitespaceTexts.Add(operationOwnedTextField, "");
+                emptyOrWhitespaceTexts.Add(operationOwnedTextField, " ");
+            }
+
+            return emptyOrWhitespaceTexts;
+        }
+
+        private static Association SetOperationOwnedText(
+            Association association,
+            string operationOwnedTextField,
+            string text)
+        {
+            switch (operationOwnedTextField)
+            {
+                case nameof(Association.ConfidenceReason):
+                    association.ConfidenceReason = text;
+                    break;
+
+                case nameof(Association.ModelVersion):
+                    association.ModelVersion = text;
+                    break;
+
+                case nameof(Association.ApprovedByBypassReason):
+                    association.ApprovedByBypassReason = text;
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(operationOwnedTextField));
+            }
+
+            return association;
+        }
+
         private static Association SetEveryOperationOwnedField(Association association)
         {
             foreach (string operationOwnedField in OperationOwnedFieldNames)
