@@ -17,6 +17,8 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Foundations.LiveUpdates;
+using Glory2Him.Core.Models.Foundations.LiveUpdates.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.LiveUpdates.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
@@ -197,6 +199,88 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
                 Times.Once);
 
             this.accessBrokerMock.VerifyNoOtherCalls();
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldRethrowDependencyValidationExceptionOnAssociationApprovedIfTheUpdateIsRefusedAndLogItAsync()
+        {
+            // given
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            Association contentItemReaction = CreateContentItemReaction();
+            EventEnvelope<Association> approvedFact = CreateFactEnvelope(contentItemReaction);
+
+            PublicContentItemGroup visibleVersion =
+                CreateVisibleVersion(groupId: contentItemReaction.EntityAGroupId);
+
+            List<ContentItemSettingKey> expectedSettingKeys = CreateSettingKeysFor(visibleVersion);
+            LiveUpdate expectedLiveUpdate = CreateReactionsChangeFor(visibleVersion);
+            string randomMessage = GetRandomString();
+            var innerException = new Xeption(message: randomMessage);
+
+            var liveUpdateValidationException =
+                new LiveUpdateValidationException(
+                    message: randomMessage,
+                    innerException: innerException);
+
+            LiveUpdateOrchestrationDependencyValidationException
+                expectedLiveUpdateOrchestrationDependencyValidationException =
+                    CreateDependencyValidationException(innerException);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    approvedFact,
+                    AssociationApprovedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.FindPublicContentItemGroupAsync(
+                    contentItemReaction.EntityAGroupId,
+                    callerCancellationToken))
+                        .ReturnsAsync(visibleVersion);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    callerCancellationToken))
+                        .ReturnsAsync(CreateWinningSettingsFor(visibleVersion, showReactions: true));
+
+            this.liveUpdateServiceMock.Setup(service =>
+                service.SendLiveUpdateAsync(
+                    It.Is(SameLiveUpdateAs(expectedLiveUpdate)),
+                    callerCancellationToken))
+                        .ThrowsAsync(liveUpdateValidationException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAssociationApprovedTask =
+                this.liveUpdateOrchestrationService.OnAssociationApprovedAsync(
+                    approvedFact,
+                    callerCancellationToken);
+
+            LiveUpdateOrchestrationDependencyValidationException
+                actualLiveUpdateOrchestrationDependencyValidationException =
+                    await Assert.ThrowsAsync<LiveUpdateOrchestrationDependencyValidationException>(
+                        onAssociationApprovedTask.AsTask);
+
+            // then
+            actualLiveUpdateOrchestrationDependencyValidationException.Should().BeEquivalentTo(
+                expectedLiveUpdateOrchestrationDependencyValidationException);
+
+            this.liveUpdateServiceMock.Verify(service =>
+                service.SendLiveUpdateAsync(
+                    It.Is(SameLiveUpdateAs(expectedLiveUpdate)),
+                    callerCancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(
+                    expectedLiveUpdateOrchestrationDependencyValidationException))),
+                Times.Once);
+
             this.liveUpdateServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
