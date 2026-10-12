@@ -74,6 +74,37 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             await ShouldHaveBothPairIndexesAsync(migratedBroker);
         }
 
+        // No collation is asserted: the catalogue reports its default for the column whether
+        // Down takes the pin off or keeps it. The migration's Down operations prove that.
+        [Fact]
+        public async Task ShouldKeepBothPairIndexesWhenTheUserIdCollationPinIsUndoneAsync()
+        {
+            // given: a catalogue migrated to the pin, holding one reader's live reaction and one
+            // live editorial association
+            using AssociationMigrationQueryBroker migratedBroker =
+                AssociationMigrationQueryBroker.CreateOverAnEmptyDatabase(
+                    "_AssociationsCollationUndone");
+
+            await migratedBroker.MigrateToAsync(PreviousMigration);
+
+            Association reactionAssociation = CreateReaction();
+            Association editorialAssociation = CreateEditorialPair();
+
+            await migratedBroker.InsertAsync(reactionAssociation, editorialAssociation);
+            await migratedBroker.MigrateToAsync(CollationMigration);
+
+            // when
+            await migratedBroker.MigrateToAsync(PreviousMigration);
+
+            // then
+            int storedCount = await migratedBroker.CountStoredAsync(
+                reactionAssociation.Id, editorialAssociation.Id);
+
+            storedCount.Should().Be(2, because: "undoing the migration changes no row");
+
+            await ShouldHaveBothPairIndexesAsync(migratedBroker);
+        }
+
         // §DOM4.6 rule 2 tables both indexes; the migration writes each key by hand, so each is
         // read back key column by key column, in key order
         private static async Task ShouldHaveBothPairIndexesAsync(
