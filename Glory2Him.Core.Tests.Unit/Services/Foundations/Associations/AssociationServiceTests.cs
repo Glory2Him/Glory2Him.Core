@@ -443,6 +443,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             return association;
         }
 
+        // Every one of the seven set, as §15 rule 1 counts it set, to a fresh value the create
+        // arm's range and length checks accept, so it differs from any stored row's.
+        private static Association WithEveryOperationOwnedFieldSet(Association association)
+        {
+            association.SortOrder = GetRandomNumber();
+            association.ConfidenceScore = GetRandomConfidenceScore();
+            association.ConfidenceReason = GetRandomString();
+            association.SourceBatchId = Guid.NewGuid();
+            association.ModelVersion = GetRandomString();
+            association.IsApprovedByBypass = true;
+            association.ApprovedByBypassReason = GetRandomString();
+
+            return association;
+        }
+
         private static EventEnvelope<Association>
             CreateRandomAssociationRequestEnvelope(
                 SecurityContext? securityContext = null) =>

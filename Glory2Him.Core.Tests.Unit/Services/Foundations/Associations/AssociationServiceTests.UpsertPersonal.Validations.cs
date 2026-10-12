@@ -1169,6 +1169,69 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 invalidAssociationException);
         }
 
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfTheNewRowSetsEveryOperationOwnedFieldAndLogItAsync()
+        {
+            // given: the reader has no row, so the request would be inserted, and it sets all seven
+            // fields an operation owns. Each is refused, in one exception (§17 rule 1; §15 rule 1).
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            Association upsertRequest =
+                WithEveryOperationOwnedFieldSet(CreatePersonalUpsertRequest(readerUserId));
+
+            var invalidAssociationException = new InvalidAssociationException(
+                message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.UpsertDataList(
+                key: nameof(Association.SortOrder),
+                value: "Value is not allowed on add");
+
+            invalidAssociationException.UpsertDataList(
+                key: nameof(Association.ConfidenceScore),
+                value: "Value is not allowed on add");
+
+            invalidAssociationException.UpsertDataList(
+                key: nameof(Association.ConfidenceReason),
+                value: "Text is not allowed on add");
+
+            invalidAssociationException.UpsertDataList(
+                key: nameof(Association.SourceBatchId),
+                value: "Id is not allowed on add");
+
+            invalidAssociationException.UpsertDataList(
+                key: nameof(Association.ModelVersion),
+                value: "Text is not allowed on add");
+
+            invalidAssociationException.UpsertDataList(
+                key: nameof(Association.IsApprovedByBypass),
+                value: "Value is not allowed on add");
+
+            invalidAssociationException.UpsertDataList(
+                key: nameof(Association.ApprovedByBypassReason),
+                value: "Text is not allowed on add");
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(
+                CreateRandomAssociations(),
+                TestContext.Current.CancellationToken);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then: one exception names all seven
+            await VerifyNewPersonalRowRefusedAsync(
+                upsertTask,
+                upsertRequest,
+                invalidAssociationException);
+        }
+
         // the create is refused with the expected errors once the reader's row is resolved and
         // none is found: no Id is minted, nothing is stamped or inserted and no fact is published
         // (§17 rule 1)
