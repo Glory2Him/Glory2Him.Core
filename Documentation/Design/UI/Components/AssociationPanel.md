@@ -299,7 +299,7 @@ Every page renders the family through its stories. No page renders `AssociationP
 | Purpose | Endpoint | State |
 | --- | --- | --- |
 | Read the associations for an entity — "associations for this entity", keyed on the effective id (§DOM4.6 rule 1) | `GET /api/associations` (§ARC17.4) | designed; not yet served (section 10, item 21) |
-| Suggest an association (`onAdd`) | `POST /api/associations` (§ARC17.4, §ARC16.8.1) | served for a reader's reaction alone (#728); an editorial suggestion waits on #871 (section 10, item 21) |
+| Suggest an association (`onAdd`) | `POST /api/associations` (§ARC17.4, §ARC16.8.1) | served for a reader's reaction alone (#728); an editorial suggestion waits on #1088 (section 10, item 24) |
 | Remove an association (`onRemove`) | `DELETE /api/associations/{id}` (§ARC17.4) — owner or `Administrators` | designed; not yet exposed (section 10, item 22) |
 | Approve or reject (`onApprove`, `onReject`) | not ruled — see section 10 | — |
 
@@ -421,8 +421,9 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
     to say that the counts arrive through its hook, which rewrites line 80. The task carved from
     this item leaves those three lines to #738, and takes up any of them that still names #318
     once #738 has merged.
-24. (#871) **Gap — an editorial association cannot be suggested over HTTP.** Suggesting one, the
-    second part of item 21's gap, `POST /api/associations` (section 7; §ARC16.8.1), is held by a
-    design task other than item 21's. The route is #728's, which serves a reader's reaction alone
-    (user ruling 2026-10-05). Its editorial arm refuses the two-endpoint body until #871 rules
-    where an editorial row's `Id` is minted (§APR9.7.1 rule 2), and #871 plans the work.
+24. (#1088) **Gap — an editorial association cannot be suggested over HTTP.** Suggesting one, the
+    second part of item 21's gap, `POST /api/associations` (section 7; §ARC16.8.1), is not item
+    21's. The route is #728's, which serves a reader's reaction alone (user ruling 2026-10-05).
+    Its editorial arm refuses the two-endpoint body, because the foundation's add takes the new
+    row's `Id` from its caller. #1088 has the add mint it instead (§APR9.7.1 rule 2;
+    `DesignFeatures/Backend/Foundations/AssociationService.md §13`).
