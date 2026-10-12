@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -46,6 +47,66 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             ValueTask<EventEnvelope<Association>> onAssociationApprovedTask =
                 this.liveUpdateOrchestrationService.OnAssociationApprovedAsync(
                     nullFact,
+                    callerCancellationToken);
+
+            LiveUpdateOrchestrationValidationException
+                actualLiveUpdateOrchestrationValidationException =
+                    await Assert.ThrowsAsync<LiveUpdateOrchestrationValidationException>(
+                        onAssociationApprovedTask.AsTask);
+
+            // then
+            actualLiveUpdateOrchestrationValidationException.Should().BeEquivalentTo(
+                expectedLiveUpdateOrchestrationValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(
+                    expectedLiveUpdateOrchestrationValidationException))),
+                Times.Once);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldRefuseAnAssociationApprovedEnvelopeWithNoContentAsync()
+        {
+            // given: an envelope whose signature would verify, so only the missing content can be
+            // what refuses it — a signature proves provenance, never that a section is present
+            // (§SEC14.6 rule 4)
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            var factWithNoContent = new EventEnvelope<Association>
+            {
+                Content = null,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() },
+            };
+
+            var invalidLiveUpdateOrchestrationException =
+                new InvalidLiveUpdateOrchestrationException(
+                    message: "Invalid live update orchestration fact. " +
+                        "The fact envelope and its content are required.");
+
+            var expectedLiveUpdateOrchestrationValidationException =
+                new LiveUpdateOrchestrationValidationException(
+                    message: "Live update orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidLiveUpdateOrchestrationException);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    factWithNoContent,
+                    AssociationApprovedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAssociationApprovedTask =
+                this.liveUpdateOrchestrationService.OnAssociationApprovedAsync(
+                    factWithNoContent,
                     callerCancellationToken);
 
             LiveUpdateOrchestrationValidationException
