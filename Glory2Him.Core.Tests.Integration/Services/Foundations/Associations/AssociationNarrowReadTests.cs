@@ -928,9 +928,10 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
 
         /// <summary>
         /// #721 criterion 16: <c>Association.UserId</c> ignores letter case (the owner's ruling of
-        /// 2026-10-01). The caller term compares under the column's collation, the catalogue's
-        /// case-insensitive default, so a caller whose id differs from the row's only in letter
-        /// case reads the row as their own. The unit tests compare ordinally and cannot show this.
+        /// 2026-10-01). The caller term compares under the column's collation, the
+        /// case-insensitive one the column carries itself (§DOM4.6 rule 3), so a caller whose id
+        /// differs from the row's only in letter case reads the row as their own. The unit tests
+        /// compare ordinally and cannot show this.
         /// </summary>
         [Fact]
         public async Task ShouldRetrieveTheCallersReactionWhateverTheLetterCaseOfTheirUserIdAsync()

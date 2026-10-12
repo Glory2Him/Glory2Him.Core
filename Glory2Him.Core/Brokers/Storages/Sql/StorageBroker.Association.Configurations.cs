@@ -149,9 +149,17 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 
             // ── Everything else ───────────────────────────────────────────────────────
 
+            // A user id ignores letter case (§DOM4.6 rule 3), and in SQL the column's collation
+            // answers that. It is pinned on the COLUMN, as ReceiverName's is under the opposite
+            // ruling, so every query condition over UserId and UX_Associations_PersonalPair,
+            // whose key holds it, compare under one rule by construction. Without it the column
+            // inherits the catalogue's default — case-insensitive today, so nothing changes —
+            // and a catalogue created with another default would compare it differently with
+            // nothing announcing it.
             model.Property(association => association.UserId)
                  .HasMaxLength(255)
-                 .IsRequired(false);
+                 .IsRequired(false)
+                 .UseCollation("SQL_Latin1_General_CP1_CI_AS");
 
             model.Property(association => association.SortOrder)
                  .IsRequired(false);
