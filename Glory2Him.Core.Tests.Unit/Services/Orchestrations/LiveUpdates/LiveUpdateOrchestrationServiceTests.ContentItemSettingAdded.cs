@@ -493,5 +493,77 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             this.liveUpdateServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldRethrowDependencyTimeoutOnContentItemSettingAddedAndLogItAsync()
+        {
+            // given: the send is cancelled while the caller's own token is not, which is a
+            // timeout beneath the ear rather than the caller giving up
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            ContentItemSetting settingOverride = CreateContentItemSettingOverride();
+            EventEnvelope<ContentItemSetting> addedFact = CreateSettingFactEnvelope(settingOverride);
+            LiveUpdate expectedLiveUpdate = CreateSettingChange();
+            var operationCanceledException = new OperationCanceledException();
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutLiveUpdateOrchestrationException =
+                new TimeoutLiveUpdateOrchestrationException(
+                    message: "Failed live update orchestration timeout error occurred, " +
+                        "contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            LiveUpdateOrchestrationDependencyException
+                expectedLiveUpdateOrchestrationDependencyException =
+                    CreateDependencyException(timeoutLiveUpdateOrchestrationException);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    addedFact,
+                    ContentItemSettingAddedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            this.liveUpdateServiceMock.Setup(service =>
+                service.SendLiveUpdateAsync(
+                    It.Is(SameLiveUpdateAs(expectedLiveUpdate)),
+                    callerCancellationToken))
+                        .ThrowsAsync(operationCanceledException);
+
+            // when
+            ValueTask<EventEnvelope<ContentItemSetting>> onContentItemSettingAddedTask =
+                this.liveUpdateOrchestrationService.OnContentItemSettingAddedAsync(
+                    addedFact,
+                    callerCancellationToken);
+
+            LiveUpdateOrchestrationDependencyException
+                actualLiveUpdateOrchestrationDependencyException =
+                    await Assert.ThrowsAsync<LiveUpdateOrchestrationDependencyException>(
+                        onContentItemSettingAddedTask.AsTask);
+
+            // then
+            actualLiveUpdateOrchestrationDependencyException.Should().BeEquivalentTo(
+                expectedLiveUpdateOrchestrationDependencyException);
+
+            this.liveUpdateServiceMock.Verify(service =>
+                service.SendLiveUpdateAsync(
+                    It.Is(SameLiveUpdateAs(expectedLiveUpdate)),
+                    callerCancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(
+                    expectedLiveUpdateOrchestrationDependencyException))),
+                Times.Once);
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
