@@ -26,3 +26,12 @@ public enum LiveUpdateType
 3. **No member is `0`.** A `LiveUpdate` whose `Type` was never set therefore holds no member, and the foundation refuses it (`Backend/Foundations/LiveUpdateService.md §1`) rather than sending it as a setting message.
 4. **It crosses the wire as JSON, its type as a number**, which is SignalR's default: the host registers no string-enum converter, and §ARC16.8.1's suggestion result travels the same way (`UI/Brokers/AssociationBroker.md`). So the members are appended and never renumbered, and the React app mirrors the two numbers (`UI/Brokers/LiveUpdateBroker.md`).
 5. **The model holds no rule.** What a message must carry is the foundation's to refuse (`Backend/Foundations/LiveUpdateService.md §1`).
+
+## 2. LiveUpdate is sealed (#1080)
+
+```csharp
+public sealed class LiveUpdate
+```
+
+1. **No other type can be a `LiveUpdate`.** SignalR's JSON hub protocol writes each argument by its runtime type, so an instance of a type derived from `LiveUpdate` would carry every member that type declares to every connection, signed-out ones included, past the foundation's refusals, which check fields (`Backend/Foundations/LiveUpdateService.md §1` rule 2). Sealed, it leaves the two members of §1 as all a message can carry (§SEC14.8 rule 1). Its declaration is otherwise §1's.
+2. **It is a shape, not a rule.** It decides nothing about what the two members hold, which stays the foundation's to refuse (§1 rule 5).
