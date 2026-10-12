@@ -262,7 +262,7 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
    nothing.** The page answers each panel's `onAdd` with a "coming soon" toast and reads no
    associations, so both lists are always empty (`myPostDetail.tsx` — `suggestTag`,
    `suggestBibleReference`, `associationCollection={[]}`). The server work is not yet built: the association read `GET /api/associations` is not served,
-   and the suggestion, an editorial pairing sent to `POST /api/associations` (#728), waits on #871
+   and the suggestion, an editorial pairing sent to `POST /api/associations` (#728), waits on #1088
    (§ARC17.4; `UI/Components/AssociationPanel.md §7`). The page's half is to read the item's associations, project
    them to the panels, and send each suggestion with the viewer as its owner
    (`UI/Components/AssociationPanel.md §7`, the note on `asSuggestedAssociation`).

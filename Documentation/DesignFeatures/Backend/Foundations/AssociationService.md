@@ -1,7 +1,7 @@
 # Association service
 Parent: [Likes.md](../../Likes.md)
 Level: foundation — `IAssociationService` (`Glory2Him.Core/Services/Foundations/Associations/`)
-Inherits: §DOM4.3, §DOM4.4 rule 4, §DOM4.5 rules 1, 2 and 4, §DOM4.6, §DOM4.10, §SEC14.3 rules 1, 2 and 5, §SEC14.5, §SEC14.6, §SEC14.7 posture A′ rules 1, 2, 4 and 7, §APR7.5.1, §APR9.9 rule 6, §ARC12.2.1 rules 3–6, §ARC16.2.2, §ARC16.8, §EVN2, §EVN17 rule 3, §EVN20 rule 9, §EVN23 rules 1–3, Likes.md rules 1–3, 5, 6, 8 and 10
+Inherits: §DOM4.3, §DOM4.4 rule 4, §DOM4.5 rules 1, 2 and 4, §DOM4.6, §DOM4.10, §SEC14.3 rules 1, 2 and 5, §SEC14.5, §SEC14.6, §SEC14.7 posture A′ rules 1, 2, 4 and 7, §APR7.5.1, §APR9.7.1 rule 2, §APR9.9 rule 6, §ARC12.2.1 rules 3–6, §ARC12.5, §ARC16.2.2, §ARC16.8, §ARC16.8.1, §EVN2, §EVN17 rule 3, §EVN20 rule 9, §EVN23 rules 1–3, Likes.md rules 1–3, 5, 6, 8 and 10
 
 The foundation half of a reader's reaction: the one write that gives, changes and revives it, the lookup that finds it, the two reads the summary counts and marks with, and the one change to the soft remove that lets a reader withdraw their own. Every condition below is authored here as a query-shaping function and handed to `SelectAssociationsAsync` (`Backend/Brokers/StorageBroker.md §1`), which the client awaits with the caller's token (§ARC12.2.1 rule 3); each is unit-tested by executing it (rule 5), and integration proves what an in-memory set cannot (rule 6).
 
@@ -169,3 +169,29 @@ An existing member, changed: §5 rule 3's test of whose row it is follows §DOM4
 An existing member, changed: §2 rule 4's revive discriminator follows §DOM4.6 rule 3. Its signature, its outcomes, its facts, its caller check (§10) and its other rules are unchanged.
 
 1. **"Withdrawn by the reader" is a `DeletedBy` that differs from the row's `UserId` in nothing but letter case** (§2 rule 4, §DOM4.10 rule 7). Such a row is revived, `Restored` or `Repointed` as §2 rule 4's table has it. A withdrawn row whose `DeletedBy` names anybody else is still `TakenDown`.
+
+## 13. AddAssociationAsync — the add mints the row's `Id` (#1088)
+
+```csharp
+ValueTask<Association> AddAssociationAsync(
+    Association association,
+    CancellationToken cancellationToken = default);
+```
+
+An existing member, changed: it stops taking the new row's `Id` from its caller. Its signature, its gate, its derivations, its other validations, canonical order, the write, the `Association-Added` fact and its `ProcessedEvents` records are unchanged.
+
+An association's `Id` is an `IKey` member, so it belongs to the identifier broker and is never accepted from a caller (§APR9.7.1 rule 2). That rule bounds every write to an approvable entity on the event path as well as the direct one (§APR9.7.1). The add takes the `Id` from its caller and refuses an empty one. Its only caller is the upsert's editorial arm, which hands it the caller's two-endpoint request unchanged (`Backend/Orchestrations/AssociationOrchestrationService.md §1` rule 3), so every editorial suggestion is refused. The orchestration cannot mint the `Id` instead: an identifier broker is not among the brokers an orchestration holds (§ARC12.5, *an orchestration holds brokers*). So this service mints it, as §2 rule 10 already does for a reader's reaction. No deviation is needed.
+
+1. **The add mints the new row's `Id`** through the identifier broker this service already holds, and never takes the caller's. Whatever `Id` the caller's copy carries is overwritten, and is neither compared nor refused. The mint is in `DoAddAssociationAsync`, the private write body both entry paths share, and not in the public member, so it binds the `Association-Adding` door too (§14).
+2. **It mints after the contribution gate and before validation.** A caller the gate refuses mints nothing.
+3. **The add's empty-`Id` rule is not asked**, as §2 rule 10 does not ask it of a reaction's new row: the `Id` it would ask of is the one this service minted.
+4. **The inserted row, the `Association-Added` fact and the returned row carry the minted `Id`.** The upsert's editorial arm answers `Created` with it (§ARC16.8.1), and that answer is how a caller learns the new row's `Id`.
+5. **What stops a second row is unchanged, and it is never the `Id`.** It is the occupancy check the orchestration runs ahead of the add on both doors (`Backend/Orchestrations/AssociationOrchestrationService.md §1` rule 3 and §2), and `UX_Associations_EditorialPair` beneath it (§DOM4.6 rule 2). A write that fails after the insert leaves the row as it does today.
+
+## 14. OnAddingAssociationAsync — the minted `Id` on the event door (#1089)
+
+An existing member, unchanged: the handler for `Association-Adding`, which since #631 the orchestration's handler reaches with the same envelope (`Backend/Orchestrations/AssociationOrchestrationService.md §2`). It converges on `DoAddAssociationAsync`, so §13 binds it by construction. This section records what that means on this door, and proves it here.
+
+1. **The row is written under the `Id` this service mints, never the one the publisher named.** §APR9.7.1 rule 2 holds on this path too, so no deviation is recorded. The envelope's content, which its signature covers (§SEC14.6 rule 4), is not refused for its `Id`, and the claim is neither compared nor refused, as on the direct path. The reply and the `Association-Added` fact carry the minted `Id`, and they are how the publisher learns which row was written.
+2. **Deduplication on `Metadata.EventId` and the contribution gate run before the mint**, so a replay, or a caller the gate refuses, mints nothing and writes nothing (§13 rule 2).
+3. **Its tests are pins.** §13 puts the mint in the shared body, so they pass as soon as they are written, and they are committed as pins.
