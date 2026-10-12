@@ -54,8 +54,12 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
                 // a denied read answers not found, as a reader with no row is answered, and the
                 // true reason stays server-side (ts-foundations-012). No role lifts this: the
-                // lookup serves the owner alone (§SEC14.7 posture A′ rule 7).
-                if (association.UserId != callerUserId)
+                // lookup serves the owner alone (§SEC14.7 posture A′ rule 7). Two ids differing
+                // only in letter case name one reader (§DOM4.6 rule 3).
+                if (string.Equals(
+                    association.UserId,
+                    callerUserId,
+                    StringComparison.OrdinalIgnoreCase) is false)
                 {
                     await this.loggingBroker.LogWarningAsync(
                         message: "Personal content item association lookup denied. User " +
