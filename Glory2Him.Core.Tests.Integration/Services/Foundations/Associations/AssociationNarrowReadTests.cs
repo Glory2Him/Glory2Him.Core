@@ -965,6 +965,52 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             actualPairKeys.Should().BeEquivalentTo(expectedPairKeys);
         }
 
+        /// <summary>
+        /// #1024 criterion 2: <c>FindPersonalAssociationAsync</c> under §DOM4.6 rule 3, from the
+        /// request to the answer. The caller check in C# admits a request naming the caller's id
+        /// in another letter case (Backend/Foundations/AssociationService.md §9 rule 1), and the
+        /// personal-key condition, keyed on the caller's id, matches the row under the column's
+        /// collation (§9 rule 2). The unit tests compare ordinally and cannot show the second.
+        /// </summary>
+        [Fact]
+        public async Task ShouldFindTheReadersRowInSqlWhateverTheLetterCaseOfTheirUserIdAsync()
+        {
+            // given: stored in upper case, signed in with it in lower case, named in upper case
+            string storedUserId = $"Reader-{Guid.NewGuid():N}".ToUpperInvariant();
+            string callerUserId = storedUserId.ToLowerInvariant();
+            Guid contentItemGroupId = Guid.NewGuid();
+            Guid reactionId = Guid.NewGuid();
+
+            Association readersRow =
+                CreateCallersReaction(contentItemGroupId, reactionId, storedUserId);
+
+            await SeedAsync(readersRow);
+
+            // the far end's key is not a term of the personal key, so the request names another
+            // reaction on the same host
+            Association lookupRequest =
+                CreateCallersReaction(contentItemGroupId, Guid.NewGuid(), storedUserId);
+
+            IAssociationService associationService = CreateAssociationServiceFor(callerUserId);
+
+            var expectedMatch = new PersonalAssociationMatch
+            {
+                Id = readersRow.Id,
+                EntityBKeyId = reactionId,
+                IsDeleted = false
+            };
+
+            // when
+            PersonalAssociationMatch? actualMatch =
+                await associationService.FindPersonalAssociationAsync(
+                    lookupRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            callerUserId.Should().NotBe(storedUserId);
+            actualMatch.Should().BeEquivalentTo(expectedMatch);
+        }
+
         // AllVersions on both endpoints unless a test narrows one, so each EFFECTIVE id the
         // database computes is that endpoint's group id — which is what the reads above are keyed
         // on. entityBType is a parameter because the B-endpoint tests need a VERSIONED endpoint
