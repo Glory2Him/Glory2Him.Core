@@ -1068,6 +1068,173 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             return request;
         }
 
+        [Theory]
+        [MemberData(nameof(OperationOwnedFieldsOnANewPersonalRow))]
+        public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfTheNewRowSetsAnOperationOwnedFieldAndLogItAsync(
+            string invalidField,
+            object invalidValue,
+            string expectedMessage)
+        {
+            // given: the reader has no row, so the request would be inserted, and it sets one field
+            // an operation owns, to a value the create arm's range and length checks accept. No
+            // caller may set it on a new row (§17 rule 1; §APR9.7.1 rules 2, 3 and 5).
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            Association upsertRequest = SetOperationOwnedField(
+                WithNoOperationOwnedFieldSet(CreatePersonalUpsertRequest(readerUserId)),
+                invalidField,
+                invalidValue);
+
+            var invalidAssociationException = new InvalidAssociationException(
+                message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.UpsertDataList(
+                key: invalidField,
+                value: expectedMessage);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(
+                CreateRandomAssociations(),
+                TestContext.Current.CancellationToken);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then: the create is refused, naming the field
+            await VerifyNewPersonalRowRefusedAsync(
+                upsertTask,
+                upsertRequest,
+                invalidAssociationException);
+        }
+
+        // the create is refused with the expected errors once the reader's row is resolved and
+        // none is found: no Id is minted, nothing is stamped or inserted and no fact is published
+        // (§17 rule 1)
+        private async Task VerifyNewPersonalRowRefusedAsync(
+            ValueTask<PersonalAssociationUpsert> upsertTask,
+            Association upsertRequest,
+            InvalidAssociationException invalidAssociationException)
+        {
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(upsertTask.AsTask);
+
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(upsertRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalUpsertLookupAsked(TestContext.Current.CancellationToken, Times.Once());
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // each field an operation owns, set as §15 rule 1 counts it set, to a value the create
+        // arm's range and length checks accept, with the message the refusal names it with
+        public static TheoryData<string, object, string> OperationOwnedFieldsOnANewPersonalRow() =>
+            new TheoryData<string, object, string>
+            {
+                {
+                    nameof(Association.SortOrder),
+                    GetRandomNumber(),
+                    "Value is not allowed on add"
+                },
+                {
+                    nameof(Association.ConfidenceScore),
+                    GetRandomConfidenceScore(),
+                    "Value is not allowed on add"
+                },
+                {
+                    nameof(Association.ConfidenceReason),
+                    GetRandomStringWithLengthOf(500),
+                    "Text is not allowed on add"
+                },
+                {
+                    nameof(Association.SourceBatchId),
+                    Guid.NewGuid(),
+                    "Id is not allowed on add"
+                },
+                {
+                    nameof(Association.ModelVersion),
+                    GetRandomStringWithLengthOf(128),
+                    "Text is not allowed on add"
+                },
+                {
+                    nameof(Association.IsApprovedByBypass),
+                    true,
+                    "Value is not allowed on add"
+                },
+                {
+                    nameof(Association.ApprovedByBypassReason),
+                    GetRandomString(),
+                    "Text is not allowed on add"
+                }
+            };
+
+        private static Association SetOperationOwnedField(Association request, string field, object value)
+        {
+            switch (field)
+            {
+                case nameof(Association.SortOrder):
+                    request.SortOrder = (int)value;
+                    break;
+
+                case nameof(Association.ConfidenceScore):
+                    request.ConfidenceScore = (decimal)value;
+                    break;
+
+                case nameof(Association.ConfidenceReason):
+                    request.ConfidenceReason = (string)value;
+                    break;
+
+                case nameof(Association.SourceBatchId):
+                    request.SourceBatchId = (Guid)value;
+                    break;
+
+                case nameof(Association.ModelVersion):
+                    request.ModelVersion = (string)value;
+                    break;
+
+                case nameof(Association.IsApprovedByBypass):
+                    request.IsApprovedByBypass = (bool)value;
+                    break;
+
+                case nameof(Association.ApprovedByBypassReason):
+                    request.ApprovedByBypassReason = (string)value;
+                    break;
+            }
+
+            return request;
+        }
+
         public static TheoryData<string, string> InvalidPersonalUpsertEndpoints() =>
             new TheoryData<string, string>
             {
