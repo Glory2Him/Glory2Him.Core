@@ -111,10 +111,14 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
 
             this.eventBrokerMock.Setup(broker =>
                 broker.SubscribeToContentItemSettingEventAsync(
-                    It.IsAny<EventSubscription>(),
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == new Guid("337b7647-25e3-46b1-9ef3-afe39fcd5c3e")
+                            && subscription.Name ==
+                                "LiveUpdateOrchestrationService.OnContentItemSettingAdded"),
                     ContentItemSettingEventOperation.Added,
-                    It.IsAny<Func<EventEnvelope<ContentItemSetting>, CancellationToken,
-                        ValueTask<EventEnvelope<ContentItemSetting>>>>(),
+                    It.Is<Func<EventEnvelope<ContentItemSetting>, CancellationToken,
+                        ValueTask<EventEnvelope<ContentItemSetting>>>>(handler =>
+                            handler != null),
                     registrationCancellationToken))
                         .Callback<EventSubscription, ContentItemSettingEventOperation,
                             Func<EventEnvelope<ContentItemSetting>, CancellationToken,
