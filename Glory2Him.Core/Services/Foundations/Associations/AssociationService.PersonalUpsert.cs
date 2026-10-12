@@ -330,10 +330,10 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
         // The upsert acts for the signed caller alone, so a request naming any other reader is
         // refused, whatever role the caller holds (§SEC14.7 posture A′ rule 2: acting for that
-        // same UserId).
+        // same UserId). Two ids differing only in letter case name one reader (§DOM4.6 rule 3).
         private static void ValidateUserIsTheReader(string? userId, string callerUserId)
         {
-            if (userId != callerUserId)
+            if (string.Equals(userId, callerUserId, StringComparison.OrdinalIgnoreCase) is false)
             {
                 throw new UnauthorizedAssociationException(
                     message: "The current user is not allowed to write another user's " +
