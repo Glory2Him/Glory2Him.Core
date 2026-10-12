@@ -49,6 +49,7 @@ using Glory2Him.Core.Services.Orchestrations.ApprovalReviewers;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Glory2Him.Core.Services.Orchestrations.Associations;
 using Glory2Him.Core.Services.Orchestrations.ContentItemSettings;
+using Glory2Him.Core.Services.Orchestrations.LiveUpdates;
 using Glory2Him.Core.Services.Processings.ContentItems;
 using Glory2Him.Core.Services.Processings.Links;
 
@@ -2259,6 +2260,30 @@ namespace Glory2Him.Core.Registrations
                 associationEventHandler:
                     Scoped<IApprovalOrchestrationService, Association>(
                         service => service.OnAssociationSubmittedAsync),
+                cancellationToken: cancellationToken);
+
+            // ── Live update fact subscriptions ───────────────────────────────────
+            // The forwarder (§EVN26). It subscribes at the foundation tier, where every write to
+            // the entity is announced whatever path made it (§EVN26 rule 2), forwards the
+            // workflow's own writes rather than dropping them (§EVN26 rule 3), and relies on no
+            // order among the subscribers an address carries (§EVN26 rule 5).
+            await this.eventBroker.SubscribeToAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationApprovedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationApprovedSubscriptionName,
+
+                    Description = "Tells every open page that the reaction counts of the content " +
+                        "item's canonically visible version may have moved, where that version " +
+                        "exists and its winning setting shows reactions."
+                },
+                operation: AssociationEventOperation.Approved,
+                associationEventHandler:
+                    Scoped<ILiveUpdateOrchestrationService, Association>(
+                        service => service.OnAssociationApprovedAsync),
                 cancellationToken: cancellationToken);
         }
     }
