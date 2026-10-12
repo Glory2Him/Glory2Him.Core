@@ -219,5 +219,114 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldAddAssociationUnderTheMintedIdWhateverIdTheCallerSentAsync()
+        {
+            // given
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+            string contributorUserId = GetRandomString();
+
+            Association inputAssociation =
+                CreateAssociationFiller(currentDateTime, contributorUserId).Create();
+
+            // the caller's Id is overwritten, neither compared nor refused (§13 rule 1)
+            Guid callersId = Guid.NewGuid();
+            inputAssociation.Id = callersId;
+            Guid mintedId = Guid.NewGuid();
+            mintedId.Should().NotBe(callersId);
+
+            Association expectedInsertedAssociation = inputAssociation.DeepClone();
+            expectedInsertedAssociation.Id = mintedId;
+            Association storedAssociation = expectedInsertedAssociation.DeepClone();
+            Association insertedAssociation = null;
+            CancellationToken inputCancellationToken = TestContext.Current.CancellationToken;
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(mintedId);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.Is(SameAssociationAs(expectedInsertedAssociation)),
+                    this.ambientSecurityContext))
+                        .ReturnsAsync((Association entity, SecurityContext _) => entity);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(contributorUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTime);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertAssociationAsync(
+                    It.Is(SameAssociationAs(expectedInsertedAssociation)),
+                    inputCancellationToken))
+                        .Callback<Association, CancellationToken>((entity, _) =>
+                            insertedAssociation = entity.DeepClone())
+                        .ReturnsAsync(storedAssociation);
+
+            // when
+            Association actualAssociation =
+                await this.associationService.AddAssociationAsync(
+                    inputAssociation,
+                    inputCancellationToken);
+
+            // then: the row is inserted under the minted Id and never the caller's, and the
+            // fact and the returned row carry the minted one
+            insertedAssociation.Should().BeEquivalentTo(expectedInsertedAssociation);
+            insertedAssociation.Id.Should().Be(mintedId);
+            actualAssociation.Should().BeSameAs(storedAssociation);
+            actualAssociation.Id.Should().Be(mintedId);
+
+            // one Id for the new row, and one for each of the two processed-event records
+            this.identifierBrokerMock.Verify(broker =>
+                    broker.GetIdentifierAsync(),
+                Times.Exactly(3));
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.ApplyAddAuditValuesAsync(
+                        It.Is(SameAssociationAs(expectedInsertedAssociation)),
+                        this.ambientSecurityContext),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                    broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Exactly(3));
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.InsertAssociationAsync(
+                        It.Is(SameAssociationAs(expectedInsertedAssociation)),
+                        inputCancellationToken),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAssociationAsync(
+                    It.Is(SameOutboundEnvelopeAs(storedAssociation)),
+                    AssociationEventOperation.Added),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.ReceiverName ==
+                            EventBrokerIdentifiers
+                                .AssociationOnAddingAssociationSubscriptionName),
+                    inputCancellationToken),
+                Times.Exactly(2));
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
