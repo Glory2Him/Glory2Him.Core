@@ -350,7 +350,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             invalidAssociationException.AddData(
                 key: nameof(Association.ModelVersion),
-                values: "Text exceed max length of 128 characters");
+                values: ["Text exceed max length of 128 characters", "Value is not allowed on add"]);
 
             var expectedAssociationValidationException =
                 new AssociationValidationException(

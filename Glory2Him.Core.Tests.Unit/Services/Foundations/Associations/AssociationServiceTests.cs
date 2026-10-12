@@ -408,6 +408,61 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             return association;
         }
 
+        public static TheoryData<string> OperationOwnedFields() =>
+            new TheoryData<string>
+            {
+                nameof(Association.SortOrder),
+                nameof(Association.ConfidenceScore),
+                nameof(Association.ConfidenceReason),
+                nameof(Association.SourceBatchId),
+                nameof(Association.ModelVersion),
+                nameof(Association.IsApprovedByBypass),
+                nameof(Association.ApprovedByBypassReason)
+            };
+
+        // each value is one the write's range and length checks accept, so the only rule the
+        // field breaks is its own refusal
+        private static Association SetOperationOwnedField(
+            Association association,
+            string operationOwnedField)
+        {
+            switch (operationOwnedField)
+            {
+                case nameof(Association.SortOrder):
+                    association.SortOrder = GetRandomNumber();
+                    break;
+
+                case nameof(Association.ConfidenceScore):
+                    association.ConfidenceScore = 5.5m;
+                    break;
+
+                case nameof(Association.ConfidenceReason):
+                    association.ConfidenceReason = GetRandomStringWithLengthOf(500);
+                    break;
+
+                case nameof(Association.SourceBatchId):
+                    association.SourceBatchId = Guid.NewGuid();
+                    break;
+
+                case nameof(Association.ModelVersion):
+                    association.ModelVersion = GetRandomStringWithLengthOf(128);
+                    break;
+
+                case nameof(Association.IsApprovedByBypass):
+                    association.IsApprovedByBypass = true;
+                    break;
+
+                case nameof(Association.ApprovedByBypassReason):
+                    association.ApprovedByBypassReason = GetRandomString();
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(operationOwnedField));
+            }
+
+            return association;
+        }
+
         // a reader's reaction on a Quote: a personal row, created and keyed by one reader
         private static Association CreateRandomReaction(string readerUserId)
         {
