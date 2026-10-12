@@ -11,6 +11,7 @@ import {
 import { ApprovalStatus } from '../models/components/associations/associationItem';
 import { ContentType } from '../models/foundations/contentItemSettings/contentType';
 import ApiBroker from './apiBroker';
+import { ODataQuery } from '../models/foundations/oDataQueries/oDataQuery';
 
 import {
     shareabilityBasisMemberNames
@@ -33,6 +34,25 @@ const approvalStatusMemberNames: Readonly<Record<number, string>> = {
 // broker is the one dependency the layer does not have.
 const toODataLiteral = (value: string): string =>
     `'${value.replace(/'/g, "''")}'`;
+
+// The OData query written onto the wire as it is handed: an option the query does not carry
+// does not travel.
+const toODataParameters = (query: ODataQuery): URLSearchParams => {
+    const parameters = new URLSearchParams();
+
+    if (query.filter !== undefined) parameters.set('$filter', query.filter);
+    if (query.orderBy !== undefined) parameters.set('$orderby', query.orderBy);
+    if (query.skip !== undefined) parameters.set('$skip', String(query.skip));
+    if (query.top !== undefined) parameters.set('$top', String(query.top));
+
+    return parameters;
+};
+
+const withQueryString = (url: string, parameters: URLSearchParams): string => {
+    const queryString = parameters.toString();
+
+    return queryString ? `${url}?${queryString}` : url;
+};
 
 class ContentItemBroker {
     relativeContentItemsUrl = '/api/contentitems';
@@ -207,6 +227,50 @@ class ContentItemBroker {
         const result = await this.apiBroker.GetAsync(url);
 
         return result.data as ContentItem[];
+    }
+
+    async GetContentItemsAsync(query: ODataQuery): Promise<ContentItem[]> {
+        const url = withQueryString(this.relativeContentItemsUrl, toODataParameters(query));
+        const result = await this.apiBroker.GetAsync(url);
+
+        return result.data as ContentItem[];
+    }
+
+    async GetPublicContentItemsAsync(query: ODataQuery): Promise<ContentItem[]> {
+        const url = withQueryString(
+            `${this.relativeContentItemsUrl}/Public`,
+            toODataParameters(query));
+
+        const result = await this.apiBroker.GetAsync(url);
+
+        return result.data as ContentItem[];
+    }
+
+    // GET api/ContentItems/Feed has no [EnableQuery]: its page travels as plain skip and take.
+    async GetContentItemFeedAsync(skip: number, take: number): Promise<ContentItem[]> {
+        const parameters = new URLSearchParams();
+        parameters.set('skip', String(skip));
+        parameters.set('take', String(take));
+
+        const url = `${this.relativeContentItemsUrl}/Feed?${parameters.toString()}`;
+        const result = await this.apiBroker.GetAsync(url);
+
+        return result.data as ContentItem[];
+    }
+
+    // The reason travels exactly as handed, a blank one included; one handed as undefined does
+    // not travel at all.
+    async DeleteContentItemAsync(
+        contentItemId: string,
+        deletionReason?: string): Promise<ContentItem> {
+        const url = deletionReason !== undefined
+            ? `${this.relativeContentItemsUrl}/${contentItemId}`
+                + `?deletionReason=${encodeURIComponent(deletionReason)}`
+            : `${this.relativeContentItemsUrl}/${contentItemId}`;
+
+        const result = await this.apiBroker.DeleteAsync(url);
+
+        return result.data as ContentItem;
     }
 }
 
