@@ -166,6 +166,132 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         }
 
         [Fact]
+        public async Task ShouldCreateTheReadersRowWhenTheirUserIdDiffersOnlyInLetterCaseAsync()
+        {
+            // given: the request names the caller's id in upper case and the caller is signed in
+            // with it in lower case; two ids differing only in letter case name one reader
+            // (§DOM4.6 rule 3), and the reader has no row on the item
+            string callerUserId = Guid.NewGuid().ToString().ToLowerInvariant();
+            string requestUserId = callerUserId.ToUpperInvariant();
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association upsertRequest = CreatePersonalUpsertRequest(requestUserId);
+            upsertRequest.Id = Guid.Empty;
+            Guid mintedId = Guid.NewGuid();
+            List<Association> storageAssociations = CreateRandomAssociations().ToList();
+
+            // the row keeps the request's UserId, and its CreatedBy is stamped from the caller
+            // (Backend/Foundations/AssociationService.md §10 rule 2)
+            Association expectedInsertedAssociation =
+                StampAddAudit(upsertRequest.DeepClone(), callerUserId, currentDateTime);
+
+            expectedInsertedAssociation.Id = mintedId;
+
+            Association insertedAssociation = null;
+
+            Association storedAssociation =
+                WithDatabaseComputedEffectiveIds(expectedInsertedAssociation.DeepClone());
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(callerUserId);
+
+            SetupPersonalUpsertLookupOver(storageAssociations, inputCancellationToken);
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(mintedId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTime);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.Is(SameAssociationBeforeItsAddStampAs(expectedInsertedAssociation)),
+                    this.ambientSecurityContext))
+                        .ReturnsAsync((Association entity, SecurityContext _) =>
+                            StampAddAudit(entity.DeepClone(), callerUserId, currentDateTime));
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertAssociationAsync(
+                    It.Is(SameAssociationAs(expectedInsertedAssociation)),
+                    inputCancellationToken))
+                        .Callback<Association, CancellationToken>((entity, _) =>
+                            insertedAssociation = entity.DeepClone())
+                        .ReturnsAsync(storedAssociation);
+
+            EventEnvelope<Association> inboundEnvelope = SetupInboundEnvelopeFor(upsertRequest);
+
+            EventEnvelope<Association> outboundEnvelope =
+                SetupOutboundEnvelopeFor(inboundEnvelope, storedAssociation);
+
+            // when
+            PersonalAssociationUpsert actualUpsert =
+                await this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    inputCancellationToken);
+
+            // then
+            requestUserId.Should().NotBe(callerUserId);
+            requestUserId.Should().BeEquivalentTo(callerUserId);
+            insertedAssociation.Should().BeEquivalentTo(expectedInsertedAssociation);
+            insertedAssociation.UserId.Should().Be(requestUserId);
+            insertedAssociation.CreatedBy.Should().Be(callerUserId);
+            actualUpsert.Outcome.Should().Be(PersonalAssociationUpsertOutcome.Created);
+            actualUpsert.Association.Should().BeSameAs(storedAssociation);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(upsertRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalUpsertLookupAsked(inputCancellationToken, Times.Once());
+
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                    Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.Is(SameAssociationBeforeItsAddStampAs(expectedInsertedAssociation)),
+                    this.ambientSecurityContext),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAssociationAsync(
+                    It.Is(SameAssociationAs(expectedInsertedAssociation)),
+                    inputCancellationToken),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateNextAsync(inboundEnvelope, storedAssociation),
+                    Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAssociationAsync(outboundEnvelope, AssociationEventOperation.Added),
+                    Times.Once);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldCreateTheReadersRowOnAHostThatIsNotAContentItemAsync()
         {
             // given: a reaction on a Bible reference. "BibleReference" sorts before "Reaction", so
