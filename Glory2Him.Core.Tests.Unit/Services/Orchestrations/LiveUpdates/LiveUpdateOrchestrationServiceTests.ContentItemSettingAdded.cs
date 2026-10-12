@@ -565,5 +565,70 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             this.liveUpdateServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        // A broker raises no family of its own (§ARC12.5), so a failed verify arrives raw and is
+        // this service's own service failure.
+        [Fact]
+        public async Task ShouldRethrowServiceExceptionOnContentItemSettingAddedAndLogItAsync()
+        {
+            // given
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            ContentItemSetting settingOverride = CreateContentItemSettingOverride();
+            EventEnvelope<ContentItemSetting> addedFact = CreateSettingFactEnvelope(settingOverride);
+            var verifyException = new Exception(GetRandomString());
+
+            var failedLiveUpdateOrchestrationServiceException =
+                new FailedLiveUpdateOrchestrationServiceException(
+                    message: "Failed live update orchestration service error occurred, " +
+                        "please contact support.",
+                    innerException: verifyException,
+                    data: verifyException.Data);
+
+            var expectedLiveUpdateOrchestrationServiceException =
+                new LiveUpdateOrchestrationServiceException(
+                    message: "Live update orchestration service error occurred, contact support.",
+                    innerException: failedLiveUpdateOrchestrationServiceException);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    addedFact,
+                    ContentItemSettingAddedEventName,
+                    EnvelopeDirection.Request))
+                        .ThrowsAsync(verifyException);
+
+            // when
+            ValueTask<EventEnvelope<ContentItemSetting>> onContentItemSettingAddedTask =
+                this.liveUpdateOrchestrationService.OnContentItemSettingAddedAsync(
+                    addedFact,
+                    callerCancellationToken);
+
+            LiveUpdateOrchestrationServiceException actualLiveUpdateOrchestrationServiceException =
+                await Assert.ThrowsAsync<LiveUpdateOrchestrationServiceException>(
+                    onContentItemSettingAddedTask.AsTask);
+
+            // then
+            actualLiveUpdateOrchestrationServiceException.Should().BeEquivalentTo(
+                expectedLiveUpdateOrchestrationServiceException);
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    addedFact,
+                    ContentItemSettingAddedEventName,
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(
+                    expectedLiveUpdateOrchestrationServiceException))),
+                Times.Once);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
