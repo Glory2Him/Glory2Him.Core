@@ -1726,14 +1726,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         [MemberData(nameof(FoundRowUpsertArms))]
         public async Task ShouldNotRefuseTheOperationOwnedFieldsWhenTheReadersRowExistsOnUpsertPersonalAsync(
             string arm,
-            PersonalAssociationUpsertOutcome expectedOutcome)
+            PersonalAssociationUpsertOutcome expectedOutcome,
+            int expectedWrites)
         {
             // given: the request sets every field an operation owns, and the reader's row is found,
             // so the create arm, the one arm that asks the refusals, is never reached (§17 rule 2)
             using var cancellationTokenSource = new CancellationTokenSource();
             CancellationToken inputCancellationToken = cancellationTokenSource.Token;
 
-            (Association upsertRequest, Association readersRow) =
+            (Association upsertRequest, Association readersRow, EventEnvelope<Association> outboundEnvelope) =
                 ArrangeFoundRowUpsertArm(arm, inputCancellationToken);
 
             // when
@@ -1742,7 +1743,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     upsertRequest,
                     inputCancellationToken);
 
-            // then: the request is answered with its arm's outcome, and no new row is made
+            // then: the request is answered with its arm's outcome, no new row is made, and the
+            // reader's row is written and announced only on an arm that writes it
             actualUpsert.Outcome.Should().Be(expectedOutcome);
             actualUpsert.Association.Id.Should().Be(readersRow.Id);
 
@@ -1750,10 +1752,27 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 broker.GetIdentifierAsync(),
                 Times.Never);
 
+            VerifyPersonalUpsertLookupAsked(inputCancellationToken, Times.Once());
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAssociationAsync(
+                    It.Is<Association>(association => association.Id == readersRow.Id),
+                    inputCancellationToken),
+                Times.Exactly(expectedWrites));
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAssociationAsync(
+                    outboundEnvelope,
+                    It.Is<AssociationEventOperation>(operation =>
+                        operation == AssociationEventOperation.Restored
+                            || operation == AssociationEventOperation.Repointed)),
+                Times.Exactly(expectedWrites));
+
             this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
-
 
         [Theory]
         [MemberData(nameof(WritingFoundRowUpsertArms))]
@@ -1765,7 +1784,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             using var cancellationTokenSource = new CancellationTokenSource();
             CancellationToken inputCancellationToken = cancellationTokenSource.Token;
 
-            (Association upsertRequest, Association readersRow) =
+            (Association upsertRequest, Association readersRow, _) =
                 ArrangeFoundRowUpsertArm(arm, inputCancellationToken);
 
             Association storedRow = readersRow.DeepClone();
@@ -2255,16 +2274,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     cancellationToken),
                 times);
 
-        // every arm that finds the reader's row, with the outcome §2 rule 4 gives it: the three that
-        // write the row, the row the reader already holds, and the row somebody else took down
-        public static TheoryData<string, PersonalAssociationUpsertOutcome> FoundRowUpsertArms() =>
-            new TheoryData<string, PersonalAssociationUpsertOutcome>
+        // every arm that finds the reader's row, with the outcome §2 rule 4 gives it and how many
+        // times it writes the row: the three that write it once, and the row the reader already
+        // holds and the row somebody else took down, which write nothing
+        public static TheoryData<string, PersonalAssociationUpsertOutcome, int> FoundRowUpsertArms() =>
+            new TheoryData<string, PersonalAssociationUpsertOutcome, int>
             {
-                { "Revive", PersonalAssociationUpsertOutcome.Restored },
-                { "ReviveAndRepoint", PersonalAssociationUpsertOutcome.Repointed },
-                { "LiveRepoint", PersonalAssociationUpsertOutcome.Repointed },
-                { "Unchanged", PersonalAssociationUpsertOutcome.Unchanged },
-                { "TakenDown", PersonalAssociationUpsertOutcome.TakenDown }
+                { "Revive", PersonalAssociationUpsertOutcome.Restored, 1 },
+                { "ReviveAndRepoint", PersonalAssociationUpsertOutcome.Repointed, 1 },
+                { "LiveRepoint", PersonalAssociationUpsertOutcome.Repointed, 1 },
+                { "Unchanged", PersonalAssociationUpsertOutcome.Unchanged, 0 },
+                { "TakenDown", PersonalAssociationUpsertOutcome.TakenDown, 0 }
             };
 
         public static TheoryData<string> WritingFoundRowUpsertArms() =>
@@ -2274,7 +2294,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         // operation owns, with every broker the arm asks answering as it would. The stored row holds
         // its own value of each of those fields, different from the request's, so a value taken
         // from the caller's copy would show.
-        private (Association UpsertRequest, Association ReadersRow) ArrangeFoundRowUpsertArm(
+        private (Association UpsertRequest, Association ReadersRow, EventEnvelope<Association> OutboundEnvelope)
+            ArrangeFoundRowUpsertArm(
             string arm,
             CancellationToken cancellationToken)
         {
@@ -2355,7 +2376,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 broker.PublishAssociationAsync(outboundEnvelope, AssociationEventOperation.Repointed))
                     .ReturnsAsync(new EventPublishResult<Association>());
 
-            return (upsertRequest, readersRow);
+            return (upsertRequest, readersRow, outboundEnvelope);
         }
     }
 }
