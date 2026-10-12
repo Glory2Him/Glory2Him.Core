@@ -408,6 +408,11 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext, association);
 
+            if (association.Id == Guid.Empty)
+            {
+                association.Id = await this.identifierBroker.GetIdentifierAsync();
+            }
+
             association = await this.securityAuditBroker
                 .ApplyAddAuditValuesAsync(
                     entity: association,
