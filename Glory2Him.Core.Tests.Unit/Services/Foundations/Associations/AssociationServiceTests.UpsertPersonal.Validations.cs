@@ -1166,5 +1166,79 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Theory]
+        [MemberData(nameof(EmptyOrWhitespaceOperationOwnedTexts))]
+        public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfTheNewRowsOperationOwnedTextIsEmptyOrWhitespaceAndLogItAsync(
+            string operationOwnedTextField,
+            string emptyOrWhitespaceText)
+        {
+            // given: the reader has no row, and an empty or whitespace string is not null, so
+            // it is set (§15 rule 1, which §17 rule 1 applies)
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            Association upsertRequest = SetOperationOwnedText(
+                association: CreatePersonalUpsertRequest(readerUserId),
+                operationOwnedTextField: operationOwnedTextField,
+                text: emptyOrWhitespaceText);
+
+            var invalidAssociationException = new InvalidAssociationException(
+                message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.AddData(
+                key: operationOwnedTextField,
+                values: "Value is not allowed on add");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(
+                CreateRandomAssociations(),
+                TestContext.Current.CancellationToken);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(upsertTask.AsTask);
+
+            // then: the create is refused, and no Id is minted, nothing is inserted and no fact
+            // is published
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(upsertRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalUpsertLookupAsked(TestContext.Current.CancellationToken, Times.Once());
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
