@@ -68,6 +68,16 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
                 throw await CreateAndLogDependencyValidationExceptionAsync(
                     exception: liveUpdateValidationException);
             }
+            catch (LiveUpdateDependencyException liveUpdateDependencyException)
+            {
+                throw await CreateAndLogDependencyExceptionAsync(
+                    exception: liveUpdateDependencyException);
+            }
+            catch (LiveUpdateServiceException liveUpdateServiceException)
+            {
+                throw await CreateAndLogDependencyExceptionAsync(
+                    exception: liveUpdateServiceException);
+            }
 
             // anything else, a broker's raw failure included: a broker raises no family of its
             // own (§ARC12.5)
