@@ -93,6 +93,71 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         }
 
         [Fact]
+        public async Task ShouldFindTheReadersRowWhenTheirUserIdDiffersOnlyInLetterCaseAsync()
+        {
+            // given: the request names the caller's id in upper case and the caller is signed in
+            // with it in lower case; two ids differing only in letter case name one reader
+            // (§DOM4.6 rule 3)
+            string callerUserId = Guid.NewGuid().ToString().ToLowerInvariant();
+            string requestUserId = callerUserId.ToUpperInvariant();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association lookupRequest = CreatePersonalLookupRequest(requestUserId);
+
+            // the row is keyed on the caller's id, as the personal-key condition asks for it
+            Association readersRow =
+                CreateStoredPersonalRow(lookupRequest, isDeleted: false);
+
+            readersRow.UserId = callerUserId;
+
+            List<Association> storageAssociations =
+                CreateRandomAssociations().Append(readersRow).ToList();
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            var expectedMatch = new PersonalAssociationMatch
+            {
+                Id = readersRow.Id,
+                EntityBKeyId = readersRow.EntityBKeyId,
+                IsDeleted = false
+            };
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(callerUserId);
+
+            SetupPersonalLookupOver(storageAssociations, inputCancellationToken);
+
+            // when
+            PersonalAssociationMatch? actualMatch =
+                await this.associationService.FindPersonalAssociationAsync(
+                    lookupRequest,
+                    inputCancellationToken);
+
+            // then
+            requestUserId.Should().NotBe(callerUserId);
+            requestUserId.Should().BeEquivalentTo(callerUserId);
+            actualMatch.Should().BeEquivalentTo(expectedMatch);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(lookupRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalLookupAsked(inputCancellationToken, Times.Once());
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldFindTheReadersWithdrawnReactionRowAsync()
         {
             // given
