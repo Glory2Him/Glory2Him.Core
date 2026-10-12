@@ -185,6 +185,7 @@ The content item model should contain the following design-relevant properties:
 | `IsPublished` | Identifies the currently published version. Only one row per `GroupId` may be published. |
 | `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`). Mirrors the linked `Approval` record. `Approval` remains the source of truth. |
 | `ApprovalId` | The id of this row's approval round. An `IApproval` member, so every entity that implements `IApproval` carries it, not `ContentItem` alone (§APR7.4 item 6). A plain column with no foreign key: minted by the server when the row is inserted, never accepted from a caller, and never changed (§SEC14.7 posture A rule 5). *(Ruled 2026-09-27, #699; not yet built.)* |
+| `AmenderUserIds` | Everyone who has changed this row's content, as a set of account ids — an `IAmendment` member, never accepted from a caller, appended to by the general modify and cleared by nothing; §APR8.6 HR-5 refuses each of them a review of the row (§APR8.6.3, §SEC14.7 posture A rule 6). *(Designed under #701; not yet built.)* |
 | `PublishDate` | Optional date/time from which the content can be visible. |
 | `IsDeleted` | Soft-delete flag. When `true` the item is excluded from all public visibility. |
 | `CreatedBy` | User who created the item. |
@@ -216,7 +217,7 @@ The following rules apply:
 3. A new content item starts with `IsPublished = false` unless it is approved and published through the approval workflow.
 4. A content item in `Draft` or `Submitted` may be edited in place.
 5. Editing a `Draft` or `Submitted` item does not create a new version.
-6. If approval reviews have already been submitted and the content item itself changes, those reviews must be dismissed (subject to `ApprovalSetting.RequireReapprovalOnChange`) and the item must be reviewed again. The item itself remains in its current status.
+6. If approval reviews have already been submitted and the content item itself changes, those reviews must be dismissed (subject to `ApprovalSetting.RequireReapprovalOnChange`, save the review of anyone the item's amender record names, which is dismissed whatever that setting says, §APR8.6.3 rule 7; not yet built) and the item must be reviewed again. The item itself remains in its current status.
 7. **`Approved` and `Rejected` are terminal.** A content item in either state is immutable in place — to its owner, to a publisher, and to an administrator alike. No role amends a terminal row's content, and there is no in-place exception (rule 16). Content items always fork, so for them this has no exception; where the design applies this rule to a single-row type it has one counterpart, §APR7.5.1 rule 3's change, which goes back through the approval process (#685, built by #727).
 8. Editing a terminal content item creates a new `ContentItem` row with the same `GroupId` and incremented `Version`. The owner is the only creator of new versions — `Publishers` and `Administrators` roles never create version forks. **The new row is given a new `ApprovalId`, never its parent's**, because it runs a round of its own (§APR7.4 item 6, §APR9.7.2 rule 4). *(Ruled 2026-09-27, #699; not yet built.)*
 
@@ -578,6 +579,7 @@ Rules:
 | `IsPublished` | Identifies whether the current version of this tag is published. |
 | `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`). |
 | `ApprovalId` | The id of this row's approval round — an `IApproval` member, a plain column with no foreign key, minted when the row is inserted and never taken from a caller (§APR7.4 item 6). *(Ruled 2026-09-27, #699; not yet built.)* |
+| `AmenderUserIds` | Everyone who has changed this row's content, as a set of account ids — an `IAmendment` member, never accepted from a caller, appended to by the general modify and cleared by nothing; §APR8.6 HR-5 refuses each of them a review of the row (§APR8.6.3, §SEC14.7 posture A rule 6). *(Designed under #701; not yet built.)* |
 | `IsDeleted` | Soft-delete flag. When `true` the tag is excluded from all public visibility. |
 | `CreatedBy` | User who created the tag. |
 | `CreatedWhen` | Creation timestamp. |
@@ -606,6 +608,7 @@ Rules:
 | `IsPublished` | Identifies whether the current version of this reaction is published. |
 | `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`). |
 | `ApprovalId` | The id of this row's approval round — an `IApproval` member, a plain column with no foreign key, minted when the row is inserted and never taken from a caller (§APR7.4 item 6). *(Ruled 2026-09-27, #699; not yet built.)* |
+| `AmenderUserIds` | Everyone who has changed this row's content, as a set of account ids — an `IAmendment` member, never accepted from a caller, appended to by the general modify and cleared by nothing; §APR8.6 HR-5 refuses each of them a review of the row (§APR8.6.3, §SEC14.7 posture A rule 6). *(Designed under #701; not yet built.)* |
 | `IsDeleted` | Soft-delete flag. When `true` the reaction is excluded from all public visibility. |
 | `CreatedBy` | User who created the reaction. |
 | `CreatedWhen` | Creation timestamp. |
@@ -630,6 +633,7 @@ Rules:
 | `DeletedBy` | User who deleted the item. |
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
+| `AmenderUserIds` | Everyone who has changed this row's content, as a set of account ids — an `IAmendment` member, never accepted from a caller, appended to by the general modify and cleared by nothing; §APR8.6 HR-5 refuses each of them a review of the row (§APR8.6.3, §SEC14.7 posture A rule 6). *(Designed under #701; not yet built.)* |
 
 ### DOM5.4 BibleReference *(formerly §5.4)*
 
@@ -649,6 +653,7 @@ Rules:
 | `DeletedBy` | User who deleted the item. |
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
+| `AmenderUserIds` | Everyone who has changed this row's content, as a set of account ids — an `IAmendment` member, never accepted from a caller, appended to by the general modify and cleared by nothing; §APR8.6 HR-5 refuses each of them a review of the row (§APR8.6.3, §SEC14.7 posture A rule 6). *(Designed under #701; not yet built.)* |
 
 ### DOM5.5 Link *(formerly §5.5)*
 
@@ -667,6 +672,7 @@ Rules:
 | `DeletedBy` | User who deleted the item. |
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
+| `AmenderUserIds` | Everyone who has changed this row's content, as a set of account ids — an `IAmendment` member, never accepted from a caller, appended to by the general modify and cleared by nothing; §APR8.6 HR-5 refuses each of them a review of the row (§APR8.6.3, §SEC14.7 posture A rule 6). *(Designed under #701; not yet built.)* |
 
 ### DOM5.6 Attachment *(formerly §5.6)*
 
