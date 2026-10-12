@@ -55,7 +55,8 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             Association reactionAssociation = CreateReaction();
             Association editorialAssociation = CreateEditorialPair();
 
-            await migratedBroker.InsertAsync(reactionAssociation, editorialAssociation);
+            await migratedBroker.InsertNamingOnlyItsIdentityAsync(
+                reactionAssociation, editorialAssociation);
 
             // when
             await migratedBroker.MigrateToAsync(CollationMigration);
@@ -90,7 +91,8 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             Association reactionAssociation = CreateReaction();
             Association editorialAssociation = CreateEditorialPair();
 
-            await migratedBroker.InsertAsync(reactionAssociation, editorialAssociation);
+            await migratedBroker.InsertNamingOnlyItsIdentityAsync(
+                reactionAssociation, editorialAssociation);
             await migratedBroker.MigrateToAsync(CollationMigration);
 
             // when

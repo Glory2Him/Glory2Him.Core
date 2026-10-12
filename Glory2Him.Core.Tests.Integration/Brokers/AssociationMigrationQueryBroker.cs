@@ -12,7 +12,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Foundations.Associations;
@@ -72,12 +71,38 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             await migrator.MigrateAsync(targetMigration);
         }
 
-        public async ValueTask InsertAsync(params Association[] associations)
+        /// <summary>
+        /// Inserts in raw SQL naming only the columns an association's identity, its owner and
+        /// its audit need, so it fits the schema of the migration before the pin as well as
+        /// every later one. An insert through the broker would name every column the CURRENT
+        /// model maps, and fail on the older schema as soon as a later migration adds one.
+        /// The rest take their column defaults or stay null.
+        /// </summary>
+        public async ValueTask InsertNamingOnlyItsIdentityAsync(params Association[] associations)
         {
             foreach (Association association in associations)
             {
-                await this.storageBroker.InsertAssociationAsync(
-                    association, CancellationToken.None);
+                string entityAType = association.EntityAType.ToString();
+                string entityAScope = association.EntityAScope.ToString();
+                string entityBType = association.EntityBType.ToString();
+                string entityBScope = association.EntityBScope.ToString();
+
+                await this.storageBroker.Database.ExecuteSqlAsync(
+                    $@"INSERT INTO [Associations]
+                           ([Id],
+                            [EntityAType], [EntityAKeyId], [EntityAGroupId], [EntityAScope],
+                            [EntityBType], [EntityBKeyId], [EntityBGroupId], [EntityBScope],
+                            [UserId],
+                            [CreatedBy], [CreatedWhen], [UpdatedBy], [UpdatedWhen])
+                       VALUES
+                           ({association.Id},
+                            {entityAType}, {association.EntityAKeyId},
+                            {association.EntityAGroupId}, {entityAScope},
+                            {entityBType}, {association.EntityBKeyId},
+                            {association.EntityBGroupId}, {entityBScope},
+                            {association.UserId},
+                            {association.CreatedBy}, {association.CreatedWhen},
+                            {association.UpdatedBy}, {association.UpdatedWhen})");
             }
         }
 
