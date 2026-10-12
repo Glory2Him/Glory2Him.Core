@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Glory2Him.Core.Models.Securities;
 using Moq;
@@ -338,6 +339,53 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                                 .AssociationOnAddingAssociationSubscriptionName),
                     inputCancellationToken),
                 Times.Exactly(2));
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnAddIfUserIsNotAuthenticatedBeforeTheFieldsAreAskedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given: the refusals come after the contribution gate (§15 rule 2), so a caller
+            // the gate refuses hears that, and not which fields their association sets
+            this.ambientSecurityContext = invalidSecurityContext;
+
+            Association someAssociation = SetEveryOperationOwnedField(
+                CreateRandomAddAssociation(GetRandomDateTimeOffset()));
+
+            var unauthorizedAssociationException = new UnauthorizedAssociationException(
+                message: "The current user is not authenticated.");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedAssociationException);
+
+            // when
+            ValueTask<Association> addAssociationTask =
+                this.associationService.AddAssociationAsync(
+                    someAssociation,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    addAssociationTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
 
             this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

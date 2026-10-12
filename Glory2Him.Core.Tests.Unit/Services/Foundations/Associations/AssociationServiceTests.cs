@@ -408,17 +408,29 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             return association;
         }
 
+        private static readonly string[] OperationOwnedFieldNames =
+        [
+            nameof(Association.SortOrder),
+            nameof(Association.ConfidenceScore),
+            nameof(Association.ConfidenceReason),
+            nameof(Association.SourceBatchId),
+            nameof(Association.ModelVersion),
+            nameof(Association.IsApprovedByBypass),
+            nameof(Association.ApprovedByBypassReason)
+        ];
+
         public static TheoryData<string> OperationOwnedFields() =>
-            new TheoryData<string>
+            new TheoryData<string>(OperationOwnedFieldNames);
+
+        private static Association SetEveryOperationOwnedField(Association association)
+        {
+            foreach (string operationOwnedField in OperationOwnedFieldNames)
             {
-                nameof(Association.SortOrder),
-                nameof(Association.ConfidenceScore),
-                nameof(Association.ConfidenceReason),
-                nameof(Association.SourceBatchId),
-                nameof(Association.ModelVersion),
-                nameof(Association.IsApprovedByBypass),
-                nameof(Association.ApprovedByBypassReason)
-            };
+                SetOperationOwnedField(association, operationOwnedField);
+            }
+
+            return association;
+        }
 
         // each value is one the write's range and length checks accept, so the only rule the
         // field breaks is its own refusal
