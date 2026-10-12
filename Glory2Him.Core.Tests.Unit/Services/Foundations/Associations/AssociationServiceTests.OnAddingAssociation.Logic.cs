@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Moq;
 
@@ -312,6 +313,74 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                                 .AssociationOnAddingAssociationSubscriptionName),
                     inputCancellationToken),
                 Times.Exactly(2));
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(CallersWhoMayNotContribute))]
+        public async Task ShouldThrowValidationExceptionOnAddingAssociationEventIfUserMayNotContributeAndLogItAsync(
+            SecurityContext invalidSecurityContext,
+            string expectedRefusal)
+        {
+            // given
+            var requestEnvelope = new EventEnvelope<Association>
+            {
+                SecurityContext = invalidSecurityContext,
+                Content = CreateRandomAssociation(),
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            var unauthorizedAssociationException =
+                new UnauthorizedAssociationException(message: expectedRefusal);
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedAssociationException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.AssociationOnAddingAssociationSubscriptionName,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(false);
+
+            // when
+            ValueTask<EventEnvelope<Association>?> onAddingTask =
+                this.associationService.OnAddingAssociationAsync(
+                    requestEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    onAddingTask.AsTask);
+
+            // then: refused as the direct path refuses that caller, with nothing minted or
+            // written (§14 rule 2)
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.AssociationOnAddingAssociationSubscriptionName,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Never);
 
             this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
