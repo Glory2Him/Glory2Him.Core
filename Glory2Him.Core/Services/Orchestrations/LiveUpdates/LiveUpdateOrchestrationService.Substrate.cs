@@ -18,11 +18,11 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
 {
     internal partial class LiveUpdateOrchestrationService
     {
-        // The forwarder's ears. Each verifies the fact against the name its address carries, then
-        // hands the verified row to one of the two bodies, and answers null: nothing replies to a
-        // fact (§EVN20). None drops a fact that carries the system identity, unlike the approval
-        // workflow's ears — the workflow's approval is exactly the change a page has to hear
-        // (§EVN26 rule 3).
+        // The forwarder's ears. Each verifies the fact against the name its address carries before
+        // anything is read, hands the verified row to the body for its kind of fact, and answers
+        // null: nothing replies to a fact (§EVN20). None drops a fact that carries the system
+        // identity, unlike the approval workflow's ears — the workflow's approval is exactly the
+        // change a page has to hear (§EVN26 rule 3).
         public ValueTask<EventEnvelope<Association>?> OnAssociationApprovedAsync(
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default) =>
