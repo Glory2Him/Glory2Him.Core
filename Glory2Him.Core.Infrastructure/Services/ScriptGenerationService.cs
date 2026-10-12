@@ -520,6 +520,42 @@ namespace Glory2Him.Core.Infrastructure.Services
                                     }
                                 },
 
+                                // §ARC12.12 rule 5: a live update reaches only the connections the
+                                // publishing instance holds, so the deploy stops while the app runs on
+                                // more than one instance, before the job changes anything. A count it
+                                // could not read fails the step too, so the deploy never goes ahead on one.
+                                new GithubTask
+                                {
+                                    Name = "Refuse More Than One Instance",
+                                    Shell = "bash",
+                                    Run =
+                                        """
+                                        set -euo pipefail
+                                        resourceGroup=$(az webapp list --query "[?name=='g2h-dev'].resourceGroup | [0]" --output tsv)
+                                        instanceCount=$(az webapp list-instances --name g2h-dev --resource-group "$resourceGroup" --query "length(@)" --output tsv)
+                                        if ! [ "$instanceCount" -le 1 ]; then
+                                          echo "::error::g2h-dev runs on '$instanceCount' instances. §ARC12.12 rule 5 keeps it on one until a backplane is designed; scale it back to one instance and deploy again."
+                                          exit 1
+                                        fi
+                                        """
+                                },
+
+                                // §ARC12.12 rule 6: without Web sockets the live connection falls back to
+                                // Server-Sent Events. Switching it on when it is already on changes nothing,
+                                // so the step runs on every deploy. The repository names the app and not its
+                                // resource group, so the step looks the group up by the app's name.
+                                new GithubTask
+                                {
+                                    Name = "Switch On Web Sockets",
+                                    Shell = "bash",
+                                    Run =
+                                        """
+                                        set -euo pipefail
+                                        resourceGroup=$(az webapp list --query "[?name=='g2h-dev'].resourceGroup | [0]" --output tsv)
+                                        az webapp config set --name g2h-dev --resource-group "$resourceGroup" --web-sockets-enabled true
+                                        """
+                                },
+
                                 new GithubTask
                                 {
                                     Name = "Deploy to Azure Web App",

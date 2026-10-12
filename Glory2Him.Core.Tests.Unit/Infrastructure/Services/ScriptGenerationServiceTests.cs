@@ -10,7 +10,9 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using FluentAssertions;
 using Glory2Him.Core.Infrastructure.Services;
 
@@ -48,6 +50,144 @@ namespace Glory2Him.Core.Tests.Unit.Infrastructure.Services
             actualPrLinter.Should().Contain(
                 "  rejectAiAttribution:\n    name: Reject AI Identity And Attribution\n");
         }
+
+        [Fact]
+        public void ShouldEmitTheCommittedBuildScriptFromTheGenerator()
+        {
+            // given
+            var scriptGenerationService = new ScriptGenerationService();
+            string buildPath = GetWorkflowPath(workflowFileName: "build.yml");
+            byte[] committedBuildBytes = File.ReadAllBytes(buildPath);
+            string expectedBuild = NormalizeLineEndings(File.ReadAllText(buildPath));
+            string actualBuild;
+
+            // when
+            try
+            {
+                GenerateBuildScript(scriptGenerationService);
+                actualBuild = NormalizeLineEndings(File.ReadAllText(buildPath));
+            }
+            finally
+            {
+                File.WriteAllBytes(buildPath, committedBuildBytes);
+            }
+
+            // then
+            actualBuild.Should().Be(expectedBuild);
+        }
+
+        [Fact]
+        public void ShouldSwitchOnWebSocketsBeforeTheDeploy()
+        {
+            // given
+            var scriptGenerationService = new ScriptGenerationService();
+            string buildPath = GetWorkflowPath(workflowFileName: "build.yml");
+            byte[] committedBuildBytes = File.ReadAllBytes(buildPath);
+            string actualBuild;
+
+            // when
+            try
+            {
+                GenerateBuildScript(scriptGenerationService);
+                actualBuild = NormalizeLineEndings(File.ReadAllText(buildPath));
+            }
+            finally
+            {
+                File.WriteAllBytes(buildPath, committedBuildBytes);
+            }
+
+            // then
+            string deployJob = actualBuild.Substring(actualBuild.IndexOf("\n  deploy_webapp:\n"));
+
+            List<string> deploySteps = deployJob
+                .Split("\n    - name: ")
+                .Skip(1)
+                .ToList();
+
+            int loginIndex = deploySteps.FindIndex(step => step.StartsWith("Login to Azure\n"));
+            int deployIndex = deploySteps.FindIndex(step => step.StartsWith("Deploy to Azure Web App\n"));
+
+            int webSocketsIndex = deploySteps.FindIndex(step =>
+                step.Contains(
+                    "resourceGroup=$(az webapp list " +
+                    "--query \"[?name=='g2h-dev'].resourceGroup | [0]\" --output tsv)")
+                && step.Contains(
+                    "az webapp config set --name g2h-dev " +
+                    "--resource-group \"$resourceGroup\" --web-sockets-enabled true"));
+
+            loginIndex.Should().BeGreaterThanOrEqualTo(0);
+            webSocketsIndex.Should().BeGreaterThan(loginIndex);
+            deployIndex.Should().BeGreaterThan(webSocketsIndex);
+        }
+
+        [Fact]
+        public void ShouldStopTheDeployWhenTheAppRunsOnMoreThanOneInstance()
+        {
+            // given
+            var scriptGenerationService = new ScriptGenerationService();
+            string buildPath = GetWorkflowPath(workflowFileName: "build.yml");
+            byte[] committedBuildBytes = File.ReadAllBytes(buildPath);
+            string actualBuild;
+
+            // when
+            try
+            {
+                GenerateBuildScript(scriptGenerationService);
+                actualBuild = NormalizeLineEndings(File.ReadAllText(buildPath));
+            }
+            finally
+            {
+                File.WriteAllBytes(buildPath, committedBuildBytes);
+            }
+
+            // then
+            string deployJob = actualBuild.Substring(actualBuild.IndexOf("\n  deploy_webapp:\n"));
+
+            List<string> deploySteps = deployJob
+                .Split("\n    - name: ")
+                .Skip(1)
+                .ToList();
+
+            int loginIndex = deploySteps.FindIndex(step => step.StartsWith("Login to Azure\n"));
+            int deployIndex = deploySteps.FindIndex(step => step.StartsWith("Deploy to Azure Web App\n"));
+
+            string expectedInstanceCountStep =
+                """
+                Refuse More Than One Instance
+                      run: >-
+                        set -euo pipefail
+
+                        resourceGroup=$(az webapp list --query "[?name=='g2h-dev'].resourceGroup | [0]" --output tsv)
+
+                        instanceCount=$(az webapp list-instances --name g2h-dev --resource-group "$resourceGroup" --query "length(@)" --output tsv)
+
+                        if ! [ "$instanceCount" -le 1 ]; then
+                          echo "::error::g2h-dev runs on '$instanceCount' instances. §ARC12.12 rule 5 keeps it on one until a backplane is designed; scale it back to one instance and deploy again."
+                          exit 1
+                        fi
+                      shell: bash
+                """;
+
+            int instanceCountIndex = deploySteps.FindIndex(step =>
+                step.StartsWith("Refuse More Than One Instance\n"));
+
+            loginIndex.Should().BeGreaterThanOrEqualTo(0);
+            instanceCountIndex.Should().BeGreaterThan(loginIndex);
+            deployIndex.Should().BeGreaterThan(instanceCountIndex);
+
+            NormalizeLineEndings(deploySteps[instanceCountIndex])
+                .Should().Be(NormalizeLineEndings(expectedInstanceCountStep));
+        }
+
+        private static void GenerateBuildScript(ScriptGenerationService scriptGenerationService) =>
+            scriptGenerationService.GenerateBuildScript(
+                branchName: "main",
+                projectName: "Glory2Him.Core",
+                dotNetVersion: "10.x");
+
+        private static string GetWorkflowPath(string workflowFileName) =>
+            Path.GetFullPath(
+                Path.Combine(AppContext.BaseDirectory, "../../../../.github/workflows", workflowFileName));
 
         private static string NormalizeLineEndings(string text) =>
             text.Replace("\r\n", "\n");

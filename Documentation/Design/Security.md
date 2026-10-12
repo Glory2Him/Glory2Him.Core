@@ -263,11 +263,11 @@ subscriptions must not use those helpers** — it registers the service and its 
 brokers scoped itself, as `CoreRegistration.AddCoreServices` does. **That conditional is a
 corollary and not the operative rule**: the rule above is unconditional, and
 `CoreRegistration.AddCoreServices` is cited for what it **does** — register scoped, by hand — and
-not for satisfying the condition, because that host wires **124** subscriptions. *(Counted as the
+not for satisfying the condition, because that host wires **125** subscriptions. *(Counted as the
 `expectedSubscriptionId:` verifications in
 `EventSubscriptionRegistrationTests.ShouldRegisterParticipantAddressesAndAllSubscriptionsAsync`,
 which ends in `VerifyNoOtherCalls` and so pins the number exactly rather than as a floor; it
-agrees with the 124 `await this.eventBroker.SubscribeTo…` calls in
+agrees with the 125 `await this.eventBroker.SubscribeTo…` calls in
 `EventSubscriptionRegistration.cs`.)* Only the genuinely stateless brokers (`IDateTimeBroker`,
 `IIdentifierBroker`, `IHashBroker`, `IEnvelopeIntegrityBroker`, `IEventBroker`) stay singletons
 **in that host**.
@@ -586,9 +586,12 @@ Tag-ReadOnly,                    Tag-Reviewers,                    Tag-Publisher
 BibleReference-ReadOnly,         BibleReference-Reviewers,         BibleReference-Publishers,
 Comment-ReadOnly,                Comment-Reviewers,                Comment-Publishers,
 Link-ReadOnly,                   Link-Reviewers,                   Link-Publishers,
-Attachment-ReadOnly,             Attachment-Reviewers,             Attachment-Publishers,
-Association-ReadOnly,            Association-Reviewers,            Association-Publishers
+Attachment-ReadOnly,             Attachment-Reviewers,             Attachment-Publishers
 ```
+
+`Association` has none: an association has no scoped roles of its own, and every scoped question
+about one is answered from its two endpoints (§SEC14.7 posture A′; *Composing an association's role
+check*, below; user ruling 2026-10-11, #705).
 
 The same convention applies to any further approvable entity types (e.g. `Reaction`, `ContentItemSetting`).
 

@@ -47,6 +47,7 @@ using Glory2Him.Core.Services.Orchestrations.AIReviewers;
 using Glory2Him.Core.Services.Orchestrations.ApprovalReviewers;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Glory2Him.Core.Services.Orchestrations.ContentItemSettings;
+using Glory2Him.Core.Services.Orchestrations.LiveUpdates;
 using Glory2Him.Core.Services.Processings.ContentItems;
 using Glory2Him.Core.Services.Processings.Links;
 using Microsoft.Data.SqlClient;
@@ -206,7 +207,7 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
 
             // The registration opens a scope per delivery now, so the fixture supplies a
             // provider that hands back these instances. Two orchestrations are real; the other
-            // seventeen are mocks, which is what keeps this suite about the WIRING.
+            // eighteen are mocks, which is what keeps this suite about the WIRING.
             //
             // Every service the subscriptions bind must appear below: Scoped<TService,TEntity>
             // resolves through GetRequiredService at DELIVERY time, so a missing one throws
@@ -274,6 +275,14 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             // mid-delivery and be recorded as failed deliveries with nothing surfacing.
             Provide<IAIReviewerOrchestrationService>(
                 new Mock<IAIReviewerOrchestrationService>().Object);
+
+            // MOCKED, for the AI reviewer's reason: what this suite asks of the forwarder's ears
+            // is which subscription a published fact reaches, and the fixture has no hub to send
+            // through. The entry is not optional either, for the same reason as above: without it
+            // a delivery on any of the forwarder's addresses throws mid-delivery and is recorded
+            // as a failed delivery with nothing surfacing.
+            Provide<ILiveUpdateOrchestrationService>(
+                new Mock<ILiveUpdateOrchestrationService>().Object);
 
             var serviceScopeMock = new Mock<IServiceScope>();
             serviceScopeMock.Setup(scope => scope.ServiceProvider)

@@ -4,7 +4,7 @@
 - **Parent:** none — root
 - **Children:** none as story files. Its four faces — `ReviewCommentAddPanel`, `ReviewCommentResultsPanel`, `ReviewCommentViewPanel`, `ReviewCommentEditPanel` — and the `CommentTypeRadioGroup` two of them share are documented inside this file, in sections 3.5 and 6, by the user's ruling (2026-09-26): the file set mirrors the sample pages, and a face is split into a file of its own only if it grows.
 - **Composes:** none
-- **Used by:** no other component document renders it. Pages: `/Admin/Posts/{contentItemId}` — `src/pages/admin/contentItemModerationDetailPage.tsx`, in the left-hand column beneath the bible references, with [ReviewPanel.md](ReviewPanel.md) in the column beside it.
+- **Used by:** no other component document renders it. Pages: `/Admin/Posts/{contentItemId}` — `src/pages/admin/contentItemModerationDetailPage.tsx`, in the left-hand column beneath the post, with [ReviewPanel.md](ReviewPanel.md) in the column beside it; and `/Admin/Posts/{contentItemId}/Associations/{associationId}` — `src/pages/admin/associationModerationDetailPage.tsx`, for the association's thread, in the left-hand column beneath the association.
 - **Inherits:** §SEC14.6, §SEC14.7 posture D rule 5, §SEC18.6 rule 2, §APR7.8, §APR8.9 rule 3, §APR8.5, §ARC16.7.2, §ARC16.7.4, §UI20.6.4, §UI20.6.5, §UI20.6.6
 - **Source:** `Websites/Glory2Him.WebApp.React/src/components/approvals/reviewCommentPanel.tsx`, with its faces in the same folder — `reviewCommentAddPanel.tsx`, `reviewCommentResultsPanel.tsx`, `reviewCommentViewPanel.tsx`, `reviewCommentEditPanel.tsx`, `commentTypeRadioGroup.tsx`
 - **Sample page:** `/SamplePages/Components/Review-Comment-Panel` — `src/pages/samplePages/components/reviewCommentPanelDoc.tsx`
@@ -54,7 +54,7 @@ A comment is one of two kinds (§APR7.8). A **remark** asks for nothing and neve
 
 **2.15 [Must]** Every write invalidates the thread **and** the verdict: an outstanding comment is one of the block reasons `ReviewPanel` prints in the column beside it (`UI/Components/ReviewPanel.md rule 2.21`). *(§UI20.6.3)*
 
-**2.16 [Could]** It lands beneath the bible references on `/Admin/Posts/{id}` — in the column with the thing being discussed, not in the decision column, which has to stay readable at a glance while a thread grows without limit. *(§UI20.6.3)*
+**2.16 [Could]** It lands beneath the post on `/Admin/Posts/{id}`, and beneath the association on its page — in the column with the thing being discussed, not in the decision column, which has to stay readable at a glance while a thread grows without limit. *(§UI20.6.3)*
 
 *Existing behaviour the design relies on*
 
@@ -96,6 +96,12 @@ A comment is one of two kinds (§APR7.8). A **remark** asks for nothing and neve
 
 **2.34 [Won't]** No sign-in hook is added for a signed-out reader. The thread lives in the admin area, behind the sign-in guard, so an anonymous reader never reaches it, and the signed-out line of rule 3.2.1 is not a way in. *(user, 2026-09-27)*
 
+*The thread of an association, and a round not yet recorded*
+
+**2.35 [Must]** An association has no roles of its own, so its thread's tiers compose from its two endpoints (§SEC14.7 posture A′ rules 1–3; posture D rule 5). The page hands the panel the round's role subjects, `roleSubjectCollection`, in the shape `UI/Components/ReviewPanel.md rule 2.54` gives, and the panel then composes the item's review tier of rule 2.9, the publisher tier of rule 2.21 and the tick's read-only roles of rule 3.2.5 from every subject in place of `entityType` and `contentType`: a role matching either subject admits, and a read-only role of either withholds the tick. The thread's words still answer to the global `ReadOnly` and `ApprovalComment-ReadOnly` alone (rule 2.20). Handed no subjects, the panel composes from `entityType` and `contentType` as it does today (`DesignFeatures/PostModeration.md` rule 15). *(user, 2026-10-11)* ≠ items 19 and 22
+
+**2.36 [Must]** Until the approval process has created the round's approval record, the box renders disabled — the text box, the radios, Clear and Save — and raises nothing, and the line of rule 3.1.1 stands beneath it saying there is no round yet. The page says the record is not there yet with `isAwaitingApprovalRecord`, which outranks rule 2.17's withholding of the box (`DesignFeatures/PostModeration.md` rule 17). *(user, 2026-10-11)* ≠ item 23
+
 ## 3. Presentation / Behaviour rules
 
 ### 3.1 Driven by properties
@@ -114,6 +120,8 @@ A comment is one of two kinds (§APR7.8). A **remark** asks for nothing and neve
 
 **3.1.7** A row's `commentType` decides its chip and whether the tick can appear at all: never on a `Comment` (rule 2.11). *(test: "should never render on a comment, whoever is looking")*
 
+**3.1.8** `isAwaitingApprovalRecord=true` renders the box disabled, with the line of rule 3.1.1 beneath it, in place of the line alone (rule 2.36). *(user, 2026-10-11)* ≠ item 23
+
 ### 3.2 Driven by roles
 
 **3.2.1** Signed out, the box is replaced by "Sign in to comment on this submission.", which raises no hook (rule 2.34). *(code: reviewCommentPanel.tsx; test: "should offer no box to a signed-out reader, and say why"; user, 2026-09-27)*
@@ -128,6 +136,8 @@ A comment is one of two kinds (§APR7.8). A **remark** asks for nothing and neve
 
 **3.2.6** A signed-in reader outside the item's review tier who holds neither block of rule 3.2.2 is shown the box disabled, not hidden, whatever else they hold (rule 2.9): the text box and Save each carry a tooltip saying why, a property whose default is "Only this item's reviewers can comment". *(user, 2026-09-27)* ≠ items 19 and 21
 
+**3.2.7** With `roleSubjectCollection` handed, rules 2.9, 2.21 and 3.2.5 compose once per subject, as `UI/Components/ReviewPanel.md rule 3.2.7` composes the vote and decision tiers: a `Tag-Publishers` holds the publisher tier of a round whose subjects are a post and a tag, and a `Tag-ReadOnly` holder there gets no tick (rule 2.35). *(§SEC14.7 posture A′ rules 1–3; user, 2026-10-11)* ≠ items 19 and 22
+
 ### 3.3 Combinations
 
 **3.3.1** A missing round outranks everything for the box: with no `approvalId` nobody gets one, whatever they hold. *(code: reviewCommentPanel.tsx — `mayComment`)*
@@ -140,6 +150,8 @@ A comment is one of two kinds (§APR7.8). A **remark** asks for nothing and neve
 
 **3.3.5** `isSubmitting` disables what the roles grant; it never hides it (rule 3.1.4). *(code: every face — `disabled={isSubmitting}`)*
 
+**3.3.6** `isAwaitingApprovalRecord` outranks every role for the box: while it is on, nobody gets a live box (rule 2.36). *(user, 2026-10-11)* ≠ item 23
+
 ### 3.4 Role matrix
 
 Owner here is the author of the row on screen — the account whose id matches its `authorId` — holding no tier. Publisher holds the publisher tier of rule 2.21; Reviewer holds `Reviewers` at any scope the entity composes (rule 2.9). Every row assumes an `approvalId` unless it says otherwise.
@@ -150,6 +162,7 @@ Owner here is the author of the row on screen — the account whose id matches i
 | **The box** (Comment/Question, Clear, Save), live ≠ item 19 | ❌ No | ❌ No | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes |
 | Viewer outside the item's review tier, holding neither block of rule 3.2.2 — **the box rendered disabled**, with the tooltip of rule 3.2.6 ≠ items 19 and 21 | ❌ No | ✅ Yes⁴ | ✅ Yes⁴ | ➖ n/a | ➖ n/a | ➖ n/a |
 | `approvalId=""` — **the box** | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
+| `isAwaitingApprovalRecord=true` — **the box rendered disabled**, the no-round line beneath it ≠ item 23 | ❌ No | ✅ Yes³ | ✅ Yes³ | ✅ Yes³ | ✅ Yes³ | ✅ Yes³ |
 | Global `ReadOnly` or `ApprovalComment-ReadOnly` — **the box**, live ≠ item 16 | ➖ n/a | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
 | As the row above — **the box rendered disabled**, with the block-role tooltip ≠ items 16 and 21 | ➖ n/a | ✅ Yes⁴ | ✅ Yes⁴ | ✅ Yes⁴ | ✅ Yes⁴ | ✅ Yes⁴ |
 | A read-only role of the entity under review only — **the box**, live ≠ item 19 | ➖ n/a | ❌ No | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes |
@@ -229,6 +242,8 @@ The dispatcher's own:
 | `defaultType` | `ApprovalCommentType` | `Comment` | Which radio the box opens on and what Clear returns it to (rule 2.25). | add face `defaultType` |
 | `entityType` | `string` | `'ContentItem'` | Composes the resolve tier and the scoped `ReadOnly` names. Fetches nothing. | — (decided here) |
 | `contentType` | `string` | `''` | The narrow tier; the enum member name, never the editable type name. | — (decided here) |
+| `roleSubjectCollection` ≠ items 19 and 22 | `ReadonlyArray<{ entityType: string; contentType?: string }>?` | — | The round's role subjects, an association's two endpoints; handed, the tiers compose from them (rule 2.35). Fetches nothing. | — (decided here) |
+| `isAwaitingApprovalRecord` ≠ item 23 | `boolean` | `false` | The round's approval record does not exist yet, so the box renders disabled (rule 2.36). | add face |
 | `isLoading`, `isLoadingMore`, `hasMore` | `boolean` | `false` | The collection's states. | results face, same names |
 | `onLoadMore` | `() => void` | — | The next page. | results face `onLoadMore` |
 | `isSubmitting` | `boolean` | `false` | Freezes every control (rule 3.1.4). | add face and results face; view and edit faces |
@@ -341,7 +356,7 @@ ReviewCommentPanel                 the thread, and who may do what to it
 
 `CommentTypeRadioGroup` is the one control the two writing faces share, so that it means the same thing on each. *(code: commentTypeRadioGroup.tsx)*
 
-- **Where it lands.** Rule 2.16. On `/Admin/Posts/{contentItemId}` it follows the item, `TagAssociationPanel` and `BibleReferenceAssociationPanel` in the left-hand column; [ReviewPanel.md](ReviewPanel.md) holds the right-hand column. *(code: contentItemModerationDetailPage.tsx)*
+- **Where it lands.** Rule 2.16. On `/Admin/Posts/{contentItemId}` it follows the item in the left-hand column, the association panels that stood between them gone with the page's redesign (`UI/Pages/ContentItemModerationDetailPage.md §3`); [ReviewPanel.md](ReviewPanel.md) holds the right-hand column. *(code: contentItemModerationDetailPage.tsx)* On `/Admin/Posts/{contentItemId}/Associations/{associationId}` it follows the association, its tiers composed from the association's endpoints (rule 2.35; `UI/Pages/AssociationModerationDetailPage.md §4.3`).
 - **Beside `ReviewPanel`.** The two are one round: the thread here is the outstanding-comment block reason there, and every write here moves that reason (rule 2.15).
 - **Wiring on the one consumer.** `approvalId` is the id the item stores for its round (§APR7.4 item 6; ruled 2026-09-27 under #699, not yet built) — today it comes off the verdict, as the example below shows (section 10, item 18); `reviewComments` is `useApprovalRound`'s `reviewCommentCollection`; `isSubmitting` is any of the four comment writes pending; `onSave` is passed by reference so the box can wait on it, and rethrows after its toast; `onRemoveRequested` opens the page's `ConfirmDialog`. *(code: contentItemModerationDetailPage.tsx, src/hooks/useApprovalRound.ts)*
 
@@ -483,7 +498,8 @@ Every write invalidates the thread and the verdict (rule 2.15). On the one consu
     (`reviewCommentPanel.test.tsx` — "should save the words, the chosen type and the approval
     id", "should offer Edit and Delete to the author alone", "should render on a question for its
     author"). The tier's content-type names are to be confined to `ContentItem`, as item 7 asks
-    of the tick's. What a reader outside the tier sees instead of the live box is item 21.
+    of the tick's. On an association's round the tier composes from its two endpoints (rule 2.35,
+    item 22). What a reader outside the tier sees instead of the live box is item 21.
 20. **Note — what stands in the box's place, ruled.** This item asked whether the panel should
     say why it withholds the box from a signed-in reader outside the item's review tier, as it
     does for its other refusals, and in what words. The user ruled on 2026-09-27 that the box is
@@ -510,3 +526,18 @@ Every write invalidates the thread and the verdict (rule 2.15). On the one consu
     (`reviewCommentAddPanel.tsx`, lines 109-130), and neither the dispatcher nor the add face
     has a tooltip, or a property for one. `ApprovalComment-ReadOnly` is not composed at all (item
     16).
+22. (#1046) **Gap — an association's thread composes its tiers from `Association`.** Rules
+    2.35 and 3.2.7 (user ruling 2026-10-11; §SEC14.7 posture A′ rules 1–3): on an association's
+    round the publisher tier of the tick and the tick's read-only roles compose from the
+    association's two endpoints, and so does the review tier once item 19 builds it. The panel has
+    no property for them, and composes from one `entityType` and `contentType`
+    (`reviewCommentPanel.tsx` — `scopedNames`). Handed `Association`, it composes
+    `Association-Publishers` and `Association-ReadOnly`, which the seed never creates
+    (`Websites/Glory2Him.WebApp/Data/SeedData.cs` — `ScopedRoleEntityTypes`), so a scoped
+    publisher of either endpoint would be refused the tick, and a holder of either endpoint's
+    block would be offered it.
+23. (#1047) **Gap — the box is withheld, not disabled, on a round with no record.** Rules
+    2.36, 3.1.8 and 3.3.6 (user ruling 2026-10-11): until the approval process has created the
+    round's approval record, the box renders disabled with the no-round line beneath it. The
+    panel has no property for it: with no `approvalId` it withholds the box and shows the line in
+    its place (rule 2.17; `reviewCommentPanel.tsx` — `mayComment`).

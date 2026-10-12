@@ -242,8 +242,10 @@ below are what the page adds: who reaches it, and the card's actions for those w
    reference cannot be read (`contentItemFeedNavigation.ts` — `onBibleReferenceClick`;
    `toUsfmReference.ts`, lines 67-73). The page writes its query string only when the list raises
    `onSearch` (`contentItemModerationPage.tsx` — `search`, lines 90-91). No pill renders until
-   the association read is exposed over HTTP (§ARC17.4, not yet built). The same clicks on an item's page are
-   `UI/Pages/ContentItemModerationDetailPage.md §6 items 5 and 17`.
+   the association read is exposed over HTTP (§ARC17.4, not yet built). The same type, *Submitted by* and
+   *Author* clicks on an item's page are `UI/Pages/ContentItemModerationDetailPage.md §6 item 5`; a
+   tag or Bible reference chip there leads to its association's page instead
+   (`UI/Pages/ContentItemModerationDetailPage.md rule 2.31`).
 7. (needs issue) **Page gap — `/Admin/Posts`: a reviewer or a publisher cannot reach the queue.**
    Rule 2.1 (user ruling 2026-09-27): `/Admin/Posts` shows `Administrators`, `Publishers` and
    `Reviewers` what their permissions let them see. The route admits `Administrators` alone

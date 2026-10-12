@@ -3,7 +3,7 @@ Parent: [BrokersHoldNoLogic.md](../../BrokersHoldNoLogic.md)
 Level: foundation service — `reactionService` (`Websites/Glory2Him.WebApp.React/src/services/foundations/reactionService.ts`), existing
 Inherits: §DOM5.2 (`SortOrder`), Likes.md rule 5a, §UI20.9.2, §UI20.9.3 rule 2, `UI/Brokers/ReactionBroker.md`, `the-standard-reacttypescript-services` as §UI20.9.2 departs from it
 
-The React Query hook over `ReactionBroker` that every Like control's choices come from. Today it hands the read to `ReactionBroker.GetApprovedReactionsAsync`, which writes the vocabulary's filter itself and asks for no order, so the choices come in whatever order SQL Server returns the rows. Under §UI20.9.3 rule 2 the hook writes the read's whole condition, the filter and the order Likes.md rule 5a adds, and hands it to `ReactionBroker.GetReactionsAsync` (`UI/Brokers/ReactionBroker.md §2`).
+The React Query hook over `ReactionBroker` that every Like control's choices come from. Under §UI20.9.3 rule 2 the hook writes the read's whole condition, the filter and the order Likes.md rule 5a adds, and hands it to `ReactionBroker.GetReactionsAsync` (`UI/Brokers/ReactionBroker.md §2`).
 
 ## 1. useGetApprovedReactions (#752)
 

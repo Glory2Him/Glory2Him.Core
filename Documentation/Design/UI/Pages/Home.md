@@ -328,8 +328,8 @@ write a card leads to is decided again by the service (§SEC14.6).
    value to its own list the same way. Tags narrow the list only once the association read is exposed
    over HTTP (§ARC17.4, not yet built) and a read narrows on them
    (`UI/Components/ContentItemListPanel.md §10 item 15`, not yet designed). Rule 2.13 says so
-   here; the pages' halves are item 9 and the items it names. In the admin section the same
-   clicks open the queue, `/Admin/Posts`, handed the value, as the user ruled the same day
+   here; the pages' halves are item 9 and the items it names. On the queue, `/Admin/Posts`, the
+   same clicks open the queue itself, handed the value, as the user ruled the same day
    (`UI/Pages/ContentItemModerationPage.md rule 2.13`).
 8. **Note — a signed-out reader who accepts the invitation to contribute, ruled.** This item
    asked whether `/` and `/posts/{id}`, whose `SharingPanel` sends every reader, signed in or

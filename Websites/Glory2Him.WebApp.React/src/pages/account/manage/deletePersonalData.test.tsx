@@ -69,6 +69,15 @@ const submitDeletion = () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete data and close my account' }));
 };
 
+const refusedWith = (message: string) => new AxiosError(
+    'Request failed', 'ERR_BAD_REQUEST', undefined, undefined, {
+        status: 400,
+        statusText: 'Bad Request',
+        headers: {},
+        config: { headers: new AxiosHeaders() },
+        data: { message }
+    });
+
 describe('DeletePersonalData', () => {
     beforeEach(() => {
         mocks.deletePersonalDataMutate.mockReset();
@@ -125,5 +134,68 @@ describe('DeletePersonalData', () => {
         expect(landedOn()).toBe(deletePersonalDataPath);
         expect(screen.getByRole('heading', { name: 'Delete Personal Data' })).toBeTruthy();
         expect(screen.getByText('Error: Incorrect password.')).toBeTruthy();
+    });
+
+    it("should show the server's refusal as a failure when the deletion is refused", () => {
+        // given
+        const refusal = 'This is the last administrator holding the "Administrators" role, '
+            + 'so it cannot be deleted. Give another account the "Administrators" role first.';
+
+        mocks.deletePersonalDataMutate.mockImplementation(
+            (_password: string, callbacks: DeletePersonalDataCallbacks) =>
+                callbacks.onError(refusedWith(refusal)));
+
+        renderDeletePersonalData();
+
+        // when
+        submitDeletion();
+
+        // then
+        const alert = screen.getByText(`Error: ${refusal}`);
+
+        expect(alert.className).toBe('alert alert-danger');
+    });
+
+    it('should show a refusal already marked as a failure unchanged when the deletion is refused', () => {
+        // given
+        mocks.deletePersonalDataMutate.mockImplementation(
+            (_password: string, callbacks: DeletePersonalDataCallbacks) =>
+                callbacks.onError(refusedWith('Error: Incorrect password.')));
+
+        renderDeletePersonalData();
+
+        // when
+        submitDeletion();
+
+        // then
+        const alert = screen.getByText('Error: Incorrect password.');
+
+        expect(alert.className).toBe('alert alert-danger');
+        expect(screen.queryByText(/Error: Error:/)).toBeNull();
+    });
+
+    it('should show its own message as a failure when the deletion fails without one', () => {
+        // given
+        const failure = new AxiosError('Request failed', 'ERR_BAD_REQUEST', undefined, undefined, {
+            status: 401,
+            statusText: 'Unauthorized',
+            headers: {},
+            config: { headers: new AxiosHeaders() },
+            data: ''
+        });
+
+        mocks.deletePersonalDataMutate.mockImplementation(
+            (_password: string, callbacks: DeletePersonalDataCallbacks) => callbacks.onError(failure));
+
+        renderDeletePersonalData();
+
+        // when
+        submitDeletion();
+
+        // then
+        const alert = screen.getByText('Error: Unexpected error occurred deleting user.');
+
+        expect(alert.className).toBe('alert alert-danger');
+        expect(screen.queryByText(/Error: Error:/)).toBeNull();
     });
 });

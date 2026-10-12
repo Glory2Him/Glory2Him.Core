@@ -450,6 +450,27 @@ jobs:
         client-id: ${{ secrets.AZURE_DEV_CLIENTID }}
         tenant-id: ${{ secrets.AZURE_DEV_TENANTID }}
         subscription-id: ${{ secrets.AZURE_DEV_SUBSCRIPTIONID }}
+    - name: Refuse More Than One Instance
+      run: >-
+        set -euo pipefail
+
+        resourceGroup=$(az webapp list --query "[?name=='g2h-dev'].resourceGroup | [0]" --output tsv)
+
+        instanceCount=$(az webapp list-instances --name g2h-dev --resource-group "$resourceGroup" --query "length(@)" --output tsv)
+
+        if ! [ "$instanceCount" -le 1 ]; then
+          echo "::error::g2h-dev runs on '$instanceCount' instances. §ARC12.12 rule 5 keeps it on one until a backplane is designed; scale it back to one instance and deploy again."
+          exit 1
+        fi
+      shell: bash
+    - name: Switch On Web Sockets
+      run: >-
+        set -euo pipefail
+
+        resourceGroup=$(az webapp list --query "[?name=='g2h-dev'].resourceGroup | [0]" --output tsv)
+
+        az webapp config set --name g2h-dev --resource-group "$resourceGroup" --web-sockets-enabled true
+      shell: bash
     - name: Deploy to Azure Web App
       id: deploy_to_webapp
       uses: azure/webapps-deploy@v3

@@ -1,4 +1,4 @@
-import { QueryClient } from '@tanstack/react-query';
+import { MutationObserver, QueryClient } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { queryClientGlobalOptions } from './apiBroker.globals';
 
@@ -26,6 +26,37 @@ const failWith = async (client: QueryClient, meta?: Record<string, unknown>) => 
         .catch(() => undefined);
 };
 
+// query-core reports a throw from the cache's onError as a rejected promise nobody handles, so
+// the rejections are counted the way the runtime raises them. The listener comes off whatever
+// the outcome: while one is attached, Vitest stops reporting unhandled rejections in this worker.
+const unhandledRejectionsWhenAWriteFails = async (
+    client: QueryClient,
+    meta?: Record<string, unknown>): Promise<unknown[]> => {
+    const rejections: unknown[] = [];
+    const recordRejection = (reason: unknown) => {
+        rejections.push(reason);
+    };
+
+    process.on('unhandledRejection', recordRejection);
+
+    try {
+        await new MutationObserver(client, {
+            mutationFn: async () => {
+                throw new Error('refused');
+            },
+            meta
+        })
+            .mutate()
+            .catch(() => undefined);
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+    } finally {
+        process.off('unhandledRejection', recordRejection);
+    }
+
+    return rejections;
+};
+
 describe('the global failure toast', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -47,5 +78,22 @@ describe('the global failure toast', () => {
 
         // then
         expect(toastErrorMock).not.toHaveBeenCalled();
+    });
+
+    it('should raise no unhandled rejection when a write fails', async () => {
+        // when
+        const rejections = await unhandledRejectionsWhenAWriteFails(queryClientGlobalOptions);
+
+        // then
+        expect(rejections).toEqual([]);
+    });
+
+    it('should raise no unhandled rejection when a write that answers for itself fails', async () => {
+        // when
+        const rejections = await unhandledRejectionsWhenAWriteFails(
+            queryClientGlobalOptions, { suppressGlobalErrorToast: true });
+
+        // then
+        expect(rejections).toEqual([]);
     });
 });

@@ -66,6 +66,12 @@ it renders them. It is also the base the per-type overrides derive from.
 
 **3.1.12** Every visible string the template renders, and every string it renders for a screen reader alone, is a property whose default is today's text (§UI20.6.6 rule 1). *(user, 2026-09-27)* ≠ item 2
 
+**3.1.13** Handed `associationChipCollection`, the tag and reference sections render its chips instead of the element's pills, under rule 2.5, as `UI/Components/ContentItemPanel.md rules 2.45, 2.46 and 3.1.16` give them: the status icon, the dashed border on `Draft`, the struck-through label on `Rejected`, the tooltip, the ring on the current chip, and `onAssociationChipClick` raised from every chip but the current one. *(user, 2026-10-11)* ≠ `UI/Components/ContentItemPanel.md §10 item 25`
+
+**3.1.14** *Take down* renders where `showsTakeDownButton`, at the right of the engagement row beside the moderation action, raising `onTakeDownClick`. It is never disabled. *(user, 2026-10-11)* ≠ `UI/Components/ContentItemPanel.md §10 item 26`
+
+**3.1.15** With `isAssociationChipReadFailed` on, the tag and reference sections render the chips' error in their place, as `UI/Components/ContentItemPanel.md rules 2.48 and 3.1.18` give it: `associationChipReadFailedText`, announced, and *Retry* raising `onAssociationChipRetry`, with no chip and no pill of either kind. *(user, 2026-10-11)* ≠ `UI/Components/ContentItemPanel.md §10 item 28`
+
 ### 3.2 Driven by roles
 
 **3.2.1** None of its own. The template reads no identity and no role; *Edit*, the moderation action and its lock arrive decided (`UI/Components/ContentItemPanel.md §3.2`). *(code: contentItemDefaultPanel.tsx — showsEditButton, showsModerateButton, moderateButtonLockReason are props)*
@@ -85,6 +91,7 @@ Which persona is handed each decision is `UI/Components/ContentItemPanel.md §3.
 | `showsEditButton=true` — **Edit** | ✅ Yes¹ | ✅ Yes¹ | ✅ Yes | ✅ Yes¹ | ✅ Yes¹ | ✅ Yes¹ |
 | `showsModerateButton=true` — **the moderation action** | ✅ Yes¹ | ✅ Yes¹ | ✅ Yes¹ | ✅ Yes | ✅ Yes | ✅ Yes |
 | `moderateButtonLockReason` given — **the moderation action, disabled** | ✅ Yes¹ | ✅ Yes¹ | ✅ Yes¹ | ✅ Yes | ✅ Yes | ✅ Yes |
+| `showsTakeDownButton=true` — ***Take down*** ≠ `UI/Components/ContentItemPanel.md §10 item 26` | ✅ Yes¹ | ✅ Yes¹ | ✅ Yes¹ | ✅ Yes¹ | ✅ Yes¹ | ✅ Yes |
 
 ¹ Only if handed it; `ContentItemPanel` never hands it to this persona.
 
@@ -103,6 +110,7 @@ Which persona is handed each decision is `UI/Components/ContentItemPanel.md §3.
 | `showsEditButton`, `showsModerateButton` | `boolean` | — (required) | The decided actions. | — |
 | `moderateButtonLockReason` | `string?` | — | Present, the moderation action is locked. | — |
 | `moderateButtonIconCss`, `moderateButtonLabel` | `string` | — (required) | The moderation action's icon and label. | — |
+| `showsTakeDownButton` ≠ `UI/Components/ContentItemPanel.md §10 item 26` | `boolean?` | `false` | The decided takedown (`UI/Components/ContentItemPanel.md rule 3.2.7`). | — |
 | `allowTitleClick` | `boolean` | — (required) | Whether the title may be a control. | — |
 | `showApprovalStatusRibbon` | `boolean` | — (required) | The ribbon. | — |
 | `showApprovalStatus` | `boolean?` | `false` | The pill. | — |
@@ -110,9 +118,12 @@ Which persona is handed each decision is `UI/Components/ContentItemPanel.md §3.
 | `allowInPlaceExpansion`, `isContentExpanded` | `boolean` | — (required) | Which read-more, and whether the content is whole. | — |
 | `areReactionCountsExpanded`, `isReactionPickerOpen` | `boolean` | — (required) | The two per-card toggles. | — |
 | `showTagSection`, `showBibleReferenceSection`, `showReactionSection`, `showCommentsSection`, `showShareSection`, `showSaveSection` | `boolean?` | `true` | The section switches. | — |
+| `associationChipCollection`, `associationChipTooltipText`, `associationChipStatusLabels` ≠ `UI/Components/ContentItemPanel.md §10 item 25` | as `UI/Components/ContentItemPanel.md §4.1` | as there | The association chips (rule 3.1.13). | — |
+| `isAssociationChipReadFailed`, `associationChipReadFailedText`, `associationChipRetryText` ≠ `UI/Components/ContentItemPanel.md §10 item 28` | as `UI/Components/ContentItemPanel.md §4.1` | as there | The chips' error (rule 3.1.15). | — |
 | `contentSlot` | `ReactNode?` | — | The derivation point (rule 2.3). | — |
 | `submittedByLabelText`, `authorLabelText`, `shareabilityLabelText`, `dateLabelText` | `string?` | `'Submitted by'`, `'Author'`, `'Shareability'`, `'Date'` | The meta row's labels. | — |
 | `likeButtonText`, `commentsText`, `commentsNoCountText`, `shareButtonText`, `saveButtonText`, `editButtonText`, `allReactionsText` | `string?` | `'Like'`, `'comments'`, `'Comments'`, `'Share'`, `'Save'`, `'Edit'`, `'All'` | The engagement row's wording. | — |
+| `takeDownButtonText` ≠ `UI/Components/ContentItemPanel.md §10 item 26` | `string?` | `'Take down'` | The takedown's label. | — |
 | `readMoreText`, `expandLinkText`, `showLessText` | `string?` | `'read more....'`, `'read more…'`, `'show less'` | The two read-more affordances, deliberately different. | — |
 | `shareabilityBasisLabels` | label map | the read labels (`shareabilityBasisReadLabels`) | How each basis reads. | — |
 
@@ -135,6 +146,9 @@ Which persona is handed each decision is `UI/Components/ContentItemPanel.md §3.
 | `onShareClick`, `onSaveClick` | the element | *Share* or *Save* is pressed. |
 | `onEditClick` | the element | *Edit* is pressed. |
 | `onModerateClick` | the element | The moderation action is pressed while it is not locked. |
+| `onAssociationChipClick` ≠ `UI/Components/ContentItemPanel.md §10 item 25` | the chip | An association chip not marked current is pressed. |
+| `onAssociationChipRetry` ≠ `UI/Components/ContentItemPanel.md §10 item 28` | none | *Retry* is pressed on the chips' error. |
+| `onTakeDownClick` ≠ `UI/Components/ContentItemPanel.md §10 item 26` | the element | *Take down* is pressed; `ContentItemPanel` asks its confirmation and raises `onTakeDown` (`UI/Components/ContentItemPanel.md rule 3.1.17`). |
 
 ### 4.3 Pass-through properties
 
@@ -189,7 +203,9 @@ template has no loading state.
   a property yet (section 10, item 2).
 - The locked action carries `g2h-content-item-action-locked`, which restores its tooltip on a
   disabled button, and a visually-hidden copy of its reason appended to its name.
-- Every icon is `aria-hidden`.
+- Every icon is `aria-hidden`. An association chip's status reaches assistive technology as
+  text: its accessible name is its label followed by its tooltip's text, and the current chip
+  carries `aria-current="page"` (`UI/Components/ContentItemPanel.md §10 item 25`).
 
 ## 10. Open Questions and Gaps
 

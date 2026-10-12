@@ -16,6 +16,7 @@ using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Hashes;
 using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Integrities;
+using Glory2Him.Core.Brokers.LiveUpdates;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
@@ -30,6 +31,7 @@ using Glory2Him.Core.Services.Orchestrations.AIReviewers;
 using Glory2Him.Core.Services.Orchestrations.Associations;
 using Glory2Him.Core.Services.Orchestrations.ApprovalReviewers;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
+using Glory2Him.Core.Services.Orchestrations.LiveUpdates;
 using Glory2Him.Core.Services.Processings.Links;
 using Glory2Him.Core.Services.Processings.ContentItems;
 using Glory2Him.Core.Services.Foundations.Approvals;
@@ -37,12 +39,14 @@ using Glory2Him.Core.Services.Foundations.Tags;
 using Glory2Him.Core.Services.Foundations.ApprovalSettings;
 using Glory2Him.Core.Services.Foundations.Reactions;
 using Glory2Him.Core.Services.Foundations.Links;
+using Glory2Him.Core.Services.Foundations.LiveUpdates;
 using Glory2Him.Core.Services.Foundations.ContentItemSettings;
 using Glory2Him.Core.Services.Orchestrations.ContentItemSettings;
 using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.Comments;
 using Glory2Him.Core.Services.Foundations.BibleReferences;
 using Glory2Him.Core.Services.Foundations.Associations;
+using Glory2Him.WebApp.Brokers.LiveUpdates;
 
 namespace Glory2Him.WebApp.Infrastructure
 {
@@ -128,6 +132,26 @@ namespace Glory2Him.WebApp.Infrastructure
             // once per process — AccessBroker above pays the identical cost independently for the
             // same reason, since nothing here shares a single ISecurityClient between the two.
             services.AddScoped<ISecurityAuditBroker, SecurityAuditBroker>();
+
+            // The live connection (§ARC12.12 rule 3). AddSignalR provides the hub context the
+            // broker sends through. The broker captures no caller, so its lifetime decides
+            // nothing about identity; it is scoped all the same, beside the other request-bound
+            // brokers, which leaves §SEC14.6.1's list of the host's singleton brokers as it
+            // stands.
+            services.AddSignalR();
+            services.AddScoped<ILiveUpdateBroker, LiveUpdateBroker>();
+
+            // The one way into the live connection (Backend/Foundations/LiveUpdateService.md §1).
+            // Scoped, as the broker it sends through is.
+            services.AddScoped<ILiveUpdateService, LiveUpdateService>();
+
+            // The forwarder (Backend/Orchestrations/LiveUpdateOrchestrationService.md). Nothing
+            // but its subscriptions resolves it, out of the scope the registration opens per
+            // delivery. Scoped, by hand rather than through a ServiceRegistration helper: it
+            // composes IContentItemService, whose envelope broker captures identity, so a
+            // singleton would be the §SEC14.6.1 defect.
+            services.AddScoped<ILiveUpdateOrchestrationService, LiveUpdateOrchestrationService>();
+
             // The service INTERFACES are public; the implementations are not. Binding the two is
             // only possible from inside Core's friend set, which is the point — the host names
             // the contract, Core keeps the implementation. Each controller then takes its one

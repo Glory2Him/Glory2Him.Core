@@ -11,7 +11,10 @@ export const reactionService = {
 
         return useQuery<Reaction[]>({
             queryKey: ['ReactionsGetApproved'],
-            queryFn: async () => await reactionBroker.GetApprovedReactionsAsync(),
+            queryFn: async () => await reactionBroker.GetReactionsAsync({
+                filter: "approvalStatus eq 'Approved' and isPublished eq true and isDeleted eq false",
+                orderBy: 'sortOrder,name'
+            }),
             staleTime: 5 * 60 * 1000
         });
     }
