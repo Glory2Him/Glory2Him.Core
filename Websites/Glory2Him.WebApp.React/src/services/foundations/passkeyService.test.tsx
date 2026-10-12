@@ -43,4 +43,19 @@ describe('passkeyService.usePasskeySignIn', () => {
         expect(requestPasskeyAndSignInAsync).toHaveBeenCalledTimes(1);
         expect(requestPasskeyAndSignInAsync).toHaveBeenCalledWith('reader@example.com');
     });
+
+    it.each(['', '   '])(
+        'should hand the ceremony no username for a blank email',
+        async (blankEmail: string) => {
+            // given
+            const { result } = renderHook(
+                () => passkeyService.usePasskeySignIn(), { wrapper });
+
+            // when
+            await result.current.mutateAsync(blankEmail);
+
+            // then
+            expect(requestPasskeyAndSignInAsync).toHaveBeenCalledTimes(1);
+            expect(requestPasskeyAndSignInAsync).toHaveBeenCalledWith(undefined);
+        });
 });
