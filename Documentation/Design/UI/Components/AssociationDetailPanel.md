@@ -141,7 +141,7 @@ Every read-only role in the **Blocked by** column is composed by the component i
 **Data the consumer supplies:** the association, read by its id (`GET /api/associations/{id}`, #857);
 its far end, the tag's name or the reference and its scripture (`UI/Foundations/TagService.md §1`,
 `UI/Foundations/BibleReferenceService.md §1`); and the suggester's name (`contributorService.useGetContributorById`).
-**The suggestion** comes from the read #863 designs. **The takedown** is `DELETE /api/associations/{id}`
+**The suggestion** comes from Berean's status read, its `confidenceSuggestion` (§APR8.6.2, *The confidence suggestion*; `UI/Pages/AssociationModerationDetailPage.md` rule 2.13). **The takedown** is `DELETE /api/associations/{id}`
 (§ARC17.4), called by the page, never the component.
 
 **Indirect:** the signed-in identity and roles from the auth context, for the takedown's gate.
