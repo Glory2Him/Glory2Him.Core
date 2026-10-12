@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Enums;
 using AssociationSuggestionStatus = Glory2Him.Core.Models.Orchestrations.Associations.AssociationSuggestionStatus;
 using Glory2Him.WebApp.Tests.Acceptance.Models.Associations;
 using CoreContentItem = Glory2Him.Core.Models.Foundations.ContentItems.ContentItem;
+using CoreTag = Glory2Him.Core.Models.Foundations.Tags.Tag;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
 {
@@ -51,6 +52,40 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
             {
                 this.apiBroker.ActAsSeededAdministrator();
                 await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(publishedContentItem.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
+            }
+        }
+
+        [Fact]
+        public async Task ShouldSuggestAnEditorialPairingOverHttpAsync()
+        {
+            // given
+            // The seeded Story default allows tags (ContentItemSettingSeedData), and a draft tag
+            // is visible to its author, so neither the facet gate nor endpoint resolution turns
+            // the pair away. The body carries the two endpoints and no Id, as the client sends it.
+            CoreContentItem publishedContentItem = await InsertPublishedContentItemAsync();
+            string contributorUserId = this.apiBroker.ActAsContributor();
+            CoreTag contributorsTag = await this.apiBroker.InsertDraftTagAsync(contributorUserId);
+            Association inputPair = CreateTagPair(publishedContentItem.Id, contributorsTag.Id);
+
+            try
+            {
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.PostAssociationAsync(inputPair);
+
+                AssociationSuggestionResult actualResult = await ReadResultAsync(actualResponse);
+
+                // then
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+                actualResult.Status.Should().Be(AssociationSuggestionStatus.Created);
+                actualResult.AssociationId.Should().NotBeEmpty();
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(publishedContentItem.Id);
+                await this.apiBroker.RemoveCoreTagByIdAsync(contributorsTag.Id);
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
             }
         }
