@@ -24,6 +24,15 @@ class PasskeyBroker {
         return result.data;
     }
 
+    // Mirrors Blazor's /Account/PasskeyRequestOptions endpoint.
+    async PostRequestOptionsAsync(username?: string): Promise<unknown> {
+        const url = `${this.relativePasskeysUrl}/request-options` +
+            (username !== undefined ? `?username=${encodeURIComponent(username)}` : '');
+
+        const result = await this.apiBroker.PostAsync(url, {});
+        return result.data;
+    }
+
     async RegisterPasskeyAsync(credentialJson: string): Promise<string> {
         const url = `${this.relativePasskeysUrl}/register`;
         const result = await this.apiBroker.PostAsync(url, { credentialJson });
