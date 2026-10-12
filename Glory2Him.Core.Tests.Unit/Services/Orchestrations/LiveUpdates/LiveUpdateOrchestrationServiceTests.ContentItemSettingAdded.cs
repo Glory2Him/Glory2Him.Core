@@ -326,5 +326,39 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             this.liveUpdateServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        // A failure is mapped, logged and rethrown, so the substrate records a failed delivery
+        // (§EVN11), as #900 maps it.
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnContentItemSettingAddedIfTokenIsCancelledAsync()
+        {
+            // given: a fact that would verify, heard on a token its caller has already cancelled
+            var cancelledToken = new CancellationToken(canceled: true);
+            ContentItemSetting settingOverride = CreateContentItemSettingOverride();
+            EventEnvelope<ContentItemSetting> addedFact = CreateSettingFactEnvelope(settingOverride);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    addedFact,
+                    ContentItemSettingAddedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            // when
+            ValueTask<EventEnvelope<ContentItemSetting>> onContentItemSettingAddedTask =
+                this.liveUpdateOrchestrationService.OnContentItemSettingAddedAsync(
+                    addedFact,
+                    cancelledToken);
+
+            // then: rethrown unwrapped, before the signature is checked
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                onContentItemSettingAddedTask.AsTask);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
