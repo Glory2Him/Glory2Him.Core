@@ -83,4 +83,47 @@ describe('manageAccountService.useDeletePersonalData', () => {
         expect(queryClient.getQueryState(['AccountsGetCurrentUser'])?.isInvalidated).toBe(false);
         expect(currentUserRead).toHaveBeenCalledTimes(1);
     });
+
+    // A FAILED DELETION IS ANNOUNCED BY THE PAGE ALONE (#846). Driven through the app's own
+    // global handler, with the toasts counted inside it, so a hook that suppresses the handler
+    // and raises its own toast is not mistaken for one that raises none.
+    it('should leave the failure to the page without the global toast when the deletion fails', async () => {
+        // given
+        const brokerError = new Error('refused');
+        deletePersonalDataAsync.mockRejectedValue(brokerError);
+
+        const globalOnError =
+            queryClientGlobalOptions.getMutationCache().config.onError!;
+
+        let toastsRaisedByTheGlobalHandler = 0;
+
+        const globalClient = new QueryClient({
+            mutationCache: new MutationCache({
+                onError: (...args) => {
+                    const toastsBefore = toastErrorMock.mock.calls.length;
+
+                    try {
+                        globalOnError(...args);
+                    } finally {
+                        toastsRaisedByTheGlobalHandler +=
+                            toastErrorMock.mock.calls.length - toastsBefore;
+                    }
+                }
+            })
+        });
+
+        const globalWrapper = ({ children }: { children: ReactNode }) => (
+            <QueryClientProvider client={globalClient}>{children}</QueryClientProvider>
+        );
+
+        const { result } = renderHook(
+            () => manageAccountService.useDeletePersonalData(), { wrapper: globalWrapper });
+
+        // when
+        await result.current.mutateAsync(readersPassword).catch(() => undefined);
+
+        // then
+        expect(toastsRaisedByTheGlobalHandler).toBe(0);
+        expect(toastErrorMock).not.toHaveBeenCalled();
+    });
 });
