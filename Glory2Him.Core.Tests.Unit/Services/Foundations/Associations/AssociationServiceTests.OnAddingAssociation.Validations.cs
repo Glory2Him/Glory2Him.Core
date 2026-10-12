@@ -57,7 +57,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     SameExceptionAs(expectedAssociationValidationException))),
                 Times.Once);
 
-            // the envelope is refused before anything is minted (§14 rule 2)
+            // the envelope is refused before anything is minted (§SEC14.6 rule 4)
             this.identifierBrokerMock.Verify(broker =>
                 broker.GetIdentifierAsync(),
                 Times.Never);
@@ -109,7 +109,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     SameExceptionAs(expectedAssociationValidationException))),
                 Times.Once);
 
-            // the envelope is refused before anything is minted (§14 rule 2)
+            // the envelope is refused before anything is minted (§SEC14.6 rule 4)
             this.identifierBrokerMock.Verify(broker =>
                 broker.GetIdentifierAsync(),
                 Times.Never);
@@ -161,7 +161,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     SameExceptionAs(expectedAssociationValidationException))),
                 Times.Once);
 
-            // the envelope is refused before anything is minted (§14 rule 2)
+            // the envelope is refused before anything is minted (§SEC14.6 rule 4)
             this.identifierBrokerMock.Verify(broker =>
                 broker.GetIdentifierAsync(),
                 Times.Never);
@@ -229,7 +229,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     SameExceptionAs(expectedAssociationValidationException))),
                 Times.Once);
 
-            // the envelope is refused before anything is minted (§14 rule 2)
+            // the envelope is refused before anything is minted (§SEC14.6 rule 4)
             this.identifierBrokerMock.Verify(broker =>
                 broker.GetIdentifierAsync(),
                 Times.Never);
