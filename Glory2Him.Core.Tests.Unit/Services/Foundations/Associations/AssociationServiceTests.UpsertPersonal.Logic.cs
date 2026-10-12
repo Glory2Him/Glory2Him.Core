@@ -1239,6 +1239,125 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 Times.Once);
         }
 
+        [Theory]
+        [MemberData(nameof(UpsertArmsThatFindTheReadersRow))]
+        public async Task ShouldNotRefuseTheOperationOwnedFieldsWhenTheReadersRowExistsOnUpsertPersonalAsync(
+            string arm,
+            PersonalAssociationUpsertOutcome expectedOutcome)
+        {
+            // given: the reader has a row on the pair, and the request sets all seven fields an
+            // operation owns. They are refused only on the create arm, once the row is resolved
+            // and none is found (§17 rule 2).
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            (Association upsertRequest, Association readersRow) =
+                ArrangeUpsertArmThatFindsTheReadersRow(arm, inputCancellationToken);
+
+            bool isTheRowWritten =
+                expectedOutcome is PersonalAssociationUpsertOutcome.Restored
+                    or PersonalAssociationUpsertOutcome.Repointed;
+
+            // when
+            PersonalAssociationUpsert actualUpsert =
+                await this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    inputCancellationToken);
+
+            // then: the outcome §2 rule 4 gives the reader's row; a takedown or an unchanged
+            // reaction writes nothing, and nothing is minted, inserted or refused
+            actualUpsert.Outcome.Should().Be(expectedOutcome);
+
+            VerifyPersonalUpsertLookupAsked(inputCancellationToken, Times.Once());
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAssociationAsync(
+                    It.Is<Association>(association => association.Id == readersRow.Id),
+                    inputCancellationToken),
+                isTheRowWritten ? Times.Once() : Times.Never());
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // every arm that finds the reader's row, with the outcome §2 rule 4 gives it
+        public static TheoryData<string, PersonalAssociationUpsertOutcome> UpsertArmsThatFindTheReadersRow() =>
+            new TheoryData<string, PersonalAssociationUpsertOutcome>
+            {
+                { "Revive", PersonalAssociationUpsertOutcome.Restored },
+                { "ReviveAndRepoint", PersonalAssociationUpsertOutcome.Repointed },
+                { "LiveRepoint", PersonalAssociationUpsertOutcome.Repointed },
+                { "Unchanged", PersonalAssociationUpsertOutcome.Unchanged },
+                { "TakenDown", PersonalAssociationUpsertOutcome.TakenDown }
+            };
+
+        // A signed-in reader's request that sets all seven fields an operation owns and reaches the
+        // given arm, with the reader's row stored as the arm needs it, holding other values of the
+        // seven, and every broker the arm asks answering as it would.
+        private (Association, Association) ArrangeUpsertArmThatFindsTheReadersRow(
+            string arm,
+            CancellationToken cancellationToken)
+        {
+            string readerUserId = GetRandomString();
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            Association upsertRequest =
+                WithEveryOperationOwnedFieldSet(CreatePersonalUpsertRequest(readerUserId));
+
+            Association readersRow = arm switch
+            {
+                "Revive" => CreateStoredPersonalRowOnTheSameReaction(upsertRequest, isDeleted: true),
+                "ReviveAndRepoint" => CreateStoredPersonalRow(upsertRequest, isDeleted: true),
+                "LiveRepoint" => CreateStoredPersonalRow(upsertRequest, isDeleted: false),
+                "Unchanged" => CreateStoredPersonalRowOnTheSameReaction(upsertRequest, isDeleted: false),
+                _ => CreateStoredPersonalRow(upsertRequest, isDeleted: true)
+            };
+
+            // a takedown: withdrawn by somebody other than the reader (§DOM4.10 rule 7)
+            if (arm == "TakenDown")
+            {
+                readersRow.DeletedBy = $"moderator-{Guid.NewGuid()}";
+            }
+
+            readersRow.SortOrder = upsertRequest.SortOrder + GetRandomNumber();
+
+            readersRow.ConfidenceScore = upsertRequest.ConfidenceScore >= 5
+                ? upsertRequest.ConfidenceScore - 5
+                : upsertRequest.ConfidenceScore + 5;
+
+            readersRow.ConfidenceReason = upsertRequest.ConfidenceReason + GetRandomString();
+            readersRow.SourceBatchId = Guid.NewGuid();
+            readersRow.ModelVersion = upsertRequest.ModelVersion + GetRandomString();
+            readersRow.IsApprovedByBypass = false;
+            readersRow.ApprovedByBypassReason = upsertRequest.ApprovedByBypassReason + GetRandomString();
+
+            List<Association> storageAssociations =
+                CreateRandomAssociations().Append(readersRow).ToList();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(storageAssociations, cancellationToken);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.Is<Association>(association => association.Id == readersRow.Id),
+                    this.ambientSecurityContext))
+                        .ReturnsAsync((Association entity, SecurityContext _) =>
+                            StampModifyAudit(entity.DeepClone(), readerUserId, currentDateTime));
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateAssociationAsync(
+                    It.Is<Association>(association => association.Id == readersRow.Id),
+                    cancellationToken))
+                        .ReturnsAsync((Association entity, CancellationToken _) => entity.DeepClone());
+
+            return (upsertRequest, readersRow);
+        }
+
         [Fact]
         public async Task ShouldNormaliseTheEndpointsBeforeResolvingTheRowAsync()
         {
