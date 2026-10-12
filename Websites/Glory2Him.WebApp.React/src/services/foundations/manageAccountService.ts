@@ -144,14 +144,10 @@ export const manageAccountService = {
 
     useDeletePersonalData: () => {
         const manageAccountBroker = new ManageAccountBroker();
-        const queryClient = useQueryClient();
 
         return useMutation({
             mutationFn: async (password: string) =>
-                await manageAccountBroker.DeletePersonalDataAsync(password),
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ["AccountsGetCurrentUser"] });
-            }
+                await manageAccountBroker.DeletePersonalDataAsync(password)
         });
     }
 };
