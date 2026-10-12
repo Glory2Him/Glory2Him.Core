@@ -243,6 +243,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 new SecurityContext { IsAuthenticated = false }
             };
 
+        // the Id an Association-Adding publisher may name: none, or one of its own
+        public static TheoryData<Guid> PublisherNamedAssociationIds() =>
+            new TheoryData<Guid>
+            {
+                Guid.Empty,
+                Guid.NewGuid()
+            };
+
         public static TheoryData<string[]> NonAdminRoleSets() =>
             new TheoryData<string[]>
             {
