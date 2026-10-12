@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 
 namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
 {
@@ -35,6 +36,15 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
         /// </summary>
         ValueTask<EventEnvelope<Association>?> OnAssociationApprovedAsync(
             EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Hears <c>ContentItemSetting-Added</c>. An override added for one item tells every open
+        /// page that the settings it shows may have changed, naming no content item: every setting
+        /// row is public-read (§SEC14.7 posture C rule 2).
+        /// </summary>
+        ValueTask<EventEnvelope<ContentItemSetting>?> OnContentItemSettingAddedAsync(
+            EventEnvelope<ContentItemSetting> envelope,
             CancellationToken cancellationToken = default);
     }
 }

@@ -231,6 +231,40 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
                 ContentItemId = visibleVersion.ContentItemId,
             };
 
+        // An override for one item: it names a content item of its own, so a message that took
+        // the row's item would be seen to name one.
+        private static ContentItemSetting CreateContentItemSettingOverride() =>
+            new ContentItemSetting
+            {
+                Id = Guid.NewGuid(),
+                ContentType = VisibleVersionContentType,
+                ContentItemId = Guid.NewGuid(),
+                ReactionsAllowed = true,
+                ShowReactions = true,
+            };
+
+        private static EventEnvelope<ContentItemSetting> CreateSettingFactEnvelope(
+            ContentItemSetting contentItemSetting) =>
+            CreateSettingFactEnvelope(contentItemSetting, securityContext: new SecurityContext());
+
+        private static EventEnvelope<ContentItemSetting> CreateSettingFactEnvelope(
+            ContentItemSetting contentItemSetting,
+            SecurityContext securityContext) =>
+            new EventEnvelope<ContentItemSetting>
+            {
+                Content = contentItemSetting,
+                SecurityContext = securityContext,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() },
+            };
+
+        // The settings body's one message: it names no content item (LiveUpdates.md rule 5).
+        private static LiveUpdate CreateSettingChange() =>
+            new LiveUpdate
+            {
+                Type = LiveUpdateType.ContentItemSettingChanged,
+                ContentItemId = null,
+            };
+
         // the keys by value, whatever collection carries them
         private static Expression<Func<IReadOnlyList<ContentItemSettingKey>, bool>> SameSettingKeysAs(
             IReadOnlyList<ContentItemSettingKey> expectedSettingKeys) =>
