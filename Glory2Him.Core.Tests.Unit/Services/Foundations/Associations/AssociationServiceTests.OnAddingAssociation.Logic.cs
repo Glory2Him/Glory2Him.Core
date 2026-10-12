@@ -167,6 +167,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     TestContext.Current.CancellationToken),
                 Times.Once);
 
+            // deduplication runs before the write body, so a replay mints nothing (§14 rule 2)
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Never);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
