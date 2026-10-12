@@ -243,6 +243,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 new SecurityContext { IsAuthenticated = false }
             };
 
+        // the Id an Association-Adding publisher may name: none, or one of its own
+        public static TheoryData<Guid> PublisherNamedAssociationIds() =>
+            new TheoryData<Guid>
+            {
+                Guid.Empty,
+                Guid.NewGuid()
+            };
+
+        // a signed caller the contribution gate refuses, with the refusal it is given: the
+        // unauthenticated, the globally read-only, and one the endpoint veto refuses over the
+        // fixture's ContentItem endpoint (§SEC14.7 posture A′ rule 1)
+        public static TheoryData<SecurityContext, string> CallersWhoMayNotContribute() =>
+            new TheoryData<SecurityContext, string>
+            {
+                { null, "The current user is not authenticated." },
+                { new SecurityContext { IsAuthenticated = false }, "The current user is not authenticated." },
+                {
+                    CreateAuthenticatedSecurityContext(Roles.ReadOnly),
+                    "The current user is blocked from contributing content item associations."
+                },
+                {
+                    CreateAuthenticatedSecurityContext(Roles.ContentItemReadOnly),
+                    "The current user is blocked from contributing content item associations."
+                }
+            };
+
         public static TheoryData<string[]> NonAdminRoleSets() =>
             new TheoryData<string[]>
             {
