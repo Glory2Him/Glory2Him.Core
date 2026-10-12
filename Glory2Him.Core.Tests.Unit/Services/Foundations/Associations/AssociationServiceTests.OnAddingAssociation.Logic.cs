@@ -172,5 +172,51 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldReplyNullWithoutRefusingTheFieldsWhenAddingAssociationEventAlreadyProcessedAsync()
+        {
+            // given: deduplication runs before the shared body, so a replay checks nothing in
+            // its content, the fields an operation owns included
+            Association someAssociation = SetEveryOperationOwnedField(
+                CreateRandomAddAssociation(GetRandomDateTimeOffset()));
+
+            var requestEnvelope = new EventEnvelope<Association>
+            {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
+                Content = someAssociation,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.AssociationOnAddingAssociationSubscriptionName,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(true);
+
+            // when
+            EventEnvelope<Association>? actualReplyEnvelope =
+                await this.associationService.OnAddingAssociationAsync(
+                    requestEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualReplyEnvelope.Should().BeNull();
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.AssociationOnAddingAssociationSubscriptionName,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
