@@ -363,11 +363,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             ValidateAssociationIsNotNull(association);
             string currentUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
 
+            // the Id is not asked: the add minted it, and never takes the caller's (§13 rule 3)
             Validate(
                 message: "Content item association is invalid, fix the errors and try again.",
-
-                (Rule: IsInvalid(association.Id),
-                    Parameter: nameof(Association.Id)),
 
                 (Rule: IsInvalid(association.EntityAType),
                     Parameter: nameof(Association.EntityAType)),
