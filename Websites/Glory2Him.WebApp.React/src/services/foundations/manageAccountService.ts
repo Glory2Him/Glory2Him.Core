@@ -147,7 +147,8 @@ export const manageAccountService = {
 
         return useMutation({
             mutationFn: async (password: string) =>
-                await manageAccountBroker.DeletePersonalDataAsync(password)
+                await manageAccountBroker.DeletePersonalDataAsync(password),
+            meta: { suppressGlobalErrorToast: true }
         });
     }
 };
