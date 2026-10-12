@@ -74,6 +74,15 @@ namespace Glory2Him.Core.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropIndex(
+                name: "UX_Associations_EditorialPair",
+                table: "Associations");
+
+            migrationBuilder.DropIndex(
+                name: "UX_Associations_PersonalPair",
+                table: "Associations");
+
+            // back to no collation of its own, so the column takes the catalogue's default again
             migrationBuilder.AlterColumn<string>(
                 name: "UserId",
                 table: "Associations",
@@ -85,6 +94,20 @@ namespace Glory2Him.Core.Migrations
                 oldMaxLength: 255,
                 oldNullable: true,
                 oldCollation: "SQL_Latin1_General_CP1_CI_AS");
+
+            migrationBuilder.CreateIndex(
+                name: "UX_Associations_EditorialPair",
+                table: "Associations",
+                columns: new[] { "EntityAType", "EntityAEffectiveId", "EntityBType", "EntityBEffectiveId" },
+                unique: true,
+                filter: "[IsDeleted] = 0 AND [UserId] IS NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "UX_Associations_PersonalPair",
+                table: "Associations",
+                columns: new[] { "EntityAType", "EntityAEffectiveId", "EntityBType", "UserId" },
+                unique: true,
+                filter: "[IsDeleted] = 0 AND [UserId] IS NOT NULL");
         }
     }
 }
