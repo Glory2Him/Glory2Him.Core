@@ -100,8 +100,7 @@ This sub-feature's own user stories, bottom up. Each names this document as its 
 
 - **Logic in a wire model's constructor** (`CurrentUser`, `LoginResult`, `TwoFactorLoginResult`), which is the model's (§UI20.9.3 rule 1).
 - **Renaming an existing member.** Departure 2 keeps every existing name, and §UI20.9.3 rule 3 names only the new members.
-- **Where `src/hooks/usePasskeys.ts` stands, and how the passkey hooks depart from the services skill** (#833).
-- **Modules outside `src/services/` that import a broker** for something other than the passkey request and the connectivity events: the toast broker's functions, which pages and hooks call, and `ManageAccountBroker`'s download address, which `personalData.tsx` reads. Neither is logic in a broker, and where those modules may call a broker is not this sub-feature's question.
+- **Modules outside `src/services/` that import a broker**, other than the passkey ceremony (`src/hooks/usePasskeys.ts`) and the connectivity events: the toast broker's functions, which pages and hooks call, and `ManageAccountBroker`'s download address, which `personalData.tsx` reads. Neither is logic in a broker, and where those modules may call a broker is not this sub-feature's question.
 - **The server.** Every route keeps its contract.
 
 ## Open questions
