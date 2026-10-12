@@ -26,7 +26,8 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
             EventEnvelope<Association> envelope,
             string eventName)
         {
-            if (envelope is null)
+            // a signature proves provenance, never that a section is present (§SEC14.6 rule 4)
+            if (envelope is null || envelope.Content is null)
             {
                 throw new InvalidLiveUpdateOrchestrationException(
                     message: "Invalid live update orchestration fact. " +
