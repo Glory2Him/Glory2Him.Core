@@ -34,13 +34,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             Association randomAssociation =
                 CreateAssociationFiller(randomDateTimeOffset).Create();
             Association inputAssociation = randomAssociation;
+            Guid mintedId = Guid.NewGuid();
             Association auditAppliedAssociation = inputAssociation.DeepClone();
+            auditAppliedAssociation.Id = mintedId;
             Association storageAssociation = auditAppliedAssociation.DeepClone();
             Association expectedAssociation = storageAssociation.DeepClone();
 
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(mintedId);
+
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(inputAssociation, It.IsAny<SecurityContext>()))
-                    .ReturnsAsync(auditAppliedAssociation);
+                broker.ApplyAddAuditValuesAsync(
+                    It.Is(SameAssociationAs(auditAppliedAssociation)),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(auditAppliedAssociation);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
@@ -71,9 +79,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             // then
             actualAssociation.Should().BeEquivalentTo(expectedAssociation);
+            actualAssociation.Id.Should().Be(mintedId);
+
+            // one Id for the new row, and one for each of the two processed-event records
+            this.identifierBrokerMock.Verify(broker =>
+                    broker.GetIdentifierAsync(),
+                Times.Exactly(3));
 
             this.securityAuditBrokerMock.Verify(broker =>
-                    broker.ApplyAddAuditValuesAsync(inputAssociation, It.IsAny<SecurityContext>()),
+                    broker.ApplyAddAuditValuesAsync(
+                        It.Is(SameAssociationAs(auditAppliedAssociation)),
+                        It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
@@ -92,7 +108,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             this.eventBrokerMock.Verify(broker =>
                 broker.PublishAssociationAsync(
-                    It.IsAny<EventEnvelope<Association>>(),
+                    It.Is(SameOutboundEnvelopeAs(storageAssociation)),
                     AssociationEventOperation.Added),
                 Times.Once);
 
@@ -105,6 +121,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     It.IsAny<CancellationToken>()),
                 Times.Exactly(2));
 
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
