@@ -633,7 +633,8 @@ namespace Glory2Him.Core.Migrations
 
                     b.Property<string>("UserId")
                         .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
+                        .HasColumnType("nvarchar(255)")
+                        .UseCollation("SQL_Latin1_General_CP1_CI_AS");
 
                     b.HasKey("Id");
 
