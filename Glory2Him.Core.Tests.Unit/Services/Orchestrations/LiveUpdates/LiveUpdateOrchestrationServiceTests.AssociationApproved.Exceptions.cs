@@ -10,11 +10,15 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Orchestrations.LiveUpdates.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 using Xeptions;
 
@@ -113,6 +117,85 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
                 Times.Once);
 
             this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // A broker raises no family of its own (§ARC12.5), so a failed gather arrives raw and is
+        // this service's own service failure.
+        [Fact]
+        public async Task ShouldRethrowAGatherFailureOnAssociationApprovedAndLogItAsync()
+        {
+            // given
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            Association contentItemReaction = CreateContentItemReaction();
+            EventEnvelope<Association> approvedFact = CreateFactEnvelope(contentItemReaction);
+
+            PublicContentItemGroup visibleVersion =
+                CreateVisibleVersion(groupId: contentItemReaction.EntityAGroupId);
+
+            List<ContentItemSettingKey> expectedSettingKeys = CreateSettingKeysFor(visibleVersion);
+            var gatherException = new Exception(GetRandomString());
+
+            var failedLiveUpdateOrchestrationServiceException =
+                new FailedLiveUpdateOrchestrationServiceException(
+                    message: "Failed live update orchestration service error occurred, " +
+                        "please contact support.",
+                    innerException: gatherException,
+                    data: gatherException.Data);
+
+            var expectedLiveUpdateOrchestrationServiceException =
+                new LiveUpdateOrchestrationServiceException(
+                    message: "Live update orchestration service error occurred, contact support.",
+                    innerException: failedLiveUpdateOrchestrationServiceException);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    approvedFact,
+                    AssociationApprovedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.FindPublicContentItemGroupAsync(
+                    contentItemReaction.EntityAGroupId,
+                    callerCancellationToken))
+                        .ReturnsAsync(visibleVersion);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    callerCancellationToken))
+                        .ThrowsAsync(gatherException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAssociationApprovedTask =
+                this.liveUpdateOrchestrationService.OnAssociationApprovedAsync(
+                    approvedFact,
+                    callerCancellationToken);
+
+            LiveUpdateOrchestrationServiceException actualLiveUpdateOrchestrationServiceException =
+                await Assert.ThrowsAsync<LiveUpdateOrchestrationServiceException>(
+                    onAssociationApprovedTask.AsTask);
+
+            // then
+            actualLiveUpdateOrchestrationServiceException.Should().BeEquivalentTo(
+                expectedLiveUpdateOrchestrationServiceException);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    callerCancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(
+                    expectedLiveUpdateOrchestrationServiceException))),
+                Times.Once);
+
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.liveUpdateServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
