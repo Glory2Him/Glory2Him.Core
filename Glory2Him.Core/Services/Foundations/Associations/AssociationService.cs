@@ -408,10 +408,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext, association);
 
-            if (association.Id == Guid.Empty)
-            {
-                association.Id = await this.identifierBroker.GetIdentifierAsync();
-            }
+            // the new row's Id is minted here and never taken from the caller, whose copy may
+            // carry one or none; minting in the shared body binds both entry paths (§13 rule 1)
+            association.Id = await this.identifierBroker.GetIdentifierAsync();
 
             association = await this.securityAuditBroker
                 .ApplyAddAuditValuesAsync(
