@@ -9,10 +9,13 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System.Linq;
 using FluentAssertions;
+using Glory2Him.Core.Migrations;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations.Operations;
 
 namespace Glory2Him.Core.Tests.Unit.Brokers.Storages
 {
@@ -28,6 +31,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Storages
     /// </summary>
     public class StorageBrokerAssociationCollationTests
     {
+        private const string AssociationsTableName = "Associations";
         private const string CaseInsensitiveCollation = "SQL_Latin1_General_CP1_CI_AS";
 
         [Fact]
@@ -46,6 +50,51 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Storages
 
             // then
             actualCollation.Should().Be(CaseInsensitiveCollation);
+        }
+
+        /// <summary>
+        /// The migration carries the pin. A catalogue migrated through an <c>Up</c> with no alter,
+        /// or with an alter naming no collation, still reports the pinned collation — its
+        /// default — and <c>has-pending-model-changes</c> compares the model with the snapshot,
+        /// never with <c>Up</c>, so this is what fails on either.
+        /// </summary>
+        [Fact]
+        public void ShouldPinTheAssociationUserIdCollationInTheMigration()
+        {
+            // given
+            var migration = new PinAssociationUserIdToCaseInsensitiveCollation();
+
+            // when
+            AlterColumnOperation userIdAlteration = migration.UpOperations
+                .OfType<AlterColumnOperation>()
+                .Single(operation =>
+                    operation.Table == AssociationsTableName
+                    && operation.Name == nameof(Association.UserId));
+
+            // then
+            userIdAlteration.Collation.Should().Be(CaseInsensitiveCollation);
+        }
+
+        /// <summary>
+        /// Undoing the migration takes the pin off. A catalogue reports its default for the column
+        /// whether <c>Down</c> takes the pin off or keeps it, so this is what fails on a
+        /// <c>Down</c> that keeps it.
+        /// </summary>
+        [Fact]
+        public void ShouldTakeTheAssociationUserIdCollationOffWhenTheMigrationIsUndone()
+        {
+            // given
+            var migration = new PinAssociationUserIdToCaseInsensitiveCollation();
+
+            // when
+            AlterColumnOperation userIdAlteration = migration.DownOperations
+                .OfType<AlterColumnOperation>()
+                .Single(operation =>
+                    operation.Table == AssociationsTableName
+                    && operation.Name == nameof(Association.UserId));
+
+            // then
+            userIdAlteration.Collation.Should().BeNull();
         }
     }
 }
