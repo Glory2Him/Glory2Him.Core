@@ -1119,6 +1119,56 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 invalidAssociationException);
         }
 
+        [Theory]
+        [InlineData(nameof(Association.ConfidenceReason), "")]
+        [InlineData(nameof(Association.ConfidenceReason), " ")]
+        [InlineData(nameof(Association.ModelVersion), "")]
+        [InlineData(nameof(Association.ModelVersion), " ")]
+        [InlineData(nameof(Association.ApprovedByBypassReason), "")]
+        [InlineData(nameof(Association.ApprovedByBypassReason), " ")]
+        public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfTheNewRowsOperationOwnedTextIsEmptyOrWhitespaceAndLogItAsync(
+            string invalidField,
+            string invalidText)
+        {
+            // given: the reader has no row, so the request would be inserted, and one text field
+            // an operation owns is empty or whitespace. That is not null, so the field is set
+            // (§17 rule 1; §15 rule 1).
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            Association upsertRequest = SetOperationOwnedField(
+                WithNoOperationOwnedFieldSet(CreatePersonalUpsertRequest(readerUserId)),
+                invalidField,
+                invalidText);
+
+            var invalidAssociationException = new InvalidAssociationException(
+                message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.UpsertDataList(
+                key: invalidField,
+                value: "Text is not allowed on add");
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(
+                CreateRandomAssociations(),
+                TestContext.Current.CancellationToken);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then: the create is refused, naming the field
+            await VerifyNewPersonalRowRefusedAsync(
+                upsertTask,
+                upsertRequest,
+                invalidAssociationException);
+        }
+
         // the create is refused with the expected errors once the reader's row is resolved and
         // none is found: no Id is minted, nothing is stamped or inserted and no fact is published
         // (§17 rule 1)
