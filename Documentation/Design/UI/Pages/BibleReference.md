@@ -229,8 +229,7 @@ are decided under §SEC14.7 posture A′, and a reaction under posture A′ rule
    on (`bibleReference.tsx`, lines 137-166). `BibleReferenceSetting` is not built, so `src/` has
    no model to read it from (§ARC16.2.1). The page's half is to read the passage's winning setting
    and wire the two panels by it once the entity exists. The same gap on a content item's pages is
-   `UI/Pages/PostDetail.md §6 item 8`, `UI/Pages/MyPostDetail.md §6 item 6` and
-   `UI/Pages/ContentItemModerationDetailPage.md §6 item 9`.
+   `UI/Pages/PostDetail.md §6 item 8` and `UI/Pages/MyPostDetail.md §6 item 6`.
 3. (#700) **Page gap — `/BibleReferences`: the reaction bar records nothing.** Held for #700
    (item 5). Rules 2.10 and 2.11. The bar's `onReact` names the chosen reaction beneath it for the visit, for every
    reader, signed in or not; nobody is sent to sign in, and nothing is written
