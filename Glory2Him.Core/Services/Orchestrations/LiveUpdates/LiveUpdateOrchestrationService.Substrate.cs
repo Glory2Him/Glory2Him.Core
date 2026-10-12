@@ -13,14 +13,16 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 
 namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
 {
     internal partial class LiveUpdateOrchestrationService
     {
         // The forwarder's ears. Each verifies the fact against the name its address carries before
-        // anything is read, hands the verified row to the body for its kind of fact, and answers
-        // null: nothing replies to a fact (§EVN20). None drops a fact that carries the system
+        // anything is read, runs the body for its kind of fact — the reactions body on the
+        // verified row, the settings body on nothing, since it reads nothing — and answers null:
+        // nothing replies to a fact (§EVN20). None drops a fact that carries the system
         // identity, unlike the approval workflow's ears — the workflow's approval is exactly the
         // change a page has to hear (§EVN26 rule 3).
         public ValueTask<EventEnvelope<Association>?> OnAssociationApprovedAsync(
@@ -37,6 +39,22 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
                     eventName: "AssociationApproved");
 
                 await SendReactionsChangeAsync(envelope.Content, cancellationToken);
+
+                return null;
+            });
+
+        public ValueTask<EventEnvelope<ContentItemSetting>?> OnContentItemSettingAddedAsync(
+            EventEnvelope<ContentItemSetting> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatch<EventEnvelope<ContentItemSetting>?>(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                await ValidateContentItemSettingFactEnvelopeAsync(
+                    envelope,
+                    eventName: "ContentItemSettingAdded");
+
+                await SendSettingsChangeAsync(cancellationToken);
 
                 return null;
             });

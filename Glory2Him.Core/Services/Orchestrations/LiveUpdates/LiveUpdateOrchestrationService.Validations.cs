@@ -12,6 +12,7 @@
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Orchestrations.LiveUpdates.Exceptions;
 
 namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
@@ -24,6 +25,31 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
         // leg, because a fact is published, never replied.
         private async ValueTask ValidateAssociationFactEnvelopeAsync(
             EventEnvelope<Association> envelope,
+            string eventName)
+        {
+            // a signature proves provenance, never that a section is present (§SEC14.6 rule 4)
+            if (envelope is null || envelope.Content is null)
+            {
+                throw new InvalidLiveUpdateOrchestrationException(
+                    message: "Invalid live update orchestration fact. " +
+                        "The fact envelope and its content are required.");
+            }
+
+            bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
+                envelope, eventName, EnvelopeDirection.Request);
+
+            if (isSignatureValid is false)
+            {
+                throw new InvalidLiveUpdateOrchestrationException(
+                    message: "Invalid live update orchestration fact. " +
+                        "Integrity verification failed.");
+            }
+        }
+
+        // The setting facts' own check, kept apart from the association facts' so that one can
+        // change without the other.
+        private async ValueTask ValidateContentItemSettingFactEnvelopeAsync(
+            EventEnvelope<ContentItemSetting> envelope,
             string eventName)
         {
             // a signature proves provenance, never that a section is present (§SEC14.6 rule 4)
