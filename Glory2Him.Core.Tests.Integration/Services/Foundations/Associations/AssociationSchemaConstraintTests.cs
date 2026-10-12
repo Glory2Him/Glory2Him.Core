@@ -199,6 +199,37 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
         }
 
         [Fact]
+        public async Task ShouldRefuseASecondLiveReactionForTheSameReaderInAnotherLetterCaseAsync()
+        {
+            // given: one reader, one item, two different reactions, the second carrying the
+            // reader's id in another letter case. A user id ignores letter case (§DOM4.6 rule 3),
+            // and UserId's own collation is what makes the personal index compare it that way.
+            Guid groupId = Guid.NewGuid();
+            string readerUserId = Guid.NewGuid().ToString().ToLowerInvariant();
+
+            Association loveAssociation =
+                CreateReaction(groupId, reactionGroupId: Guid.NewGuid(), readerUserId);
+
+            Association movedAssociation = CreateReaction(
+                groupId,
+                reactionGroupId: Guid.NewGuid(),
+                readerUserId.ToUpperInvariant());
+
+            // when
+            Exception loveOutcome = await SeedAsync(loveAssociation);
+            Exception movedOutcome = await SeedAsync(movedAssociation);
+
+            // then
+            loveOutcome.Should().BeNull(because: "a reader's first reaction is always allowed");
+
+            movedOutcome.Should().BeOfType<DuplicateKeyWithUniqueIndexException>(
+                because: "UX_Associations_PersonalPair compares UserId under its case-insensitive "
+                    + "collation, so the same reader in another letter case is the same reader");
+
+            movedOutcome.Message.Should().Contain("UX_Associations_PersonalPair");
+        }
+
+        [Fact]
         public async Task ShouldPermitOnePersonalAssociationPerFarEndTypeAsync()
         {
             // given: the personal rule is one live personal association per (item, far-end

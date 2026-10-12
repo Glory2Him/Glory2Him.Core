@@ -12,6 +12,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Force.DeepCloner;
 using Glory2Him.Core.Models.Foundations.LiveUpdates;
 using Moq;
 
@@ -32,6 +33,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.LiveUpdates
                 ContentItemId = null
             };
 
+            LiveUpdate expectedLiveUpdate = inputLiveUpdate.DeepClone();
+
             // when
             await this.liveUpdateService.SendLiveUpdateAsync(
                 inputLiveUpdate,
@@ -39,7 +42,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.LiveUpdates
 
             // then
             this.liveUpdateBrokerMock.Verify(broker =>
-                broker.SendLiveUpdateAsync(inputLiveUpdate, cancellationToken),
+                broker.SendLiveUpdateAsync(
+                    It.Is(SameLiveUpdateAs(inputLiveUpdate, expectedLiveUpdate)),
+                    cancellationToken),
                 Times.Once);
 
             this.liveUpdateBrokerMock.VerifyNoOtherCalls();
@@ -59,6 +64,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.LiveUpdates
                 ContentItemId = Guid.NewGuid()
             };
 
+            LiveUpdate expectedLiveUpdate = inputLiveUpdate.DeepClone();
+
             // when
             await this.liveUpdateService.SendLiveUpdateAsync(
                 inputLiveUpdate,
@@ -66,7 +73,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.LiveUpdates
 
             // then
             this.liveUpdateBrokerMock.Verify(broker =>
-                broker.SendLiveUpdateAsync(inputLiveUpdate, cancellationToken),
+                broker.SendLiveUpdateAsync(
+                    It.Is(SameLiveUpdateAs(inputLiveUpdate, expectedLiveUpdate)),
+                    cancellationToken),
                 Times.Once);
 
             this.liveUpdateBrokerMock.VerifyNoOtherCalls();

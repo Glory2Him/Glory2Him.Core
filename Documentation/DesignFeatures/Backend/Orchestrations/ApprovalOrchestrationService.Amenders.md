@@ -1,0 +1,23 @@
+# Approval orchestration service — the amender record
+Parent: [Approval.md §APR8.6](../../../Design/Approval.md) — HR-5 and its record, §APR8.6.3
+Level: orchestration — `IApprovalOrchestrationService` (`Glory2Him.Core/Services/Orchestrations/Approvals/`). The Likes feature's work on the same service is `Backend/Orchestrations/ApprovalOrchestrationService.md`.
+Inherits: §APR8.6 HR-5 and residual 1, §APR8.6.3 rule 7, §APR8.8, §APR9.7.4, §APR7.7 rule 7, §ARC12.5.3 business rule 12, §EVN20 rule 4
+
+A review its author filed before amending the content vouched for text they have since changed, and HR-5 would refuse it now; while `RequireReapprovalOnChange` is off nothing dismissed it (§APR8.6 residual 1). The Modified flow dismisses it whatever that setting says (§APR8.6.3 rule 7.4). This adds no dependency and no subscription: the flow already dismisses through `IApprovalReviewWorkflowService` and gathers through `IAccessBroker` (§ARC16.7.1).
+
+## 1. ProcessEntityModifiedAsync — an amender's standing review is dismissed (#1016)
+
+```csharp
+ValueTask<ApprovalOutcome> ProcessEntityModifiedAsync(
+    EntityType entityType,
+    Guid entityId,
+    CancellationToken cancellationToken = default);
+```
+
+The Modified flow, run by every `-Modified` and `-Submitted` ear and by `Association-Repointed`'s. Its body is the one every ear runs, so the rule reaches every ear by construction. If #699's stage 2 has made the method private when this is built, its tests are written against the ears as #699 rules (§ARC16.7).
+
+1. **On every run, every active review whose author the entity's amender record names is dismissed, whatever `RequireReapprovalOnChange` says**, through `IApprovalReviewWorkflowService.DismissStaleApprovalReviewAsync` under the system identity, as every dismissal is (§APR7.7 rule 7). The reviews are found through `IAccessBroker.FindAmenderApprovalReviewIdsAsync` (`Backend/Brokers/AccessBroker.Amenders.md §4`), never a caller-facing read.
+2. **The dismissal comes before the round is evaluated**, so the evaluation cannot approve on a review it dismissed — on the path that dismisses under the setting and on the path that does not.
+3. **A delivery that dismisses an amender's review returns Berean's assignment to pending**, as every path that dismisses does (§APR9.7.4, *What else starts empty*, ruled 2026-10-05). A delivery that dismisses none leaves the assignment as the flow's existing rule leaves it.
+4. **It changes nothing else the flow does.** The setting's own dismissal and a changed reaction's return and dismissal stay as they are (§APR9.7.4), and each review is dismissed once, however many of the flow's rules name it.
+5. **A redelivered fact finds nothing left to dismiss**, because HR-5 refuses an amender every new review (§EVN20 rule 4).

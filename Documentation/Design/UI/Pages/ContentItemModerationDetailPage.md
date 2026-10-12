@@ -277,6 +277,7 @@ exposer yet (§ARC17.4, not yet built); `onAdd`, a toast saying that suggesting 
 | --- | --- | --- |
 | `entityType`, `contentType` | `ContentItem`, and the content type's enum member name | They compose the vote, decision and read-only tiers. |
 | `entityOwnerId`, `approvalStatus` | The stored item's `createdBy` and status | The panel's own gates decide against the real row (rule 2.10). |
+| `entityAmenderUserIds` ≠ item 21 | The stored item's `amenderUserIds` (§APR8.6.3) | The panel withholds the vote from whoever amended the post, as from its owner (`UI/Components/ReviewPanel.md rule 2.18`). |
 | `approvalVerdict`, `approvalReviewCollection`, `requestedReviewerCollection`, `reviewerCandidateCollection`, `isLoading` | From `useApprovalRound`, which reads the verdict, the candidates, the requests and the names by the item today (item 11) | Rules 2.10 and 2.23. |
 | `aiReviewerCandidate`, `aiReviewerAssignment` | Derived from Berean's status read | Offers Berean, and gives it a row once assigned. |
 | `isAwaitingApprovalRecord` ≠ item 19 | `true` while the verdict read answers not-found (rule 2.33) | Rule 2.33. |
@@ -561,3 +562,11 @@ everyone who reaches the page; each association's round is the association page'
     `UI/Components/ReviewCommentPanel.md §10 item 23`.
 20. **Retired.** What the card shows when the post's associations or their names cannot be read —
     the user ruled on 2026-10-11 (#705, rulings 18 and 19): rule 2.34.
+21. (#1021) **Page gap — `/Admin/Posts/{id}`: `ReviewPanel` is not handed who amended the post.**
+    `UI/Components/ReviewPanel.md rule 2.18` withholds the vote from whoever amended the item's
+    content, as from its owner, and the panel learns who did from the `entityAmenderUserIds` the
+    page hands it, off the stored item's own record (§APR8.6.3 rule 8). The page hands it
+    `entityOwnerId` alone (`admin/contentItemModerationDetailPage.tsx` line 823 at b0614925), and
+    the item's model carries no record yet (`UI/Models/ContentItem.md §1`). The panel's half is
+    `UI/Components/ReviewPanel.md §10 item 2`, and the server refuses such a review whatever the
+    panel offers (§APR8.6 HR-5).

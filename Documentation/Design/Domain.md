@@ -185,6 +185,7 @@ The content item model should contain the following design-relevant properties:
 | `IsPublished` | Identifies the currently published version. Only one row per `GroupId` may be published. |
 | `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`). Mirrors the linked `Approval` record. `Approval` remains the source of truth. |
 | `ApprovalId` | The id of this row's approval round. An `IApproval` member, so every entity that implements `IApproval` carries it, not `ContentItem` alone (§APR7.4 item 6). A plain column with no foreign key: minted by the server when the row is inserted, never accepted from a caller, and never changed (§SEC14.7 posture A rule 5). *(Ruled 2026-09-27, #699; not yet built.)* |
+| `AmenderUserIds` | Everyone who has changed this row's content, as a set of account ids — an `IAmendment` member, never accepted from a caller, appended to by the general modify and cleared by nothing; §APR8.6 HR-5 refuses each of them a review of the row (§APR8.6.3, §SEC14.7 posture A rule 6). *(Designed under #701; not yet built.)* |
 | `PublishDate` | Optional date/time from which the content can be visible. |
 | `IsDeleted` | Soft-delete flag. When `true` the item is excluded from all public visibility. |
 | `CreatedBy` | User who created the item. |
@@ -216,7 +217,7 @@ The following rules apply:
 3. A new content item starts with `IsPublished = false` unless it is approved and published through the approval workflow.
 4. A content item in `Draft` or `Submitted` may be edited in place.
 5. Editing a `Draft` or `Submitted` item does not create a new version.
-6. If approval reviews have already been submitted and the content item itself changes, those reviews must be dismissed (subject to `ApprovalSetting.RequireReapprovalOnChange`) and the item must be reviewed again. The item itself remains in its current status.
+6. If approval reviews have already been submitted and the content item itself changes, those reviews must be dismissed (subject to `ApprovalSetting.RequireReapprovalOnChange`, save the review of anyone the item's amender record names, which is dismissed whatever that setting says, §APR8.6.3 rule 7; not yet built) and the item must be reviewed again. The item itself remains in its current status.
 7. **`Approved` and `Rejected` are terminal.** A content item in either state is immutable in place — to its owner, to a publisher, and to an administrator alike. No role amends a terminal row's content, and there is no in-place exception (rule 16). Content items always fork, so for them this has no exception; where the design applies this rule to a single-row type it has one counterpart, §APR7.5.1 rule 3's change, which goes back through the approval process (#685, built by #727).
 8. Editing a terminal content item creates a new `ContentItem` row with the same `GroupId` and incremented `Version`. The owner is the only creator of new versions — `Publishers` and `Administrators` roles never create version forks. **The new row is given a new `ApprovalId`, never its parent's**, because it runs a round of its own (§APR7.4 item 6, §APR9.7.2 rule 4). *(Ruled 2026-09-27, #699; not yet built.)*
 
@@ -470,7 +471,7 @@ A is the endpoint with the lower `(EntityType name, GroupId)` tuple; B is the ot
    **Open, not ruled: whether set-scope may change a personal row at all.** A reaction's host endpoint defaults to `AllVersions` (§DOM4.5 rule 1). If set-scope narrows it to `ThisVersionOnly`, the row moves to a different `EntityAEffectiveId`. The reader's next reaction on that item then misses the row in the personal lookup and creates a second live row. That breaks §DOM4.10 rule 6 without any index noticing. If set-scope is ruled to refuse personal rows, that refusal replaces the personal half of the pre-check correction above.
 3. **`UserId` ignores letter case** — the owner's ruling of 2026-10-01, first recorded for one read under design PR #807 and made a rule of the column under #815. Two values that differ only in letter case name one reader. A user id is a `Guid` written as text (`AppUser : IdentityUser<Guid>`, `Websites/Glory2Him.WebApp/Models/Foundations/Users/AppUser.cs`), so one reader's id can reach the column in more than one letter case. The rule binds every comparison that decides whose row it is: a row's `UserId` with the signed caller's user id, and with the row's own `DeletedBy` (§DOM4.10 rule 7), wherever the design or the code makes one.
 
-   - **In SQL, the column's collation answers it.** `UserId` takes `SQL_Latin1_General_CP1_CI_AS`, a case-insensitive collation, on the column. Every query condition over the column, and `UX_Associations_PersonalPair`, whose key holds it (rule 2), then compare it under one rule by construction rather than agreeing by coincidence. That is the property §EVN25 pins `ReceiverName`'s collation for, under the opposite ruling. The collation is the catalogue default on every catalogue in use today (§EVN25, *What was found*), so on those the pin changes no comparison. What it removes is the reliance on that default: a column created with no collation of its own takes the default of the catalogue it is created in, so a catalogue created with another default would compare the column differently, and nothing would fail to say so. `DesignFeatures/Backend/Models/Association.md §1` pins it. **Not yet built** (#1023).
+   - **In SQL, the column's collation answers it.** `UserId` takes `SQL_Latin1_General_CP1_CI_AS`, a case-insensitive collation, on the column. Every query condition over the column, and `UX_Associations_PersonalPair`, whose key holds it (rule 2), then compare it under one rule by construction rather than agreeing by coincidence. That is the property §EVN25 pins `ReceiverName`'s collation for, under the opposite ruling. The collation is the catalogue default on every catalogue in use today (§EVN25, *What was found*), so on those the pin changes no comparison. What it removes is the reliance on that default: a column created with no collation of its own takes the default of the catalogue it is created in, so a catalogue created with another default would compare the column differently, and nothing would fail to say so. `DesignFeatures/Backend/Models/Association.md §1` pins it. **Built** (#1023).
    - **In C#, the comparison ignores letter case.** C#'s string equality is ordinal, so a check made on a request before storage is asked, or on a row once it is read, would disagree with SQL and with the personal index on a difference in letter case alone. Each such check compares ordinally, ignoring case. That agrees with the collation on every user id this system issues, because each is written in ASCII letters, digits and hyphens, and the collation and an ordinal comparison that ignores case fold ASCII letters alike: a reader's id is a `Guid`'s text, and the system identity's is `system` (`SystemIdentity.UserId`, `Glory2Him.Core/Models/Securities/SystemIdentity.cs`). When this rule was written, three members made four such checks, each ordinally, and `DesignFeatures/Backend/Foundations/AssociationService.md` changes each: `FindPersonalAssociationAsync` on its request (§9; built, #1024), `UpsertPersonalAssociationAsync` on its request (§10; built, #1025) and on a withdrawn row's `DeletedBy` (§12; built, #1033), and `RemoveAssociationByIdAsync` on the row it reads (§11; built, #1026). §SEC14.7 posture A′ rule 7's owner admission, not yet built, makes another on the read by id.
    - **A condition's letter-case behaviour is proven against the real catalogue.** A query-shaping function is unit-tested over an in-memory set, which compares ordinally (§ARC12.2.1 rules 5 and 6), so only integration can show it, as `DesignFeatures/Backend/Foundations/AssociationService.md §4` rule 4 shows it for the caller's own reactions.
 
@@ -578,6 +579,7 @@ Rules:
 | `IsPublished` | Identifies whether the current version of this tag is published. |
 | `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`). |
 | `ApprovalId` | The id of this row's approval round — an `IApproval` member, a plain column with no foreign key, minted when the row is inserted and never taken from a caller (§APR7.4 item 6). *(Ruled 2026-09-27, #699; not yet built.)* |
+| `AmenderUserIds` | Everyone who has changed this row's content, as a set of account ids — an `IAmendment` member, never accepted from a caller, appended to by the general modify and cleared by nothing; §APR8.6 HR-5 refuses each of them a review of the row (§APR8.6.3, §SEC14.7 posture A rule 6). *(Designed under #701; not yet built.)* |
 | `IsDeleted` | Soft-delete flag. When `true` the tag is excluded from all public visibility. |
 | `CreatedBy` | User who created the tag. |
 | `CreatedWhen` | Creation timestamp. |
@@ -606,6 +608,7 @@ Rules:
 | `IsPublished` | Identifies whether the current version of this reaction is published. |
 | `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`). |
 | `ApprovalId` | The id of this row's approval round — an `IApproval` member, a plain column with no foreign key, minted when the row is inserted and never taken from a caller (§APR7.4 item 6). *(Ruled 2026-09-27, #699; not yet built.)* |
+| `AmenderUserIds` | Everyone who has changed this row's content, as a set of account ids — an `IAmendment` member, never accepted from a caller, appended to by the general modify and cleared by nothing; §APR8.6 HR-5 refuses each of them a review of the row (§APR8.6.3, §SEC14.7 posture A rule 6). *(Designed under #701; not yet built.)* |
 | `IsDeleted` | Soft-delete flag. When `true` the reaction is excluded from all public visibility. |
 | `CreatedBy` | User who created the reaction. |
 | `CreatedWhen` | Creation timestamp. |
@@ -630,6 +633,7 @@ Rules:
 | `DeletedBy` | User who deleted the item. |
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
+| `AmenderUserIds` | Everyone who has changed this row's content, as a set of account ids — an `IAmendment` member, never accepted from a caller, appended to by the general modify and cleared by nothing; §APR8.6 HR-5 refuses each of them a review of the row (§APR8.6.3, §SEC14.7 posture A rule 6). *(Designed under #701; not yet built.)* |
 
 ### DOM5.4 BibleReference *(formerly §5.4)*
 
@@ -649,6 +653,7 @@ Rules:
 | `DeletedBy` | User who deleted the item. |
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
+| `AmenderUserIds` | Everyone who has changed this row's content, as a set of account ids — an `IAmendment` member, never accepted from a caller, appended to by the general modify and cleared by nothing; §APR8.6 HR-5 refuses each of them a review of the row (§APR8.6.3, §SEC14.7 posture A rule 6). *(Designed under #701; not yet built.)* |
 
 ### DOM5.5 Link *(formerly §5.5)*
 
@@ -667,6 +672,7 @@ Rules:
 | `DeletedBy` | User who deleted the item. |
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
+| `AmenderUserIds` | Everyone who has changed this row's content, as a set of account ids — an `IAmendment` member, never accepted from a caller, appended to by the general modify and cleared by nothing; §APR8.6 HR-5 refuses each of them a review of the row (§APR8.6.3, §SEC14.7 posture A rule 6). *(Designed under #701; not yet built.)* |
 
 ### DOM5.6 Attachment *(formerly §5.6)*
 
