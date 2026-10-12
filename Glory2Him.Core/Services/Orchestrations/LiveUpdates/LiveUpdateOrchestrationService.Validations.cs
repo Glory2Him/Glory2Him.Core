@@ -52,6 +52,13 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
             EventEnvelope<ContentItemSetting> envelope,
             string eventName)
         {
+            if (envelope is null)
+            {
+                throw new InvalidLiveUpdateOrchestrationException(
+                    message: "Invalid live update orchestration fact. " +
+                        "The fact envelope and its content are required.");
+            }
+
             bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
                 envelope, eventName, EnvelopeDirection.Request);
 
