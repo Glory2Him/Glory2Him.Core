@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { AxiosError } from 'axios';
 import {
     MutationCache,
     QueryClient,
@@ -125,5 +126,22 @@ describe('manageAccountService.useDeletePersonalData', () => {
         // then
         expect(toastsRaisedByTheGlobalHandler).toBe(0);
         expect(toastErrorMock).not.toHaveBeenCalled();
+    });
+
+    // THE ERROR LEAVES THE HOOK UNCHANGED (§UI20.9.2 departure 2): with the toast off, it is
+    // the only way the failure reaches the reader, through the page's message.
+    it("should fail with the broker's error when the deletion fails", async () => {
+        // given
+        const brokerError = new AxiosError('Error: Incorrect password.');
+        deletePersonalDataAsync.mockRejectedValue(brokerError);
+
+        const { result } = renderHook(
+            () => manageAccountService.useDeletePersonalData(), { wrapper });
+
+        // when
+        const deletion = result.current.mutateAsync(readersPassword);
+
+        // then
+        await expect(deletion).rejects.toBe(brokerError);
     });
 });
