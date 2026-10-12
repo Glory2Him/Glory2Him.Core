@@ -363,5 +363,76 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             this.liveUpdateServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldRethrowDependencyTimeoutOnAssociationApprovedAndLogItAsync()
+        {
+            // given: the read is cancelled while the caller's own token is not, which is a
+            // timeout beneath the ear rather than the caller giving up
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            Association contentItemReaction = CreateContentItemReaction();
+            EventEnvelope<Association> approvedFact = CreateFactEnvelope(contentItemReaction);
+            var operationCanceledException = new OperationCanceledException();
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutLiveUpdateOrchestrationException =
+                new TimeoutLiveUpdateOrchestrationException(
+                    message: "Failed live update orchestration timeout error occurred, " +
+                        "contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            LiveUpdateOrchestrationDependencyException
+                expectedLiveUpdateOrchestrationDependencyException =
+                    CreateDependencyException(timeoutLiveUpdateOrchestrationException);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    approvedFact,
+                    AssociationApprovedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.FindPublicContentItemGroupAsync(
+                    contentItemReaction.EntityAGroupId,
+                    callerCancellationToken))
+                        .ThrowsAsync(operationCanceledException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAssociationApprovedTask =
+                this.liveUpdateOrchestrationService.OnAssociationApprovedAsync(
+                    approvedFact,
+                    callerCancellationToken);
+
+            LiveUpdateOrchestrationDependencyException
+                actualLiveUpdateOrchestrationDependencyException =
+                    await Assert.ThrowsAsync<LiveUpdateOrchestrationDependencyException>(
+                        onAssociationApprovedTask.AsTask);
+
+            // then
+            actualLiveUpdateOrchestrationDependencyException.Should().BeEquivalentTo(
+                expectedLiveUpdateOrchestrationDependencyException);
+
+            this.contentItemServiceMock.Verify(service =>
+                service.FindPublicContentItemGroupAsync(
+                    contentItemReaction.EntityAGroupId,
+                    callerCancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(
+                    expectedLiveUpdateOrchestrationDependencyException))),
+                Times.Once);
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
