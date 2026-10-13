@@ -340,4 +340,17 @@ describe('liveUpdateService.useLiveUpdates', () => {
         // then
         await expectStartedAgainAfterAsync([0, 2000, 10000, 30000, 30000, 30000]);
     });
+
+    // SignalR stops reconnecting at the first null its schedule answers, and closes for good.
+    it('should hand SignalR a schedule that never gives up', async () => {
+        // given
+        await mountTheHookAsync();
+        const nextRetryDelayInMilliseconds = startLiveUpdatesAsync.mock.lastCall![1];
+
+        // when
+        const retryDelays = [0, 1, 2, 3, 4, 5, 10, 100, 10000].map(nextRetryDelayInMilliseconds);
+
+        // then
+        expect(retryDelays).toEqual([0, 2000, 10000, 30000, 30000, 30000, 30000, 30000, 30000]);
+    });
 });
