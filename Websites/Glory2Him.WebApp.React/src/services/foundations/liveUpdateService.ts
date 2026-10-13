@@ -13,6 +13,10 @@ export const liveUpdateService = {
                     onClosed: () => undefined
                 },
                 () => null);
+
+            return () => {
+                void liveUpdateBroker.stopLiveUpdatesAsync();
+            };
         }, [liveUpdateBroker]);
     }
 };
