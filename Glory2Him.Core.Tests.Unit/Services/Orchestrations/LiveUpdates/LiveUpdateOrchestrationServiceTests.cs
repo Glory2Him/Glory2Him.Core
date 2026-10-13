@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using System.Threading;
 using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
@@ -276,6 +277,233 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             LiveUpdate expectedLiveUpdate) =>
             actualLiveUpdate =>
                 new CompareLogic().Compare(expectedLiveUpdate, actualLiveUpdate).AreEqual;
+
+        // THE CASES THE REACTIONS BODY WITHHOLDS (§SEC14.8 rules 1 and 3), one per kind. Every
+        // reaction ear runs the one body #900 built, so every ear must withhold what it withholds.
+        public enum WithheldReactionsCase
+        {
+            EndpointANotAContentItem,
+            EndpointBNotAReaction,
+            NoVisibleVersion,
+            ReactionsHidden,
+            SettingUnanswered
+        }
+
+        // The failures beneath the reactions body, one per family the ears map (§EVN11).
+        public enum ReactionsBodyFailure
+        {
+            ContentItemValidation,
+            ContentItemDependencyValidation,
+            ContentItemDependency,
+            ContentItemService,
+            Gather,
+            LiveUpdateValidation,
+            LiveUpdateDependency,
+            LiveUpdateService,
+            Timeout
+        }
+
+        // The row a withheld case's fact carries, with the reads beneath the body answering as
+        // that case has them. The reads take the exact values the body is to ask with, so a
+        // body asking for anything else finds nothing set up and sends nothing either way — the
+        // happy-path tests are what pin the values.
+        private Association ArrangeWithheldReactionsCase(
+            WithheldReactionsCase withheldReactionsCase,
+            CancellationToken cancellationToken)
+        {
+            Association contentItemReaction = CreateContentItemReaction();
+
+            switch (withheldReactionsCase)
+            {
+                case WithheldReactionsCase.EndpointANotAContentItem:
+                    contentItemReaction.EntityAType = EntityType.Comment;
+                    return contentItemReaction;
+
+                case WithheldReactionsCase.EndpointBNotAReaction:
+                    contentItemReaction.EntityBType = EntityType.Tag;
+                    return contentItemReaction;
+
+                case WithheldReactionsCase.NoVisibleVersion:
+                    this.contentItemServiceMock.Setup(service =>
+                        service.FindPublicContentItemGroupAsync(
+                            contentItemReaction.EntityAGroupId,
+                            cancellationToken))
+                                .ReturnsAsync((PublicContentItemGroup)null);
+
+                    return contentItemReaction;
+            }
+
+            PublicContentItemGroup visibleVersion =
+                CreateVisibleVersion(groupId: contentItemReaction.EntityAGroupId);
+
+            List<ContentItemSettingKey> expectedSettingKeys = CreateSettingKeysFor(visibleVersion);
+
+            List<EffectiveContentItemSetting> winningSettings =
+                withheldReactionsCase is WithheldReactionsCase.ReactionsHidden
+                    ? CreateWinningSettingsFor(visibleVersion, showReactions: false)
+                    : new List<EffectiveContentItemSetting>();
+
+            this.contentItemServiceMock.Setup(service =>
+                service.FindPublicContentItemGroupAsync(
+                    contentItemReaction.EntityAGroupId,
+                    cancellationToken))
+                        .ReturnsAsync(visibleVersion);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    cancellationToken))
+                        .ReturnsAsync(winningSettings);
+
+            return contentItemReaction;
+        }
+
+        // Makes the read beneath the body fail as the family has it, and answers what the ear is
+        // to rethrow (LiveUpdateOrchestrationService.Exceptions.cs): the foundations' refusals as
+        // a dependency validation failure, their other failures and a timeout as a dependency
+        // failure, and a gather's raw failure as a service failure, since a broker raises no
+        // family of its own (§ARC12.5).
+        private Xeption ArrangeReactionsBodyFailure(
+            Association contentItemReaction,
+            ReactionsBodyFailure reactionsBodyFailure,
+            CancellationToken cancellationToken)
+        {
+            string randomMessage = GetRandomString();
+            var innerException = new Xeption(message: randomMessage);
+
+            PublicContentItemGroup visibleVersion =
+                CreateVisibleVersion(groupId: contentItemReaction.EntityAGroupId);
+
+            List<ContentItemSettingKey> expectedSettingKeys = CreateSettingKeysFor(visibleVersion);
+            LiveUpdate expectedLiveUpdate = CreateReactionsChangeFor(visibleVersion);
+
+            (Exception thrownException, Xeption expectedException) = reactionsBodyFailure switch
+            {
+                ReactionsBodyFailure.ContentItemValidation => (
+                    new ContentItemValidationException(
+                        message: randomMessage, innerException: innerException),
+                    CreateDependencyValidationException(innerException)),
+
+                ReactionsBodyFailure.ContentItemDependencyValidation => (
+                    new ContentItemDependencyValidationException(
+                        message: randomMessage, innerException: innerException),
+                    CreateDependencyValidationException(innerException)),
+
+                ReactionsBodyFailure.ContentItemDependency => (
+                    new ContentItemDependencyException(
+                        message: randomMessage, innerException: innerException),
+                    CreateDependencyException(innerException)),
+
+                ReactionsBodyFailure.ContentItemService => (
+                    new ContentItemServiceException(
+                        message: randomMessage, innerException: innerException),
+                    CreateDependencyException(innerException)),
+
+                ReactionsBodyFailure.Gather => CreateGatherFailure(randomMessage),
+
+                ReactionsBodyFailure.LiveUpdateValidation => (
+                    new LiveUpdateValidationException(
+                        message: randomMessage, innerException: innerException),
+                    CreateDependencyValidationException(innerException)),
+
+                ReactionsBodyFailure.LiveUpdateDependency => (
+                    new LiveUpdateDependencyException(
+                        message: randomMessage, innerException: innerException),
+                    CreateDependencyException(innerException)),
+
+                ReactionsBodyFailure.LiveUpdateService => (
+                    new LiveUpdateServiceException(
+                        message: randomMessage, innerException: innerException),
+                    CreateDependencyException(innerException)),
+
+                _ => CreateTimeoutFailure(),
+            };
+
+            bool isReadFailure =
+                reactionsBodyFailure is ReactionsBodyFailure.ContentItemValidation
+                    or ReactionsBodyFailure.ContentItemDependencyValidation
+                    or ReactionsBodyFailure.ContentItemDependency
+                    or ReactionsBodyFailure.ContentItemService
+                    or ReactionsBodyFailure.Timeout;
+
+            if (isReadFailure)
+            {
+                this.contentItemServiceMock.Setup(service =>
+                    service.FindPublicContentItemGroupAsync(
+                        contentItemReaction.EntityAGroupId,
+                        cancellationToken))
+                            .ThrowsAsync(thrownException);
+
+                return expectedException;
+            }
+
+            this.contentItemServiceMock.Setup(service =>
+                service.FindPublicContentItemGroupAsync(
+                    contentItemReaction.EntityAGroupId,
+                    cancellationToken))
+                        .ReturnsAsync(visibleVersion);
+
+            if (reactionsBodyFailure is ReactionsBodyFailure.Gather)
+            {
+                this.accessBrokerMock.Setup(broker =>
+                    broker.RetrieveEffectiveContentItemSettingsAsync(
+                        It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                        cancellationToken))
+                            .ThrowsAsync(thrownException);
+
+                return expectedException;
+            }
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    cancellationToken))
+                        .ReturnsAsync(CreateWinningSettingsFor(visibleVersion, showReactions: true));
+
+            this.liveUpdateServiceMock.Setup(service =>
+                service.SendLiveUpdateAsync(
+                    It.Is(SameLiveUpdateAs(expectedLiveUpdate)),
+                    cancellationToken))
+                        .ThrowsAsync(thrownException);
+
+            return expectedException;
+        }
+
+        private static (Exception, Xeption) CreateGatherFailure(string randomMessage)
+        {
+            var gatherException = new Exception(randomMessage);
+
+            var failedLiveUpdateOrchestrationServiceException =
+                new FailedLiveUpdateOrchestrationServiceException(
+                    message: "Failed live update orchestration service error occurred, " +
+                        "please contact support.",
+                    innerException: gatherException,
+                    data: gatherException.Data);
+
+            return (
+                gatherException,
+                new LiveUpdateOrchestrationServiceException(
+                    message: "Live update orchestration service error occurred, contact support.",
+                    innerException: failedLiveUpdateOrchestrationServiceException));
+        }
+
+        // The read is cancelled while the caller's own token is not: a timeout beneath the ear
+        // rather than the caller giving up.
+        private static (Exception, Xeption) CreateTimeoutFailure()
+        {
+            var timeoutException = new TimeoutException("The dependency operation timed out.");
+
+            var timeoutLiveUpdateOrchestrationException =
+                new TimeoutLiveUpdateOrchestrationException(
+                    message: "Failed live update orchestration timeout error occurred, " +
+                        "contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            return (
+                new OperationCanceledException(),
+                CreateDependencyException(timeoutLiveUpdateOrchestrationException));
+        }
 
         private static string GetRandomString() =>
             new MnemonicString(wordCount: GetRandomNumber()).GetValue();
