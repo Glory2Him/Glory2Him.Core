@@ -35,8 +35,8 @@ class ApprovalSettingBroker {
     // a closed setting is not a policy and should not travel.
     //
     // No paging: the set is bounded by entity types times content types, which is small enough
-    // to read whole and page in the browser. That is why there is no query round-tripper here
-    // and why the list uses the shared DataTable rather than a server-side pager.
+    // to read whole and page in the browser. That is why this read takes no query and why the
+    // list uses the shared DataTable rather than a server-side pager.
     async GetApprovalSettingsAsync(): Promise<ApprovalSetting[]> {
         // Built by hand rather than through URLSearchParams, which writes a space as + — legal,
         // and decoded correctly on the way in, but it makes every logged query harder to read
