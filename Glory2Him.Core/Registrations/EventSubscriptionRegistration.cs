@@ -2306,6 +2306,28 @@ namespace Glory2Him.Core.Registrations
                         service => service.OnAssociationRejectedAsync),
                 cancellationToken: cancellationToken);
 
+            // Beside the approval workflow's ear on the same address; neither relies on which
+            // runs first (§EVN26 rule 5).
+            await this.eventBroker.SubscribeToAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationSubmittedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationSubmittedSubscriptionName,
+
+                    Description = "Tells every open page that the reaction counts of the content " +
+                        "item's canonically visible version may have moved, where that version " +
+                        "exists and its winning setting shows reactions. A reaction back at " +
+                        "Submitted leaves the count until its round is decided again."
+                },
+                operation: AssociationEventOperation.Submitted,
+                associationEventHandler:
+                    Scoped<ILiveUpdateOrchestrationService, Association>(
+                        service => service.OnAssociationSubmittedAsync),
+                cancellationToken: cancellationToken);
+
             await this.eventBroker.SubscribeToContentItemSettingEventAsync(
                 subscription: new EventSubscription
                 {
