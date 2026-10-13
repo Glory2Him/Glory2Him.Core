@@ -30,7 +30,7 @@ export const liveUpdateService = {
                     if (liveUpdate.type === LiveUpdateType.ContentItemSettingChanged) {
                         invalidateContentItemSettingReads(queryClient);
                         queryClient.invalidateQueries({ queryKey: ['ReactionSummaries'] });
-                    } else {
+                    } else if (liveUpdate.type === LiveUpdateType.ContentItemReactionsChanged) {
                         queryClient.invalidateQueries({
                             queryKey: ['ReactionSummaries'],
                             predicate: query =>
