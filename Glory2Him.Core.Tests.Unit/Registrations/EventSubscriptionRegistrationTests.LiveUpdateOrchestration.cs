@@ -225,5 +225,82 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.associationServiceMock.VerifyNoOtherCalls();
             this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
         }
+
+        // Association-Submitted takes an approved reaction out of a count until its round is/n        // decided again, so the forwarder hears it (LiveUpdates.md rule 6). The address carries the approval workflow's ear as well, and neither relies on
+        // which runs first (§EVN26 rule 5), so both subscriptions are captured and each is driven:
+        // the forwarder's lands on the forwarder, and the workflow's still lands on the workflow,
+        // under the id and name it had. Pinned as literals for the same reason.
+        [Fact]
+        public async Task ShouldSubscribeTheLiveUpdatesToAssociationSubmitted()
+        {
+            // given
+            var submittedHandlers = new Dictionary<Guid, (EventSubscription Subscription,
+                Func<EventEnvelope<Association>, CancellationToken,
+                    ValueTask<EventEnvelope<Association>>> Handler)>();
+
+            CancellationToken registrationCancellationToken = TestContext.Current.CancellationToken;
+            using var deliveryCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken deliveryCancellationToken = deliveryCancellationTokenSource.Token;
+            var liveUpdateSubscriptionId = new Guid("c3f01354-adee-40aa-bf72-79722741c9c0");
+            var approvalSubscriptionId = new Guid("01a0e17c-3a26-73a7-9e78-cf6cbb9a7d07");
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.SubscribeToAssociationEventAsync(
+                    It.IsAny<EventSubscription>(),
+                    AssociationEventOperation.Submitted,
+                    It.IsAny<Func<EventEnvelope<Association>, CancellationToken,
+                        ValueTask<EventEnvelope<Association>>>>(),
+                    registrationCancellationToken))
+                        .Callback<EventSubscription, AssociationEventOperation,
+                            Func<EventEnvelope<Association>, CancellationToken,
+                                ValueTask<EventEnvelope<Association>>>,
+                            CancellationToken>((subscription, _, handler, _) =>
+                                submittedHandlers.Add(subscription.Id, (subscription, handler)));
+
+            var liveUpdateEnvelope = new EventEnvelope<Association>();
+            var approvalEnvelope = new EventEnvelope<Association>();
+
+            await this.eventSubscriptionRegistration.RegisterAsync(registrationCancellationToken);
+
+            submittedHandlers.Keys.Should().BeEquivalentTo(
+                new[] { liveUpdateSubscriptionId, approvalSubscriptionId });
+
+            // when
+            await submittedHandlers[liveUpdateSubscriptionId].Handler(
+                liveUpdateEnvelope, deliveryCancellationToken);
+
+            await submittedHandlers[approvalSubscriptionId].Handler(
+                approvalEnvelope, deliveryCancellationToken);
+
+            // then
+            submittedHandlers[liveUpdateSubscriptionId].Subscription.Name.Should()
+                .Be("LiveUpdateOrchestrationService.OnAssociationSubmitted");
+
+            submittedHandlers[approvalSubscriptionId].Subscription.Name.Should()
+                .Be("ApprovalOrchestrationService.OnAssociationSubmitted");
+
+            Guid submittedAddressId =
+                EventBrokerIdentifiers.AssociationEventAddressIds[AssociationEventOperation.Submitted];
+
+            EventBrokerIdentifiers.AssociationEventAddresses[submittedAddressId]
+                .Should().Be("Association-Submitted");
+
+            this.liveUpdateOrchestrationServiceMock.Verify(service =>
+                service.OnAssociationSubmittedAsync(
+                    liveUpdateEnvelope,
+                    deliveryCancellationToken),
+                Times.Once);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.OnAssociationSubmittedAsync(
+                    approvalEnvelope,
+                    deliveryCancellationToken),
+                Times.Once);
+
+            this.liveUpdateOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
     }
 }
