@@ -114,10 +114,24 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
                 return null;
             });
 
+        // The approval workflow's ear hears this address too, and the two rely on no order
+        // between them (§EVN26 rule 5): the writes that ear makes publish the facts the
+        // Submitted and Approved ears hear, so a later message follows the last change.
         public ValueTask<EventEnvelope<Association>?> OnAssociationRepointedAsync(
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default) =>
-            throw new System.NotImplementedException();
+            TryCatch<EventEnvelope<Association>?>(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                await ValidateAssociationFactEnvelopeAsync(
+                    envelope,
+                    eventName: "AssociationRepointed");
+
+                await SendReactionsChangeAsync(envelope.Content, cancellationToken);
+
+                return null;
+            });
 
         public ValueTask<EventEnvelope<ContentItemSetting>?> OnContentItemSettingAddedAsync(
             EventEnvelope<ContentItemSetting> envelope,
