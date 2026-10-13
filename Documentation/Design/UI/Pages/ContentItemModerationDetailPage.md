@@ -231,8 +231,8 @@ The redesign removes both panels (rule 2.22): the post's tags and Bible referenc
 the card (rule 2.30), each association's round is moderated on its own page, and no moderator is
 offered a suggest box. Until item 17 removes them, the page renders both as on a reader's page.
 
-**Properties the page sets:** `associationCollection` `[]`, since associations have no HTTP
-exposer yet (§ARC17.4, not yet built); `onAdd`, a toast saying that suggesting is coming soon;
+**Properties the page sets:** `associationCollection` `[]`, since the page reads no
+associations (§ARC17.4); `onAdd`, a toast saying that suggesting is coming soon;
 `showBorder`; and `cssClass` `mt-4`. Everything else keeps the story's defaults.
 
 **Hooks**
