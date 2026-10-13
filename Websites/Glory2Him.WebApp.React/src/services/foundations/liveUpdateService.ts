@@ -4,6 +4,13 @@ import LiveUpdateBroker from '../../brokers/hubBroker.liveUpdates';
 import { LiveUpdateListeners, LiveUpdateType } from '../../models/foundations/liveUpdates/liveUpdate';
 import { invalidateContentItemSettingReads } from './contentItemSettingService';
 
+// SignalR's documented default reconnection delays, then the last of them again without end, so
+// a connection that will not come back is never given up while the tab is open.
+const retryDelaysInMilliseconds = [0, 2000, 10000, 30000];
+
+const nextRetryDelayInMilliseconds = (previousRetryCount: number): number =>
+    retryDelaysInMilliseconds[Math.min(previousRetryCount, retryDelaysInMilliseconds.length - 1)];
+
 export const liveUpdateService = {
     useLiveUpdates: (): void => {
         // One broker for as long as the hook is mounted. A broker made on every render, as the
@@ -33,10 +40,19 @@ export const liveUpdateService = {
                     }
                 },
                 onReconnected: makeEveryCoveredReadStale,
-                onClosed: () => undefined
+                onClosed: () => startAgainLater()
             };
 
             let isFirstStart = true;
+            let previousRetryCount = 0;
+
+            const startAgainLater = () => {
+                window.setTimeout(
+                    () => void startAsync(),
+                    nextRetryDelayInMilliseconds(previousRetryCount));
+
+                previousRetryCount++;
+            };
 
             const startAsync = async (): Promise<void> => {
                 const isComingBack = isFirstStart === false;
@@ -44,12 +60,13 @@ export const liveUpdateService = {
 
                 try {
                     await liveUpdateBroker.startLiveUpdatesAsync(listeners, () => null);
+                    previousRetryCount = 0;
 
                     if (isComingBack) {
                         makeEveryCoveredReadStale();
                     }
                 } catch {
-                    window.setTimeout(() => void startAsync(), 0);
+                    startAgainLater();
                 }
             };
 
