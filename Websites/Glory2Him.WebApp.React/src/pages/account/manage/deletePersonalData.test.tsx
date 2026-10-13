@@ -1,6 +1,6 @@
 import { AxiosError, AxiosHeaders } from 'axios';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DeletePersonalData } from './deletePersonalData';
 
@@ -14,17 +14,45 @@ const mocks = vi.hoisted(() => ({
     replace: vi.fn(),
     assign: vi.fn(),
     reload: vi.fn(),
-    setHref: vi.fn()
+    setHref: vi.fn(),
+    pageShown: false
 }));
 
-vi.mock('../../../services/foundations/manageAccountService', () => ({
-    manageAccountService: {
-        useGetPersonalDataInfo: () => ({ data: { requirePassword: true } }),
-        useDeletePersonalData: () => ({ mutate: mocks.deletePersonalDataMutate, isPending: false })
-    }
-}));
+// Behaves as TanStack Query does: the callbacks handed to mutate run only while the page is
+// still rendered, and the promise mutateAsync returns settles whether or not it is.
+vi.mock('../../../services/foundations/manageAccountService', async () => {
+    const { useEffect } = await import('react');
+
+    return {
+        manageAccountService: {
+            useGetPersonalDataInfo: () => ({ data: { requirePassword: true } }),
+            useDeletePersonalData: () => {
+                useEffect(() => {
+                    mocks.pageShown = true;
+
+                    return () => { mocks.pageShown = false; };
+                }, []);
+
+                return {
+                    mutate: (password: string, callbacks: DeletePersonalDataCallbacks) =>
+                        mocks.deletePersonalDataMutate(password, {
+                            onSuccess: () => { if (mocks.pageShown) callbacks.onSuccess(); },
+                            onError: (error: unknown) => { if (mocks.pageShown) callbacks.onError(error); }
+                        }),
+                    mutateAsync: (password: string) => new Promise<void>((resolve, reject) =>
+                        mocks.deletePersonalDataMutate(password, {
+                            onSuccess: () => resolve(),
+                            onError: reject
+                        })),
+                    isPending: false
+                };
+            }
+        }
+    };
+});
 
 const deletePersonalDataPath = '/Account/Manage/DeletePersonalData';
+const elsewherePath = '/Account/Manage';
 
 // Rendered beside the routes, so the test reads where the reader is from the router itself.
 const Landed = () => {
@@ -40,7 +68,10 @@ const renderDeletePersonalData = () => render(
             <Route path="*" element={null} />
         </Routes>
         <Landed />
+        <Link to={elsewherePath}>Elsewhere</Link>
     </MemoryRouter>);
+
+const leaveThePage = () => fireEvent.click(screen.getByRole('link', { name: 'Elsewhere' }));
 
 const landedOn = () => screen.getByTestId('landed').textContent;
 
@@ -197,5 +228,25 @@ describe('DeletePersonalData', () => {
 
         expect(alert.className).toBe('alert alert-danger');
         expect(screen.queryByText(/Error: Error:/)).toBeNull();
+    });
+
+    it('should load the home page afresh when the deletion succeeds after the reader has left the page', async () => {
+        // given
+        let settle: DeletePersonalDataCallbacks | undefined;
+
+        mocks.deletePersonalDataMutate.mockImplementation(
+            (_password: string, callbacks: DeletePersonalDataCallbacks) => { settle = callbacks; });
+
+        renderDeletePersonalData();
+        submitDeletion();
+        leaveThePage();
+
+        // when
+        await act(async () => settle?.onSuccess());
+
+        // then
+        expect(landedOn()).toBe(elsewherePath);
+        expect(mocks.replace).toHaveBeenCalledOnce();
+        expect(mocks.replace).toHaveBeenCalledWith('/');
     });
 });
