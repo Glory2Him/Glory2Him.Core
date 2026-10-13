@@ -2108,8 +2108,9 @@ namespace Glory2Him.Core.Registrations
                 cancellationToken: cancellationToken);
 
             // A reader's changed reaction goes back through approval as a modification whose
-            // round starts with no reviews (§ARC16.2.2). Association-Restored is published and
-            // deliberately not subscribed: a revive to the same reaction changes no content.
+            // round starts with no reviews (§ARC16.2.2). The approval workflow deliberately does
+            // not subscribe to Association-Restored: a revive to the same reaction changes no
+            // content.
             await this.eventBroker.SubscribeToAssociationEventAsync(
                 subscription: new EventSubscription
                 {
