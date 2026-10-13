@@ -134,7 +134,7 @@ beneath it. While the item loads, or when it cannot be read, a single centred co
 
 | Property | Value | Why |
 | --- | --- | --- |
-| `associationCollection` | `[]` | The association read is not yet served over HTTP (§ARC17.4, not yet built); the page hands an honest empty set rather than an invented one. Item 4. |
+| `associationCollection` | `[]` | The page reads no associations (§ARC17.4; `UI/Components/AssociationPanel.md §7`); it hands an honest empty set rather than an invented one. Item 4. |
 | `onAdd` | `suggestTag` | Rule 2.7. |
 | `showBorder`, `cssClass` | `true`, `mb-4` | Frames the panel in the sidebar. |
 | The post's content type (`UI/Components/AssociationPanel.md rule 2.30`) | Not passed; the panel has no such property yet (`UI/Components/AssociationPanel.md §10 item 20`) | Rule 2.19; item 11. |
@@ -269,8 +269,8 @@ page is a courtesy (§SEC14.6).
    soon* notice, and wires no `onRemove` (`postDetail.tsx`, lines 135-138 and 195-205; test:
    `postDetail.test.tsx` — "should answer a suggested tag honestly rather than dropping it",
    "should answer a suggested bible reference honestly rather than dropping it"). The read and the
-   two writes are designed (§ARC17.4), and of them only the suggestion is served: `AssociationsController` serves a reader's reaction (#728) and an editorial suggestion (#1088), and neither the read nor the remove; the page's
-   wiring is its own work on top of it. With the collection empty, no chip renders, so the missing
+   two writes are designed (§ARC17.4; the read in `DesignFeatures/AssociationReads.md`), and `UI/Components/AssociationPanel.md §7` records which of them are served; the page's
+   wiring is its own work on top of them. With the collection empty, no chip renders, so the missing
    `onRemove` would surface as a dead withdrawal only once the read is wired
    (`UI/Components/AssociationPanel.md §10 item 8`).
 5. (needs issue) **The page supplies no chip destination and no sign-in action to the two

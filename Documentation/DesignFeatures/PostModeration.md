@@ -184,13 +184,14 @@ changes.
 
 ## Reads and writes this feature builds on
 
-- **The association reads, #857.** The chips need every association of the post — its id, its far
-  end's type and id, its status and its `CreatedWhen` — from `GET /api/associations`, and the
-  association page needs one association by its id, with its endpoints, its `CreatedBy`, its
-  `CreatedWhen`, its status, and its `ConfidenceScore` and `ConfidenceReason`, from
-  `GET /api/associations/{id}` (§ARC17.4). Both are designed under #857 and not built. Every page
-  task that needs one names #857 as the task it is blocked on, and #857's design PR moves it to the
-  task #857 carves for that read (#857, *Next steps* 2).
+- **The association reads, `DesignFeatures/AssociationReads.md` (#857).** The chips need every
+  association of the post — its id, its far end's type and id, its status and its `CreatedWhen` —
+  from `GET /api/associations`, read through `associationService.useGetAssociationsByEffectiveId`
+  (`DesignFeatures/UI/Foundations/AssociationService.AssociationReads.md §1`, #1128). The association
+  page needs one association by its id, with its endpoints, its `CreatedBy`, its `CreatedWhen`,
+  its status, and its `ConfidenceScore` and `ConfidenceReason`, from `GET /api/associations/{id}`,
+  read through `associationService.useGetAssociationById` (that document's §2, #1129) (§ARC17.4).
+  Every page task that needs one is blocked on the task for that read.
 - **The resolved confidence thresholds, #863.** The confidence block's suggestion (rule 13) waits
   on the read #863 designs, and is a gap of the association page's section 6 tagged `(#863)`.
 - **The remove by id, #700.** The association's takedown (rule 16) calls
