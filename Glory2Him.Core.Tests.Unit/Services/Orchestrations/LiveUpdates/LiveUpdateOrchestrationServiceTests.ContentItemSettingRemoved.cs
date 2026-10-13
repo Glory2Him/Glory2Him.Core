@@ -19,6 +19,7 @@ using Glory2Him.Core.Models.Foundations.LiveUpdates;
 using Glory2Him.Core.Models.Orchestrations.LiveUpdates.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
+using Xeptions;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
 {
@@ -408,6 +409,79 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             // then: rethrown unwrapped, before the signature is checked
             await Assert.ThrowsAsync<OperationCanceledException>(
                 onContentItemSettingRemovedTask.AsTask);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // A failure is mapped, logged and rethrown as #897's ear maps it, so the substrate records
+        // a failed delivery (§EVN11) and nothing retries it (§EVN23 rule 6).
+        [Theory]
+        [MemberData(nameof(SettingSendFailures))]
+        public async Task ShouldRethrowAFailureBeneathContentItemSettingRemovedAndLogItAsync(
+            Exception sendException,
+            Xeption expectedLiveUpdateOrchestrationException)
+        {
+            // given
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            ContentItemSetting settingOverride = CreateContentItemSettingOverride();
+
+            EventEnvelope<ContentItemSetting> removedFact =
+                CreateSettingFactEnvelope(settingOverride);
+
+            LiveUpdate expectedLiveUpdate = CreateSettingChange();
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    removedFact,
+                    ContentItemSettingRemovedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            this.liveUpdateServiceMock.Setup(service =>
+                service.SendLiveUpdateAsync(
+                    It.Is(SameLiveUpdateAs(expectedLiveUpdate)),
+                    callerCancellationToken))
+                        .ThrowsAsync(sendException);
+
+            // when
+            ValueTask<EventEnvelope<ContentItemSetting>> onContentItemSettingRemovedTask =
+                this.liveUpdateOrchestrationService.OnContentItemSettingRemovedAsync(
+                    removedFact,
+                    callerCancellationToken);
+
+            Xeption actualLiveUpdateOrchestrationException =
+                await Assert.ThrowsAnyAsync<Xeption>(onContentItemSettingRemovedTask.AsTask);
+
+            // then
+            actualLiveUpdateOrchestrationException.Should()
+                .BeOfType(expectedLiveUpdateOrchestrationException.GetType());
+
+            actualLiveUpdateOrchestrationException.Should().BeEquivalentTo(
+                expectedLiveUpdateOrchestrationException);
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    removedFact,
+                    ContentItemSettingRemovedEventName,
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            this.liveUpdateServiceMock.Verify(service =>
+                service.SendLiveUpdateAsync(
+                    It.Is(SameLiveUpdateAs(expectedLiveUpdate)),
+                    callerCancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(
+                    expectedLiveUpdateOrchestrationException))),
+                Times.Once);
 
             this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
