@@ -340,6 +340,40 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnContentItemSettingModifiedIfTokenIsCancelledAsync()
+        {
+            // given: a fact that would verify, heard on a token its caller has already cancelled
+            var cancelledToken = new CancellationToken(canceled: true);
+            ContentItemSetting settingOverride = CreateContentItemSettingOverride();
+
+            EventEnvelope<ContentItemSetting> modifiedFact =
+                CreateSettingFactEnvelope(settingOverride);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    modifiedFact,
+                    ContentItemSettingModifiedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            // when
+            ValueTask<EventEnvelope<ContentItemSetting>> onContentItemSettingModifiedTask =
+                this.liveUpdateOrchestrationService.OnContentItemSettingModifiedAsync(
+                    modifiedFact,
+                    cancelledToken);
+
+            // then: rethrown unwrapped, before the signature is checked
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                onContentItemSettingModifiedTask.AsTask);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A content type's default: it names no content item.
         private static ContentItemSetting CreateContentItemSettingTypeDefault() =>
             new ContentItemSetting
