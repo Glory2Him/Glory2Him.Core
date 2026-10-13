@@ -1322,6 +1322,72 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // Every status a request can carry, walked from its enum, so a status added there reaches
+        // the test below the day it is added. Draft, the default, is a request that carries none.
+        public static TheoryData<ApprovalStatus> RequestedApprovalStatuses()
+        {
+            var requestedApprovalStatuses = new TheoryData<ApprovalStatus>();
+
+            foreach (ApprovalStatus approvalStatus in Enum.GetValues<ApprovalStatus>())
+            {
+                requestedApprovalStatuses.Add(approvalStatus);
+            }
+
+            return requestedApprovalStatuses;
+        }
+
+        [Theory]
+        [MemberData(nameof(RequestedApprovalStatuses))]
+        public async Task ShouldSuggestAnEditorialPairAtSubmittedOnUpsertAsync(
+            ApprovalStatus requestedApprovalStatus)
+        {
+            // given: a contributor suggests a tag, whatever status the body carries. The caller's
+            // status is dropped with the copy, and the editorial arm suggests the pair at
+            // Submitted, so it reaches the reviewer queue (§ARC16.8.1, "An editorial suggestion
+            // is created at Submitted too").
+            this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString());
+
+            Association upsertRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Tag);
+
+            upsertRequest.ApprovalStatus = requestedApprovalStatus;
+            ContentItem resolvedContentItem = SetupMethodPathEndpointReads(upsertRequest);
+            SetupAllowingSettingFor(resolvedContentItem);
+
+            Association expectedAddedAssociation =
+                CreateResolvedSuggestionFrom(CreateEndpointsOnlyFrom(upsertRequest), resolvedContentItem);
+
+            Association insertedAssociation = expectedAddedAssociation.DeepClone();
+            insertedAssociation.Id = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.AddAssociationAsync(
+                    It.Is(SameAssociationAs(expectedAddedAssociation)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(insertedAssociation);
+
+            var expectedResult = new AssociationSuggestionResult
+            {
+                Status = AssociationSuggestionStatus.Created,
+                AssociationId = insertedAssociation.Id,
+            };
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.associationServiceMock.Verify(service =>
+                service.AddAssociationAsync(
+                    It.Is(SameAssociationAs(expectedAddedAssociation)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+        }
+
         // A signed-in reader's reaction on an item whose setting allows reactions: the envelope,
         // both endpoint reads and the setting. Hands back the row the foundation is to be handed.
         private Association SetupReadersReaction(Association upsertRequest, string readerUserId)
