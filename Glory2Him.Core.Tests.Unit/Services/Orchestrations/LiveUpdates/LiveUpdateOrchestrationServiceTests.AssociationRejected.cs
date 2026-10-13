@@ -398,5 +398,37 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             this.liveUpdateServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnAssociationRejectedIfTokenIsCancelledAsync()
+        {
+            // given: a fact that would verify, heard on a token its caller has already cancelled
+            var cancelledToken = new CancellationToken(canceled: true);
+            Association contentItemReaction = CreateContentItemReaction();
+            EventEnvelope<Association> rejectedFact = CreateFactEnvelope(contentItemReaction);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    rejectedFact,
+                    AssociationRejectedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAssociationRejectedTask =
+                this.liveUpdateOrchestrationService.OnAssociationRejectedAsync(
+                    rejectedFact,
+                    cancelledToken);
+
+            // then: rethrown unwrapped, before the signature is checked
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                onAssociationRejectedTask.AsTask);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
