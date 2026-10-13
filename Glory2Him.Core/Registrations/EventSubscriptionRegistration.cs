@@ -2303,6 +2303,45 @@ namespace Glory2Him.Core.Registrations
                     Scoped<ILiveUpdateOrchestrationService, ContentItemSetting>(
                         service => service.OnContentItemSettingAddedAsync),
                 cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnContentItemSettingModifiedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnContentItemSettingModifiedSubscriptionName,
+
+                    Description = "Tells every open page that the content item settings it " +
+                        "shows may have changed, naming no content item."
+                },
+                operation: ContentItemSettingEventOperation.Modified,
+                contentItemSettingEventHandler:
+                    Scoped<ILiveUpdateOrchestrationService, ContentItemSetting>(
+                        service => service.OnContentItemSettingModifiedAsync),
+                cancellationToken: cancellationToken);
+
+            // a hard removal is published to the Removed address under its own name (§EVN2
+            // rule 4), so this one subscription hears both
+            await this.eventBroker.SubscribeToContentItemSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnContentItemSettingRemovedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnContentItemSettingRemovedSubscriptionName,
+
+                    Description = "Tells every open page that the content item settings it " +
+                        "shows may have changed, naming no content item, when an override is " +
+                        "removed softly or for good."
+                },
+                operation: ContentItemSettingEventOperation.Removed,
+                contentItemSettingEventHandler:
+                    Scoped<ILiveUpdateOrchestrationService, ContentItemSetting>(
+                        service => service.OnContentItemSettingRemovedAsync),
+                cancellationToken: cancellationToken);
         }
     }
 }

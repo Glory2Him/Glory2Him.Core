@@ -34,5 +34,17 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string LiveUpdateOrchestrationOnContentItemSettingAddedSubscriptionName =
             "LiveUpdateOrchestrationService.OnContentItemSettingAdded";
+
+        public static readonly Guid LiveUpdateOrchestrationOnContentItemSettingModifiedSubscriptionId =
+            new Guid("04949f46-790d-4413-acd5-5ea363df7701");
+
+        public const string LiveUpdateOrchestrationOnContentItemSettingModifiedSubscriptionName =
+            "LiveUpdateOrchestrationService.OnContentItemSettingModified";
+
+        public static readonly Guid LiveUpdateOrchestrationOnContentItemSettingRemovedSubscriptionId =
+            new Guid("b47d24b9-c197-44c8-b5b3-a8c8dcce14ef");
+
+        public const string LiveUpdateOrchestrationOnContentItemSettingRemovedSubscriptionName =
+            "LiveUpdateOrchestrationService.OnContentItemSettingRemoved";
     }
 }
