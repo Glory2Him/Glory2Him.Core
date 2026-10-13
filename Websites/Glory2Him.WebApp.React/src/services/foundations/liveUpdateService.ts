@@ -59,7 +59,10 @@ export const liveUpdateService = {
                 isFirstStart = false;
 
                 try {
-                    await liveUpdateBroker.startLiveUpdatesAsync(listeners, () => null);
+                    await liveUpdateBroker.startLiveUpdatesAsync(
+                        listeners,
+                        nextRetryDelayInMilliseconds);
+
                     previousRetryCount = 0;
 
                     if (isComingBack) {
