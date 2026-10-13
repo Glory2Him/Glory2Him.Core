@@ -152,6 +152,51 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
         }
 
         [Fact]
+        public async Task ShouldAnswerAReactionCarryingOperationOwnedFieldsAsWithoutThemOverHttpAsync()
+        {
+            // given
+            // Each value is one the foundation's range and length checks accept, so the create
+            // arm's refusal of the field itself (#1094) is the only 400 a field that got past the
+            // working copy could earn. That is the only proof of the bypass pair's drop: the
+            // reaction is approved inside its own request, and the approval writes the pair from
+            // the access decision (AssociationOrchestrationService.md §6 rule 6).
+            CoreContentItem publishedContentItem = await InsertPublishedContentItemAsync();
+            Association inputPair = CreateReactionPair(publishedContentItem.Id, seededAmenReactionId);
+
+            string inputBody = CreateBodyCarrying(
+                inputPair,
+                ("sortOrder", 300),
+                ("confidenceScore", 5.5m),
+                ("confidenceReason", "Suggested by an acceptance test."),
+                ("modelVersion", "acceptance-model-1"),
+                ("sourceBatchId", Guid.NewGuid()),
+                ("isApprovedByBypass", true),
+                ("approvedByBypassReason", "Bypassed by an acceptance test."));
+
+            this.apiBroker.ActAsContributor();
+
+            try
+            {
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.PostAssociationRawAsync(inputBody);
+
+                AssociationSuggestionResult actualResult = await ReadResultAsync(actualResponse);
+
+                // then: the answer ShouldGiveAReactionOverHttpAsync gets for the bare pair
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+                actualResult.Status.Should().Be(AssociationSuggestionStatus.Created);
+                actualResult.AssociationId.Should().NotBeEmpty();
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(publishedContentItem.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
+            }
+        }
+
+        [Fact]
         public async Task ShouldReturnUnauthorizedOnPostIfCallerIsAnonymousAsync()
         {
             // given
