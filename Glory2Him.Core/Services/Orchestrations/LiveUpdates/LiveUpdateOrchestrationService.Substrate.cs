@@ -80,6 +80,8 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
             CancellationToken cancellationToken = default) =>
             TryCatch<EventEnvelope<ContentItemSetting>?>(async () =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 // two names, one address: a soft and a hard removal (§EVN2 rule 4)
                 await ValidateContentItemSettingFactEnvelopeAsync(
                     envelope,
