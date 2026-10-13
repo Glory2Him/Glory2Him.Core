@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { QueryClient, useQueryClient } from '@tanstack/react-query';
 import LiveUpdateBroker from '../../brokers/hubBroker.liveUpdates';
-import { invalidateContentItemSettingReads } from './contentItemSettingService';
 
 import {
     LiveUpdate,
@@ -17,10 +16,27 @@ const retryDelaysInMilliseconds = [0, 2000, 10000, 30000];
 const nextRetryDelayInMilliseconds = (previousRetryCount: number): number =>
     retryDelaysInMilliseconds[Math.min(previousRetryCount, retryDelaysInMilliseconds.length - 1)];
 
+// The five families a settings write makes stale (contentItemSettingService.ts), named here
+// because a foundation service calls no other service (tsr-services-009). A family a settings
+// write comes to make stale is not made stale by a message until it is named here too.
+const settingReadFamilies = [
+    'ContentItemSettingsGetEffective',
+    'ContentItemSettingsGetAll',
+    'ContentItemSettingsGetById',
+    'ContentItemSettingsGetAvailableForContribution',
+    'ContentItemSettingsGetDefaults'
+];
+
+const makeSettingReadsStale = (queryClient: QueryClient): void => {
+    for (const settingReadFamily of settingReadFamilies) {
+        queryClient.invalidateQueries({ queryKey: [settingReadFamily] });
+    }
+};
+
 // A changed setting can change what any item renders under, and a summary answers its host's
 // ShowReactions inside its count (§ARC16.8), so every setting read and every summary read.
 const makeSettingMessageReadsStale = (queryClient: QueryClient): void => {
-    invalidateContentItemSettingReads(queryClient);
+    makeSettingReadsStale(queryClient);
     queryClient.invalidateQueries({ queryKey: ['ReactionSummaries'] });
 };
 
@@ -47,7 +63,7 @@ const makeStaleWhatTheMessageCovers = (queryClient: QueryClient, liveUpdate: Liv
 // Every read any message could have covered, since a connection that was away may have missed
 // a message of either type: every setting read, and every page of summaries.
 const makeEveryCoveredReadStale = (queryClient: QueryClient): void => {
-    invalidateContentItemSettingReads(queryClient);
+    makeSettingReadsStale(queryClient);
     queryClient.invalidateQueries({ queryKey: ['ReactionSummaries'] });
 };
 

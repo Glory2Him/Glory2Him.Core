@@ -18,9 +18,8 @@ import {
 // is open to general contribution — and the panels, the contribute page, the post page and the
 // admin list all read from different cache keys. Invalidating one and forgetting another is the
 // drift this exists to prevent, so a write invalidates the lot rather than reasoning per caller
-// about which of them could possibly have changed. Exported for the live update service, whose
-// setting message makes the same set stale, so the set has one home.
-export const invalidateContentItemSettingReads = (queryClient: QueryClient): void => {
+// about which of them could possibly have changed.
+const invalidateContentItemSettingReads = (queryClient: QueryClient): void => {
     queryClient.invalidateQueries({ queryKey: ["ContentItemSettingsGetEffective"] });
     queryClient.invalidateQueries({ queryKey: ["ContentItemSettingsGetAll"] });
     queryClient.invalidateQueries({ queryKey: ["ContentItemSettingsGetById"] });
