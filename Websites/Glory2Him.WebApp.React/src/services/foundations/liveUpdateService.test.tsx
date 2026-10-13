@@ -54,4 +54,15 @@ describe('liveUpdateService.useLiveUpdates', () => {
             },
             expect.any(Function));
     });
+
+    it('should stop the live connection when unmounted', async () => {
+        // given
+        const { unmount } = await mountTheHookAsync();
+
+        // when
+        unmount();
+
+        // then
+        expect(stopLiveUpdatesAsync).toHaveBeenCalledTimes(1);
+    });
 });
