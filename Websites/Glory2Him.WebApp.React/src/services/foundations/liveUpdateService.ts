@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import LiveUpdateBroker from '../../brokers/hubBroker.liveUpdates';
+import { LiveUpdateType } from '../../models/foundations/liveUpdates/liveUpdate';
 import { invalidateContentItemSettingReads } from './contentItemSettingService';
 
 export const liveUpdateService = {
@@ -14,9 +15,18 @@ export const liveUpdateService = {
         useEffect(() => {
             void liveUpdateBroker.startLiveUpdatesAsync(
                 {
-                    onLiveUpdate: () => {
-                        invalidateContentItemSettingReads(queryClient);
-                        queryClient.invalidateQueries({ queryKey: ['ReactionSummaries'] });
+                    onLiveUpdate: liveUpdate => {
+                        if (liveUpdate.type === LiveUpdateType.ContentItemSettingChanged) {
+                            invalidateContentItemSettingReads(queryClient);
+                            queryClient.invalidateQueries({ queryKey: ['ReactionSummaries'] });
+                        } else {
+                            queryClient.invalidateQueries({
+                                queryKey: ['ReactionSummaries'],
+                                predicate: query =>
+                                    (query.queryKey[2] as ReadonlyArray<string | null>)
+                                        .includes(liveUpdate.contentItemId)
+                            });
+                        }
                     },
                     onReconnected: () => undefined,
                     onClosed: () => undefined
