@@ -5,7 +5,7 @@ Inherits: §APR9.7.1 rules 2 and 5, §APR13.4 rule 5, §ARC12.2.1, BereanReview.
 
 `IApproval` extends `IConfidence`, as the owner ruled on 2026-10-13: *"It is recorded against the entity that implements IApproval since IApproval implements IConfidence … Association must not implement IConfidence again since it is getting it via IApproval"* (BereanReview.md, A4). It reaches storage in two steps, because a column that exists before every add and modify refuses the fields would store whatever a caller sends: the model first, ignored by storage, and the columns once the six foundations refuse them. Groundwork has no operation and no test paths of its own. Each section's proof is the build, CI's model checks, and §2's integration suite.
 
-## 1. The model, not yet stored (needs issue)
+## 1. The model, not yet stored (#1154)
 
 1. **`IApproval` is declared `public interface IApproval : IConfidence`**, its own members unchanged.
 2. **`Association` drops `IConfidence` from its own list**, and keeps its four properties, which now implement the interface through `IApproval`. Its storage is unchanged.

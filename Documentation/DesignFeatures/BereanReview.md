@@ -73,7 +73,7 @@ In build order. Stage 1 — the low-score block, the vote, the rename and the sc
 | [UI/Components/ReviewPanel.md](../Design/UI/Components/ReviewPanel.md) §10 item 16 | component | the re-request control removed |
 | [UI/Pages/ContentItemModerationDetailPage.md](../Design/UI/Pages/ContentItemModerationDetailPage.md) §6 items 22–23 | page | the verdict refreshed after Berean's two writes |
 | [UI/Pages/AssociationModerationDetailPage.md](../Design/UI/Pages/AssociationModerationDetailPage.md) §6 items 12–13 | page | the same, in #1065 and #1066 |
-| The two approval-setting pages, rule 15 | page | the detail page, the list |
+| The two approval-setting pages, rule 15 | page | the detail page (#1143), the list (#1144) |
 
 ## Layer placement
 

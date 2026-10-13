@@ -5,7 +5,7 @@ Inherits: §APR8.6.2, *Assignment*, §APR8.6.2.1, §ARC12.5 (entry 4, and *an or
 
 Berean's lifecycle: asking for it, the start of its run, and the record of what the run answered. The service spans `Approval`, `AIReviewerAssignment` and — from §3 — `ApprovalComment`, three entity services and each a foundation, within two-to-three (§ARC12.5). It reaches the item under review only by its set-confidence request address (BereanReview.md, *Layer placement* item 2), so no item service is added. It gains `IEventBroker` to publish, and `IApprovalCommentWorkflowService` (`Backend/Foundations/ApprovalCommentService.md §1`), both registered by the host.
 
-## 1. RequestAIReviewerAsync — no re-request (needs issue)
+## 1. RequestAIReviewerAsync — no re-request (#1162)
 
 ```csharp
 ValueTask<AIReviewerAssignment> RequestAIReviewerAsync(
@@ -19,7 +19,7 @@ ValueTask<AIReviewerAssignment> RequestAIReviewerAsync(
 3. **The comment over `ValidateUserMayRequestAIReviewer`** stops saying *"an assignment sets nothing"*: an assignment holds the round shut while Berean's review is pending (BereanReview.md rule 11). The requesting tier still asks no HR-3 term, because asking Berean decides nothing — it moves the round only toward a block.
 4. The interface's summary of the operation stops calling it *"asks it again once a prior assignment has completed"*.
 
-## 2. OnAIReviewerAssignmentAddedAsync — the start (needs issue)
+## 2. OnAIReviewerAssignmentAddedAsync — the start (#1176)
 
 ```csharp
 ValueTask OnAIReviewerAssignmentAddedAsync(
@@ -39,7 +39,7 @@ A new subscription on `AIReviewerAssignment-Added`, registered under stable iden
 5. **A failure is logged and contained** (§EVN23), and the assignment stays pending, so the round stays held. The person's way back is BereanReview.md rule 16's.
 6. **The comment over the automatic assignment's two subscriptions** in `EventSubscriptionRegistration.cs` — the code's copy of §EVN18(e)'s point 1, *"it reads no §8.5 predicate and moves none"* — is rewritten to the restated point 1: it moves one predicate, and only toward a block.
 
-## 3. OnContentAnalysisScoredAsync — the write-back (needs issue)
+## 3. OnContentAnalysisScoredAsync — the write-back (#1177)
 
 ```csharp
 ValueTask OnContentAnalysisScoredAsync(
@@ -54,7 +54,7 @@ A new subscription on `ContentAnalysis-Scored`, the confidence process's answer,
 3. **The item is the round's**, read through `IApprovalWorkflowService.RetrieveApprovalByIdAsync`, its `EntityType` and `EntityId` — never the fact's own claim of either.
 4. **Three writes, in this order, each under `CreateSystemAsync`** (rule 19):
    1. **the score**: `<EntityType>-SettingConfidence` is published for the item, carrying the four fields, and its reply is awaited. The item's set-confidence lands it only if the item has none (rule 7);
-   2. **the comments**: each one the fact carries, through `IApprovalCommentWorkflowService.AddAIReviewerApprovalCommentAsync`, in the order the fact lists them;
+   2. **the comments**: each one the fact carries, through `IApprovalCommentWorkflowService.AddAIReviewerApprovalCommentAsync`, in the order the fact lists them, and only while the round is still `Submitted`: on a round decided since the run began, none is filed;
    3. **the completion**: `IAIReviewerAssignmentWorkflowService.CompleteAIReviewerAssignmentAsync`, with `isAIReviewCommentsPresent` `true` where the fact carries at least one comment.
 5. **Until the completion lands the round stays held** (BereanReview.md rule 11), so a question Berean files is on the round before the round can pass. The completion's `AIReviewerAssignment-Modified` re-tests the round (`Backend/Orchestrations/ApprovalOrchestrationService.BereanReview.md §5`).
 6. **A failed write ends the write-back there, and faults the delivery**, which the substrate delivers again. A redelivery finds a completed assignment and does nothing (rule 2). One that finds it pending writes again: the score, which lands on an unscored item only, the comments, and the completion. So a delivery that failed after filing a comment files that comment a second time — an accepted cost, recorded under the feature's *Risks*. A question filed twice is settled twice, and nothing is lost.

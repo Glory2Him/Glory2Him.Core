@@ -456,7 +456,7 @@ Two further endpoints the one consumer calls, not in the relocated table:
     says no more. The read-only-role view's disabled controls each carry a tooltip saying why
     (rule 2.53). Should these carry one too, and in what words? An answer adds a rule of its own
     beside rule 2.55, which stands either way: until then they carry none.
-16. (needs issue) **Gap — Berean's re-request control is still rendered.** Rules 2.45 and 2.47
+16. (#1163) **Gap — Berean's re-request control is still rendered.** Rules 2.45 and 2.47
     (user ruling 2026-10-13): a completed Berean review shows the comments glyph alone, and the
     panel knows nothing of a vote. `renderAIReviewerControl` still renders the recycle button
     beside the glyph and raises `onAIReviewerRequested` from it. The button, its

@@ -5,7 +5,7 @@ Inherits: §APR8.6 HR-4, §APR8.8, §APR9.7.4, §APR9.7.7, §ARC12.5.3, §ARC16.
 
 The round's rules for Berean. The service adds no dependency: it clears an item's score through the item's `<Entity>-SettingConfidence` request door, as it decides an item through `<Entity>-Approving`, with the `IEventBroker` it holds. It dismisses and adds Berean through the `IAIReviewerAssignmentWorkflowService` seam it holds, and it reads through the `IAccessBroker` it holds. It keeps its three entity services.
 
-## 1. ResetApprovalAsync — Berean's review left as it is (needs issue)
+## 1. ResetApprovalAsync — Berean's review left as it is (#1166)
 
 ```csharp
 ValueTask<ApprovalOutcome> ResetApprovalAsync(
@@ -16,7 +16,7 @@ ValueTask<ApprovalOutcome> ResetApprovalAsync(
 
 1. **The reset no longer returns Berean's assignment to pending** (`ApprovalOrchestrationService.Resets.cs`, the call to `ResetStaleAIReviewerAssignmentAsync`). It re-opens the same content, whose score never changes (BereanReview.md rules 7 and 9), so Berean's completed review and the item's score stand on the re-opened round, and a pending one stays pending. Everything else the reset does is unchanged.
 
-## 2. ProcessEntityModifiedAsync — Berean's review cleared on a content change (needs issue)
+## 2. ProcessEntityModifiedAsync — Berean's review cleared on a content change (#1167)
 
 ```csharp
 ValueTask<ApprovalOutcome> ProcessEntityModifiedAsync(
@@ -33,7 +33,7 @@ ValueTask<ApprovalOutcome> ProcessEntityModifiedAsync(
 3. **After the evaluation, Berean is assigned for the new round** where `IAccessBroker.ResolveAIReviewerPolicyByIdAsync` answers `IsAutomaticallyRequested` — the offer, a round that requires review, and the automatic switch (`Backend/Clients/AccessClient.BereanReview.md §3`) — and the round is still `Submitted`. It goes through `IAIReviewerAssignmentWorkflowService.AddAutomaticAIReviewerAssignmentAsync`, whatever happened to Berean on the content that has gone, a withdrawal included (BereanReview.md rule 9). Its `AIReviewerAssignment-Added` starts a fresh run (`Backend/Orchestrations/AIReviewerOrchestrationService.BereanReview.md §2`). A failure is logged and not propagated, as §APR8.6.2.1's automatic assignment's is: what it costs is one click.
 4. **The return to pending goes** from this flow, and so does the helper `ResetStaleAIReviewerAssignmentAsync` once §1 has removed its other call. The comment over the flow's AI half is rewritten to rule 9.
 
-## 3. RetrieveApprovalVerdictAsync — the words for Berean's two blocks (needs issue)
+## 3. RetrieveApprovalVerdictAsync — the words for Berean's two blocks (#1172)
 
 ```csharp
 ValueTask<ApprovalVerdict> RetrieveApprovalVerdictAsync(
@@ -46,7 +46,7 @@ ValueTask<ApprovalVerdict> RetrieveApprovalVerdictAsync(
    - `BlockedByRejectConfidenceScore`: *"Berean's confidence score is at or below the rejection threshold. Approve with a bypass."* — in place of *"This item scored zero on content confidence. Correct the score or approve with a bypass."*;
    - `AwaitingAIReviewerConfidenceScore`, new: *"Berean's review is pending. Wait for it to finish, withdraw Berean, or approve with a bypass."*
 
-## 4. OnAIReviewerAssignmentAddedAsync — the round re-tested (needs issue)
+## 4. OnAIReviewerAssignmentAddedAsync — the round re-tested (#1173)
 
 ```csharp
 ValueTask<EventEnvelope<AIReviewerAssignment>?> OnAIReviewerAssignmentAddedAsync(
@@ -54,12 +54,13 @@ ValueTask<EventEnvelope<AIReviewerAssignment>?> OnAIReviewerAssignmentAddedAsync
     CancellationToken cancellationToken = default);
 ```
 
-1. **A new subscription on `AIReviewerAssignment-Added`** re-tests the round its `ApprovalId` names, through `ReactToWorkflowRecordFactAsync`, with the accepted name `"AIReviewerAssignmentAdded"`, as the comment and review facts are re-tested (§EVN18(a)). The assignment can only hold the round, so the re-test changes nothing today. It is heard because every fact of a record that can move a predicate is heard (§EVN18(a)), which `WorkflowRecordFactTests` derives from the operation enum. This task extends that derivation to `AIReviewerAssignmentEventOperation`.
+1. **A new subscription on `AIReviewerAssignment-Added`** re-tests the round its `ApprovalId` names, through `ReactToWorkflowRecordFactAsync`, with the accepted name `"AIReviewerAssignmentAdded"`, as the comment and review facts are re-tested (§EVN18(a)). The assignment can only hold the round, so the re-test changes nothing today. It is heard because every fact of a record that can move a predicate is heard (§EVN18(a)), which `WorkflowRecordFactTests` derives from the operation enum: §6, the last of the three ears, extends that derivation to `AIReviewerAssignmentEventOperation`.
 
-## 5. OnAIReviewerAssignmentModifiedAsync — the round re-tested (needs issue)
+## 5. OnAIReviewerAssignmentModifiedAsync — the round re-tested (#1174)
 
 1. **As §4, on `AIReviewerAssignment-Modified`**, with the accepted name `"AIReviewerAssignmentModified"`. Berean's review completing lifts the pending block (BereanReview.md rule 11), so a round whose conditions are then met is approved automatically where its policy says so.
 
-## 6. OnAIReviewerAssignmentRemovedAsync — the round re-tested (needs issue)
+## 6. OnAIReviewerAssignmentRemovedAsync — the round re-tested (#1175)
 
 1. **As §4, on `AIReviewerAssignment-Removed`**, with the accepted name `"AIReviewerAssignmentRemoved"`. Withdrawing Berean, or §2's dismissal, lifts the pending block.
+2. **It extends `WorkflowRecordFactTests`' derivation to `AIReviewerAssignmentEventOperation`**, after §4 and §5, so the suite finds all three of the assignment's facts subscribed when it starts deriving them.

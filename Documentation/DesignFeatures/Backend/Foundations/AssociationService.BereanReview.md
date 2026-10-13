@@ -5,7 +5,7 @@ Inherits: §APR9.7.1 rule 5, §SEC14.6 rule 4, §SEC14.6.1, §SEC14.7 posture A�
 
 `Association` already carries the four confidence fields, and from `Backend/Models/IApproval.md §1` it carries them through `IApproval`, not through a declaration of its own. Its add already refuses them (`Backend/Foundations/AssociationService.md §15`), and its general modify pins every non-audit property against storage (§APR8.6.1, *the last-editor question*). What changes is who may set them: set-confidence admitted `Publishers` and `Administrators` and refused the owner; it now admits the system identity alone (BereanReview.md rule 1). Its door, `Association-SettingConfidence`, and its fact, `Association-ConfidenceSet`, stay.
 
-## 1. SetAssociationConfidenceAsync — the system identity alone (needs issue)
+## 1. SetAssociationConfidenceAsync — the system identity alone (#1155)
 
 ```csharp
 ValueTask<Association> SetAssociationConfidenceAsync(
@@ -19,6 +19,6 @@ ValueTask<Association> SetAssociationConfidenceAsync(
 4. **Its comments and its refusal logs stop describing a person's score**: `AssociationService.Transitions.cs`, the summary over the operation, and `AssociationService.Transitions.Validations.cs`, the summary over the gate and its *"publisher typed"* and *"correct"* sentences.
 5. It publishes `Association-ConfidenceSet`, as today.
 
-## 2. OnSettingAssociationConfidenceAsync — the system identity alone (needs issue)
+## 2. OnSettingAssociationConfidenceAsync — the system identity alone (#1156)
 
 The `Association-SettingConfidence` door. It converges on §1's private body, so §1 proves the gate and the write; this section proves the gate refuses again on the door. An envelope carrying a `Publishers` context, an `Administrators` context and the association's owner's context is each refused, and one carrying the system identity writes. Its envelope refusals, deduplication, reply and rethrow are unchanged (`the-standard-foundations` ts-foundations-011, -014, -015).
