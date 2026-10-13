@@ -425,4 +425,62 @@ describe('liveUpdateService.useLiveUpdates', () => {
         expect(toastError).not.toHaveBeenCalled();
         expect(toastSuccess).not.toHaveBeenCalled();
     });
+
+    // Root unmounts when the root route's error page takes its place, and strict mode unmounts
+    // and mounts it again in development. A connection the unmounted hook started again would
+    // be one more than the tab's one, with nothing left to stop it.
+    it.each([
+        {
+            // SignalR raises onclose for a stop the app asked for as for any other close.
+            way: 'on the close its own stop causes',
+            unmountAsync: async () => {
+                const { unmount } = await mountTheHookAsync();
+                stopLiveUpdatesAsync.mockImplementation(async () => theListeners().onClosed());
+                unmount();
+            }
+        },
+        {
+            // A stop that lands while the connection is still starting fails that start instead,
+            // which is what strict mode's unmount does to the start its mount began.
+            way: 'on the start its own stop cuts short',
+            unmountAsync: async () => {
+                let cutTheStartShort: (reason: unknown) => void = () => undefined;
+
+                startLiveUpdatesAsync.mockReturnValueOnce(
+                    new Promise<void>((_, reject) => { cutTheStartShort = reject; }));
+
+                const { unmount } = await mountTheHookAsync();
+                unmount();
+                cutTheStartShort(new Error('The connection was stopped during negotiation.'));
+            }
+        },
+        {
+            way: 'when a start that was waiting on the schedule comes due',
+            unmountAsync: async () => {
+                startLiveUpdatesAsync.mockRejectedValue(refused);
+                const { unmount } = await mountTheHookAsync();
+                await advanceTheClockAsync(0);
+                unmount();
+            }
+        },
+        {
+            way: 'when its stop fails',
+            unmountAsync: async () => {
+                stopLiveUpdatesAsync.mockRejectedValue(refused);
+                const { unmount } = await mountTheHookAsync();
+                unmount();
+            }
+        }
+    ])('should start nothing once it has unmounted, $way', async ({ unmountAsync }) => {
+        // given
+        await unmountAsync();
+        const startsAtUnmount = startLiveUpdatesAsync.mock.calls.length;
+
+        // when
+        await act(async () => undefined);
+        await advanceTheClockAsync(120000);
+
+        // then
+        expect(startLiveUpdatesAsync).toHaveBeenCalledTimes(startsAtUnmount);
+    });
 });
