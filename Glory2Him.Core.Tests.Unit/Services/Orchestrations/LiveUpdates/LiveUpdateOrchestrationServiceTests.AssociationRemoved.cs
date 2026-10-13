@@ -264,13 +264,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
                         "fix the errors and try again.",
                     innerException: invalidLiveUpdateOrchestrationException);
 
-            this.envelopeIntegrityBrokerMock.Setup(broker =>
-                broker.VerifyAsync(
-                    unverifiedFact,
-                    It.IsAny<string>(),
-                    It.IsAny<EnvelopeDirection>()))
-                        .ReturnsAsync(false);
-
             if (signedEventName is not null)
             {
                 this.envelopeIntegrityBrokerMock.Setup(broker =>
