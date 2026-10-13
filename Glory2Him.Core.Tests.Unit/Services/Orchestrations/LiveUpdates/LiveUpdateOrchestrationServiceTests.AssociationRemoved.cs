@@ -198,5 +198,43 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             this.liveUpdateServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        // A pair that is not a content item's reaction, a host nobody may see, a host whose
+        // setting hides its counts, and a host whose setting cannot be resolved: no card shows the
+        // change, so nobody is told of it (§SEC14.8 rules 1 and 3).
+        [Theory]
+        [InlineData(WithheldReactionsCase.EndpointANotAContentItem)]
+        [InlineData(WithheldReactionsCase.EndpointBNotAReaction)]
+        [InlineData(WithheldReactionsCase.NoVisibleVersion)]
+        [InlineData(WithheldReactionsCase.ReactionsHidden)]
+        [InlineData(WithheldReactionsCase.SettingUnanswered)]
+        public async Task ShouldSendNothingTheReactionsBodyWithholdsOnAssociationRemovedAsync(
+            WithheldReactionsCase withheldReactionsCase)
+        {
+            // given
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            Association withheldReaction =
+                ArrangeWithheldReactionsCase(withheldReactionsCase, callerCancellationToken);
+
+            EventEnvelope<Association> removedFact = CreateFactEnvelope(withheldReaction);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    removedFact,
+                    AssociationRemovedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            // when
+            await this.liveUpdateOrchestrationService.OnAssociationRemovedAsync(
+                removedFact,
+                callerCancellationToken);
+
+            // then
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
