@@ -236,5 +236,90 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             this.liveUpdateServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        // An envelope that verifies under neither name the address carries is refused before
+        // anything is read (§SEC14.8 rule 3, §EVN15 item 10): one this system did not sign, and
+        // one it signed for another address.
+        [Theory]
+        [InlineData(null)]
+        [InlineData(AssociationApprovedEventName)]
+        public async Task ShouldRefuseAnAssociationRemovedEnvelopeSignedForNeitherNameAsync(
+            string signedEventName)
+        {
+            // given
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            Association contentItemReaction = CreateContentItemReaction();
+            EventEnvelope<Association> unverifiedFact = CreateFactEnvelope(contentItemReaction);
+
+            var invalidLiveUpdateOrchestrationException =
+                new InvalidLiveUpdateOrchestrationException(
+                    message: "Invalid live update orchestration fact. " +
+                        "Integrity verification failed.");
+
+            var expectedLiveUpdateOrchestrationValidationException =
+                new LiveUpdateOrchestrationValidationException(
+                    message: "Live update orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidLiveUpdateOrchestrationException);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    unverifiedFact,
+                    It.IsAny<string>(),
+                    It.IsAny<EnvelopeDirection>()))
+                        .ReturnsAsync(false);
+
+            if (signedEventName is not null)
+            {
+                this.envelopeIntegrityBrokerMock.Setup(broker =>
+                    broker.VerifyAsync(
+                        unverifiedFact,
+                        signedEventName,
+                        EnvelopeDirection.Request))
+                            .ReturnsAsync(true);
+            }
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAssociationRemovedTask =
+                this.liveUpdateOrchestrationService.OnAssociationRemovedAsync(
+                    unverifiedFact,
+                    callerCancellationToken);
+
+            LiveUpdateOrchestrationValidationException
+                actualLiveUpdateOrchestrationValidationException =
+                    await Assert.ThrowsAsync<LiveUpdateOrchestrationValidationException>(
+                        onAssociationRemovedTask.AsTask);
+
+            // then
+            actualLiveUpdateOrchestrationValidationException.Should().BeEquivalentTo(
+                expectedLiveUpdateOrchestrationValidationException);
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    unverifiedFact,
+                    AssociationRemovedEventName,
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    unverifiedFact,
+                    AssociationHardRemovedEventName,
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(
+                    expectedLiveUpdateOrchestrationValidationException))),
+                Times.Once);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
