@@ -65,4 +65,20 @@ describe('liveUpdateService.useLiveUpdates', () => {
         // then
         expect(stopLiveUpdatesAsync).toHaveBeenCalledTimes(1);
     });
+
+    // Root renders again on every navigation (useLazyLoad reads the location), and a stop and a
+    // start between two renders would lose a message sent in the gap.
+    it('should keep its one connection when the component renders again', async () => {
+        // given
+        const { rerender } = await mountTheHookAsync();
+
+        // when
+        rerender();
+        rerender();
+        await act(async () => undefined);
+
+        // then
+        expect(startLiveUpdatesAsync).toHaveBeenCalledTimes(1);
+        expect(stopLiveUpdatesAsync).not.toHaveBeenCalled();
+    });
 });
