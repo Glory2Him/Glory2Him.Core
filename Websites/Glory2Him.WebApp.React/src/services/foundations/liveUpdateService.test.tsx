@@ -303,6 +303,7 @@ describe('liveUpdateService.useLiveUpdates', () => {
             // given
             arrange();
             await mountTheHookAsync();
+            const activeReads = await serveActiveReadsAsync();
             await cacheReadsAsync(everyCachedReadKey);
 
             // when
@@ -314,6 +315,11 @@ describe('liveUpdateService.useLiveUpdates', () => {
                 ...summaryReadKeysHoldingTheItem,
                 ...summaryReadKeysOfAnotherPage
             ]);
+
+            expect(activeReads.activeSettingRead).toHaveBeenCalledTimes(2);
+            expect(activeReads.activeSummaryRead).toHaveBeenCalledTimes(2);
+            expect(activeReads.activeSummaryReadHoldingTheItem).toHaveBeenCalledTimes(2);
+            expect(activeReads.activeOtherRead).toHaveBeenCalledTimes(1);
         });
 
     // The pages a first connection serves have just read, so reading them again would only
