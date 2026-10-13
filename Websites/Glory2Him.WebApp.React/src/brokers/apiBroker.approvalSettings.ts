@@ -1,4 +1,5 @@
 import ApiBroker from './apiBroker';
+import { ODataQuery } from '../models/foundations/oDataQueries/oDataQuery';
 import {
     ApprovalSetting,
     ApprovalSettingAddRequest
@@ -6,6 +7,25 @@ import {
 
 // api/ApprovalSettings — the §8.4 policy rows the approval evaluation resolves against. Six
 // endpoints; this broker uses five of them (the hard delete is deliberately not offered to a UI).
+// The OData query written onto the wire as it is handed: an option the query does not carry
+// does not travel.
+const toODataParameters = (query: ODataQuery): URLSearchParams => {
+    const parameters = new URLSearchParams();
+
+    if (query.filter !== undefined) parameters.set('$filter', query.filter);
+    if (query.orderBy !== undefined) parameters.set('$orderby', query.orderBy);
+    if (query.skip !== undefined) parameters.set('$skip', String(query.skip));
+    if (query.top !== undefined) parameters.set('$top', String(query.top));
+
+    return parameters;
+};
+
+const withQueryString = (url: string, parameters: URLSearchParams): string => {
+    const queryString = parameters.toString();
+
+    return queryString ? `${url}?${queryString}` : url;
+};
+
 class ApprovalSettingBroker {
     relativeApprovalSettingsUrl = '/api/approvalsettings';
     private apiBroker: ApiBroker = new ApiBroker();
@@ -15,8 +35,8 @@ class ApprovalSettingBroker {
     // a closed setting is not a policy and should not travel.
     //
     // No paging: the set is bounded by entity types times content types, which is small enough
-    // to read whole and page in the browser. That is why there is no query round-tripper here
-    // and why the list uses the shared DataTable rather than a server-side pager.
+    // to read whole and page in the browser. That is why this read takes no query and why the
+    // list uses the shared DataTable rather than a server-side pager.
     async GetApprovalSettingsAsync(): Promise<ApprovalSetting[]> {
         // Built by hand rather than through URLSearchParams, which writes a space as + — legal,
         // and decoded correctly on the way in, but it makes every logged query harder to read
@@ -70,6 +90,28 @@ class ApprovalSettingBroker {
         const url = reason.length > 0
             ? `${this.relativeApprovalSettingsUrl}/${approvalSettingId}`
                 + `?deletionReason=${encodeURIComponent(reason)}`
+            : `${this.relativeApprovalSettingsUrl}/${approvalSettingId}`;
+
+        const result = await this.apiBroker.DeleteAsync(url);
+
+        return result.data as ApprovalSetting;
+    }
+
+    async GetApprovalSettingsByQueryAsync(query: ODataQuery): Promise<ApprovalSetting[]> {
+        const url = withQueryString(this.relativeApprovalSettingsUrl, toODataParameters(query));
+        const result = await this.apiBroker.GetAsync(url);
+
+        return result.data as ApprovalSetting[];
+    }
+
+    // The reason travels exactly as handed, a blank one included; one handed as undefined does
+    // not travel at all.
+    async DeleteApprovalSettingAsync(
+        approvalSettingId: string,
+        deletionReason?: string): Promise<ApprovalSetting> {
+        const url = deletionReason !== undefined
+            ? `${this.relativeApprovalSettingsUrl}/${approvalSettingId}`
+                + `?deletionReason=${encodeURIComponent(deletionReason)}`
             : `${this.relativeApprovalSettingsUrl}/${approvalSettingId}`;
 
         const result = await this.apiBroker.DeleteAsync(url);

@@ -54,6 +54,25 @@ class PostBroker {
         const url = `${this.relativePostsUrl}/${id}`;
         await this.apiBroker.DeleteAsync(url);
     }
+
+    // Every field the query carries travels, an empty string or a 0 included; one handed as
+    // undefined does not travel at all.
+    async GetPostsByQueryAsync(query: PostQuery): Promise<PagedPosts> {
+        const parameters = new URLSearchParams();
+
+        if (query.q !== undefined) parameters.set('q', query.q);
+        if (query.category !== undefined) parameters.set('category', query.category);
+        if (query.tag !== undefined) parameters.set('tag', query.tag);
+        if (query.author !== undefined) parameters.set('author', query.author);
+        if (query.page !== undefined) parameters.set('page', String(query.page));
+        if (query.pageSize !== undefined) parameters.set('pageSize', String(query.pageSize));
+
+        const queryString = parameters.toString();
+        const url = queryString ? `${this.relativePostsUrl}?${queryString}` : this.relativePostsUrl;
+        const result = await this.apiBroker.GetAsync(url);
+
+        return result.data as PagedPosts;
+    }
 }
 
 export default PostBroker;

@@ -7,12 +7,32 @@ import {
 
 import { ContentType } from "../models/foundations/contentItemSettings/contentType";
 import ApiBroker from "./apiBroker";
+import { ODataQuery } from "../models/foundations/oDataQueries/oDataQuery";
 
 // OData string literals are single-quoted, and a single quote inside one is escaped by doubling
 // it. Search terms come from a free-text box, so this is the difference between a working
 // filter and a 400.
 const toODataLiteral = (value: string): string =>
     `'${value.replace(/'/g, "''")}'`;
+
+// The OData query written onto the wire as it is handed: an option the query does not carry
+// does not travel.
+const toODataParameters = (query: ODataQuery): URLSearchParams => {
+    const parameters = new URLSearchParams();
+
+    if (query.filter !== undefined) parameters.set('$filter', query.filter);
+    if (query.orderBy !== undefined) parameters.set('$orderby', query.orderBy);
+    if (query.skip !== undefined) parameters.set('$skip', String(query.skip));
+    if (query.top !== undefined) parameters.set('$top', String(query.top));
+
+    return parameters;
+};
+
+const withQueryString = (url: string, parameters: URLSearchParams): string => {
+    const queryString = parameters.toString();
+
+    return queryString ? `${url}?${queryString}` : url;
+};
 
 class ContentItemSettingBroker {
     relativeContentItemSettingsUrl = '/api/contentitemsettings';
@@ -179,6 +199,16 @@ class ContentItemSettingBroker {
             contentItemSetting);
 
         return result.data as ContentItemSetting;
+    }
+
+    async GetContentItemSettingsByQueryAsync(query: ODataQuery): Promise<ContentItemSetting[]> {
+        const url = withQueryString(
+            this.relativeContentItemSettingsUrl,
+            toODataParameters(query));
+
+        const result = await this.apiBroker.GetAsync(url);
+
+        return result.data as ContentItemSetting[];
     }
 }
 
