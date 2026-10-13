@@ -252,4 +252,26 @@ describe('DeletePersonalData', () => {
         expect(mocks.replace).toHaveBeenCalledOnce();
         expect(mocks.replace).toHaveBeenCalledWith('/');
     });
+
+    it('should load nothing when the deletion fails after the reader has left the page', async () => {
+        // given
+        let settle: DeletePersonalDataCallbacks | undefined;
+
+        mocks.deletePersonalDataMutate.mockImplementation(
+            (_password: string, callbacks: DeletePersonalDataCallbacks) => { settle = callbacks; });
+
+        renderDeletePersonalData();
+        await submitDeletion();
+        leaveThePage();
+
+        // when
+        await act(async () => settle?.onError(refusedWith('Error: Incorrect password.')));
+
+        // then
+        expect(mocks.replace).not.toHaveBeenCalled();
+        expect(mocks.assign).not.toHaveBeenCalled();
+        expect(mocks.reload).not.toHaveBeenCalled();
+        expect(mocks.setHref).not.toHaveBeenCalled();
+        expect(landedOn()).toBe(elsewherePath);
+    });
 });
