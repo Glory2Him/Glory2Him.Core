@@ -258,4 +258,20 @@ describe('liveUpdateService.useLiveUpdates', () => {
                 ...summaryReadKeysOfAnotherPage
             ]);
         });
+
+    // The pages a first connection serves have just read, so reading them again would only
+    // double every read the app makes when it loads (LiveUpdates.md, Risks).
+    it('should make nothing stale when the first start succeeds at once', async () => {
+        // given
+        const activeReads = await serveActiveReadsAsync();
+        await cacheReadsAsync(everyCachedReadKey);
+
+        // when
+        await mountTheHookAsync();
+
+        // then
+        expect(staleReadKeys(everyCachedReadKey)).toEqual([]);
+        expect(activeReads.activeSettingRead).toHaveBeenCalledTimes(1);
+        expect(activeReads.activeSummaryRead).toHaveBeenCalledTimes(1);
+    });
 });
