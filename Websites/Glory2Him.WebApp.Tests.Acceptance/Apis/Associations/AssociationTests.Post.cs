@@ -17,6 +17,7 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
 using AssociationSuggestionStatus = Glory2Him.Core.Models.Orchestrations.Associations.AssociationSuggestionStatus;
 using Glory2Him.WebApp.Tests.Acceptance.Models.Associations;
+using CoreAssociation = Glory2Him.Core.Models.Foundations.Associations.Association;
 using CoreContentItem = Glory2Him.Core.Models.Foundations.ContentItems.ContentItem;
 using CoreTag = Glory2Him.Core.Models.Foundations.Tags.Tag;
 
@@ -142,6 +143,119 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 // then
                 actualResponse.StatusCode.Should().Be(HttpStatusCode.OK);
                 actualResult.Status.Should().Be(AssociationSuggestionStatus.AlreadyApproved);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(publishedContentItem.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
+            }
+        }
+
+        [Fact]
+        public async Task ShouldAnswerAReactionCarryingOperationOwnedFieldsAsWithoutThemOverHttpAsync()
+        {
+            // given
+            // A field that got past the upsert's working copy would earn the create arm's 400
+            // (#1094). That is the only proof of the bypass pair's drop: the reaction is approved
+            // inside its own request, and the approval writes the pair from the access decision
+            // (AssociationOrchestrationService.md §6 rule 6).
+            CoreContentItem publishedContentItem = await InsertPublishedContentItemAsync();
+            Association inputPair = CreateReactionPair(publishedContentItem.Id, seededAmenReactionId);
+            string inputBody = CreateBodyCarryingOperationOwnedFields(inputPair);
+            this.apiBroker.ActAsContributor();
+
+            try
+            {
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.PostAssociationRawAsync(inputBody);
+
+                AssociationSuggestionResult actualResult = await ReadResultAsync(actualResponse);
+
+                // then: the answer ShouldGiveAReactionOverHttpAsync gets for the bare pair
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+                actualResult.Status.Should().Be(AssociationSuggestionStatus.Created);
+                actualResult.AssociationId.Should().NotBeEmpty();
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(publishedContentItem.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
+            }
+        }
+
+        [Fact]
+        public async Task ShouldStoreNoneOfTheDroppedFieldsOnAReactionOverHttpAsync()
+        {
+            // given
+            // The post ShouldAnswerAReactionCarryingOperationOwnedFieldsAsWithoutThemOverHttpAsync
+            // makes. No confidence process is built, so nothing but this post could write the five
+            // fields the stored row is read for (AssociationOrchestrationService.md §6 rule 6).
+            CoreContentItem publishedContentItem = await InsertPublishedContentItemAsync();
+            Association inputPair = CreateReactionPair(publishedContentItem.Id, seededAmenReactionId);
+            string inputBody = CreateBodyCarryingOperationOwnedFields(inputPair);
+            this.apiBroker.ActAsContributor();
+
+            try
+            {
+                HttpResponseMessage postResponse =
+                    await this.apiBroker.PostAssociationRawAsync(inputBody);
+
+                AssociationSuggestionResult postResult = await ReadResultAsync(postResponse);
+                this.apiBroker.ActAsSeededAdministrator();
+
+                // when
+                CoreAssociation storedAssociation =
+                    await this.apiBroker.GetCoreAssociationByIdAsync(postResult.AssociationId);
+
+                // then
+                storedAssociation.Should().NotBeNull();
+                storedAssociation.SortOrder.Should().BeNull();
+                storedAssociation.ConfidenceScore.Should().BeNull();
+                storedAssociation.ConfidenceReason.Should().BeNull();
+                storedAssociation.SourceBatchId.Should().BeNull();
+                storedAssociation.ModelVersion.Should().BeNull();
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(publishedContentItem.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
+            }
+        }
+
+        [Fact]
+        public async Task ShouldAnswerAReactionCarryingPublicationFieldsAsWithoutThemOverHttpAsync()
+        {
+            // given
+            // The create arm refuses both fields (§APR9.7.1's add row), so a body that reached it
+            // carrying them would earn 400. The stored row cannot show the drop, because the
+            // reaction's same-request approval publishes it (§ARC16.8.1, "Three answers change
+            // with this ruling").
+            CoreContentItem publishedContentItem = await InsertPublishedContentItemAsync();
+            Association inputPair = CreateReactionPair(publishedContentItem.Id, seededAmenReactionId);
+
+            string inputBody = CreateBodyCarrying(
+                inputPair,
+                ("isPublished", true),
+                ("publishDate", DateTimeOffset.UtcNow));
+
+            this.apiBroker.ActAsContributor();
+
+            try
+            {
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.PostAssociationRawAsync(inputBody);
+
+                AssociationSuggestionResult actualResult = await ReadResultAsync(actualResponse);
+
+                // then: the answer ShouldGiveAReactionOverHttpAsync gets for the bare pair
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+                actualResult.Status.Should().Be(AssociationSuggestionStatus.Created);
+                actualResult.AssociationId.Should().NotBeEmpty();
             }
             finally
             {

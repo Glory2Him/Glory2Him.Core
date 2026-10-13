@@ -16,11 +16,13 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Orchestrations.Associations;
+using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 
@@ -590,11 +592,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     upsertRequest,
                     TestContext.Current.CancellationToken);
 
-            // then: the reader's new row, answered Created with its id and nothing else
+            // then: the reader's new row, answered Created with its id and nothing else. The
+            // envelope is minted over the working copy, which Moq reads as it stands once the call
+            // is through: the row the foundation is handed.
             actualResult.Should().BeEquivalentTo(expectedResult);
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
-                broker.CreateAsync(upsertRequest),
+                broker.CreateAsync(It.Is(SameAssociationAs(expectedUpsertedAssociation))),
                     Times.Once);
 
             this.contentItemServiceMock.Verify(service =>
@@ -865,9 +869,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
 
             upsertRequest.UserId = $"another-reader-{Guid.NewGuid()}";
+            SetupInboundEnvelopeFor(CreateEndpointsOnlyFrom(upsertRequest));
+            ContentItem resolvedContentItem = SetupMethodPathEndpointReads(upsertRequest);
+            SetupAllowingSettingFor(resolvedContentItem);
 
             Association expectedUpsertedAssociation =
-                SetupReadersReaction(upsertRequest, readerUserId);
+                CreateResolvedReactionFrom(upsertRequest, resolvedContentItem, readerUserId);
 
             Association readersRow = expectedUpsertedAssociation.DeepClone();
             readersRow.Id = Guid.NewGuid();
@@ -986,7 +993,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Tag);
 
             upsertRequest.UserId = callerUserId;
-            SetupInboundEnvelopeFor(upsertRequest);
+            SetupInboundEnvelopeFor(CreateEndpointsOnlyFrom(upsertRequest));
             ContentItem resolvedContentItem = SetupMethodPathEndpointReads(upsertRequest);
             SetupAllowingSettingFor(resolvedContentItem);
 
@@ -998,23 +1005,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             expectedEditorialAssociation.EntityBContentType = null;
             expectedEditorialAssociation.EntityBScope = Scope.ThisVersionOnly;
             expectedEditorialAssociation.UserId = null;
+            expectedEditorialAssociation.ApprovalStatus = ApprovalStatus.Submitted;
 
             Association insertedAssociation = expectedEditorialAssociation.DeepClone();
             insertedAssociation.Id = Guid.NewGuid();
 
-            this.associationServiceMock.Setup(service =>
-                service.FindAssociationByPairAsync(
-                    It.Is(SameAssociationAs(expectedEditorialAssociation)),
-                    TestContext.Current.CancellationToken))
-                        .ReturnsAsync((AssociationPairMatch)null);
-
-            this.associationServiceMock.Setup(service =>
-                service.FindOverlappingAssociationAsync(
-                    It.Is(SameAssociationAs(expectedEditorialAssociation)),
-                    (Guid?)null,
-                    TestContext.Current.CancellationToken))
-                        .ReturnsAsync((AssociationPairMatch)null);
-
+            // Both probes answer nothing, the mock's default. Moq reads each argument as it stands
+            // once the call is through, and the probes and the add are handed the one working
+            // copy, so each probe is verified against what the add received.
             this.associationServiceMock.Setup(service =>
                 service.AddAssociationAsync(
                     It.Is(SameAssociationAs(expectedEditorialAssociation)),
@@ -1199,6 +1197,389 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     TestContext.Current.CancellationToken),
                 Times.Once);
 
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldHandTheAddOnlyTheEndpointsOnUpsertAsync()
+        {
+            // given: a contributor suggests a tag, and the hand-built body also sets every field
+            // outside the two-endpoint shape. The add is handed the endpoints, what the flow
+            // derives from them, no user and Submitted, and every other field at its default, so
+            // the add mints the Id (AssociationOrchestrationService.md §6 rules 1 and 2).
+            this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString());
+
+            Association upsertRequest =
+                CreateUpsertRequestCarryingEveryFieldBetween(EntityType.ContentItem, EntityType.Tag);
+
+            ContentItem resolvedContentItem = SetupMethodPathEndpointReads(upsertRequest);
+            SetupAllowingSettingFor(resolvedContentItem);
+
+            Association expectedAddedAssociation =
+                CreateResolvedSuggestionFrom(CreateEndpointsOnlyFrom(upsertRequest), resolvedContentItem);
+
+            Association insertedAssociation = expectedAddedAssociation.DeepClone();
+            insertedAssociation.Id = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.AddAssociationAsync(
+                    It.Is(SameAssociationAs(expectedAddedAssociation)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(insertedAssociation);
+
+            var expectedResult = new AssociationSuggestionResult
+            {
+                Status = AssociationSuggestionStatus.Created,
+                AssociationId = insertedAssociation.Id,
+            };
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then: Moq reads each argument as it stands once the call is through, and the probes
+            // and the add are handed the one working copy, so each probe is verified against what
+            // the add received
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindAssociationByPairAsync(
+                    It.Is(SameAssociationAs(expectedAddedAssociation)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindOverlappingAssociationAsync(
+                    It.Is(SameAssociationAs(expectedAddedAssociation)),
+                    (Guid?)null,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.AddAssociationAsync(
+                    It.Is(SameAssociationAs(expectedAddedAssociation)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldHandThePersonalUpsertOnlyTheEndpointsOnUpsertAsync()
+        {
+            // given: a reader gives a reaction, and the hand-built body also sets every field
+            // outside the two-endpoint shape. The personal upsert is handed the endpoints, what the
+            // flow derives from them, the reader's own user id from the envelope and Submitted,
+            // and every other field at its default (AssociationOrchestrationService.md §6 rules 1,
+            // 2 and 4).
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+
+            Association upsertRequest =
+                CreateUpsertRequestCarryingEveryFieldBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            ContentItem resolvedContentItem = SetupMethodPathEndpointReads(upsertRequest);
+            SetupAllowingSettingFor(resolvedContentItem);
+
+            Association expectedUpsertedAssociation =
+                CreateResolvedReactionFrom(
+                    CreateEndpointsOnlyFrom(upsertRequest),
+                    resolvedContentItem,
+                    readerUserId);
+
+            Association readersRow = expectedUpsertedAssociation.DeepClone();
+            readersRow.Id = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new PersonalAssociationUpsert
+                        {
+                            Outcome = PersonalAssociationUpsertOutcome.Created,
+                            Association = readersRow,
+                        });
+
+            var expectedResult = new AssociationSuggestionResult
+            {
+                Status = AssociationSuggestionStatus.Created,
+                AssociationId = readersRow.Id,
+            };
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.associationServiceMock.Verify(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // Every status a request can carry, walked from its enum, so a status added there reaches
+        // the test below the day it is added. Draft, the default, is a request that carries none.
+        public static TheoryData<ApprovalStatus> RequestedApprovalStatuses()
+        {
+            var requestedApprovalStatuses = new TheoryData<ApprovalStatus>();
+
+            foreach (ApprovalStatus approvalStatus in Enum.GetValues<ApprovalStatus>())
+            {
+                requestedApprovalStatuses.Add(approvalStatus);
+            }
+
+            return requestedApprovalStatuses;
+        }
+
+        [Theory]
+        [MemberData(nameof(RequestedApprovalStatuses))]
+        public async Task ShouldSuggestAnEditorialPairAtSubmittedOnUpsertAsync(
+            ApprovalStatus requestedApprovalStatus)
+        {
+            // given: a contributor suggests a tag, whatever status the body carries. The caller's
+            // status is dropped with the copy, and the editorial arm suggests the pair at
+            // Submitted, so it reaches the reviewer queue (§ARC16.8.1, "An editorial suggestion
+            // is created at Submitted too").
+            this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString());
+
+            Association upsertRequest =
+                CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Tag);
+
+            upsertRequest.ApprovalStatus = requestedApprovalStatus;
+            ContentItem resolvedContentItem = SetupMethodPathEndpointReads(upsertRequest);
+            SetupAllowingSettingFor(resolvedContentItem);
+
+            Association expectedAddedAssociation =
+                CreateResolvedSuggestionFrom(CreateEndpointsOnlyFrom(upsertRequest), resolvedContentItem);
+
+            Association insertedAssociation = expectedAddedAssociation.DeepClone();
+            insertedAssociation.Id = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.AddAssociationAsync(
+                    It.Is(SameAssociationAs(expectedAddedAssociation)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(insertedAssociation);
+
+            var expectedResult = new AssociationSuggestionResult
+            {
+                Status = AssociationSuggestionStatus.Created,
+                AssociationId = insertedAssociation.Id,
+            };
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.associationServiceMock.Verify(service =>
+                service.AddAssociationAsync(
+                    It.Is(SameAssociationAs(expectedAddedAssociation)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+        }
+
+        [Theory]
+        [InlineData(EntityType.Tag)]
+        [InlineData(EntityType.Reaction)]
+        public async Task ShouldLeaveTheCallersAssociationAsSentOnUpsertAsync(EntityType farEndType)
+        {
+            // given: a suggested tag, and a reader's reaction, each in a hand-built body that sets
+            // every field outside the two-endpoint shape. Everything after the null check reads
+            // and writes the working copy, so neither the derived fields, nor the UserId, nor
+            // either arm's status reach the caller's object (AssociationOrchestrationService.md §6
+            // rule 1).
+            string callerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(callerUserId);
+
+            Association upsertRequest =
+                CreateUpsertRequestCarryingEveryFieldBetween(EntityType.ContentItem, farEndType);
+
+            Association expectedRequest = upsertRequest.DeepClone();
+            ContentItem resolvedContentItem = SetupMethodPathEndpointReads(upsertRequest);
+            SetupAllowingSettingFor(resolvedContentItem);
+            Association endpointsOnly = CreateEndpointsOnlyFrom(upsertRequest);
+            var storedId = Guid.NewGuid();
+
+            if (farEndType == EntityType.Reaction)
+            {
+                Association expectedUpsertedAssociation =
+                    CreateResolvedReactionFrom(endpointsOnly, resolvedContentItem, callerUserId);
+
+                Association readersRow = expectedUpsertedAssociation.DeepClone();
+                readersRow.Id = storedId;
+
+                this.associationServiceMock.Setup(service =>
+                    service.UpsertPersonalAssociationAsync(
+                        It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                        TestContext.Current.CancellationToken))
+                            .ReturnsAsync(new PersonalAssociationUpsert
+                            {
+                                Outcome = PersonalAssociationUpsertOutcome.Created,
+                                Association = readersRow,
+                            });
+            }
+            else
+            {
+                Association expectedAddedAssociation =
+                    CreateResolvedSuggestionFrom(endpointsOnly, resolvedContentItem);
+
+                Association insertedAssociation = expectedAddedAssociation.DeepClone();
+                insertedAssociation.Id = storedId;
+
+                this.associationServiceMock.Setup(service =>
+                    service.AddAssociationAsync(
+                        It.Is(SameAssociationAs(expectedAddedAssociation)),
+                        TestContext.Current.CancellationToken))
+                            .ReturnsAsync(insertedAssociation);
+            }
+
+            var expectedResult = new AssociationSuggestionResult
+            {
+                Status = AssociationSuggestionStatus.Created,
+                AssociationId = storedId,
+            };
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualResult.Should().BeEquivalentTo(expectedResult);
+            upsertRequest.Should().BeEquivalentTo(expectedRequest);
+        }
+
+        [Fact]
+        public async Task ShouldMintTheUpsertEnvelopeOverTheWorkingCopyAsync()
+        {
+            // given: a reader gives a reaction in a hand-built body that sets every field outside
+            // the two-endpoint shape. The envelope the member mints is part of everything after
+            // the null check, so it carries the working copy — the four endpoint fields and
+            // nothing else — never the caller's object (AssociationOrchestrationService.md §6
+            // rule 1). The content is captured as the envelope is minted, because the flow goes
+            // on to write the derived fields onto that same copy.
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+
+            Association upsertRequest =
+                CreateUpsertRequestCarryingEveryFieldBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            Association expectedMintedContent = CreateEndpointsOnlyFrom(upsertRequest);
+            Association actualMintedContent = null;
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(It.Is<Association>(association =>
+                    association.EntityAKeyId == upsertRequest.EntityAKeyId)))
+                        .Callback<Association>(association =>
+                            actualMintedContent = association.DeepClone())
+                        .Returns((Association content) =>
+                            new ValueTask<EventEnvelope<Association>>(
+                                new EventEnvelope<Association>
+                                {
+                                    Content = content,
+                                    SecurityContext = this.ambientSecurityContext,
+                                    Metadata = new EventMetadata { EventId = Guid.NewGuid() },
+                                }));
+
+            ContentItem resolvedContentItem = SetupMethodPathEndpointReads(upsertRequest);
+            SetupAllowingSettingFor(resolvedContentItem);
+
+            Association expectedUpsertedAssociation =
+                CreateResolvedReactionFrom(expectedMintedContent, resolvedContentItem, readerUserId);
+
+            Association readersRow = expectedUpsertedAssociation.DeepClone();
+            readersRow.Id = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new PersonalAssociationUpsert
+                        {
+                            Outcome = PersonalAssociationUpsertOutcome.Created,
+                            Association = readersRow,
+                        });
+
+            // when
+            await this.associationOrchestrationService.UpsertAssociationAsync(
+                upsertRequest,
+                TestContext.Current.CancellationToken);
+
+            // then
+            actualMintedContent.Should().BeEquivalentTo(expectedMintedContent);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(It.Is<Association>(association =>
+                    association.EntityAKeyId == upsertRequest.EntityAKeyId)),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedUpserts))]
+        public async Task ShouldThrowValidationExceptionOnUpsertIfUserIsNotAuthenticatedWhateverTheRequestCarriesAndLogItAsync(
+            SecurityContext? unauthenticatedSecurityContext,
+            EntityType farEndType)
+        {
+            // given: an anonymous caller, in both shapes, whose hand-built body sets every field
+            // outside the two-endpoint shape — a UserId and an Approved status among them. The
+            // flow runs on the working copy as it ran on the request, so the contribution gate
+            // refuses the caller before any endpoint, setting or row is read
+            // (AssociationOrchestrationService.md §6; §1 rule 1).
+            this.ambientSecurityContext = unauthenticatedSecurityContext!;
+
+            Association upsertRequest =
+                CreateUpsertRequestCarryingEveryFieldBetween(EntityType.ContentItem, farEndType);
+
+            var unauthorizedAssociationOrchestrationException =
+                new UnauthorizedAssociationOrchestrationException(
+                    message: "The current user is not authenticated.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: unauthorizedAssociationOrchestrationException);
+
+            // when
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(upsertTask.AsTask);
+
+            // then: neither foundation member, nor anything else of the association's, is asked
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.reactionServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
             this.associationServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
