@@ -4,7 +4,8 @@ import { StatusMessage, extractApiErrorMessage } from '../statusMessage';
 
 // Ported from Blazor's Account/Pages/Manage/DeletePersonalData.razor. On success the
 // account is gone and the user is signed out, so the browser loads the home page afresh
-// in this page's place — nothing read for the reader stays in the tab (§UI20.8 rule 3).
+// in place of the reader's page, wherever they have gone — nothing read for the reader
+// stays in the tab (§UI20.8 rule 3).
 export function DeletePersonalData() {
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState<string | null>(null);
