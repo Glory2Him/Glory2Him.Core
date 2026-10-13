@@ -39,6 +39,16 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Hears <c>Association-Rejected</c>. A rejection takes a reaction out of a count only
+        /// where it overrides an approved one; one of an open round moves nothing, and the page's
+        /// read finds the counts as they were. Runs the reactions body
+        /// <see cref="OnAssociationApprovedAsync"/> runs.
+        /// </summary>
+        ValueTask<EventEnvelope<Association>?> OnAssociationRejectedAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Hears <c>ContentItemSetting-Added</c>. An override added for one item tells every open
         /// page that the settings it shows may have changed, naming no content item: every setting
         /// row is public-read (§SEC14.7 posture C rule 2).
