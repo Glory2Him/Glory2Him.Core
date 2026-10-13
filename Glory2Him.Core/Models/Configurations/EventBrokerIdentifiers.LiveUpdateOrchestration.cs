@@ -53,6 +53,12 @@ namespace Glory2Him.Core.Models.Configurations
         public const string LiveUpdateOrchestrationOnAssociationRestoredSubscriptionName =
             "LiveUpdateOrchestrationService.OnAssociationRestored";
 
+        public static readonly Guid LiveUpdateOrchestrationOnAssociationRepointedSubscriptionId =
+            new Guid("5bfe0660-dcd1-4259-9168-d077e3670c86");
+
+        public const string LiveUpdateOrchestrationOnAssociationRepointedSubscriptionName =
+            "LiveUpdateOrchestrationService.OnAssociationRepointed";
+
         public static readonly Guid LiveUpdateOrchestrationOnContentItemSettingAddedSubscriptionId =
             new Guid("337b7647-25e3-46b1-9ef3-afe39fcd5c3e");
 

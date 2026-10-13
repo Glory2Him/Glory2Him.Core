@@ -434,5 +434,83 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.associationServiceMock.VerifyNoOtherCalls();
             this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
         }
+
+        // Association-Repointed moves a reader's reaction from one count to another on the same
+        // item, so the forwarder hears it (LiveUpdates.md rule 6). The address carries the approval workflow's ear as well, and neither relies on
+        // which runs first (§EVN26 rule 5), so both subscriptions are captured and each is driven:
+        // the forwarder's lands on the forwarder, and the workflow's still lands on the workflow,
+        // under the id and name it had. Pinned as literals for the same reason.
+        [Fact]
+        public async Task ShouldSubscribeTheLiveUpdatesToAssociationRepointed()
+        {
+            // given
+            var repointedHandlers = new Dictionary<Guid, (EventSubscription Subscription,
+                Func<EventEnvelope<Association>, CancellationToken,
+                    ValueTask<EventEnvelope<Association>>> Handler)>();
+
+            CancellationToken registrationCancellationToken = TestContext.Current.CancellationToken;
+            using var deliveryCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken deliveryCancellationToken = deliveryCancellationTokenSource.Token;
+            var liveUpdateSubscriptionId = new Guid("5bfe0660-dcd1-4259-9168-d077e3670c86");
+            var approvalSubscriptionId = new Guid("01a0e17c-3a0f-7742-b50d-df70ca55b2fd");
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.SubscribeToAssociationEventAsync(
+                    It.IsAny<EventSubscription>(),
+                    AssociationEventOperation.Repointed,
+                    It.IsAny<Func<EventEnvelope<Association>, CancellationToken,
+                        ValueTask<EventEnvelope<Association>>>>(),
+                    registrationCancellationToken))
+                        .Callback<EventSubscription, AssociationEventOperation,
+                            Func<EventEnvelope<Association>, CancellationToken,
+                                ValueTask<EventEnvelope<Association>>>,
+                            CancellationToken>((subscription, _, handler, _) =>
+                                repointedHandlers.Add(subscription.Id, (subscription, handler)));
+
+            var liveUpdateEnvelope = new EventEnvelope<Association>();
+            var approvalEnvelope = new EventEnvelope<Association>();
+
+            await this.eventSubscriptionRegistration.RegisterAsync(registrationCancellationToken);
+
+            repointedHandlers.Keys.Should().BeEquivalentTo(
+                new[] { liveUpdateSubscriptionId, approvalSubscriptionId });
+
+            // when
+            await repointedHandlers[liveUpdateSubscriptionId].Handler(
+                liveUpdateEnvelope, deliveryCancellationToken);
+
+            await repointedHandlers[approvalSubscriptionId].Handler(
+                approvalEnvelope, deliveryCancellationToken);
+
+            // then
+            repointedHandlers[liveUpdateSubscriptionId].Subscription.Name.Should()
+                .Be("LiveUpdateOrchestrationService.OnAssociationRepointed");
+
+            repointedHandlers[approvalSubscriptionId].Subscription.Name.Should()
+                .Be("ApprovalOrchestrationService.OnAssociationRepointed");
+
+            Guid repointedAddressId =
+                EventBrokerIdentifiers.AssociationEventAddressIds[AssociationEventOperation.Repointed];
+
+            EventBrokerIdentifiers.AssociationEventAddresses[repointedAddressId]
+                .Should().Be("Association-Repointed");
+
+            this.liveUpdateOrchestrationServiceMock.Verify(service =>
+                service.OnAssociationRepointedAsync(
+                    liveUpdateEnvelope,
+                    deliveryCancellationToken),
+                Times.Once);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.OnAssociationRepointedAsync(
+                    approvalEnvelope,
+                    deliveryCancellationToken),
+                Times.Once);
+
+            this.liveUpdateOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
     }
 }
