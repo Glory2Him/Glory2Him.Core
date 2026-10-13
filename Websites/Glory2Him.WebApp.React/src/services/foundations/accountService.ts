@@ -140,13 +140,9 @@ export const accountService = {
 
     useLogout: () => {
         const accountBroker = new AccountBroker();
-        const queryClient = useQueryClient();
 
         return useMutation({
-            mutationFn: async () => await accountBroker.LogoutAsync(),
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ["AccountsGetCurrentUser"] });
-            }
+            mutationFn: async () => await accountBroker.LogoutAsync()
         });
     }
 };

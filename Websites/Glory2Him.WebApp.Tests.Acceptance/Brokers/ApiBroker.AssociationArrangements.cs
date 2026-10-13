@@ -26,6 +26,9 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
     /// </summary>
     public partial class ApiBroker
     {
+        public async ValueTask<CoreAssociation> GetCoreAssociationByIdAsync(Guid associationId) =>
+            await this.storageBroker.SelectAssociationByIdAsync(associationId);
+
         /// <summary>
         /// Physically removes an association if it is still there, and the approval round its
         /// write opened. A reader's reaction is written at <c>Submitted</c>, so the approval
