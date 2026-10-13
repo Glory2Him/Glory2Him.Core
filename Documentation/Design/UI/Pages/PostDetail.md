@@ -134,7 +134,7 @@ beneath it. While the item loads, or when it cannot be read, a single centred co
 
 | Property | Value | Why |
 | --- | --- | --- |
-| `associationCollection` | `[]` | The association read is not yet served over HTTP (§ARC17.4, not yet built); the page hands an honest empty set rather than an invented one. Item 4. |
+| `associationCollection` | `[]` | The page reads no associations (§ARC17.4; `UI/Components/AssociationPanel.md §7`); it hands an honest empty set rather than an invented one. Item 4. |
 | `onAdd` | `suggestTag` | Rule 2.7. |
 | `showBorder`, `cssClass` | `true`, `mb-4` | Frames the panel in the sidebar. |
 | The post's content type (`UI/Components/AssociationPanel.md rule 2.30`) | Not passed; the panel has no such property yet (`UI/Components/AssociationPanel.md §10 item 20`) | Rule 2.19; item 11. |

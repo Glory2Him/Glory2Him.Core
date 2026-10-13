@@ -262,8 +262,8 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
    nothing.** The page answers each panel's `onAdd` with a "coming soon" toast and reads no
    associations, so both lists are always empty (`myPostDetail.tsx` — `suggestTag`,
    `suggestBibleReference`, `associationCollection={[]}`). The server work is part built: the suggestion, an editorial pairing sent to `POST /api/associations`,
-   is served (#728, #1088), and the association read `GET /api/associations` is not
-   (§ARC17.4; `UI/Components/AssociationPanel.md §7`). The page's half is to read the item's associations, project
+   is served (#728, #1088), and the association read `GET /api/associations` is designed
+   (§ARC17.4; `DesignFeatures/AssociationReads.md`; `UI/Components/AssociationPanel.md §7`). The page's half is to read the item's associations, project
    them to the panels, and send each suggestion with the viewer as its owner
    (`UI/Components/AssociationPanel.md §7`, the note on `asSuggestedAssociation`).
 6. (needs issue) **Page gap — `/myposts/{id}`: the tag and Bible reference facet switches are not
