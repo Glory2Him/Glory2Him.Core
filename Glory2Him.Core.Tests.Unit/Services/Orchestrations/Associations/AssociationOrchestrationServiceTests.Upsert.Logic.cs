@@ -1388,6 +1388,78 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 Times.Once);
         }
 
+        [Theory]
+        [InlineData(EntityType.Tag)]
+        [InlineData(EntityType.Reaction)]
+        public async Task ShouldLeaveTheCallersAssociationAsSentOnUpsertAsync(EntityType farEndType)
+        {
+            // given: a suggested tag, and a reader's reaction, each in a hand-built body that sets
+            // every field outside the two-endpoint shape. Everything after the null check reads
+            // and writes the working copy, so neither the derived fields, nor the UserId, nor
+            // either arm's status reach the caller's object (AssociationOrchestrationService.md §6
+            // rule 1).
+            string callerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(callerUserId);
+
+            Association upsertRequest =
+                CreateUpsertRequestCarryingEveryFieldBetween(EntityType.ContentItem, farEndType);
+
+            Association expectedRequest = upsertRequest.DeepClone();
+            ContentItem resolvedContentItem = SetupMethodPathEndpointReads(upsertRequest);
+            SetupAllowingSettingFor(resolvedContentItem);
+            Association endpointsOnly = CreateEndpointsOnlyFrom(upsertRequest);
+            var storedId = Guid.NewGuid();
+
+            if (farEndType == EntityType.Reaction)
+            {
+                Association expectedUpsertedAssociation =
+                    CreateResolvedReactionFrom(endpointsOnly, resolvedContentItem, callerUserId);
+
+                Association readersRow = expectedUpsertedAssociation.DeepClone();
+                readersRow.Id = storedId;
+
+                this.associationServiceMock.Setup(service =>
+                    service.UpsertPersonalAssociationAsync(
+                        It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                        TestContext.Current.CancellationToken))
+                            .ReturnsAsync(new PersonalAssociationUpsert
+                            {
+                                Outcome = PersonalAssociationUpsertOutcome.Created,
+                                Association = readersRow,
+                            });
+            }
+            else
+            {
+                Association expectedAddedAssociation =
+                    CreateResolvedSuggestionFrom(endpointsOnly, resolvedContentItem);
+
+                Association insertedAssociation = expectedAddedAssociation.DeepClone();
+                insertedAssociation.Id = storedId;
+
+                this.associationServiceMock.Setup(service =>
+                    service.AddAssociationAsync(
+                        It.Is(SameAssociationAs(expectedAddedAssociation)),
+                        TestContext.Current.CancellationToken))
+                            .ReturnsAsync(insertedAssociation);
+            }
+
+            var expectedResult = new AssociationSuggestionResult
+            {
+                Status = AssociationSuggestionStatus.Created,
+                AssociationId = storedId,
+            };
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualResult.Should().BeEquivalentTo(expectedResult);
+            upsertRequest.Should().BeEquivalentTo(expectedRequest);
+        }
+
         // A signed-in reader's reaction on an item whose setting allows reactions: the envelope,
         // both endpoint reads and the setting. Hands back the row the foundation is to be handed.
         private Association SetupReadersReaction(Association upsertRequest, string readerUserId)
