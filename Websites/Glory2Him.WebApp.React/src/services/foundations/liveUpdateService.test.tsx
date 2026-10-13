@@ -240,6 +240,16 @@ describe('liveUpdateService.useLiveUpdates', () => {
             wayBack: 'a start that succeeds after an earlier attempt failed',
             arrange: () => startLiveUpdatesAsync.mockRejectedValueOnce(new Error('refused')),
             comeBackAsync: async () => { await vi.advanceTimersByTimeAsync(0); }
+        },
+        {
+            // Only a first start that succeeds at once is spared (rule 5). A connection started
+            // again after closing for good was away as long as it was down.
+            wayBack: 'a start that succeeds after the connection closed for good',
+            arrange: () => undefined,
+            comeBackAsync: async () => {
+                theListeners().onClosed();
+                await vi.advanceTimersByTimeAsync(0);
+            }
         }
     ])('should make every covered read stale when the connection comes back, by $wayBack',
         async ({ arrange, comeBackAsync }) => {
