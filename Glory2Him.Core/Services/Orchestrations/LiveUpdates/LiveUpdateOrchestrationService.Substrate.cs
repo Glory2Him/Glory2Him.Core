@@ -95,10 +95,24 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
                 return null;
             });
 
+        // A revive keeps the status the row was withdrawn at (§ARC16.2.2), so an approved
+        // reaction is counted again with no Association-Approved behind it: this fact is the only
+        // announcement of that count moving.
         public ValueTask<EventEnvelope<Association>?> OnAssociationRestoredAsync(
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default) =>
-            throw new System.NotImplementedException();
+            TryCatch<EventEnvelope<Association>?>(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                await ValidateAssociationFactEnvelopeAsync(
+                    envelope,
+                    eventName: "AssociationRestored");
+
+                await SendReactionsChangeAsync(envelope.Content, cancellationToken);
+
+                return null;
+            });
 
         public ValueTask<EventEnvelope<ContentItemSetting>?> OnContentItemSettingAddedAsync(
             EventEnvelope<ContentItemSetting> envelope,
