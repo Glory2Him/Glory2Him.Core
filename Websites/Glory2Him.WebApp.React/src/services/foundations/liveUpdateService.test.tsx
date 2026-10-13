@@ -532,4 +532,24 @@ describe('liveUpdateService.useLiveUpdates', () => {
                 ...summaryReadKeysOfAnotherPage
             ]);
         });
+
+    // A host newer than the page may send a type the page predates. LiveUpdateType's members are
+    // appended and never renumbered, so the next would be 3, and it names the item as a count
+    // message would.
+    it('should ignore a message of a type it does not know', async () => {
+        // given
+        await mountTheHookAsync();
+        await cacheReadsAsync(everyCachedReadKey);
+
+        const messageOfATypeItDoesNotKnow: LiveUpdate = {
+            type: 3 as LiveUpdateType,
+            contentItemId: 'item-1'
+        };
+
+        // when
+        await act(async () => theListeners().onLiveUpdate(messageOfATypeItDoesNotKnow));
+
+        // then
+        expect(staleReadKeys(everyCachedReadKey)).toEqual([]);
+    });
 });
