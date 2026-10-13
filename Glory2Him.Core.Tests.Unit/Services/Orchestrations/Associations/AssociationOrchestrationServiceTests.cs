@@ -282,6 +282,68 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             };
         }
 
+        // A hand-built upsert request between two endpoint types that also sets every other field
+        // Association carries (§ARC16.8.1's table), each to a value unlike both its default and
+        // what the flow derives for it, so an assertion can tell the three apart. Scope has two
+        // members, its default and the one a non-versioned endpoint derives, so the request's
+        // scope lies outside the enum.
+        private static Association CreateUpsertRequestCarryingEveryFieldBetween(
+            EntityType entityAType,
+            EntityType entityBType)
+        {
+            DateTimeOffset requestedWhen = DateTimeOffset.UtcNow;
+            Association upsertRequest = CreateRawUpsertRequestBetween(entityAType, entityBType);
+            upsertRequest.Id = Guid.NewGuid();
+            upsertRequest.EntityAGroupId = Guid.NewGuid();
+            upsertRequest.EntityAScope = (Scope)int.MaxValue;
+            upsertRequest.EntityAContentType = ContentType.Testimony;
+            upsertRequest.EntityBGroupId = Guid.NewGuid();
+            upsertRequest.EntityBScope = (Scope)int.MaxValue;
+            upsertRequest.EntityBContentType = ContentType.Testimony;
+            upsertRequest.UserId = $"claimed-{Guid.NewGuid()}";
+            upsertRequest.SortOrder = GetRandomNumber();
+            upsertRequest.ConfidenceScore = GetRandomNumber() + 0.5m;
+            upsertRequest.ConfidenceReason = GetRandomString();
+            upsertRequest.SourceBatchId = Guid.NewGuid();
+            upsertRequest.ModelVersion = GetRandomString();
+            upsertRequest.CreatedBy = GetRandomString();
+            upsertRequest.CreatedWhen = requestedWhen;
+            upsertRequest.UpdatedBy = GetRandomString();
+            upsertRequest.UpdatedWhen = requestedWhen;
+            upsertRequest.DeletedBy = GetRandomString();
+            upsertRequest.DeletedWhen = requestedWhen;
+            upsertRequest.IsDeleted = true;
+            upsertRequest.DeletionReason = GetRandomString();
+            upsertRequest.PublishDate = requestedWhen;
+            upsertRequest.IsPublished = true;
+            upsertRequest.ApprovalStatus = ApprovalStatus.Approved;
+            upsertRequest.IsApprovedByBypass = true;
+            upsertRequest.ApprovedByBypassReason = GetRandomString();
+
+            // computed by the database and read-only to application code, so set as a body
+            // deserialised into the model would set them
+            foreach (string effectiveIdName in new[]
+            {
+                nameof(Association.EntityAEffectiveId),
+                nameof(Association.EntityBEffectiveId),
+            })
+            {
+                typeof(Association).GetProperty(effectiveIdName).SetValue(upsertRequest, Guid.NewGuid());
+            }
+
+            return upsertRequest;
+        }
+
+        // The upsert's working copy of a request: its four endpoint fields and nothing else.
+        private static Association CreateEndpointsOnlyFrom(Association request) =>
+            new Association
+            {
+                EntityAType = request.EntityAType,
+                EntityAKeyId = request.EntityAKeyId,
+                EntityBType = request.EntityBType,
+                EntityBKeyId = request.EntityBKeyId,
+            };
+
         // The method path's endpoint reads for a request between any two of the types the flow
         // resolves, each keyed on its endpoint's key id and the test's token. A ContentItem is a
         // Story and a Link is a version, each in a group of its own, so a group never equals the key
@@ -473,6 +535,26 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             resolvedReaction.ApprovalStatus = ApprovalStatus.Submitted;
 
             return resolvedReaction;
+        }
+
+        // A suggested tag on an item as resolution derives it from the raw request: the item at
+        // its group under AllVersions with its content type, the tag at its own id under
+        // ThisVersionOnly with none, no user, and Submitted (§ARC16.8.1).
+        private static Association CreateResolvedSuggestionFrom(
+            Association rawRequest,
+            ContentItem resolvedContentItem)
+        {
+            Association resolvedSuggestion = rawRequest.DeepClone();
+            resolvedSuggestion.EntityAGroupId = resolvedContentItem.GroupId;
+            resolvedSuggestion.EntityAContentType = resolvedContentItem.ContentType;
+            resolvedSuggestion.EntityAScope = Scope.AllVersions;
+            resolvedSuggestion.EntityBGroupId = rawRequest.EntityBKeyId;
+            resolvedSuggestion.EntityBContentType = null;
+            resolvedSuggestion.EntityBScope = Scope.ThisVersionOnly;
+            resolvedSuggestion.UserId = null;
+            resolvedSuggestion.ApprovalStatus = ApprovalStatus.Submitted;
+
+            return resolvedSuggestion;
         }
 
         private static Expression<Func<Association, bool>> SameAssociationAs(

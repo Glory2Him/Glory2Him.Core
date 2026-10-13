@@ -1203,6 +1203,71 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldHandTheAddOnlyTheEndpointsOnUpsertAsync()
+        {
+            // given: a contributor suggests a tag, and the hand-built body also sets every field
+            // outside the two-endpoint shape. The add is handed the endpoints, what the flow
+            // derives from them, no user and Submitted, and every other field at its default, so
+            // the add mints the Id (AssociationOrchestrationService.md §6 rules 1 and 2).
+            this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString());
+
+            Association upsertRequest =
+                CreateUpsertRequestCarryingEveryFieldBetween(EntityType.ContentItem, EntityType.Tag);
+
+            ContentItem resolvedContentItem = SetupMethodPathEndpointReads(upsertRequest);
+            SetupAllowingSettingFor(resolvedContentItem);
+
+            Association expectedAddedAssociation =
+                CreateResolvedSuggestionFrom(CreateEndpointsOnlyFrom(upsertRequest), resolvedContentItem);
+
+            Association insertedAssociation = expectedAddedAssociation.DeepClone();
+            insertedAssociation.Id = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.AddAssociationAsync(
+                    It.Is(SameAssociationAs(expectedAddedAssociation)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(insertedAssociation);
+
+            var expectedResult = new AssociationSuggestionResult
+            {
+                Status = AssociationSuggestionStatus.Created,
+                AssociationId = insertedAssociation.Id,
+            };
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindAssociationByPairAsync(
+                    It.Is(SameAssociationAs(expectedAddedAssociation)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindOverlappingAssociationAsync(
+                    It.Is(SameAssociationAs(expectedAddedAssociation)),
+                    (Guid?)null,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.AddAssociationAsync(
+                    It.Is(SameAssociationAs(expectedAddedAssociation)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A signed-in reader's reaction on an item whose setting allows reactions: the envelope,
         // both endpoint reads and the setting. Hands back the row the foundation is to be handed.
         private Association SetupReadersReaction(Association upsertRequest, string readerUserId)
