@@ -7,7 +7,7 @@ The client decides the confidence suggestion and gathers nothing: `AccessBroker`
 
 **A new operation, not a widening of `ResolveAIReviewerPolicyAsync`.** `AIReviewerPolicyVerdict` leaves the thresholds out because *"nothing that resolves this verdict casts a vote or reads a score"*, and that stays true: its two callers, the offer gate and the automatic assignment (§APR8.6.2.1 gate 4), still read no score. The suggestion also depends on who asks (§APR8.6.2 suggestion rule 6), and the automatic assignment resolves that verdict under the roleless system identity, so carrying the suggestion there would give an actor-independent verdict an actor.
 
-**Its logic runs past eight criteria, and it stays one operation.** The band (suggestion rules 1–3) and who is answered it (rule 6) are one answer: splitting them would hand the band to a caller before anything decided they may see it. This is the shape `MayRecordApprovalReviewAsync` takes, deciding the veto, the tier, HR-1 and the window in one call.
+**It stays one operation.** Its logic is eight criteria, the band's three outcomes and its strict comparisons proven as one rule (§1 rule 6) with cases. The band (suggestion rules 1–3) and who is answered it (rule 6) are one answer: splitting them would hand the band to a caller before anything decided they may see it. This is the shape `MayRecordApprovalReviewAsync` takes, deciding the veto, the tier, HR-1 and the window in one call.
 
 ## 1. ResolveConfidenceSuggestionAsync (#1105)
 

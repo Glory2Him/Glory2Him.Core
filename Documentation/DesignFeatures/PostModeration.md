@@ -29,8 +29,8 @@ the association page's read of the post's settings the same day (rulings 22–23
 https://github.com/Glory2Him/Glory2Him.Core/issues/705#issuecomment-6113417041), and the rulings on
 the association page's breadcrumb the same day (rulings 24–26,
 https://github.com/Glory2Him/Glory2Him.Core/issues/705#issuecomment-6113739849). The two rulings
-on the confidence suggestion were made on 2026-10-13, under #863, and rule 13 records them. Each
-rule below names its source.
+on the confidence suggestion were made on 2026-10-13, under #863, and §APR8.6.2, *The confidence
+suggestion*, rules 3–5 record them. Each rule below names its source.
 
 1. **Two screens.** The post page, `/Admin/Posts/{contentItemId}`
    (`Design/UI/Pages/ContentItemModerationDetailPage.md`), and the association page, nested under
@@ -91,11 +91,9 @@ rule below names its source.
     and `AIApprovalConfidenceRejectionThreshold`. Where either the score or the reason is null the
     block is not rendered, and nothing about it affects the round: the confidence feature may be
     switched off, and the rest of the process must not depend on it. The suggestion is
-    §APR8.6.2's confidence suggestion, carried on Berean's status read: it is shown whatever
-    `IsAIReviewerOffered` and `IsAIAllowedToVote` resolve to, whether or not Berean has been asked
-    onto the round or withdrawn from it, and not at all where no settings row resolves and the
-    fail-closed default's `0.00`/`0.00` would answer (§APR8.6.2, *The confidence suggestion* rules
-    3–5). *(ruling 5; user rulings 2026-10-13, under #863)*
+    §APR8.6.2's confidence suggestion, carried on Berean's status read, and when it is answered is
+    §APR8.6.2's (*The confidence suggestion* rules 3–5). *(ruling 5; §APR8.6.2 records the user
+    rulings of 2026-10-13, under #863)*
 14. **What a moderator can do on an association.** Everything `ReviewPanel` offers for its round —
     see the reviews, cast a vote, request reviewers and Berean, decide it with its bypass (the
     publisher tier and `Administrators`), and reset a decided round (`Administrators`) — the
@@ -265,10 +263,22 @@ route:
   member, which no existing reader reads. The side panels the post page drops are still rendered
   by the reader pages.
 - **Berean's status read gathers the policy twice.** It already resolves the offer through
-  `IAccessBroker`, and the suggestion is a second gather of the policy rows and the row behind the
-  round. The read is refreshed with the round (`Design/UI/Pages/AssociationModerationDetailPage.md`
-  rule 2.18); the policy table holds a handful of rows, and the cost is accepted rather than
-  folding the suggestion into the actor-independent verdict (*Layer placement*).
+  `IAccessBroker`, and the suggestion is a second gather of the round, the row behind it and the
+  policy rows, with one call the read never made: building the caller's actor asks the security
+  client for their user id (`BuildActorAsync`). The read is refreshed with the round on both
+  moderation pages, every 15 seconds while the tab is visible
+  (`Design/UI/Pages/AssociationModerationDetailPage.md` rule 2.18,
+  `Design/UI/Pages/ContentItemModerationDetailPage.md` rule 2.12), so the post page pays the
+  second gather too, for content-item rounds whose suggestion is always none (§APR8.6.2 suggestion
+  rule 2). The policy table holds a handful of rows, and the cost is accepted on both pages rather
+  than folding the suggestion into the actor-independent verdict (*Layer placement*).
+- **A failed suggestion gather fails Berean's whole status.** The read answers nothing where the
+  gather fails (`Backend/Orchestrations/AIReviewerOrchestrationService.md §1` rule 6), so
+  `IsOffered` and `IsRequested` are lost with the suggestion, and on both moderation pages
+  `ReviewPanel` is handed neither Berean's row nor its place in the picker, as for any failed
+  status read today (`Design/UI/Pages/ContentItemModerationDetailPage.md` §4,
+  `aiReviewerCandidate` and `aiReviewerAssignment`). The status read already fails whole when the
+  offer's gather fails; the suggestion adds a second gather that can.
 - **A round with no record.** While the verdict read answers not-found, a round's controls stay
   disabled (rule 17), and a refresh that finds the record enables them. On the routes the pages
   read today, keyed by the item, that read opens a missing round itself for a `Draft` or
