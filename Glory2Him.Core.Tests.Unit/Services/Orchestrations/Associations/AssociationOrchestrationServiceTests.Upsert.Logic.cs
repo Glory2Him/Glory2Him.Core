@@ -22,6 +22,7 @@ using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Orchestrations.Associations;
+using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 
@@ -1528,6 +1529,56 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 Times.Once);
 
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedUpserts))]
+        public async Task ShouldThrowValidationExceptionOnUpsertIfUserIsNotAuthenticatedWhateverTheRequestCarriesAndLogItAsync(
+            SecurityContext? unauthenticatedSecurityContext,
+            EntityType farEndType)
+        {
+            // given: an anonymous caller, in both shapes, whose hand-built body sets every field
+            // outside the two-endpoint shape — a UserId and an Approved status among them. The
+            // flow runs on the working copy as it ran on the request, so the contribution gate
+            // refuses the caller before any endpoint, setting or row is read
+            // (AssociationOrchestrationService.md §6; §1 rule 1).
+            this.ambientSecurityContext = unauthenticatedSecurityContext!;
+
+            Association upsertRequest =
+                CreateUpsertRequestCarryingEveryFieldBetween(EntityType.ContentItem, farEndType);
+
+            var unauthorizedAssociationOrchestrationException =
+                new UnauthorizedAssociationOrchestrationException(
+                    message: "The current user is not authenticated.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: unauthorizedAssociationOrchestrationException);
+
+            // when
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(upsertTask.AsTask);
+
+            // then: neither foundation member, nor anything else of the association's, is asked
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.reactionServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
         // A signed-in reader's reaction on an item whose setting allows reactions: the envelope,
