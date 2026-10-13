@@ -430,5 +430,64 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             this.liveUpdateServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        // A failure beneath the ear is mapped, logged and rethrown, so the substrate records a
+        // failed delivery (§EVN11). Nothing retries it (§EVN23 rule 6).
+        [Theory]
+        [InlineData(ReactionsBodyFailure.ContentItemValidation)]
+        [InlineData(ReactionsBodyFailure.ContentItemDependencyValidation)]
+        [InlineData(ReactionsBodyFailure.ContentItemDependency)]
+        [InlineData(ReactionsBodyFailure.ContentItemService)]
+        [InlineData(ReactionsBodyFailure.Gather)]
+        [InlineData(ReactionsBodyFailure.LiveUpdateValidation)]
+        [InlineData(ReactionsBodyFailure.LiveUpdateDependency)]
+        [InlineData(ReactionsBodyFailure.LiveUpdateService)]
+        [InlineData(ReactionsBodyFailure.Timeout)]
+        public async Task ShouldRethrowAFailureBeneathAssociationRejectedAndLogItAsync(
+            ReactionsBodyFailure reactionsBodyFailure)
+        {
+            // given
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            Association contentItemReaction = CreateContentItemReaction();
+            EventEnvelope<Association> rejectedFact = CreateFactEnvelope(contentItemReaction);
+
+            Xeption expectedLiveUpdateOrchestrationException =
+                ArrangeReactionsBodyFailure(
+                    contentItemReaction,
+                    reactionsBodyFailure,
+                    callerCancellationToken);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    rejectedFact,
+                    AssociationRejectedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAssociationRejectedTask =
+                this.liveUpdateOrchestrationService.OnAssociationRejectedAsync(
+                    rejectedFact,
+                    callerCancellationToken);
+
+            Xeption actualLiveUpdateOrchestrationException =
+                await Assert.ThrowsAnyAsync<Xeption>(onAssociationRejectedTask.AsTask);
+
+            // then
+            actualLiveUpdateOrchestrationException.Should()
+                .BeOfType(expectedLiveUpdateOrchestrationException.GetType());
+
+            actualLiveUpdateOrchestrationException.Should().BeEquivalentTo(
+                expectedLiveUpdateOrchestrationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(
+                    expectedLiveUpdateOrchestrationException))),
+                Times.Once);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
