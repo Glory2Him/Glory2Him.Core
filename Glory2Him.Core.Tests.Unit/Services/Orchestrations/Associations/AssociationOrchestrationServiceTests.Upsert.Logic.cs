@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.Links;
@@ -1458,6 +1459,73 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             // then
             actualResult.Should().BeEquivalentTo(expectedResult);
             upsertRequest.Should().BeEquivalentTo(expectedRequest);
+        }
+
+        [Fact]
+        public async Task ShouldMintTheUpsertEnvelopeOverTheWorkingCopyAsync()
+        {
+            // given: a reader gives a reaction in a hand-built body that sets every field outside
+            // the two-endpoint shape. The envelope the member mints is part of everything after
+            // the null check, so it carries the working copy — the four endpoint fields and
+            // nothing else — never the caller's object (AssociationOrchestrationService.md §6
+            // rule 1). The content is captured as the envelope is minted, because the flow goes
+            // on to write the derived fields onto that same copy.
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+
+            Association upsertRequest =
+                CreateUpsertRequestCarryingEveryFieldBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            Association expectedMintedContent = CreateEndpointsOnlyFrom(upsertRequest);
+            Association actualMintedContent = null;
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(It.Is<Association>(association =>
+                    association.EntityAKeyId == upsertRequest.EntityAKeyId)))
+                        .Callback<Association>(association =>
+                            actualMintedContent = association.DeepClone())
+                        .Returns((Association content) =>
+                            new ValueTask<EventEnvelope<Association>>(
+                                new EventEnvelope<Association>
+                                {
+                                    Content = content,
+                                    SecurityContext = this.ambientSecurityContext,
+                                    Metadata = new EventMetadata { EventId = Guid.NewGuid() },
+                                }));
+
+            ContentItem resolvedContentItem = SetupMethodPathEndpointReads(upsertRequest);
+            SetupAllowingSettingFor(resolvedContentItem);
+
+            Association expectedUpsertedAssociation =
+                CreateResolvedReactionFrom(expectedMintedContent, resolvedContentItem, readerUserId);
+
+            Association readersRow = expectedUpsertedAssociation.DeepClone();
+            readersRow.Id = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new PersonalAssociationUpsert
+                        {
+                            Outcome = PersonalAssociationUpsertOutcome.Created,
+                            Association = readersRow,
+                        });
+
+            // when
+            await this.associationOrchestrationService.UpsertAssociationAsync(
+                upsertRequest,
+                TestContext.Current.CancellationToken);
+
+            // then
+            actualMintedContent.Should().BeEquivalentTo(expectedMintedContent);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(It.Is<Association>(association =>
+                    association.EntityAKeyId == upsertRequest.EntityAKeyId)),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
         }
 
         // A signed-in reader's reaction on an item whose setting allows reactions: the envelope,
