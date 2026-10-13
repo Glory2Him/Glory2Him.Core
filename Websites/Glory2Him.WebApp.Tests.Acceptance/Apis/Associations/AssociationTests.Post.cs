@@ -227,6 +227,45 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
         }
 
         [Fact]
+        public async Task ShouldAnswerAReactionCarryingPublicationFieldsAsWithoutThemOverHttpAsync()
+        {
+            // given
+            // The create arm refuses both fields (§APR9.7.1's add row), so a body that reached it
+            // carrying them would earn 400. The stored row cannot show the drop, because the
+            // reaction's same-request approval publishes it (§ARC16.8.1, "Three answers change
+            // with this ruling").
+            CoreContentItem publishedContentItem = await InsertPublishedContentItemAsync();
+            Association inputPair = CreateReactionPair(publishedContentItem.Id, seededAmenReactionId);
+
+            string inputBody = CreateBodyCarrying(
+                inputPair,
+                ("isPublished", true),
+                ("publishDate", DateTimeOffset.UtcNow));
+
+            this.apiBroker.ActAsContributor();
+
+            try
+            {
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.PostAssociationRawAsync(inputBody);
+
+                AssociationSuggestionResult actualResult = await ReadResultAsync(actualResponse);
+
+                // then: the answer ShouldGiveAReactionOverHttpAsync gets for the bare pair
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+                actualResult.Status.Should().Be(AssociationSuggestionStatus.Created);
+                actualResult.AssociationId.Should().NotBeEmpty();
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(publishedContentItem.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
+            }
+        }
+
+        [Fact]
         public async Task ShouldReturnUnauthorizedOnPostIfCallerIsAnonymousAsync()
         {
             // given
