@@ -59,10 +59,23 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
                 return null;
             });
 
+        // The approval workflow's ear hears this address too, and the two rely on no order
+        // between them (§EVN26 rule 5).
         public ValueTask<EventEnvelope<Association>?> OnAssociationSubmittedAsync(
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default) =>
-            throw new System.NotImplementedException();
+            TryCatch<EventEnvelope<Association>?>(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                await ValidateAssociationFactEnvelopeAsync(
+                    envelope,
+                    eventName: "AssociationSubmitted");
+
+                await SendReactionsChangeAsync(envelope.Content, cancellationToken);
+
+                return null;
+            });
 
         public ValueTask<EventEnvelope<ContentItemSetting>?> OnContentItemSettingAddedAsync(
             EventEnvelope<ContentItemSetting> envelope,
