@@ -46,5 +46,14 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
         ValueTask<EventEnvelope<ContentItemSetting>?> OnContentItemSettingAddedAsync(
             EventEnvelope<ContentItemSetting> envelope,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Hears <c>ContentItemSetting-Modified</c>. An amended override, or an amended content
+        /// type default, tells every open page that the settings it shows may have changed,
+        /// naming no content item.
+        /// </summary>
+        ValueTask<EventEnvelope<ContentItemSetting>?> OnContentItemSettingModifiedAsync(
+            EventEnvelope<ContentItemSetting> envelope,
+            CancellationToken cancellationToken = default);
     }
 }
