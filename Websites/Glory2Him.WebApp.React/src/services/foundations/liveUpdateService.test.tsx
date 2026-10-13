@@ -65,6 +65,11 @@ const settingMessage: LiveUpdate = {
     contentItemId: null
 };
 
+const countMessageFor = (contentItemId: string | null): LiveUpdate => ({
+    type: LiveUpdateType.ContentItemReactionsChanged,
+    contentItemId
+});
+
 describe('liveUpdateService.useLiveUpdates', () => {
     let queryClient: QueryClient;
 
@@ -199,5 +204,20 @@ describe('liveUpdateService.useLiveUpdates', () => {
         expect(activeReads.activeSettingRead).toHaveBeenCalledTimes(2);
         expect(activeReads.activeSummaryRead).toHaveBeenCalledTimes(2);
         expect(activeReads.activeOtherRead).toHaveBeenCalledTimes(1);
+    });
+
+    // A count message names the one version whose counts may have moved, so only the pages
+    // holding it read again: a reader's page and a signed-out reader's page alike, and nothing
+    // else, not another page's summaries, nor the item's other reads, nor any setting read.
+    it('should make stale only the summary reads holding the item on a count message', async () => {
+        // given
+        await mountTheHookAsync();
+        await cacheReadsAsync(everyCachedReadKey);
+
+        // when
+        await act(async () => theListeners().onLiveUpdate(countMessageFor('item-1')));
+
+        // then
+        expect(staleReadKeys(everyCachedReadKey)).toEqual(summaryReadKeysHoldingTheItem);
     });
 });
