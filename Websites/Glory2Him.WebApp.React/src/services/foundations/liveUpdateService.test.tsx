@@ -405,17 +405,17 @@ describe('liveUpdateService.useLiveUpdates', () => {
         expect(retryDelays).toEqual([0, 2000, 10000, 30000, 30000, 30000, 30000, 30000, 30000]);
     });
 
-    // The two ways the hook could tell anyone of a failure: a toast, or letting the failure go
-    // unhandled, which the browser reports as an uncaught error. The app has no handler that
+    // The two ways the hook could tell anyone about the connection: a toast, or letting a failure
+    // go unhandled, which the browser reports as an uncaught error. The app has no handler that
     // turns the second into anything a reader sees, so it is heard here as the test runner
     // hears it, on the process, once the turn it escaped in has ended.
-    const failuresLetGoOfAsync = async (failAsync: () => Promise<void>) => {
+    const failuresLetGoOfAsync = async (bringAboutAsync: () => Promise<void>) => {
         const failuresLetGo: unknown[] = [];
         const hear = (reason: unknown) => failuresLetGo.push(reason);
         process.on('unhandledRejection', hear);
 
         try {
-            await failAsync();
+            await bringAboutAsync();
             await new Promise(resolve => setImmediate(resolve));
         } finally {
             process.off('unhandledRejection', hear);
@@ -426,16 +426,16 @@ describe('liveUpdateService.useLiveUpdates', () => {
 
     it.each([
         {
-            failure: 'a start that fails',
-            failAsync: async () => {
+            occasion: 'a start that fails',
+            bringAboutAsync: async () => {
                 startLiveUpdatesAsync.mockRejectedValue(refused);
                 await mountTheHookAsync();
                 await advanceTheClockAsync(45000);
             }
         },
         {
-            failure: 'a connection that is lost',
-            failAsync: async () => {
+            occasion: 'a connection that is lost',
+            bringAboutAsync: async () => {
                 await mountTheHookAsync();
                 startLiveUpdatesAsync.mockRejectedValue(refused);
                 act(() => theListeners().onClosed());
@@ -443,16 +443,23 @@ describe('liveUpdateService.useLiveUpdates', () => {
             }
         },
         {
-            failure: 'a stop that fails',
-            failAsync: async () => {
+            occasion: 'SignalR reconnecting',
+            bringAboutAsync: async () => {
+                await mountTheHookAsync();
+                await act(async () => theListeners().onReconnected());
+            }
+        },
+        {
+            occasion: 'a stop that fails',
+            bringAboutAsync: async () => {
                 stopLiveUpdatesAsync.mockRejectedValue(refused);
                 const { unmount } = await mountTheHookAsync();
                 unmount();
             }
         }
-    ])('should announce nothing when the connection fails, on $failure', async ({ failAsync }) => {
+    ])('should announce nothing about the connection, on $occasion', async ({ bringAboutAsync }) => {
         // when
-        const failuresLetGo = await failuresLetGoOfAsync(failAsync);
+        const failuresLetGo = await failuresLetGoOfAsync(bringAboutAsync);
 
         // then
         expect(failuresLetGo).toEqual([]);
