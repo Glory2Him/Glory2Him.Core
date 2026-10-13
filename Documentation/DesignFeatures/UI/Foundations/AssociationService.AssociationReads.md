@@ -29,7 +29,8 @@ useGetAssociationsByEffectiveId: (entityType: EntityType, effectiveId: string) =
 2. **It reads page after page until the answer is whole.** Each request is ordered `id`, asks
    `top` 50, and asks `skip` 0 for the first page, then 50 more for each page after it. It asks the
    next page only after a page that held 50 rows, and stops at the first page that held fewer
-   (AssociationReads.md rule 6: no answer says whether it was cut short).
+   (AssociationReads.md rule 6: no answer says whether it was cut short). A page's rows are
+   counted as the request answered them, a row an earlier page already answered included (rule 3).
 3. **It answers with every page's rows, the pages in order, as one collection, and each row
    once.** A row whose id an earlier page already answered is left where it first came. The set
    can change between two requests, so a row can come back on a later page
