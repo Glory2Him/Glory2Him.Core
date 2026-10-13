@@ -6,7 +6,9 @@ import { liveUpdateService } from './liveUpdateService';
 import type LiveUpdateBroker from '../../brokers/hubBroker.liveUpdates';
 import { toastError } from '../../brokers/toastBroker.error';
 import { toastSuccess } from '../../brokers/toastBroker.success';
+import { AuthProvider } from '../../components/securitys/authProvider';
 import { EntityType } from '../../models/foundations/approvalSettings/approvalSetting';
+import { createAuthState, signInAs, signOut } from '../../tests/testAuth';
 
 import {
     LiveUpdate,
@@ -37,6 +39,15 @@ vi.mock('../../brokers/toastBroker.error', () => ({
 
 vi.mock('../../brokers/toastBroker.success', () => ({
     toastSuccess: vi.fn()
+}));
+
+// The reader the app's AuthProvider names, set per test.
+const authState = createAuthState();
+
+vi.mock('./accountService', () => ({
+    accountService: {
+        useGetCurrentUser: () => authState
+    }
 }));
 
 // THE READS A MESSAGE MAY REACH, each keyed as the hook that makes it keys it. Every one names
@@ -95,7 +106,11 @@ describe('liveUpdateService.useLiveUpdates', () => {
     );
 
     // The listeners the hook handed its latest start, which is what the broker calls.
-    const theListeners = (): LiveUpdateListeners => startLiveUpdatesAsync.mock.lastCall![0];
+    const theListeners = (): LiveUpdateListeners => {
+        expect(startLiveUpdatesAsync, 'a started connection').toHaveBeenCalled();
+
+        return startLiveUpdatesAsync.mock.lastCall![0];
+    };
 
     // Cached from another screen: no page is serving them, so a read made stale is marked and
     // not read again.
@@ -483,4 +498,38 @@ describe('liveUpdateService.useLiveUpdates', () => {
         // then
         expect(startLiveUpdatesAsync).toHaveBeenCalledTimes(startsAtUnmount);
     });
+
+    // Every reader's connection is the same, and hears the same messages (§SEC14.8 rule 2), so
+    // the hook is mounted under each kind of reader the app's own AuthProvider can name.
+    it.each([
+        { reader: 'a signed-out reader', signIn: () => signOut(authState) },
+        { reader: 'a signed-in reader with no role', signIn: () => signInAs(authState, []) },
+        { reader: 'an administrator', signIn: () => signInAs(authState, ['Administrators']) }
+    ])('should hold the same connection for every reader, signed in or not, for $reader',
+        async ({ signIn }) => {
+            // given
+            signIn();
+
+            const wrapperUnderTheReader = ({ children }: { children: ReactNode }) => (
+                <QueryClientProvider client={queryClient}>
+                    <AuthProvider>{children}</AuthProvider>
+                </QueryClientProvider>
+            );
+
+            renderHook(() => liveUpdateService.useLiveUpdates(), { wrapper: wrapperUnderTheReader });
+            await act(async () => undefined);
+            await cacheReadsAsync(everyCachedReadKey);
+
+            // when
+            await act(async () => theListeners().onLiveUpdate(settingMessage));
+
+            // then
+            expect(startLiveUpdatesAsync).toHaveBeenCalledTimes(1);
+
+            expect(staleReadKeys(everyCachedReadKey)).toEqual([
+                ...settingReadKeys,
+                ...summaryReadKeysHoldingTheItem,
+                ...summaryReadKeysOfAnotherPage
+            ]);
+        });
 });
