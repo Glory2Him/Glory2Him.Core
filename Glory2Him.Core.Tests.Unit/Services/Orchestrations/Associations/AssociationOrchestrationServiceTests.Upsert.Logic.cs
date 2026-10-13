@@ -998,23 +998,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             expectedEditorialAssociation.EntityBContentType = null;
             expectedEditorialAssociation.EntityBScope = Scope.ThisVersionOnly;
             expectedEditorialAssociation.UserId = null;
+            expectedEditorialAssociation.ApprovalStatus = ApprovalStatus.Submitted;
 
             Association insertedAssociation = expectedEditorialAssociation.DeepClone();
             insertedAssociation.Id = Guid.NewGuid();
 
-            this.associationServiceMock.Setup(service =>
-                service.FindAssociationByPairAsync(
-                    It.Is(SameAssociationAs(expectedEditorialAssociation)),
-                    TestContext.Current.CancellationToken))
-                        .ReturnsAsync((AssociationPairMatch)null);
-
-            this.associationServiceMock.Setup(service =>
-                service.FindOverlappingAssociationAsync(
-                    It.Is(SameAssociationAs(expectedEditorialAssociation)),
-                    (Guid?)null,
-                    TestContext.Current.CancellationToken))
-                        .ReturnsAsync((AssociationPairMatch)null);
-
+            // Both probes answer nothing, the mock's default. Moq reads each argument as it stands
+            // once the call is through, and the probes and the add are handed the one working
+            // copy, so each probe is verified against what the add received.
             this.associationServiceMock.Setup(service =>
                 service.AddAssociationAsync(
                     It.Is(SameAssociationAs(expectedEditorialAssociation)),
@@ -1242,7 +1233,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     upsertRequest,
                     TestContext.Current.CancellationToken);
 
-            // then
+            // then: Moq reads each argument as it stands once the call is through, and the probes
+            // and the add are handed the one working copy, so each probe is verified against what
+            // the add received
             actualResult.Should().BeEquivalentTo(expectedResult);
 
             this.associationServiceMock.Verify(service =>
