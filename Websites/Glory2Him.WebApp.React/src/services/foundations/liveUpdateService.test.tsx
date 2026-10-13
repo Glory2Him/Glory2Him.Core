@@ -274,4 +274,60 @@ describe('liveUpdateService.useLiveUpdates', () => {
         expect(activeReads.activeSettingRead).toHaveBeenCalledTimes(1);
         expect(activeReads.activeSummaryRead).toHaveBeenCalledTimes(1);
     });
+
+    const advanceTheClockAsync = async (milliseconds: number) =>
+        await act(async () => { await vi.advanceTimersByTimeAsync(milliseconds); });
+
+    // Moves the clock on through each delay in turn, proving the connection is started again
+    // once that delay has passed and not a millisecond sooner.
+    const expectStartedAgainAfterAsync = async (delaysInMilliseconds: ReadonlyArray<number>) => {
+        for (const delay of delaysInMilliseconds) {
+            const startsBefore = startLiveUpdatesAsync.mock.calls.length;
+
+            if (delay > 0) {
+                await advanceTheClockAsync(delay - 1);
+
+                expect(startLiveUpdatesAsync, `${delay - 1} ms into a ${delay} ms wait`)
+                    .toHaveBeenCalledTimes(startsBefore);
+            }
+
+            await advanceTheClockAsync(delay > 0 ? 1 : 0);
+
+            expect(startLiveUpdatesAsync, `once a ${delay} ms wait has passed`)
+                .toHaveBeenCalledTimes(startsBefore + 1);
+        }
+    };
+
+    const refused = new Error('refused');
+
+    it.each([
+        {
+            trigger: 'a start that fails',
+            arrangeAsync: async () => {
+                startLiveUpdatesAsync.mockRejectedValue(refused);
+                await mountTheHookAsync();
+            }
+        },
+        {
+            // Started at the second attempt, before it closes, so the schedule the close
+            // follows is a fresh one, not the rest of the first.
+            trigger: 'a connection that closes for good',
+            arrangeAsync: async () => {
+                startLiveUpdatesAsync
+                    .mockRejectedValueOnce(refused)
+                    .mockResolvedValueOnce(undefined)
+                    .mockRejectedValue(refused);
+
+                await mountTheHookAsync();
+                await advanceTheClockAsync(0);
+                act(() => theListeners().onClosed());
+            }
+        }
+    ])('should start the connection again on the schedule, after $trigger', async ({ arrangeAsync }) => {
+        // given
+        await arrangeAsync();
+
+        // then
+        await expectStartedAgainAfterAsync([0, 2000, 10000, 30000, 30000, 30000]);
+    });
 });
