@@ -36,10 +36,18 @@ export const liveUpdateService = {
                 onClosed: () => undefined
             };
 
+            let isFirstStart = true;
+
             const startAsync = async (): Promise<void> => {
+                const isComingBack = isFirstStart === false;
+                isFirstStart = false;
+
                 try {
                     await liveUpdateBroker.startLiveUpdatesAsync(listeners, () => null);
-                    makeEveryCoveredReadStale();
+
+                    if (isComingBack) {
+                        makeEveryCoveredReadStale();
+                    }
                 } catch {
                     window.setTimeout(() => void startAsync(), 0);
                 }
