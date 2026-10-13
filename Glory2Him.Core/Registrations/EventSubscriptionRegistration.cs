@@ -2286,6 +2286,26 @@ namespace Glory2Him.Core.Registrations
                         service => service.OnAssociationApprovedAsync),
                 cancellationToken: cancellationToken);
 
+            await this.eventBroker.SubscribeToAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationRejectedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationRejectedSubscriptionName,
+
+                    Description = "Tells every open page that the reaction counts of the content " +
+                        "item's canonically visible version may have moved, where that version " +
+                        "exists and its winning setting shows reactions. A rejection moves a " +
+                        "count only where it overrides an approved reaction."
+                },
+                operation: AssociationEventOperation.Rejected,
+                associationEventHandler:
+                    Scoped<ILiveUpdateOrchestrationService, Association>(
+                        service => service.OnAssociationRejectedAsync),
+                cancellationToken: cancellationToken);
+
             await this.eventBroker.SubscribeToContentItemSettingEventAsync(
                 subscription: new EventSubscription
                 {
