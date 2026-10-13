@@ -13,7 +13,7 @@ using System;
 
 namespace Glory2Him.Core.Models.Foundations.LiveUpdates
 {
-    public class LiveUpdate
+    public sealed class LiveUpdate
     {
         /// <summary>
         /// The kind of read an open page may be holding that is now stale.
