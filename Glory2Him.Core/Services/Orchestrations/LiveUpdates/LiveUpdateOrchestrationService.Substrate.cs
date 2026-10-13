@@ -77,6 +77,11 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
                 return null;
             });
 
+        public ValueTask<EventEnvelope<Association>?> OnAssociationRemovedAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default) =>
+            throw new System.NotImplementedException();
+
         public ValueTask<EventEnvelope<ContentItemSetting>?> OnContentItemSettingAddedAsync(
             EventEnvelope<ContentItemSetting> envelope,
             CancellationToken cancellationToken = default) =>
