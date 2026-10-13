@@ -4,6 +4,8 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { liveUpdateService } from './liveUpdateService';
 import type LiveUpdateBroker from '../../brokers/hubBroker.liveUpdates';
+import { toastError } from '../../brokers/toastBroker.error';
+import { toastSuccess } from '../../brokers/toastBroker.success';
 import { EntityType } from '../../models/foundations/approvalSettings/approvalSetting';
 
 import {
@@ -15,11 +17,26 @@ import {
 const startLiveUpdatesAsync = vi.fn<LiveUpdateBroker['startLiveUpdatesAsync']>();
 const stopLiveUpdatesAsync = vi.fn<LiveUpdateBroker['stopLiveUpdatesAsync']>();
 
+// Each member hands the hook a promise of its own that settles as the spy's does. The spy
+// handles every promise it returns, to record how it settled, so a failure the hook let go of
+// unhandled would never be heard if the hook were handed the spy's own promise.
 vi.mock('../../brokers/hubBroker.liveUpdates', () => ({
     default: class {
-        startLiveUpdatesAsync = startLiveUpdatesAsync;
-        stopLiveUpdatesAsync = stopLiveUpdatesAsync;
+        startLiveUpdatesAsync: LiveUpdateBroker['startLiveUpdatesAsync'] =
+            (listeners, nextRetryDelayInMilliseconds) =>
+                startLiveUpdatesAsync(listeners, nextRetryDelayInMilliseconds).then(() => undefined);
+
+        stopLiveUpdatesAsync: LiveUpdateBroker['stopLiveUpdatesAsync'] =
+            () => stopLiveUpdatesAsync().then(() => undefined);
     }
+}));
+
+vi.mock('../../brokers/toastBroker.error', () => ({
+    toastError: vi.fn()
+}));
+
+vi.mock('../../brokers/toastBroker.success', () => ({
+    toastSuccess: vi.fn()
 }));
 
 // THE READS A MESSAGE MAY REACH, each keyed as the hook that makes it keys it. Every one names
@@ -352,5 +369,60 @@ describe('liveUpdateService.useLiveUpdates', () => {
 
         // then
         expect(retryDelays).toEqual([0, 2000, 10000, 30000, 30000, 30000, 30000, 30000, 30000]);
+    });
+
+    // The two ways the hook could tell anyone of a failure: a toast, or letting the failure go
+    // unhandled, which the browser reports as an uncaught error. The app has no handler that
+    // turns the second into anything a reader sees, so it is heard here as the test runner
+    // hears it, on the process, once the turn it escaped in has ended.
+    const failuresLetGoOfAsync = async (failAsync: () => Promise<void>) => {
+        const failuresLetGo: unknown[] = [];
+        const hear = (reason: unknown) => failuresLetGo.push(reason);
+        process.on('unhandledRejection', hear);
+
+        try {
+            await failAsync();
+            await new Promise(resolve => setImmediate(resolve));
+        } finally {
+            process.off('unhandledRejection', hear);
+        }
+
+        return failuresLetGo;
+    };
+
+    it.each([
+        {
+            failure: 'a start that fails',
+            failAsync: async () => {
+                startLiveUpdatesAsync.mockRejectedValue(refused);
+                await mountTheHookAsync();
+                await advanceTheClockAsync(45000);
+            }
+        },
+        {
+            failure: 'a connection that is lost',
+            failAsync: async () => {
+                await mountTheHookAsync();
+                startLiveUpdatesAsync.mockRejectedValue(refused);
+                act(() => theListeners().onClosed());
+                await advanceTheClockAsync(45000);
+            }
+        },
+        {
+            failure: 'a stop that fails',
+            failAsync: async () => {
+                stopLiveUpdatesAsync.mockRejectedValue(refused);
+                const { unmount } = await mountTheHookAsync();
+                unmount();
+            }
+        }
+    ])('should announce nothing when the connection fails, on $failure', async ({ failAsync }) => {
+        // when
+        const failuresLetGo = await failuresLetGoOfAsync(failAsync);
+
+        // then
+        expect(failuresLetGo).toEqual([]);
+        expect(toastError).not.toHaveBeenCalled();
+        expect(toastSuccess).not.toHaveBeenCalled();
     });
 });
