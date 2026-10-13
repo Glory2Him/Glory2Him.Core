@@ -12,6 +12,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.LiveUpdates;
@@ -83,6 +84,36 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.liveUpdateServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldReplyNullToContentItemSettingModifiedAsync()
+        {
+            // given: nothing replies to a fact (§EVN20). Handing the inbound envelope back would
+            // put this service's name on a fact another service published.
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            ContentItemSetting settingOverride = CreateContentItemSettingOverride();
+
+            EventEnvelope<ContentItemSetting> modifiedFact =
+                CreateSettingFactEnvelope(settingOverride);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    modifiedFact,
+                    ContentItemSettingModifiedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            // when
+            EventEnvelope<ContentItemSetting> actualReply =
+                await this.liveUpdateOrchestrationService.OnContentItemSettingModifiedAsync(
+                    modifiedFact,
+                    callerCancellationToken);
+
+            // then
+            actualReply.Should().BeNull();
         }
 
         // A content type's default: it names no content item.
