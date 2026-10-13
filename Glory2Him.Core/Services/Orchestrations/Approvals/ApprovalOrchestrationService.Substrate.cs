@@ -296,8 +296,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // READ OFF THE VERIFIED FACT. The lambda runs inside the shared body, after the signature
         // check, so the time it reads is the one the publisher signed and no caller can assert it.
         //
-        // Association-Restored has no ear, deliberately: a revive to the same reaction changes no
-        // content and keeps the status it was withdrawn at (§ARC16.2.2).
+        // The approval workflow has no ear on Association-Restored, deliberately: a revive to the
+        // same reaction changes no content and keeps the status it was withdrawn at (§ARC16.2.2).
         public ValueTask<EventEnvelope<Association>?> OnAssociationRepointedAsync(
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default) =>

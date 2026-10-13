@@ -2108,8 +2108,9 @@ namespace Glory2Him.Core.Registrations
                 cancellationToken: cancellationToken);
 
             // A reader's changed reaction goes back through approval as a modification whose
-            // round starts with no reviews (§ARC16.2.2). Association-Restored is published and
-            // deliberately not subscribed: a revive to the same reaction changes no content.
+            // round starts with no reviews (§ARC16.2.2). The approval workflow deliberately does
+            // not subscribe to Association-Restored: a revive to the same reaction changes no
+            // content.
             await this.eventBroker.SubscribeToAssociationEventAsync(
                 subscription: new EventSubscription
                 {
@@ -2284,6 +2285,116 @@ namespace Glory2Him.Core.Registrations
                 associationEventHandler:
                     Scoped<ILiveUpdateOrchestrationService, Association>(
                         service => service.OnAssociationApprovedAsync),
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationRejectedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationRejectedSubscriptionName,
+
+                    Description = "Tells every open page that the reaction counts of the content " +
+                        "item's canonically visible version may have moved, where that version " +
+                        "exists and its winning setting shows reactions. A rejection moves a " +
+                        "count only where it overrides an approved reaction."
+                },
+                operation: AssociationEventOperation.Rejected,
+                associationEventHandler:
+                    Scoped<ILiveUpdateOrchestrationService, Association>(
+                        service => service.OnAssociationRejectedAsync),
+                cancellationToken: cancellationToken);
+
+            // Beside the approval workflow's ear on the same address; neither relies on which
+            // runs first (§EVN26 rule 5).
+            await this.eventBroker.SubscribeToAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationSubmittedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationSubmittedSubscriptionName,
+
+                    Description = "Tells every open page that the reaction counts of the content " +
+                        "item's canonically visible version may have moved, where that version " +
+                        "exists and its winning setting shows reactions. A reaction back at " +
+                        "Submitted leaves the count until its round is decided again."
+                },
+                operation: AssociationEventOperation.Submitted,
+                associationEventHandler:
+                    Scoped<ILiveUpdateOrchestrationService, Association>(
+                        service => service.OnAssociationSubmittedAsync),
+                cancellationToken: cancellationToken);
+
+            // A soft and a hard removal share this address, told apart by the signed name
+            // (§EVN2 rule 4); the ear hears either. The approval workflow deliberately does not
+            // hear a removal (§APR9.7.6).
+            await this.eventBroker.SubscribeToAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationRemovedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationRemovedSubscriptionName,
+
+                    Description = "Tells every open page that the reaction counts of the content " +
+                        "item's canonically visible version may have moved, where that version " +
+                        "exists and its winning setting shows reactions. A removed reaction, soft " +
+                        "or hard, leaves the count."
+                },
+                operation: AssociationEventOperation.Removed,
+                associationEventHandler:
+                    Scoped<ILiveUpdateOrchestrationService, Association>(
+                        service => service.OnAssociationRemovedAsync),
+                cancellationToken: cancellationToken);
+
+            // The approval workflow deliberately does not hear Association-Restored
+            // (§ARC16.2.2); the forwarder does, because a revive keeps the status it was
+            // withdrawn at and nothing else announces the count it moves.
+            await this.eventBroker.SubscribeToAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationRestoredSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationRestoredSubscriptionName,
+
+                    Description = "Tells every open page that the reaction counts of the content " +
+                        "item's canonically visible version may have moved, where that version " +
+                        "exists and its winning setting shows reactions. A revived reaction is " +
+                        "counted again at the status it was withdrawn at."
+                },
+                operation: AssociationEventOperation.Restored,
+                associationEventHandler:
+                    Scoped<ILiveUpdateOrchestrationService, Association>(
+                        service => service.OnAssociationRestoredAsync),
+                cancellationToken: cancellationToken);
+
+            // Beside the approval workflow's ear on the same address; neither relies on which
+            // runs first (§EVN26 rule 5).
+            await this.eventBroker.SubscribeToAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationRepointedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationRepointedSubscriptionName,
+
+                    Description = "Tells every open page that the reaction counts of the content " +
+                        "item's canonically visible version may have moved, where that version " +
+                        "exists and its winning setting shows reactions. A changed reaction moves " +
+                        "from one count to another on the same item."
+                },
+                operation: AssociationEventOperation.Repointed,
+                associationEventHandler:
+                    Scoped<ILiveUpdateOrchestrationService, Association>(
+                        service => service.OnAssociationRepointedAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentItemSettingEventAsync(

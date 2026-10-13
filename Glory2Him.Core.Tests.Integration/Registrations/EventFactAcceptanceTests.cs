@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Events.Processings;
@@ -258,13 +259,17 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                             },
                             BibleReferenceEventOperation.Submitted)),
 
+                    // The forwarder hears this address too (§EVN26), so only the approval
+                    // workflow's own delivery is read: the one this theory is about.
                     nameof(Association) => DeliveryOutcomes(
                         await this.broker.EventBroker.PublishAssociationAsync(
                             new EventEnvelope<Association>
                             {
                                 Content = new Association { Id = Guid.NewGuid() }
                             },
-                            AssociationEventOperation.Submitted)),
+                            AssociationEventOperation.Submitted),
+                        subscriptionId: EventBrokerIdentifiers
+                            .ApprovalOrchestrationOnAssociationSubmittedSubscriptionId),
 
                     _ => throw new ArgumentOutOfRangeException(
                         nameof(entityName), entityName,
@@ -324,6 +329,17 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
         private static IReadOnlyList<bool> DeliveryOutcomes<T>(
             EventPublishResult<T> publishResult) =>
                 (publishResult.Deliveries ?? new List<EventDelivery<T>>())
+                    .Select(delivery => delivery.IsSuccess)
+                    .ToList();
+
+        // The per-listener success flags of one subscription's deliveries, for an address more
+        // than one subscriber hears. Still in order and without de-duplication, so a listener row
+        // registered twice still reads as a second flag rather than passing as one.
+        private static IReadOnlyList<bool> DeliveryOutcomes<T>(
+            EventPublishResult<T> publishResult,
+            Guid subscriptionId) =>
+                (publishResult.Deliveries ?? new List<EventDelivery<T>>())
+                    .Where(delivery => delivery.SubscriptionId == subscriptionId)
                     .Select(delivery => delivery.IsSuccess)
                     .ToList();
     }

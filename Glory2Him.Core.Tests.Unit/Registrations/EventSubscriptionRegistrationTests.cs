@@ -1682,6 +1682,55 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedHandler:
                     this.liveUpdateOrchestrationServiceMock.Object.OnAssociationApprovedAsync);
 
+            VerifyAssociationSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.LiveUpdateOrchestrationOnAssociationRejectedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.LiveUpdateOrchestrationOnAssociationRejectedSubscriptionName,
+                expectedOperation: AssociationEventOperation.Rejected,
+                expectedHandler:
+                    this.liveUpdateOrchestrationServiceMock.Object.OnAssociationRejectedAsync);
+
+            VerifyAssociationSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationSubmittedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationSubmittedSubscriptionName,
+                expectedOperation: AssociationEventOperation.Submitted,
+                expectedHandler:
+                    this.liveUpdateOrchestrationServiceMock.Object.OnAssociationSubmittedAsync);
+
+            VerifyAssociationSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.LiveUpdateOrchestrationOnAssociationRemovedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.LiveUpdateOrchestrationOnAssociationRemovedSubscriptionName,
+                expectedOperation: AssociationEventOperation.Removed,
+                expectedHandler:
+                    this.liveUpdateOrchestrationServiceMock.Object.OnAssociationRemovedAsync);
+
+            VerifyAssociationSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.LiveUpdateOrchestrationOnAssociationRestoredSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.LiveUpdateOrchestrationOnAssociationRestoredSubscriptionName,
+                expectedOperation: AssociationEventOperation.Restored,
+                expectedHandler:
+                    this.liveUpdateOrchestrationServiceMock.Object.OnAssociationRestoredAsync);
+
+            VerifyAssociationSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationRepointedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationRepointedSubscriptionName,
+                expectedOperation: AssociationEventOperation.Repointed,
+                expectedHandler:
+                    this.liveUpdateOrchestrationServiceMock.Object.OnAssociationRepointedAsync);
+
             VerifyContentItemSettingSubscription(
                 expectedSubscriptionId:
                     EventBrokerIdentifiers
