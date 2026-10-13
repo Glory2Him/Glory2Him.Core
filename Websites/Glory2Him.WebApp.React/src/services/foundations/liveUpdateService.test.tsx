@@ -552,4 +552,18 @@ describe('liveUpdateService.useLiveUpdates', () => {
         // then
         expect(staleReadKeys(everyCachedReadKey)).toEqual([]);
     });
+
+    // A count message says which version's counts may have moved. One that names none says
+    // nothing a page can act on, so it is not read as every version's counts having moved.
+    it('should ignore a count message that names no item', async () => {
+        // given
+        await mountTheHookAsync();
+        await cacheReadsAsync(everyCachedReadKey);
+
+        // when
+        await act(async () => theListeners().onLiveUpdate(countMessageFor(null)));
+
+        // then
+        expect(staleReadKeys(everyCachedReadKey)).toEqual([]);
+    });
 });
