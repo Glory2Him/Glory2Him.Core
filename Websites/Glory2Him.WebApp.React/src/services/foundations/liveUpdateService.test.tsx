@@ -126,10 +126,12 @@ describe('liveUpdateService.useLiveUpdates', () => {
         queryKeys.filter(queryKey => queryClient.getQueryState(queryKey)?.isInvalidated === true);
 
     // Served on the page, so a read made stale is read again at once. None is among the cached
-    // reads, so what is asserted of one never depends on the other.
+    // reads, so what is asserted of one never depends on the other. Of the two pages of
+    // summaries, one holds item-1 and one does not.
     const serveActiveReadsAsync = async () => {
         const activeSettingRead = vi.fn().mockResolvedValue([]);
         const activeSummaryRead = vi.fn().mockResolvedValue([]);
+        const activeSummaryReadHoldingTheItem = vi.fn().mockResolvedValue([]);
         const activeOtherRead = vi.fn().mockResolvedValue([]);
 
         renderHook(
@@ -145,6 +147,11 @@ describe('liveUpdateService.useLiveUpdates', () => {
                 });
 
                 useQuery({
+                    queryKey: ['ReactionSummaries', 'reader-1', ['item-9', 'item-1']],
+                    queryFn: activeSummaryReadHoldingTheItem
+                });
+
+                useQuery({
                     queryKey: ['ContentItemsGetById', 'item-9'],
                     queryFn: activeOtherRead
                 });
@@ -153,7 +160,7 @@ describe('liveUpdateService.useLiveUpdates', () => {
 
         await act(async () => undefined);
 
-        return { activeSettingRead, activeSummaryRead, activeOtherRead };
+        return { activeSettingRead, activeSummaryRead, activeSummaryReadHoldingTheItem, activeOtherRead };
     };
 
     // Only setTimeout and clearTimeout are faked, the pair a start that is tried again waits on,
@@ -254,6 +261,7 @@ describe('liveUpdateService.useLiveUpdates', () => {
     it('should make stale only the summary reads holding the item on a count message', async () => {
         // given
         await mountTheHookAsync();
+        const activeReads = await serveActiveReadsAsync();
         await cacheReadsAsync(everyCachedReadKey);
 
         // when
@@ -261,6 +269,10 @@ describe('liveUpdateService.useLiveUpdates', () => {
 
         // then
         expect(staleReadKeys(everyCachedReadKey)).toEqual(summaryReadKeysHoldingTheItem);
+        expect(activeReads.activeSummaryReadHoldingTheItem).toHaveBeenCalledTimes(2);
+        expect(activeReads.activeSummaryRead).toHaveBeenCalledTimes(1);
+        expect(activeReads.activeSettingRead).toHaveBeenCalledTimes(1);
+        expect(activeReads.activeOtherRead).toHaveBeenCalledTimes(1);
     });
 
     // A message may have been sent while the connection was away, so every read a message
