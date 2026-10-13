@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import LiveUpdateBroker from '../../brokers/hubBroker.liveUpdates';
-import { LiveUpdateType } from '../../models/foundations/liveUpdates/liveUpdate';
+import { LiveUpdateListeners, LiveUpdateType } from '../../models/foundations/liveUpdates/liveUpdate';
 import { invalidateContentItemSettingReads } from './contentItemSettingService';
 
 export const liveUpdateService = {
@@ -13,25 +13,39 @@ export const liveUpdateService = {
         const queryClient = useQueryClient();
 
         useEffect(() => {
-            void liveUpdateBroker.startLiveUpdatesAsync(
-                {
-                    onLiveUpdate: liveUpdate => {
-                        if (liveUpdate.type === LiveUpdateType.ContentItemSettingChanged) {
-                            invalidateContentItemSettingReads(queryClient);
-                            queryClient.invalidateQueries({ queryKey: ['ReactionSummaries'] });
-                        } else {
-                            queryClient.invalidateQueries({
-                                queryKey: ['ReactionSummaries'],
-                                predicate: query =>
-                                    (query.queryKey[2] as ReadonlyArray<string | null>)
-                                        .includes(liveUpdate.contentItemId)
-                            });
-                        }
-                    },
-                    onReconnected: () => undefined,
-                    onClosed: () => undefined
+            const makeEveryCoveredReadStale = () => {
+                invalidateContentItemSettingReads(queryClient);
+                queryClient.invalidateQueries({ queryKey: ['ReactionSummaries'] });
+            };
+
+            const listeners: LiveUpdateListeners = {
+                onLiveUpdate: liveUpdate => {
+                    if (liveUpdate.type === LiveUpdateType.ContentItemSettingChanged) {
+                        invalidateContentItemSettingReads(queryClient);
+                        queryClient.invalidateQueries({ queryKey: ['ReactionSummaries'] });
+                    } else {
+                        queryClient.invalidateQueries({
+                            queryKey: ['ReactionSummaries'],
+                            predicate: query =>
+                                (query.queryKey[2] as ReadonlyArray<string | null>)
+                                    .includes(liveUpdate.contentItemId)
+                        });
+                    }
                 },
-                () => null);
+                onReconnected: makeEveryCoveredReadStale,
+                onClosed: () => undefined
+            };
+
+            const startAsync = async (): Promise<void> => {
+                try {
+                    await liveUpdateBroker.startLiveUpdatesAsync(listeners, () => null);
+                    makeEveryCoveredReadStale();
+                } catch {
+                    window.setTimeout(() => void startAsync(), 0);
+                }
+            };
+
+            void startAsync();
 
             return () => {
                 void liveUpdateBroker.stopLiveUpdatesAsync();
