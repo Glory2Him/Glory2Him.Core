@@ -116,6 +116,54 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             actualReply.Should().BeNull();
         }
 
+        [Fact]
+        public async Task ShouldForwardAContentItemSettingModifiedFactCarryingTheSystemIdentityAsync()
+        {
+            // given: the fact as a system write publishes it. Unlike the approval workflow's
+            // ears, the forwarder does not drop it: a page has to hear every change to what it
+            // shows, whoever made it (§EVN26 rule 3).
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            ContentItemSetting settingOverride = CreateContentItemSettingOverride();
+
+            var systemSecurityContext = new SecurityContext
+            {
+                SubjectId = SystemIdentity.UserId,
+                Username = SystemIdentity.Username,
+                IsAuthenticated = true,
+                IsSystemIdentity = true,
+                AuthenticationType = AuthenticationType.System,
+            };
+
+            EventEnvelope<ContentItemSetting> modifiedFact =
+                CreateSettingFactEnvelope(settingOverride, systemSecurityContext);
+
+            LiveUpdate expectedLiveUpdate = CreateSettingChange();
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    modifiedFact,
+                    ContentItemSettingModifiedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            // when
+            await this.liveUpdateOrchestrationService.OnContentItemSettingModifiedAsync(
+                modifiedFact,
+                callerCancellationToken);
+
+            // then
+            this.liveUpdateServiceMock.Verify(service =>
+                service.SendLiveUpdateAsync(
+                    It.Is(SameLiveUpdateAs(expectedLiveUpdate)),
+                    callerCancellationToken),
+                Times.Once);
+
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A content type's default: it names no content item.
         private static ContentItemSetting CreateContentItemSettingTypeDefault() =>
             new ContentItemSetting
