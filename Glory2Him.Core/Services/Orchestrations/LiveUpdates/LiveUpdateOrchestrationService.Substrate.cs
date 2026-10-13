@@ -77,10 +77,23 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
                 return null;
             });
 
+        // A soft and a hard removal share the address, told apart by the signed name (§EVN2
+        // rule 4), and either takes the reaction out of its item's counts.
         public ValueTask<EventEnvelope<Association>?> OnAssociationRemovedAsync(
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default) =>
-            throw new System.NotImplementedException();
+            TryCatch<EventEnvelope<Association>?>(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                await ValidateAssociationFactEnvelopeAsync(
+                    envelope,
+                    eventNames: new[] { "AssociationRemoved", "AssociationHardRemoved" });
+
+                await SendReactionsChangeAsync(envelope.Content, cancellationToken);
+
+                return null;
+            });
 
         public ValueTask<EventEnvelope<ContentItemSetting>?> OnContentItemSettingAddedAsync(
             EventEnvelope<ContentItemSetting> envelope,
