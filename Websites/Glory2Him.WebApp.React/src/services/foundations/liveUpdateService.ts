@@ -43,11 +43,17 @@ export const liveUpdateService = {
                 onClosed: () => startAgainLater()
             };
 
+            let isMounted = true;
             let isFirstStart = true;
             let previousRetryCount = 0;
+            let startAgainTimeoutId: number | undefined;
 
             const startAgainLater = () => {
-                window.setTimeout(
+                if (isMounted === false) {
+                    return;
+                }
+
+                startAgainTimeoutId = window.setTimeout(
                     () => void startAsync(),
                     nextRetryDelayInMilliseconds(previousRetryCount));
 
@@ -78,6 +84,8 @@ export const liveUpdateService = {
             // A stop that fails is let go, as every failure of the connection is, with nothing
             // announced (§UI20.10 rule 4): the tab is leaving the connection either way.
             return () => {
+                isMounted = false;
+                window.clearTimeout(startAgainTimeoutId);
                 liveUpdateBroker.stopLiveUpdatesAsync().catch(() => undefined);
             };
         }, [liveUpdateBroker, queryClient]);
