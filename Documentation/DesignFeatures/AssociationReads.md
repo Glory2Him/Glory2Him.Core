@@ -117,11 +117,19 @@ pages it (§UI20.9.3 rules 1 and 2).
   no `UserId`, so the filler draws one, and a drawn row is personal. Once rule 7 is built, a read
   test that expects a public row returned to a caller who is not its owner must make that row
   editorial. The foundation's two tasks say which tests.
-- **A caller in the review tier reads every reaction on an entity.** The review tier sees every
-  live row (§SEC14.7 posture A rule 4), personal rows included (rule 2). So the React read of an
-  entity's associations asks one page per 50 rows that caller may see, and on a post with many
-  reactions an administrator's read asks many pages. Narrowing that read by the far end's type
-  is not designed. No page asks for it yet.
+- **A caller holding a global review role reads every reaction on an entity**, and a caller
+  holding a scoped review role every reaction on an entity with an endpoint in its scope. The
+  review tier sees the live rows its roles cover (§SEC14.7 posture A rule 4, posture A′ rules 2
+  and 5), personal rows included (rule 2). So the React read of an entity's associations asks one
+  page per 50 rows that caller may see, and on a post with many reactions an administrator's read
+  asks many pages. Narrowing that read by the far end's type is not designed. No page asks for it
+  yet.
+- **A read that pages can meet a set that changes between its pages.** It pages by offset
+  (rule 6), so a row added or removed between two of its requests shifts the rows after it. A row
+  may then come back on two pages, and the read answers it once
+  (`UI/Foundations/AssociationService.AssociationReads.md §1` rule 3). Or a row may be passed
+  over, and the next read of the same entity answers it. On the post moderation pages, a chip
+  can show late, never twice.
 
 ## Out of scope
 

@@ -27,8 +27,9 @@ controller's `[EnableQuery]` collection read is (`TagsController.Get`, `ContentI
 3. **What each caller receives is the orchestration's answer**, and every row it answers has both
    endpoints visible to that caller (§SEC14.3 rules 3 and 4). An anonymous caller receives the
    public editorial rows, and no personal row. A signed-in reader also receives the editorial
-   rows they created, at any status, and their own reactions. A caller in the review tier
-   receives every live row (§SEC14.7 posture A rule 4, posture A′ rules 2 and 7).
+   rows they created, at any status, and their own reactions. A caller holding a global review
+   role receives every live row, and a caller holding a scoped review role also receives every
+   live row with an endpoint in its scope (§SEC14.7 posture A rule 4, posture A′ rules 2, 5 and 7).
 4. **A `$filter` finds nothing the caller may not see.** A `$filter` on `userId` naming another
    reader finds none of that reader's reactions, for an anonymous caller and for a signed-in
    reader outside the review tier (§SEC14.7 posture A′ rule 7, *Why*).

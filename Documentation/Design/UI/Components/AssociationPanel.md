@@ -380,7 +380,7 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
     one (section 7; §ARC17.4) — are designed and part built, and section 7 records which routes
     are served, yet no product page reads or writes an association through the family, and every
     page in section 6 passes an empty collection or holds suggestions in its own state. A page
-    list narrowed by tag or Bible reference waits on the same read, and the narrowing itself is
+    list narrowed by tag or Bible reference builds on the same read, and the narrowing itself is
     not this item's: it is `UI/Components/ContentItemListPanel.md §10 item 15`, since #857 plans
     only the read (user ruling 2026-10-05). The work was filed as #318 (closed). Suggesting
     one is item 24. Reading an entity's associations is `DesignFeatures/AssociationReads.md`'s

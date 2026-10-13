@@ -59,7 +59,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.13 [Should]** While the item loads, a spinner stands in for the page. When the item cannot be read, the page says "We could not load this contribution right now. It may have been removed, or it may not be yours to read." *(code: myPostDetail.tsx — the `isLoading` and `isError` branches)*
 
-**2.14 [Must]** The association panels take their collections from this page, keyed on the item id in the URL. Associations have no HTTP exposer yet (§ARC17.4, not yet built; item 5), so until then the collections are empty rather than invented. *(code: myPostDetail.tsx — the comments above the two panels)* ≠ item 5
+**2.14 [Must]** The association panels take their collections from this page, keyed on the item id in the URL. The page reads no associations yet (§ARC17.4; item 5), so until it does the collections are empty rather than invented. *(code: myPostDetail.tsx — the comments above the two panels)* ≠ item 5
 
 **2.15 [Must]** A click on the card's type chip, *Submitted by* or *Author*, or on a tag chip in the side panel, raises its hook, and the page opens the journal's search, `/posts`, handed the value: its search bar shows it in the matching box — Category, Submitted by, Author or Tags, each one of the bar's advanced boxes — with the advanced section expanded (`UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md rule 2.23`). *(user, 2026-09-27; `UI/Components/ContentItemPanel.md rule 2.42`)* ≠ items 7 and 12
 
@@ -261,9 +261,10 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
 5. (needs issue) **Page gap — `/myposts/{id}`: suggesting a tag or a Bible reference sends
    nothing.** The page answers each panel's `onAdd` with a "coming soon" toast and reads no
    associations, so both lists are always empty (`myPostDetail.tsx` — `suggestTag`,
-   `suggestBibleReference`, `associationCollection={[]}`). The server work is part built: the suggestion, an editorial pairing sent to `POST /api/associations`,
-   is served (#728, #1088), and the association read `GET /api/associations` is designed
-   (§ARC17.4; `DesignFeatures/AssociationReads.md`; `UI/Components/AssociationPanel.md §7`). The page's half is to read the item's associations, project
+   `suggestBibleReference`, `associationCollection={[]}`). The server work is the suggestion, an editorial pairing sent to `POST /api/associations`
+   (#728, #1088), and the association read `GET /api/associations` (§ARC17.4;
+   `DesignFeatures/AssociationReads.md`), and `UI/Components/AssociationPanel.md §7` records which of
+   them are served. The page's half is to read the item's associations, project
    them to the panels, and send each suggestion with the viewer as its owner
    (`UI/Components/AssociationPanel.md §7`, the note on `asSuggestedAssociation`).
 6. (needs issue) **Page gap — `/myposts/{id}`: the tag and Bible reference facet switches are not

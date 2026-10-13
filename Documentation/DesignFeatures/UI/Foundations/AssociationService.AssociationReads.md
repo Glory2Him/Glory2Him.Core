@@ -30,16 +30,21 @@ useGetAssociationsByEffectiveId: (entityType: EntityType, effectiveId: string) =
    `top` 50, and asks `skip` 0 for the first page, then 50 more for each page after it. It asks the
    next page only after a page that held 50 rows, and stops at the first page that held fewer
    (AssociationReads.md rule 6: no answer says whether it was cut short).
-3. **It answers with every page's rows, the pages in order, as one collection.**
+3. **It answers with every page's rows, the pages in order, as one collection, and each row
+   once.** A row whose id an earlier page already answered is left where it first came. The set
+   can change between two requests, so a row can come back on a later page
+   (`AssociationReads.md`, *Risks*).
 4. **It is keyed `['Associations', <entityType>, <effectiveId>]`**, so a page that asks for one
    entity by two effective ids holds two reads, each with its own state and its own `refetch`.
 5. **It asks nothing for an empty effective id.**
 6. **A page that fails fails the read**, with that page's error unchanged. A failed read is the
    query's error, which the page reads; the hook adds no toast of its own.
 
-The page size, 50, is the host's (`OData:PageSize`). Under a host page size below 50, a request
-for 50 rows would be answered with fewer, and the read would stop early. So the host's page size
-must not drop below this one.
+7. **The host's page-size setting names this read.** The page size, 50, is the host's
+   (`OData:PageSize`). Under a host page size below 50, a request for 50 rows would be answered
+   with fewer, and the read would stop early. So the host's page size must not drop below this
+   one, and the comment on that setting in `Websites/Glory2Him.WebApp/appsettings.json`,
+   `//PageSize`, says so.
 
 ## 2. useGetAssociationById (#1129)
 
