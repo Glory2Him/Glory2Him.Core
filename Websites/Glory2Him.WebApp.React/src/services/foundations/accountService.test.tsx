@@ -78,4 +78,48 @@ describe('accountService.useLogout', () => {
         expect(queryClient.getQueryState(['AccountsGetCurrentUser'])?.isInvalidated).toBe(false);
         expect(currentUserRead).toHaveBeenCalledTimes(1);
     });
+    // THE ERROR LEAVES THE HOOK UNCHANGED (§UI20.9.2 departure 2): neither swallowed nor wrapped.
+    it("should fail with the broker's error when the logout fails", async () => {
+        // given
+        const brokerError = new AxiosError('Error: Logout failed.');
+        logoutAsync.mockRejectedValue(brokerError);
+
+        const { result } = renderHook(() => accountService.useLogout(), { wrapper });
+
+        // when
+        const logout = result.current.mutateAsync();
+
+        // then
+        await expect(logout).rejects.toBe(brokerError);
+    });
+
+    // A FAILED LOGOUT IS ANNOUNCED BY THE GLOBAL TOAST ALONE (§UI20.8 rule 3): the header and
+    // the user menu show no message of their own. Driven through the app's own global handler.
+    it('should leave the global toast on when the logout fails', async () => {
+        // given
+        const brokerError = new AxiosError('Error: Logout failed.');
+        logoutAsync.mockRejectedValue(brokerError);
+
+        const globalOnError =
+            queryClientGlobalOptions.getMutationCache().config.onError!;
+
+        const globalClient = new QueryClient({
+            mutationCache: new MutationCache({ onError: globalOnError })
+        });
+
+        const globalWrapper = ({ children }: { children: ReactNode }) => (
+            <QueryClientProvider client={globalClient}>{children}</QueryClientProvider>
+        );
+
+        const { result } = renderHook(
+            () => accountService.useLogout(), { wrapper: globalWrapper });
+
+        // when
+        await result.current.mutateAsync().catch(() => undefined);
+
+        // then
+        expect(toastErrorMock).toHaveBeenCalledTimes(1);
+        expect(toastErrorMock).toHaveBeenCalledWith(
+            'An unknown error has occurred, please try again.');
+    });
 });
