@@ -591,11 +591,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     upsertRequest,
                     TestContext.Current.CancellationToken);
 
-            // then: the reader's new row, answered Created with its id and nothing else
+            // then: the reader's new row, answered Created with its id and nothing else. The
+            // envelope is minted over the working copy, which Moq reads as it stands once the call
+            // is through: the row the foundation is handed.
             actualResult.Should().BeEquivalentTo(expectedResult);
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
-                broker.CreateAsync(upsertRequest),
+                broker.CreateAsync(It.Is(SameAssociationAs(expectedUpsertedAssociation))),
                     Times.Once);
 
             this.contentItemServiceMock.Verify(service =>
@@ -987,7 +989,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Tag);
 
             upsertRequest.UserId = callerUserId;
-            SetupInboundEnvelopeFor(upsertRequest);
+            SetupInboundEnvelopeFor(CreateEndpointsOnlyFrom(upsertRequest));
             ContentItem resolvedContentItem = SetupMethodPathEndpointReads(upsertRequest);
             SetupAllowingSettingFor(resolvedContentItem);
 

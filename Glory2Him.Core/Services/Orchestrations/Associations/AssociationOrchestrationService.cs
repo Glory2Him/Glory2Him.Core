@@ -108,10 +108,15 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateAssociationIsNotNull(association);
 
-                EventEnvelope<Association> envelope =
-                    await this.eventEnvelopeBroker.CreateAsync(content: association);
-
+                // THE WORKING COPY (AssociationOrchestrationService.md §6 rule 1): the caller's
+                // four endpoint fields and nothing else, built as the Association-Adding door
+                // builds it. Everything from here on, the envelope included, reads and writes the
+                // copy and never the caller's object, so a field outside the two-endpoint shape
+                // gets the answer the same body gets without it (§ARC16.8.1).
                 Association workingCopy = CreateAddRequestFrom(association);
+
+                EventEnvelope<Association> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: workingCopy);
 
                 return await DoUpsertAssociationAsync(
                     association: workingCopy,

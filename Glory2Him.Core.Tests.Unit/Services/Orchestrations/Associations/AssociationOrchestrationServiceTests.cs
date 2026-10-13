@@ -478,7 +478,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 Roles = roles
             };
 
-        // The envelope the upsert mints for this request, under the ambient caller.
+        // The envelope a write mints for this request, under the ambient caller. Matched by value
+        // as it is minted, because the upsert mints it over its working copy of the request
+        // rather than over the request itself (AssociationOrchestrationService.md §6 rule 1).
         private EventEnvelope<Association> SetupInboundEnvelopeFor(Association request)
         {
             var inboundEnvelope = new EventEnvelope<Association>
@@ -489,7 +491,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             };
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(request))
+                broker.CreateAsync(It.Is(SameAssociationAs(request))))
                     .ReturnsAsync(inboundEnvelope);
 
             return inboundEnvelope;

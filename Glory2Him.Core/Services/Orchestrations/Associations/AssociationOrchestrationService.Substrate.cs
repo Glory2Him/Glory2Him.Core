@@ -106,7 +106,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             });
 
         // Only the RAW endpoints are the caller's to supply (see ValidateOnAddAssociation), so
-        // they are all the working copy carries. Everything else the flow needs it derives.
+        // they are all the working copy carries. Everything else the flow needs it derives. Both
+        // doors build their copy here, written once, so they narrow a request the same way
+        // (AssociationOrchestrationService.md §6 rule 1).
         private static Association CreateAddRequestFrom(Association claimedAssociation) =>
             new Association
             {
