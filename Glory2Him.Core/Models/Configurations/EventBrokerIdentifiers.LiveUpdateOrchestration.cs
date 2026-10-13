@@ -29,6 +29,12 @@ namespace Glory2Him.Core.Models.Configurations
         public const string LiveUpdateOrchestrationOnAssociationApprovedSubscriptionName =
             "LiveUpdateOrchestrationService.OnAssociationApproved";
 
+        public static readonly Guid LiveUpdateOrchestrationOnAssociationRejectedSubscriptionId =
+            new Guid("50791ded-4a06-459d-a1ae-f7ea9e948bb7");
+
+        public const string LiveUpdateOrchestrationOnAssociationRejectedSubscriptionName =
+            "LiveUpdateOrchestrationService.OnAssociationRejected";
+
         public static readonly Guid LiveUpdateOrchestrationOnContentItemSettingAddedSubscriptionId =
             new Guid("337b7647-25e3-46b1-9ef3-afe39fcd5c3e");
 

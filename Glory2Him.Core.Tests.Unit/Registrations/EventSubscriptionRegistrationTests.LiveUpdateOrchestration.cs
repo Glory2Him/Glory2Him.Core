@@ -162,5 +162,68 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.contentItemSettingServiceMock.VerifyNoOtherCalls();
             this.contentItemSettingOrchestrationServiceMock.VerifyNoOtherCalls();
         }
+
+        // Association-Rejected takes an approved reaction out of a count where the entity/n        // overrides it, so the forwarder hears it (LiveUpdates.md rule 6). Pinned as literals for/n        // the same reason.
+        [Fact]
+        public async Task ShouldSubscribeTheLiveUpdatesToAssociationRejected()
+        {
+            // given
+            var rejectedSubscriptions = new List<EventSubscription>();
+            CancellationToken registrationCancellationToken = TestContext.Current.CancellationToken;
+            using var deliveryCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken deliveryCancellationToken = deliveryCancellationTokenSource.Token;
+
+            Func<EventEnvelope<Association>, CancellationToken,
+                ValueTask<EventEnvelope<Association>>> rejectedHandler = null;
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.SubscribeToAssociationEventAsync(
+                    It.IsAny<EventSubscription>(),
+                    AssociationEventOperation.Rejected,
+                    It.IsAny<Func<EventEnvelope<Association>, CancellationToken,
+                        ValueTask<EventEnvelope<Association>>>>(),
+                    registrationCancellationToken))
+                        .Callback<EventSubscription, AssociationEventOperation,
+                            Func<EventEnvelope<Association>, CancellationToken,
+                                ValueTask<EventEnvelope<Association>>>,
+                            CancellationToken>((subscription, _, handler, _) =>
+                            {
+                                rejectedSubscriptions.Add(subscription);
+                                rejectedHandler = handler;
+                            });
+
+            var deliveredEnvelope = new EventEnvelope<Association>();
+
+            await this.eventSubscriptionRegistration.RegisterAsync(registrationCancellationToken);
+
+            EventSubscription rejectedSubscription =
+                rejectedSubscriptions.Should().ContainSingle().Subject;
+
+            // when
+            await rejectedHandler(deliveredEnvelope, deliveryCancellationToken);
+
+            // then
+            rejectedSubscription.Id.Should().Be(new Guid("50791ded-4a06-459d-a1ae-f7ea9e948bb7"));
+
+            rejectedSubscription.Name.Should()
+                .Be("LiveUpdateOrchestrationService.OnAssociationRejected");
+
+            Guid rejectedAddressId =
+                EventBrokerIdentifiers.AssociationEventAddressIds[AssociationEventOperation.Rejected];
+
+            EventBrokerIdentifiers.AssociationEventAddresses[rejectedAddressId]
+                .Should().Be("Association-Rejected");
+
+            this.liveUpdateOrchestrationServiceMock.Verify(service =>
+                service.OnAssociationRejectedAsync(
+                    deliveredEnvelope,
+                    deliveryCancellationToken),
+                Times.Once);
+
+            this.liveUpdateOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
     }
 }
