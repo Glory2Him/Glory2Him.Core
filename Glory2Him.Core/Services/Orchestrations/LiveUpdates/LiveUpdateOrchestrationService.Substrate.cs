@@ -9,7 +9,6 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
@@ -47,7 +46,18 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
         public ValueTask<EventEnvelope<Association>?> OnAssociationRejectedAsync(
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            TryCatch<EventEnvelope<Association>?>(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                await ValidateAssociationFactEnvelopeAsync(
+                    envelope,
+                    eventName: "AssociationRejected");
+
+                await SendReactionsChangeAsync(envelope.Content, cancellationToken);
+
+                return null;
+            });
 
         public ValueTask<EventEnvelope<ContentItemSetting>?> OnContentItemSettingAddedAsync(
             EventEnvelope<ContentItemSetting> envelope,
