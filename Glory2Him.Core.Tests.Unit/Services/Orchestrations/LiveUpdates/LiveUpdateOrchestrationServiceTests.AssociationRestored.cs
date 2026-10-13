@@ -127,5 +127,69 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             // then
             actualReply.Should().BeNull();
         }
+
+        [Fact]
+        public async Task ShouldForwardAnAssociationRestoredFactCarryingTheSystemIdentityAsync()
+        {
+            // given: the fact as a write made under the system identity publishes it. Unlike the
+            // workflow's ears, the forwarder does not drop it (§EVN26 rule 3).
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+
+            Association contentItemReaction = CreateContentItemReaction();
+
+            var systemSecurityContext = new SecurityContext
+            {
+                SubjectId = SystemIdentity.UserId,
+                Username = SystemIdentity.Username,
+                DelegatedBySubjectId = contentItemReaction.UserId,
+                IsAuthenticated = true,
+                IsSystemIdentity = true,
+                AuthenticationType = AuthenticationType.System,
+            };
+
+            EventEnvelope<Association> restoredFact =
+                CreateFactEnvelope(contentItemReaction, systemSecurityContext);
+
+            PublicContentItemGroup visibleVersion =
+                CreateVisibleVersion(groupId: contentItemReaction.EntityAGroupId);
+
+            List<ContentItemSettingKey> expectedSettingKeys = CreateSettingKeysFor(visibleVersion);
+            LiveUpdate expectedLiveUpdate = CreateReactionsChangeFor(visibleVersion);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    restoredFact,
+                    AssociationRestoredEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(true);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.FindPublicContentItemGroupAsync(
+                    contentItemReaction.EntityAGroupId,
+                    callerCancellationToken))
+                        .ReturnsAsync(visibleVersion);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    callerCancellationToken))
+                        .ReturnsAsync(CreateWinningSettingsFor(visibleVersion, showReactions: true));
+
+            // when
+            await this.liveUpdateOrchestrationService.OnAssociationRestoredAsync(
+                restoredFact,
+                callerCancellationToken);
+
+            // then
+            this.liveUpdateServiceMock.Verify(service =>
+                service.SendLiveUpdateAsync(
+                    It.Is(SameLiveUpdateAs(expectedLiveUpdate)),
+                    callerCancellationToken),
+                Times.Once);
+
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
