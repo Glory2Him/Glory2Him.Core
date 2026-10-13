@@ -52,7 +52,7 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
 
                 await ValidateContentItemSettingFactEnvelopeAsync(
                     envelope,
-                    eventName: "ContentItemSettingAdded");
+                    acceptedEventNames: new[] { "ContentItemSettingAdded" });
 
                 await SendSettingsChangeAsync(cancellationToken);
 
@@ -68,7 +68,7 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
 
                 await ValidateContentItemSettingFactEnvelopeAsync(
                     envelope,
-                    eventName: "ContentItemSettingModified");
+                    acceptedEventNames: new[] { "ContentItemSettingModified" });
 
                 await SendSettingsChangeAsync(cancellationToken);
 
@@ -80,15 +80,11 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
             CancellationToken cancellationToken = default) =>
             TryCatch<EventEnvelope<ContentItemSetting>?>(async () =>
             {
-                foreach (string eventName in new[]
-                    { "ContentItemSettingRemoved", "ContentItemSettingHardRemoved" })
-                {
-                    if (await this.envelopeIntegrityBroker.VerifyAsync(
-                        envelope, eventName, EnvelopeDirection.Request))
-                    {
-                        break;
-                    }
-                }
+                // two names, one address: a soft and a hard removal (§EVN2 rule 4)
+                await ValidateContentItemSettingFactEnvelopeAsync(
+                    envelope,
+                    acceptedEventNames:
+                        new[] { "ContentItemSettingRemoved", "ContentItemSettingHardRemoved" });
 
                 await SendSettingsChangeAsync(cancellationToken);
 
