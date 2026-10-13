@@ -2328,6 +2328,29 @@ namespace Glory2Him.Core.Registrations
                         service => service.OnAssociationSubmittedAsync),
                 cancellationToken: cancellationToken);
 
+            // A soft and a hard removal share this address, told apart by the signed name
+            // (§EVN2 rule 4); the ear hears either. The approval workflow deliberately does not
+            // hear a removal (§APR9.7.6).
+            await this.eventBroker.SubscribeToAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationRemovedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationRemovedSubscriptionName,
+
+                    Description = "Tells every open page that the reaction counts of the content " +
+                        "item's canonically visible version may have moved, where that version " +
+                        "exists and its winning setting shows reactions. A removed reaction, soft " +
+                        "or hard, leaves the count."
+                },
+                operation: AssociationEventOperation.Removed,
+                associationEventHandler:
+                    Scoped<ILiveUpdateOrchestrationService, Association>(
+                        service => service.OnAssociationRemovedAsync),
+                cancellationToken: cancellationToken);
+
             await this.eventBroker.SubscribeToContentItemSettingEventAsync(
                 subscription: new EventSubscription
                 {
