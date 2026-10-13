@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider, QueryKey, useQuery } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { liveUpdateService } from './liveUpdateService';
 import type LiveUpdateBroker from '../../brokers/hubBroker.liveUpdates';
 import { EntityType } from '../../models/foundations/approvalSettings/approvalSetting';
@@ -122,7 +122,10 @@ describe('liveUpdateService.useLiveUpdates', () => {
         return { activeSettingRead, activeSummaryRead, activeOtherRead };
     };
 
+    // Only the timer a start that is tried again waits on is faked, so no test waits in real time
+    // and a start still waiting when a test ends never fires in the next one.
     beforeEach(() => {
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
         vi.resetAllMocks();
         startLiveUpdatesAsync.mockResolvedValue(undefined);
         stopLiveUpdatesAsync.mockResolvedValue(undefined);
@@ -130,6 +133,10 @@ describe('liveUpdateService.useLiveUpdates', () => {
         queryClient = new QueryClient({
             defaultOptions: { queries: { retry: false } }
         });
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
     });
 
     // Mounts the hook and lets what its mount set going settle, without moving the clock.
@@ -220,4 +227,35 @@ describe('liveUpdateService.useLiveUpdates', () => {
         // then
         expect(staleReadKeys(everyCachedReadKey)).toEqual(summaryReadKeysHoldingTheItem);
     });
+
+    // A message may have been sent while the connection was away, so every read a message
+    // covers is read again: every setting read, and every page's summaries.
+    it.each([
+        {
+            wayBack: 'SignalR reconnecting',
+            arrange: () => undefined,
+            comeBackAsync: async () => theListeners().onReconnected()
+        },
+        {
+            wayBack: 'a start that succeeds after an earlier attempt failed',
+            arrange: () => startLiveUpdatesAsync.mockRejectedValueOnce(new Error('refused')),
+            comeBackAsync: async () => { await vi.advanceTimersByTimeAsync(0); }
+        }
+    ])('should make every covered read stale when the connection comes back, by $wayBack',
+        async ({ arrange, comeBackAsync }) => {
+            // given
+            arrange();
+            await mountTheHookAsync();
+            await cacheReadsAsync(everyCachedReadKey);
+
+            // when
+            await act(comeBackAsync);
+
+            // then
+            expect(staleReadKeys(everyCachedReadKey)).toEqual([
+                ...settingReadKeys,
+                ...summaryReadKeysHoldingTheItem,
+                ...summaryReadKeysOfAnotherPage
+            ]);
+        });
 });
