@@ -869,9 +869,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Reaction);
 
             upsertRequest.UserId = $"another-reader-{Guid.NewGuid()}";
+            SetupInboundEnvelopeFor(CreateEndpointsOnlyFrom(upsertRequest));
+            ContentItem resolvedContentItem = SetupMethodPathEndpointReads(upsertRequest);
+            SetupAllowingSettingFor(resolvedContentItem);
 
             Association expectedUpsertedAssociation =
-                SetupReadersReaction(upsertRequest, readerUserId);
+                CreateResolvedReactionFrom(upsertRequest, resolvedContentItem, readerUserId);
 
             Association readersRow = expectedUpsertedAssociation.DeepClone();
             readersRow.Id = Guid.NewGuid();
