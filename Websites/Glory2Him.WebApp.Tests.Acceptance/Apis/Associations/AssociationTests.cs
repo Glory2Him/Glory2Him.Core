@@ -14,6 +14,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.WebApp.Tests.Acceptance.Brokers;
@@ -76,6 +78,36 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 EntityBType = EntityType.Tag,
                 EntityBKeyId = tagId
             };
+
+        // The pair as the client sends it, with fields beside its endpoints that the upsert's
+        // two-endpoint shape leaves out (§ARC16.8.1), as a hand-built body would carry them.
+        private static string CreateBodyCarrying(
+            Association pair,
+            params (string Name, JsonNode Value)[] fieldsOutsideTheShape)
+        {
+            JsonObject body = JsonSerializer.SerializeToNode(pair, JsonSerializerOptions.Web).AsObject();
+
+            foreach ((string name, JsonNode value) in fieldsOutsideTheShape)
+            {
+                body[name] = value;
+            }
+
+            return body.ToJsonString();
+        }
+
+        // A reader's reaction whose body also carries every field an operation owns, each at a
+        // value the foundation's range and length checks accept, so the create arm's refusal of
+        // the field itself (#1094) is all a field that reached it could earn.
+        private static string CreateBodyCarryingOperationOwnedFields(Association reactionPair) =>
+            CreateBodyCarrying(
+                reactionPair,
+                ("sortOrder", 300),
+                ("confidenceScore", 5.5m),
+                ("confidenceReason", "Suggested by an acceptance test."),
+                ("modelVersion", "acceptance-model-1"),
+                ("sourceBatchId", Guid.NewGuid()),
+                ("isApprovedByBypass", true),
+                ("approvedByBypassReason", "Bypassed by an acceptance test."));
 
         private static async ValueTask<AssociationSuggestionResult> ReadResultAsync(
             HttpResponseMessage response) =>

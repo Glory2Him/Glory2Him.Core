@@ -95,5 +95,23 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
         ValueTask<EventEnvelope<ContentItemSetting>?> OnContentItemSettingAddedAsync(
             EventEnvelope<ContentItemSetting> envelope,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Hears <c>ContentItemSetting-Modified</c>. An amended override, or an amended content
+        /// type default, tells every open page that the settings it shows may have changed,
+        /// naming no content item.
+        /// </summary>
+        ValueTask<EventEnvelope<ContentItemSetting>?> OnContentItemSettingModifiedAsync(
+            EventEnvelope<ContentItemSetting> envelope,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Hears <c>ContentItemSetting-Removed</c>, under either name its address carries — a soft
+        /// removal and a hard removal (§EVN2 rule 4). A removed override tells every open page
+        /// that the settings it shows may have changed, naming no content item.
+        /// </summary>
+        ValueTask<EventEnvelope<ContentItemSetting>?> OnContentItemSettingRemovedAsync(
+            EventEnvelope<ContentItemSetting> envelope,
+            CancellationToken cancellationToken = default);
     }
 }

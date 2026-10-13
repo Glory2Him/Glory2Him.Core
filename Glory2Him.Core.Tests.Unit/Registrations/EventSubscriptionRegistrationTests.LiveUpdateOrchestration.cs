@@ -163,6 +163,144 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.contentItemSettingOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
+        // ContentItemSetting-Modified amends an override or a content type's default, so the
+        // forwarder hears it (LiveUpdates.md rule 5). Pinned as literals for the same reason.
+        [Fact]
+        public async Task ShouldSubscribeTheLiveUpdatesToContentItemSettingModified()
+        {
+            // given
+            var modifiedSubscriptions = new List<EventSubscription>();
+            CancellationToken registrationCancellationToken = TestContext.Current.CancellationToken;
+            using var deliveryCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken deliveryCancellationToken = deliveryCancellationTokenSource.Token;
+
+            Func<EventEnvelope<ContentItemSetting>, CancellationToken,
+                ValueTask<EventEnvelope<ContentItemSetting>>> modifiedHandler = null;
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.SubscribeToContentItemSettingEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == new Guid("04949f46-790d-4413-acd5-5ea363df7701")
+                            && subscription.Name ==
+                                "LiveUpdateOrchestrationService.OnContentItemSettingModified"),
+                    ContentItemSettingEventOperation.Modified,
+                    It.Is<Func<EventEnvelope<ContentItemSetting>, CancellationToken,
+                        ValueTask<EventEnvelope<ContentItemSetting>>>>(handler =>
+                            handler != null),
+                    registrationCancellationToken))
+                        .Callback<EventSubscription, ContentItemSettingEventOperation,
+                            Func<EventEnvelope<ContentItemSetting>, CancellationToken,
+                                ValueTask<EventEnvelope<ContentItemSetting>>>,
+                            CancellationToken>((subscription, _, handler, _) =>
+                            {
+                                modifiedSubscriptions.Add(subscription);
+                                modifiedHandler = handler;
+                            });
+
+            var deliveredEnvelope = new EventEnvelope<ContentItemSetting>();
+
+            await this.eventSubscriptionRegistration.RegisterAsync(registrationCancellationToken);
+
+            EventSubscription modifiedSubscription =
+                modifiedSubscriptions.Should().ContainSingle().Subject;
+
+            // when
+            await modifiedHandler(deliveredEnvelope, deliveryCancellationToken);
+
+            // then
+            modifiedSubscription.Id.Should().Be(new Guid("04949f46-790d-4413-acd5-5ea363df7701"));
+
+            modifiedSubscription.Name.Should()
+                .Be("LiveUpdateOrchestrationService.OnContentItemSettingModified");
+
+            Guid modifiedAddressId =
+                EventBrokerIdentifiers.ContentItemSettingEventAddressIds[
+                    ContentItemSettingEventOperation.Modified];
+
+            EventBrokerIdentifiers.ContentItemSettingEventAddresses[modifiedAddressId]
+                .Should().Be("ContentItemSetting-Modified");
+
+            this.liveUpdateOrchestrationServiceMock.Verify(service =>
+                service.OnContentItemSettingModifiedAsync(
+                    deliveredEnvelope,
+                    deliveryCancellationToken),
+                Times.Once);
+
+            this.liveUpdateOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.contentItemSettingServiceMock.VerifyNoOtherCalls();
+            this.contentItemSettingOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        // ContentItemSetting-Removed takes an override away, softly or for good, so the forwarder
+        // hears it (LiveUpdates.md rule 5). A hard removal is published to the same address under
+        // its own name (§EVN2 rule 4), so this one subscription hears both. Pinned as literals for
+        // the same reason.
+        [Fact]
+        public async Task ShouldSubscribeTheLiveUpdatesToContentItemSettingRemoved()
+        {
+            // given
+            var removedSubscriptions = new List<EventSubscription>();
+            CancellationToken registrationCancellationToken = TestContext.Current.CancellationToken;
+            using var deliveryCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken deliveryCancellationToken = deliveryCancellationTokenSource.Token;
+
+            Func<EventEnvelope<ContentItemSetting>, CancellationToken,
+                ValueTask<EventEnvelope<ContentItemSetting>>> removedHandler = null;
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.SubscribeToContentItemSettingEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == new Guid("b47d24b9-c197-44c8-b5b3-a8c8dcce14ef")
+                            && subscription.Name ==
+                                "LiveUpdateOrchestrationService.OnContentItemSettingRemoved"),
+                    ContentItemSettingEventOperation.Removed,
+                    It.Is<Func<EventEnvelope<ContentItemSetting>, CancellationToken,
+                        ValueTask<EventEnvelope<ContentItemSetting>>>>(handler =>
+                            handler != null),
+                    registrationCancellationToken))
+                        .Callback<EventSubscription, ContentItemSettingEventOperation,
+                            Func<EventEnvelope<ContentItemSetting>, CancellationToken,
+                                ValueTask<EventEnvelope<ContentItemSetting>>>,
+                            CancellationToken>((subscription, _, handler, _) =>
+                            {
+                                removedSubscriptions.Add(subscription);
+                                removedHandler = handler;
+                            });
+
+            var deliveredEnvelope = new EventEnvelope<ContentItemSetting>();
+
+            await this.eventSubscriptionRegistration.RegisterAsync(registrationCancellationToken);
+
+            EventSubscription removedSubscription =
+                removedSubscriptions.Should().ContainSingle().Subject;
+
+            // when
+            await removedHandler(deliveredEnvelope, deliveryCancellationToken);
+
+            // then
+            removedSubscription.Id.Should().Be(new Guid("b47d24b9-c197-44c8-b5b3-a8c8dcce14ef"));
+
+            removedSubscription.Name.Should()
+                .Be("LiveUpdateOrchestrationService.OnContentItemSettingRemoved");
+
+            Guid removedAddressId =
+                EventBrokerIdentifiers.ContentItemSettingEventAddressIds[
+                    ContentItemSettingEventOperation.Removed];
+
+            EventBrokerIdentifiers.ContentItemSettingEventAddresses[removedAddressId]
+                .Should().Be("ContentItemSetting-Removed");
+
+            this.liveUpdateOrchestrationServiceMock.Verify(service =>
+                service.OnContentItemSettingRemovedAsync(
+                    deliveredEnvelope,
+                    deliveryCancellationToken),
+                Times.Once);
+
+            this.liveUpdateOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.contentItemSettingServiceMock.VerifyNoOtherCalls();
+            this.contentItemSettingOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
         // Association-Rejected takes an approved reaction out of a count where the entity
         // overrides it, so the forwarder hears it (LiveUpdates.md rule 6). Pinned as literals for
         // the same reason.

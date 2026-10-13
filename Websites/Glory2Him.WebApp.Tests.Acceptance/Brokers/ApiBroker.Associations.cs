@@ -11,6 +11,7 @@
 
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text;
 using System.Threading.Tasks;
 using Glory2Him.WebApp.Tests.Acceptance.Models.Associations;
 
@@ -25,6 +26,16 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         // body on any success and throws on any failure.
         public async ValueTask<HttpResponseMessage> PostAssociationAsync(Association association) =>
             await this.httpClient.PostAsJsonAsync(associationsRelativeUrl, association);
+
+        // A hand-built body, posted as RAW JSON so a test can send members the typed request model
+        // does not carry: the fields outside the upsert's two-endpoint shape (§ARC16.8.1). The raw
+        // response, for the reason PostAssociationAsync gives.
+        public async ValueTask<HttpResponseMessage> PostAssociationRawAsync(string json)
+        {
+            using var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            return await this.httpClient.PostAsync(associationsRelativeUrl, content);
+        }
 
         // The raw response, because the status code is the assertion on the validation arms and
         // a typed read throws on them. The query string is the caller's, whole, because how the

@@ -35,7 +35,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         /// Writes every association a caller makes — an editorial pairing such as a suggested
         /// tag, and a reader's reaction — through one flow, and replaces the add (§ARC16.8.1). The
         /// caller supplies only the raw endpoints (<c>EntityAType</c>/<c>EntityAKeyId</c>,
-        /// <c>EntityBType</c>/<c>EntityBKeyId</c>); the orchestration resolves each endpoint
+        /// <c>EntityBType</c>/<c>EntityBKeyId</c>), and the flow runs on a working copy of those
+        /// four, so any other field the request carries is dropped rather than refused and the
+        /// caller's object is left as it was sent; the orchestration resolves each endpoint
         /// against its foundation service and DERIVES the scope, group id and content type — none
         /// of which it accepts from the caller, because the content type is an authorization
         /// input and a caller-set scope could claim <c>AllVersions</c> on an entity with no group.
@@ -51,11 +53,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         /// not or where no setting resolves (§ARC16.2.1).</para>
         ///
         /// <para>An editorial pair runs the retrieve-or-add of design §7.4 over the unfiltered
-        /// store: a free pair is inserted (<c>Created</c>); an occupied one is returned as it
-        /// stands — <c>AlreadyApproved</c> for an approved row, <c>AlreadyPending</c> for any
-        /// other, soft-deleted included, so pending, rejected and taken down are
-        /// indistinguishable to the caller; and a differently-scoped row that already covers the
-        /// pair answers <c>OverlapsExisting</c>.</para>
+        /// store: a free pair is inserted at <c>Submitted</c> (<c>Created</c>); an occupied one is
+        /// returned as it stands — <c>AlreadyApproved</c> for an approved row,
+        /// <c>AlreadyPending</c> for any other, soft-deleted included, so pending, rejected and
+        /// taken down are indistinguishable to the caller; and a differently-scoped row that
+        /// already covers the pair answers <c>OverlapsExisting</c>.</para>
         ///
         /// <para>A personal pair is handed to the foundation's personal upsert at
         /// <c>Submitted</c>, which gives, changes or brings back the reader's one reaction on the

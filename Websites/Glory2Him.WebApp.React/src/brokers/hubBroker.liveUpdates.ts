@@ -24,6 +24,12 @@ class LiveUpdateBroker {
         await this.hubConnection.start();
     }
 
+    // Catches nothing: a failed stop rejects with SignalR's own error, unchanged, as the user
+    // story's one deviation has it. The connection is kept, so a later start reuses it.
+    async stopLiveUpdatesAsync(): Promise<void> {
+        await this.hubConnection?.stop();
+    }
+
     private buildHubConnection(): HubConnection {
         const hubConnection = new HubConnectionBuilder()
             .withUrl(this.relativeLiveUpdatesUrl)

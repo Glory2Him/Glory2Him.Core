@@ -108,11 +108,18 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateAssociationIsNotNull(association);
 
+                // THE WORKING COPY (AssociationOrchestrationService.md §6 rule 1): the caller's
+                // four endpoint fields and nothing else, built as the Association-Adding door
+                // builds it. Everything from here on, the envelope included, reads and writes the
+                // copy and never the caller's object, so a field outside the two-endpoint shape
+                // gets the answer the same body gets without it (§ARC16.8.1).
+                Association workingCopy = CreateAddRequestFrom(association);
+
                 EventEnvelope<Association> envelope =
-                    await this.eventEnvelopeBroker.CreateAsync(content: association);
+                    await this.eventEnvelopeBroker.CreateAsync(content: workingCopy);
 
                 return await DoUpsertAssociationAsync(
-                    association: association,
+                    association: workingCopy,
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
             });
@@ -185,8 +192,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     "has no declared suggestion status."),
             };
 
-        // THE EDITORIAL ARM: the add as it was, unchanged (§ARC16.8.1) — the two probes, the
-        // insert of a free pair and the same statuses. It never repoints.
+        // THE EDITORIAL ARM: the add as it was (§ARC16.8.1) — the two probes, the insert of a
+        // free pair and the same statuses. It never repoints. A free pair is inserted at
+        // Submitted, as a reaction is, because the caller's status is dropped with the rest of
+        // the request and an association has no work in progress to save at Draft (§ARC16.8.1,
+        // "An editorial suggestion is created at Submitted too"). The status is written after
+        // the probes, so they are asked over the same copy the Association-Adding door asks them
+        // over.
         private async ValueTask<AssociationSuggestionResult> AddEditorialPairAsync(
             Association association,
             CancellationToken cancellationToken)
@@ -211,6 +223,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 }
 
                 // the pair is unoccupied and nothing overlaps — insert the new suggestion
+                association.ApprovalStatus = ApprovalStatus.Submitted;
+
                 Association addedAssociation =
                     await this.associationService.AddAssociationAsync(
                         association,

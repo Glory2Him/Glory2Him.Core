@@ -125,6 +125,70 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             };
         }
 
+        // Every family a failure beneath a setting ear can arrive in, thrown by the send, beside
+        // what the ear rethrows it as (LiveUpdateOrchestrationService.Exceptions.cs): the live
+        // update service's refusal as this service's dependency validation failure, its
+        // dependency and service failures as this service's dependency failure, a timeout as this
+        // service's dependency failure wrapping it, and any other failure as this service's
+        // service failure.
+        public static TheoryData<Exception, Xeption> SettingSendFailures()
+        {
+            string randomMessage = GetRandomString();
+            var innerException = new Xeption(message: randomMessage);
+            var unnamedException = new Exception(randomMessage);
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var failedLiveUpdateOrchestrationServiceException =
+                new FailedLiveUpdateOrchestrationServiceException(
+                    message: "Failed live update orchestration service error occurred, " +
+                        "please contact support.",
+                    innerException: unnamedException,
+                    data: unnamedException.Data);
+
+            return new TheoryData<Exception, Xeption>
+            {
+                {
+                    new LiveUpdateValidationException(
+                        message: randomMessage, innerException: innerException),
+
+                    CreateDependencyValidationException(innerException)
+                },
+                {
+                    new LiveUpdateDependencyException(
+                        message: randomMessage, innerException: innerException),
+
+                    CreateDependencyException(innerException)
+                },
+                {
+                    new LiveUpdateServiceException(
+                        message: randomMessage, innerException: innerException),
+
+                    CreateDependencyException(innerException)
+                },
+                {
+                    // cancelled beneath the ear while the caller's own token is not
+                    new OperationCanceledException(),
+
+                    CreateDependencyException(
+                        new TimeoutLiveUpdateOrchestrationException(
+                            message: "Failed live update orchestration timeout error occurred, " +
+                                "contact support.",
+                            innerException: timeoutException,
+                            data: timeoutException.Data))
+                },
+                {
+                    unnamedException,
+
+                    new LiveUpdateOrchestrationServiceException(
+                        message: "Live update orchestration service error occurred, " +
+                            "contact support.",
+                        innerException: failedLiveUpdateOrchestrationServiceException)
+                },
+            };
+        }
+
         private static LiveUpdateOrchestrationDependencyValidationException
             CreateDependencyValidationException(Xeption innerException) =>
             new LiveUpdateOrchestrationDependencyValidationException(
