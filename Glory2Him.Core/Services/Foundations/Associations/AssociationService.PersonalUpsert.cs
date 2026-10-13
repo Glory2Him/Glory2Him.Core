@@ -298,6 +298,26 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 (Rule: IsSetOnAdd(association.IsPublished), Parameter: nameof(Association.IsPublished)),
                 (Rule: IsSetOnAdd(association.PublishDate), Parameter: nameof(Association.PublishDate)),
 
+                // the fields an operation owns are refused as the add refuses them (§17 rule 1)
+                (Rule: IsSetOnAdd(association.SortOrder), Parameter: nameof(Association.SortOrder)),
+
+                (Rule: IsSetOnAdd(association.ConfidenceScore),
+                    Parameter: nameof(Association.ConfidenceScore)),
+
+                (Rule: IsSetOnAdd(association.ConfidenceReason),
+                    Parameter: nameof(Association.ConfidenceReason)),
+
+                (Rule: IsSetOnAdd(association.SourceBatchId),
+                    Parameter: nameof(Association.SourceBatchId)),
+
+                (Rule: IsSetOnAdd(association.ModelVersion), Parameter: nameof(Association.ModelVersion)),
+
+                (Rule: IsSetOnAdd(association.IsApprovedByBypass),
+                    Parameter: nameof(Association.IsApprovedByBypass)),
+
+                (Rule: IsSetOnAdd(association.ApprovedByBypassReason),
+                    Parameter: nameof(Association.ApprovedByBypassReason)),
+
                 (Rule: IsNotContributableStatus(association.ApprovalStatus),
                     Parameter: nameof(Association.ApprovalStatus)));
 

@@ -200,7 +200,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             Association invalidAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
 
             var invalidAssociationException =
                 new InvalidAssociationException(
@@ -278,7 +278,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             Association invalidAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
 
             invalidAssociation.ConfidenceReason = GetRandomStringWithLengthOf(501);
 
@@ -289,8 +289,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             invalidAssociationException.AddData(
                 key: nameof(Association.ConfidenceReason),
 
-                values: "Text exceed max length of " +
-                    $"{invalidAssociation.ConfidenceReason.Length - 1} characters");
+                values:
+                [
+                    "Text exceed max length of " +
+                        $"{invalidAssociation.ConfidenceReason.Length - 1} characters",
+
+                    "Value is not allowed on add"
+                ]);
 
             var expectedAssociationValidationException =
                 new AssociationValidationException(
@@ -357,7 +362,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             Association invalidAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
 
             invalidAssociation.ConfidenceScore = outOfRangeConfidenceScore;
 
@@ -367,7 +372,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             invalidAssociationException.AddData(
                 key: nameof(Association.ConfidenceScore),
-                values: "Value is not within range of 0 and 10");
+                values: ["Value is not within range of 0 and 10", "Value is not allowed on add"]);
 
             var expectedAssociationValidationException =
                 new AssociationValidationException(
@@ -431,7 +436,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             Association randomAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
             Association invalidAssociation = randomAssociation;
             invalidAssociation.UpdatedWhen = GetRandomDateTimeOffset();
 
@@ -506,7 +511,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             string differentUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             Association randomAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
             Association invalidAssociation = randomAssociation;
             invalidAssociation.CreatedBy = differentUserId;
             invalidAssociation.UpdatedBy = differentUserId;
@@ -581,7 +586,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             Association randomAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
             Association invalidAssociation = randomAssociation;
             invalidAssociation.UpdatedBy = GetRandomString();
 
@@ -656,7 +661,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             Association randomAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
             Association invalidAssociation = randomAssociation;
             DateTimeOffset currentDateTime = randomDateTimeOffset;
             DateTimeOffset startDate = currentDateTime.AddSeconds(-90);
@@ -815,6 +820,269 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.identifierBrokerMock.Verify(broker =>
                 broker.GetIdentifierAsync(),
                 Times.Never);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(OperationOwnedFields))]
+        public async Task ShouldThrowValidationExceptionOnAddIfAnOperationOwnedFieldIsSetAndLogItAsync(
+            string operationOwnedField)
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Guid mintedId = Guid.NewGuid();
+
+            Association invalidAssociation = SetOperationOwnedField(
+                association: CreateRandomAddAssociation(randomDateTimeOffset, randomUserId),
+                operationOwnedField: operationOwnedField);
+
+            var invalidAssociationException =
+                new InvalidAssociationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.AddData(
+                key: operationOwnedField,
+                values: "Value is not allowed on add");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(mintedId);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidAssociation, this.ambientSecurityContext))
+                    .ReturnsAsync(invalidAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<Association> addAssociationTask =
+                this.associationService.AddAssociationAsync(
+                    invalidAssociation,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    addAssociationTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidAssociation, this.ambientSecurityContext),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            // nothing is inserted, published or recorded in ProcessedEvents (§15 rule 2)
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(EmptyOrWhitespaceOperationOwnedTexts))]
+        public async Task ShouldThrowValidationExceptionOnAddIfAnOperationOwnedTextIsEmptyOrWhitespaceAndLogItAsync(
+            string operationOwnedTextField,
+            string emptyOrWhitespaceText)
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Guid mintedId = Guid.NewGuid();
+
+            // an empty or whitespace string is not null, so it is set (§15 rule 1)
+            Association invalidAssociation = SetOperationOwnedText(
+                association: CreateRandomAddAssociation(randomDateTimeOffset, randomUserId),
+                operationOwnedTextField: operationOwnedTextField,
+                text: emptyOrWhitespaceText);
+
+            var invalidAssociationException =
+                new InvalidAssociationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.AddData(
+                key: operationOwnedTextField,
+                values: "Value is not allowed on add");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(mintedId);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidAssociation, this.ambientSecurityContext))
+                    .ReturnsAsync(invalidAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<Association> addAssociationTask =
+                this.associationService.AddAssociationAsync(
+                    invalidAssociation,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    addAssociationTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidAssociation, this.ambientSecurityContext),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfEveryOperationOwnedFieldIsSetAndLogItAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Guid mintedId = Guid.NewGuid();
+
+            Association invalidAssociation = SetEveryOperationOwnedField(
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId));
+
+            var invalidAssociationException =
+                new InvalidAssociationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            // every refusal is reported beside the others, in one exception (§15 rule 1)
+            foreach (string operationOwnedField in OperationOwnedFieldNames)
+            {
+                invalidAssociationException.AddData(
+                    key: operationOwnedField,
+                    values: "Value is not allowed on add");
+            }
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(mintedId);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidAssociation, this.ambientSecurityContext))
+                    .ReturnsAsync(invalidAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<Association> addAssociationTask =
+                this.associationService.AddAssociationAsync(
+                    invalidAssociation,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    addAssociationTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidAssociation, this.ambientSecurityContext),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
 
             this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

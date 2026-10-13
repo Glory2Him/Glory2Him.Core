@@ -447,6 +447,30 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 (Rule: IsSetOnAdd(association.PublishDate),
                     Parameter: nameof(Association.PublishDate)),
 
+                // Each of these is written by the operation that owns it — the sort, the
+                // confidence write and the approval transition — and never accepted from a
+                // caller (§15 rule 1; §APR9.7.1 rules 2, 3 and 5)
+                (Rule: IsSetOnAdd(association.SortOrder),
+                    Parameter: nameof(Association.SortOrder)),
+
+                (Rule: IsSetOnAdd(association.ConfidenceScore),
+                    Parameter: nameof(Association.ConfidenceScore)),
+
+                (Rule: IsSetOnAdd(association.ConfidenceReason),
+                    Parameter: nameof(Association.ConfidenceReason)),
+
+                (Rule: IsSetOnAdd(association.SourceBatchId),
+                    Parameter: nameof(Association.SourceBatchId)),
+
+                (Rule: IsSetOnAdd(association.ModelVersion),
+                    Parameter: nameof(Association.ModelVersion)),
+
+                (Rule: IsSetOnAdd(association.IsApprovedByBypass),
+                    Parameter: nameof(Association.IsApprovedByBypass)),
+
+                (Rule: IsSetOnAdd(association.ApprovedByBypassReason),
+                    Parameter: nameof(Association.ApprovedByBypassReason)),
+
                 (Rule: IsNotContributableStatus(association.ApprovalStatus),
                     Parameter: nameof(Association.ApprovalStatus)),
 
@@ -1112,6 +1136,31 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         {
             Condition = date is not null,
             Message = "Date is not allowed on add"
+        };
+
+        private static dynamic IsSetOnAdd(int? value) => new
+        {
+            Condition = value is not null,
+            Message = "Value is not allowed on add"
+        };
+
+        private static dynamic IsSetOnAdd(decimal? value) => new
+        {
+            Condition = value is not null,
+            Message = "Value is not allowed on add"
+        };
+
+        private static dynamic IsSetOnAdd(Guid? value) => new
+        {
+            Condition = value is not null,
+            Message = "Value is not allowed on add"
+        };
+
+        // an empty or whitespace string is not null, so it is refused too (§15 rule 1)
+        private static dynamic IsSetOnAdd(string? text) => new
+        {
+            Condition = text is not null,
+            Message = "Value is not allowed on add"
         };
 
         // a caller may save work in progress or submit it for review; the remaining states
