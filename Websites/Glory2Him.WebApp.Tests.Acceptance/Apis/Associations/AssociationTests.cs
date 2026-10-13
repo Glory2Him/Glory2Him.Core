@@ -95,6 +95,20 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
             return body.ToJsonString();
         }
 
+        // A reader's reaction whose body also carries every field an operation owns, each at a
+        // value the foundation's range and length checks accept, so the create arm's refusal of
+        // the field itself (#1094) is all a field that reached it could earn.
+        private static string CreateBodyCarryingOperationOwnedFields(Association reactionPair) =>
+            CreateBodyCarrying(
+                reactionPair,
+                ("sortOrder", 300),
+                ("confidenceScore", 5.5m),
+                ("confidenceReason", "Suggested by an acceptance test."),
+                ("modelVersion", "acceptance-model-1"),
+                ("sourceBatchId", Guid.NewGuid()),
+                ("isApprovedByBypass", true),
+                ("approvedByBypassReason", "Bypassed by an acceptance test."));
+
         private static async ValueTask<AssociationSuggestionResult> ReadResultAsync(
             HttpResponseMessage response) =>
             await response.Content.ReadFromJsonAsync<AssociationSuggestionResult>();

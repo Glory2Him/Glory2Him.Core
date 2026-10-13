@@ -17,6 +17,7 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
 using AssociationSuggestionStatus = Glory2Him.Core.Models.Orchestrations.Associations.AssociationSuggestionStatus;
 using Glory2Him.WebApp.Tests.Acceptance.Models.Associations;
+using CoreAssociation = Glory2Him.Core.Models.Foundations.Associations.Association;
 using CoreContentItem = Glory2Him.Core.Models.Foundations.ContentItems.ContentItem;
 using CoreTag = Glory2Him.Core.Models.Foundations.Tags.Tag;
 
@@ -155,24 +156,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
         public async Task ShouldAnswerAReactionCarryingOperationOwnedFieldsAsWithoutThemOverHttpAsync()
         {
             // given
-            // Each value is one the foundation's range and length checks accept, so the create
-            // arm's refusal of the field itself (#1094) is the only 400 a field that got past the
-            // working copy could earn. That is the only proof of the bypass pair's drop: the
-            // reaction is approved inside its own request, and the approval writes the pair from
-            // the access decision (AssociationOrchestrationService.md §6 rule 6).
+            // A field that got past the upsert's working copy would earn the create arm's 400
+            // (#1094). That is the only proof of the bypass pair's drop: the reaction is approved
+            // inside its own request, and the approval writes the pair from the access decision
+            // (AssociationOrchestrationService.md §6 rule 6).
             CoreContentItem publishedContentItem = await InsertPublishedContentItemAsync();
             Association inputPair = CreateReactionPair(publishedContentItem.Id, seededAmenReactionId);
-
-            string inputBody = CreateBodyCarrying(
-                inputPair,
-                ("sortOrder", 300),
-                ("confidenceScore", 5.5m),
-                ("confidenceReason", "Suggested by an acceptance test."),
-                ("modelVersion", "acceptance-model-1"),
-                ("sourceBatchId", Guid.NewGuid()),
-                ("isApprovedByBypass", true),
-                ("approvedByBypassReason", "Bypassed by an acceptance test."));
-
+            string inputBody = CreateBodyCarryingOperationOwnedFields(inputPair);
             this.apiBroker.ActAsContributor();
 
             try
@@ -187,6 +177,46 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 actualResponse.StatusCode.Should().Be(HttpStatusCode.Created);
                 actualResult.Status.Should().Be(AssociationSuggestionStatus.Created);
                 actualResult.AssociationId.Should().NotBeEmpty();
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(publishedContentItem.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
+            }
+        }
+
+        [Fact]
+        public async Task ShouldStoreNoneOfTheDroppedFieldsOnAReactionOverHttpAsync()
+        {
+            // given
+            // The post ShouldAnswerAReactionCarryingOperationOwnedFieldsAsWithoutThemOverHttpAsync
+            // makes. No confidence process is built, so nothing but this post could write the five
+            // fields the stored row is read for (AssociationOrchestrationService.md §6 rule 6).
+            CoreContentItem publishedContentItem = await InsertPublishedContentItemAsync();
+            Association inputPair = CreateReactionPair(publishedContentItem.Id, seededAmenReactionId);
+            string inputBody = CreateBodyCarryingOperationOwnedFields(inputPair);
+            this.apiBroker.ActAsContributor();
+
+            try
+            {
+                HttpResponseMessage postResponse =
+                    await this.apiBroker.PostAssociationRawAsync(inputBody);
+
+                AssociationSuggestionResult postResult = await ReadResultAsync(postResponse);
+                this.apiBroker.ActAsSeededAdministrator();
+
+                // when
+                CoreAssociation storedAssociation =
+                    await this.apiBroker.GetCoreAssociationByIdAsync(postResult.AssociationId);
+
+                // then
+                storedAssociation.Should().NotBeNull();
+                storedAssociation.SortOrder.Should().BeNull();
+                storedAssociation.ConfidenceScore.Should().BeNull();
+                storedAssociation.ConfidenceReason.Should().BeNull();
+                storedAssociation.SourceBatchId.Should().BeNull();
+                storedAssociation.ModelVersion.Should().BeNull();
             }
             finally
             {
