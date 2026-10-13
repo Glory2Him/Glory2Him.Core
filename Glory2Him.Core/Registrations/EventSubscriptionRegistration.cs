@@ -2351,6 +2351,29 @@ namespace Glory2Him.Core.Registrations
                         service => service.OnAssociationRemovedAsync),
                 cancellationToken: cancellationToken);
 
+            // The approval workflow deliberately does not hear Association-Restored
+            // (§ARC16.2.2); the forwarder does, because a revive keeps the status it was
+            // withdrawn at and nothing else announces the count it moves.
+            await this.eventBroker.SubscribeToAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationRestoredSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnAssociationRestoredSubscriptionName,
+
+                    Description = "Tells every open page that the reaction counts of the content " +
+                        "item's canonically visible version may have moved, where that version " +
+                        "exists and its winning setting shows reactions. A revived reaction is " +
+                        "counted again at the status it was withdrawn at."
+                },
+                operation: AssociationEventOperation.Restored,
+                associationEventHandler:
+                    Scoped<ILiveUpdateOrchestrationService, Association>(
+                        service => service.OnAssociationRestoredAsync),
+                cancellationToken: cancellationToken);
+
             await this.eventBroker.SubscribeToContentItemSettingEventAsync(
                 subscription: new EventSubscription
                 {
