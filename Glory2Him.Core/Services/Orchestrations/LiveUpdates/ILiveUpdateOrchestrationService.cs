@@ -49,6 +49,16 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Hears <c>Association-Submitted</c>, which the approval workflow's ear hears too. An
+        /// approved reaction sent back to <c>Submitted</c> leaves its item's counts until its
+        /// round is decided again. Runs the reactions body
+        /// <see cref="OnAssociationApprovedAsync"/> runs.
+        /// </summary>
+        ValueTask<EventEnvelope<Association>?> OnAssociationSubmittedAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Hears <c>ContentItemSetting-Added</c>. An override added for one item tells every open
         /// page that the settings it shows may have changed, naming no content item: every setting
         /// row is public-read (§SEC14.7 posture C rule 2).
