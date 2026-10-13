@@ -232,6 +232,54 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // An envelope with nothing to verify, or nothing in it to forward, is refused before the
+        // signature is asked.
+        [Fact]
+        public async Task ShouldRefuseANullContentItemSettingModifiedEnvelopeAsync()
+        {
+            // given
+            using var callerCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken callerCancellationToken = callerCancellationTokenSource.Token;
+            EventEnvelope<ContentItemSetting> nullFact = null;
+
+            var invalidLiveUpdateOrchestrationException =
+                new InvalidLiveUpdateOrchestrationException(
+                    message: "Invalid live update orchestration fact. " +
+                        "The fact envelope and its content are required.");
+
+            var expectedLiveUpdateOrchestrationValidationException =
+                new LiveUpdateOrchestrationValidationException(
+                    message: "Live update orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidLiveUpdateOrchestrationException);
+
+            // when
+            ValueTask<EventEnvelope<ContentItemSetting>> onContentItemSettingModifiedTask =
+                this.liveUpdateOrchestrationService.OnContentItemSettingModifiedAsync(
+                    nullFact,
+                    callerCancellationToken);
+
+            LiveUpdateOrchestrationValidationException
+                actualLiveUpdateOrchestrationValidationException =
+                    await Assert.ThrowsAsync<LiveUpdateOrchestrationValidationException>(
+                        onContentItemSettingModifiedTask.AsTask);
+
+            // then
+            actualLiveUpdateOrchestrationValidationException.Should().BeEquivalentTo(
+                expectedLiveUpdateOrchestrationValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(
+                    expectedLiveUpdateOrchestrationValidationException))),
+                Times.Once);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.liveUpdateServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A content type's default: it names no content item.
         private static ContentItemSetting CreateContentItemSettingTypeDefault() =>
             new ContentItemSetting
