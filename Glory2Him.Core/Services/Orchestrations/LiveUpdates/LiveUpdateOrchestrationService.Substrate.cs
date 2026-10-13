@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
@@ -74,5 +75,10 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
 
                 return null;
             });
+
+        public ValueTask<EventEnvelope<ContentItemSetting>?> OnContentItemSettingRemovedAsync(
+            EventEnvelope<ContentItemSetting> envelope,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
     }
 }
