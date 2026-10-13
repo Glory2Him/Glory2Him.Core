@@ -303,51 +303,51 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.LiveUpdates
             Timeout
         }
 
-        // The row a withheld case's fact carries, with the reads beneath the body answering as
-        // that case has them. The reads take the exact values the body is to ask with, so a
-        // body asking for anything else finds nothing set up and sends nothing either way — the
-        // happy-path tests are what pin the values.
+        // The row a withheld case's fact carries. Every read beneath the body answers as a send
+        // would need, save the one answer the case withholds on, so a body that skipped that one
+        // check would send — and the test that expects nothing sent would see it.
         private Association ArrangeWithheldReactionsCase(
             WithheldReactionsCase withheldReactionsCase,
             CancellationToken cancellationToken)
         {
             Association contentItemReaction = CreateContentItemReaction();
 
-            switch (withheldReactionsCase)
-            {
-                case WithheldReactionsCase.EndpointANotAContentItem:
-                    contentItemReaction.EntityAType = EntityType.Comment;
-                    return contentItemReaction;
-
-                case WithheldReactionsCase.EndpointBNotAReaction:
-                    contentItemReaction.EntityBType = EntityType.Tag;
-                    return contentItemReaction;
-
-                case WithheldReactionsCase.NoVisibleVersion:
-                    this.contentItemServiceMock.Setup(service =>
-                        service.FindPublicContentItemGroupAsync(
-                            contentItemReaction.EntityAGroupId,
-                            cancellationToken))
-                                .ReturnsAsync((PublicContentItemGroup)null);
-
-                    return contentItemReaction;
-            }
-
             PublicContentItemGroup visibleVersion =
                 CreateVisibleVersion(groupId: contentItemReaction.EntityAGroupId);
 
             List<ContentItemSettingKey> expectedSettingKeys = CreateSettingKeysFor(visibleVersion);
 
-            List<EffectiveContentItemSetting> winningSettings =
-                withheldReactionsCase is WithheldReactionsCase.ReactionsHidden
-                    ? CreateWinningSettingsFor(visibleVersion, showReactions: false)
-                    : new List<EffectiveContentItemSetting>();
+            PublicContentItemGroup foundVersion =
+                withheldReactionsCase is WithheldReactionsCase.NoVisibleVersion
+                    ? null
+                    : visibleVersion;
+
+            List<EffectiveContentItemSetting> winningSettings = withheldReactionsCase switch
+            {
+                WithheldReactionsCase.ReactionsHidden =>
+                    CreateWinningSettingsFor(visibleVersion, showReactions: false),
+
+                WithheldReactionsCase.SettingUnanswered =>
+                    new List<EffectiveContentItemSetting>(),
+
+                _ => CreateWinningSettingsFor(visibleVersion, showReactions: true),
+            };
+
+            if (withheldReactionsCase is WithheldReactionsCase.EndpointANotAContentItem)
+            {
+                contentItemReaction.EntityAType = EntityType.Comment;
+            }
+
+            if (withheldReactionsCase is WithheldReactionsCase.EndpointBNotAReaction)
+            {
+                contentItemReaction.EntityBType = EntityType.Tag;
+            }
 
             this.contentItemServiceMock.Setup(service =>
                 service.FindPublicContentItemGroupAsync(
                     contentItemReaction.EntityAGroupId,
                     cancellationToken))
-                        .ReturnsAsync(visibleVersion);
+                        .ReturnsAsync(foundVersion);
 
             this.accessBrokerMock.Setup(broker =>
                 broker.RetrieveEffectiveContentItemSettingsAsync(
