@@ -78,7 +78,7 @@ describe('accountService.useLogout', () => {
         expect(queryClient.getQueryState(['AccountsGetCurrentUser'])?.isInvalidated).toBe(false);
         expect(currentUserRead).toHaveBeenCalledTimes(1);
     });
-    // THE ERROR LEAVES THE HOOK UNCHANGED (§UI20.9.2 departure 2): neither swallowed nor wrapped.
+    // THE ERROR LEAVES THE HOOK UNCHANGED (Â§UI20.9.2 departure 2): neither swallowed nor wrapped.
     it("should fail with the broker's error when the logout fails", async () => {
         // given
         const brokerError = new AxiosError('Error: Logout failed.');
@@ -93,8 +93,10 @@ describe('accountService.useLogout', () => {
         await expect(logout).rejects.toBe(brokerError);
     });
 
-    // A FAILED LOGOUT IS ANNOUNCED BY THE GLOBAL TOAST ALONE (§UI20.8 rule 3): the header and
-    // the user menu show no message of their own. Driven through the app's own global handler.
+    // A FAILED LOGOUT IS ANNOUNCED BY THE GLOBAL TOAST ALONE (Â§UI20.8 rule 3): the header and
+    // the user menu show no message of their own. Driven through the app's own global handler,
+    // with the toasts counted inside it, so a hook that suppresses it and raises its own toast
+    // is not mistaken for one that leaves it on.
     it('should leave the global toast on when the logout fails', async () => {
         // given
         const brokerError = new AxiosError('Error: Logout failed.');
@@ -103,8 +105,21 @@ describe('accountService.useLogout', () => {
         const globalOnError =
             queryClientGlobalOptions.getMutationCache().config.onError!;
 
+        let toastsRaisedByTheGlobalHandler = 0;
+
         const globalClient = new QueryClient({
-            mutationCache: new MutationCache({ onError: globalOnError })
+            mutationCache: new MutationCache({
+                onError: (...args) => {
+                    const toastsBefore = toastErrorMock.mock.calls.length;
+
+                    try {
+                        globalOnError(...args);
+                    } finally {
+                        toastsRaisedByTheGlobalHandler +=
+                            toastErrorMock.mock.calls.length - toastsBefore;
+                    }
+                }
+            })
         });
 
         const globalWrapper = ({ children }: { children: ReactNode }) => (
@@ -118,6 +133,7 @@ describe('accountService.useLogout', () => {
         await result.current.mutateAsync().catch(() => undefined);
 
         // then
+        expect(toastsRaisedByTheGlobalHandler).toBe(1);
         expect(toastErrorMock).toHaveBeenCalledTimes(1);
         expect(toastErrorMock).toHaveBeenCalledWith(
             'An unknown error has occurred, please try again.');
