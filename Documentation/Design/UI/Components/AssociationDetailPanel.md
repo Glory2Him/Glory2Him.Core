@@ -29,7 +29,7 @@ nothing; its one action leaves as a hook.
 
 **2.4 [Must]** The confidence block renders only where the item carries both a confidence score and a confidence reason. Where either is null the block is not rendered, and nothing else on the panel changes for it (`DesignFeatures/PostModeration.md` rule 13). *(user, 2026-10-11)*
 
-**2.5 [Must]** The panel never works out the suggestion. Which band the score falls in is §APR8.6.2's, against the round's resolved thresholds, and the page hands the answer over as `confidenceSuggestion`; the panel renders what it is handed, and with nothing handed renders no suggestion. *(§APR8.6.2; user, 2026-10-11)* ≠ `UI/Pages/AssociationModerationDetailPage.md §6 item 19`
+**2.5 [Must]** The panel never works out the suggestion. Which band the score falls in is §APR8.6.2's, against the confidence process's configured thresholds (*The confidence suggestion* rule 1), and the page hands the answer over as `confidenceSuggestion`; the panel renders what it is handed, and with nothing handed renders no suggestion. *(§APR8.6.2; user, 2026-10-11)* ≠ `UI/Pages/AssociationModerationDetailPage.md §6 item 19`
 
 **2.6 [Must]** The association's takedown is `Administrators`', at any status (§APR9.9 rule 7; §SEC14.7 posture A rule 3), and asks before it is sent: title *Are you sure?*, a message naming the tag or the reference, and button *Delete*; nothing is raised on Cancel (`DesignFeatures/PostModeration.md` rule 16). *(user, 2026-10-11)* ≠ item 3
 

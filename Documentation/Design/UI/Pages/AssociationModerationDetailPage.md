@@ -59,7 +59,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.12 [Must]** The association's card shows whether it is a tag or a Bible reference, the tag's name or the reference, the reference's scripture where its row carries one, who suggested it — the association's `CreatedBy`, named from the contributor read — and when, its `CreatedWhen`, and its status. The page reads the far end through `DesignFeatures/UI/Foundations/TagService.md §1` or `DesignFeatures/UI/Foundations/BibleReferenceService.md §1`, and hands the whole to `AssociationDetailPanel`. *(user, 2026-10-11)* ≠ item 1
 
-**2.13 [Must]** The confidence block applies only where the association records both a confidence score and a confidence reason: the page hands both over as the association carries them, and the panel renders the block only then (`UI/Components/AssociationDetailPanel.md rule 2.4`). Where either is null, the block is absent and nothing else on the page depends on it. The suggestion — an approval, a rejection, or unable to suggest either, against the round's resolved thresholds — is the band the page hands the panel from Berean's status read, its `confidenceSuggestion`, and the page hands none where that read answers none or cannot be read (§APR8.6.2, *The confidence suggestion*; `DesignFeatures/PostModeration.md` rule 13). *(user, 2026-10-11; user, 2026-10-13)* ≠ item 19
+**2.13 [Must]** The confidence block applies only where the association records both a confidence score and a confidence reason: the page hands both over as the association carries them, and the panel renders the block only then (`UI/Components/AssociationDetailPanel.md rule 2.4`). Where either is null, the block is absent and nothing else on the page depends on it. The suggestion — an approval, a rejection, or unable to suggest either, against the confidence process's configured thresholds — is the band the page hands the panel from Berean's status read, its `confidenceSuggestion`, and the page hands none where that read answers none or cannot be read (§APR8.6.2, *The confidence suggestion*; `DesignFeatures/PostModeration.md` rule 13). *(user, 2026-10-11; user, 2026-10-13)* ≠ item 19
 
 **2.14 [Must]** The page offers everything `ReviewPanel` offers on the association's round — its reviews, a vote, requesting reviewers and Berean, the decision with its bypass for the publisher tier and `Administrators`, and the reset of a decided round for `Administrators` — and the association's own review thread (`DesignFeatures/PostModeration.md` rule 14). *(user, 2026-10-11)* ≠ items 6–18
 
@@ -336,7 +336,8 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
     `confidenceSuggestion` (§APR8.6.2, *The confidence suggestion*), and none where that read
     answers none or cannot be read. The mock's cut-offs above 7 and below 4 are not the policy.
     No read answers the suggestion yet: #1105, #1106, #1107, #1108, #1109 and #1110 build it
-    (designed under #863). The panel's half, the line it renders for a band it is handed, is
+    (designed under #863), and #1106's gather of the thresholds waits on #1117's design. The
+    panel's half, the line it renders for a band it is handed, is
     `UI/Components/AssociationDetailPanel.md §10 item 2`.
 20. (needs issue) **Page gap — the association cannot be taken down.** Rule 2.21 (user rulings
     2026-10-11): `Administrators` take the association down from its card, and the page sends
