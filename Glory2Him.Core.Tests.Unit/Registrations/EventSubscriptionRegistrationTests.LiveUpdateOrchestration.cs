@@ -163,7 +163,9 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.contentItemSettingOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
-        // Association-Rejected takes an approved reaction out of a count where the entity/n        // overrides it, so the forwarder hears it (LiveUpdates.md rule 6). Pinned as literals for/n        // the same reason.
+        // Association-Rejected takes an approved reaction out of a count where the entity
+        // overrides it, so the forwarder hears it (LiveUpdates.md rule 6). Pinned as literals for
+        // the same reason.
         [Fact]
         public async Task ShouldSubscribeTheLiveUpdatesToAssociationRejected()
         {
@@ -178,10 +180,14 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
 
             this.eventBrokerMock.Setup(broker =>
                 broker.SubscribeToAssociationEventAsync(
-                    It.IsAny<EventSubscription>(),
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == new Guid("50791ded-4a06-459d-a1ae-f7ea9e948bb7")
+                            && subscription.Name ==
+                                "LiveUpdateOrchestrationService.OnAssociationRejected"),
                     AssociationEventOperation.Rejected,
-                    It.IsAny<Func<EventEnvelope<Association>, CancellationToken,
-                        ValueTask<EventEnvelope<Association>>>>(),
+                    It.Is<Func<EventEnvelope<Association>, CancellationToken,
+                        ValueTask<EventEnvelope<Association>>>>(handler =>
+                            handler != null),
                     registrationCancellationToken))
                         .Callback<EventSubscription, AssociationEventOperation,
                             Func<EventEnvelope<Association>, CancellationToken,
@@ -226,10 +232,12 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
-        // Association-Submitted takes an approved reaction out of a count until its round is/n        // decided again, so the forwarder hears it (LiveUpdates.md rule 6). The address carries the approval workflow's ear as well, and neither relies on
-        // which runs first (§EVN26 rule 5), so both subscriptions are captured and each is driven:
-        // the forwarder's lands on the forwarder, and the workflow's still lands on the workflow,
-        // under the id and name it had. Pinned as literals for the same reason.
+        // Association-Submitted takes an approved reaction out of a count until its round is
+        // decided again, so the forwarder hears it (LiveUpdates.md rule 6). The address carries the
+        // approval workflow's ear as well, and neither relies on which runs first (§EVN26 rule 5),
+        // so both subscriptions are captured and each is driven: the forwarder's lands on the
+        // forwarder, and the workflow's still lands on the workflow, under the id and name it had.
+        // Pinned as literals for the same reason.
         [Fact]
         public async Task ShouldSubscribeTheLiveUpdatesToAssociationSubmitted()
         {
@@ -246,10 +254,13 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
 
             this.eventBrokerMock.Setup(broker =>
                 broker.SubscribeToAssociationEventAsync(
-                    It.IsAny<EventSubscription>(),
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == liveUpdateSubscriptionId
+                            || subscription.Id == approvalSubscriptionId),
                     AssociationEventOperation.Submitted,
-                    It.IsAny<Func<EventEnvelope<Association>, CancellationToken,
-                        ValueTask<EventEnvelope<Association>>>>(),
+                    It.Is<Func<EventEnvelope<Association>, CancellationToken,
+                        ValueTask<EventEnvelope<Association>>>>(handler =>
+                            handler != null),
                     registrationCancellationToken))
                         .Callback<EventSubscription, AssociationEventOperation,
                             Func<EventEnvelope<Association>, CancellationToken,
@@ -321,10 +332,14 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
 
             this.eventBrokerMock.Setup(broker =>
                 broker.SubscribeToAssociationEventAsync(
-                    It.IsAny<EventSubscription>(),
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == new Guid("b66e11c1-7878-4da0-a399-b3244e2614bc")
+                            && subscription.Name ==
+                                "LiveUpdateOrchestrationService.OnAssociationRemoved"),
                     AssociationEventOperation.Removed,
-                    It.IsAny<Func<EventEnvelope<Association>, CancellationToken,
-                        ValueTask<EventEnvelope<Association>>>>(),
+                    It.Is<Func<EventEnvelope<Association>, CancellationToken,
+                        ValueTask<EventEnvelope<Association>>>>(handler =>
+                            handler != null),
                     registrationCancellationToken))
                         .Callback<EventSubscription, AssociationEventOperation,
                             Func<EventEnvelope<Association>, CancellationToken,
@@ -387,10 +402,14 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
 
             this.eventBrokerMock.Setup(broker =>
                 broker.SubscribeToAssociationEventAsync(
-                    It.IsAny<EventSubscription>(),
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == new Guid("a4d6fb22-26cf-4ee8-ad59-1be814252f2e")
+                            && subscription.Name ==
+                                "LiveUpdateOrchestrationService.OnAssociationRestored"),
                     AssociationEventOperation.Restored,
-                    It.IsAny<Func<EventEnvelope<Association>, CancellationToken,
-                        ValueTask<EventEnvelope<Association>>>>(),
+                    It.Is<Func<EventEnvelope<Association>, CancellationToken,
+                        ValueTask<EventEnvelope<Association>>>>(handler =>
+                            handler != null),
                     registrationCancellationToken))
                         .Callback<EventSubscription, AssociationEventOperation,
                             Func<EventEnvelope<Association>, CancellationToken,
@@ -436,10 +455,11 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         }
 
         // Association-Repointed moves a reader's reaction from one count to another on the same
-        // item, so the forwarder hears it (LiveUpdates.md rule 6). The address carries the approval workflow's ear as well, and neither relies on
-        // which runs first (§EVN26 rule 5), so both subscriptions are captured and each is driven:
-        // the forwarder's lands on the forwarder, and the workflow's still lands on the workflow,
-        // under the id and name it had. Pinned as literals for the same reason.
+        // item, so the forwarder hears it (LiveUpdates.md rule 6). The address carries the approval
+        // workflow's ear as well, and neither relies on which runs first (§EVN26 rule 5), so both
+        // subscriptions are captured and each is driven: the forwarder's lands on the forwarder,
+        // and the workflow's still lands on the workflow, under the id and name it had. Pinned as
+        // literals for the same reason.
         [Fact]
         public async Task ShouldSubscribeTheLiveUpdatesToAssociationRepointed()
         {
@@ -456,10 +476,13 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
 
             this.eventBrokerMock.Setup(broker =>
                 broker.SubscribeToAssociationEventAsync(
-                    It.IsAny<EventSubscription>(),
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == liveUpdateSubscriptionId
+                            || subscription.Id == approvalSubscriptionId),
                     AssociationEventOperation.Repointed,
-                    It.IsAny<Func<EventEnvelope<Association>, CancellationToken,
-                        ValueTask<EventEnvelope<Association>>>>(),
+                    It.Is<Func<EventEnvelope<Association>, CancellationToken,
+                        ValueTask<EventEnvelope<Association>>>>(handler =>
+                            handler != null),
                     registrationCancellationToken))
                         .Callback<EventSubscription, AssociationEventOperation,
                             Func<EventEnvelope<Association>, CancellationToken,
