@@ -95,9 +95,12 @@ const stubLocation = () => {
     vi.stubGlobal('location', location);
 };
 
-const submitDeletion = () => {
+// Awaited inside act, so the page has handled however the deletion settled before the test asserts.
+const submitDeletion = async () => {
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'P@ssw0rd!' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Delete data and close my account' }));
+    await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Delete data and close my account' }));
+    });
 };
 
 const refusedWith = (message: string) => new AxiosError(
@@ -123,7 +126,7 @@ describe('DeletePersonalData', () => {
         vi.unstubAllGlobals();
     });
 
-    it('should load the home page afresh once the account is deleted', () => {
+    it('should load the home page afresh once the account is deleted', async () => {
         // given
         mocks.deletePersonalDataMutate.mockImplementation(
             (_password: string, callbacks: DeletePersonalDataCallbacks) => callbacks.onSuccess());
@@ -131,7 +134,7 @@ describe('DeletePersonalData', () => {
         renderDeletePersonalData();
 
         // when
-        submitDeletion();
+        await submitDeletion();
 
         // then
         expect(mocks.replace).toHaveBeenCalledOnce();
@@ -139,7 +142,7 @@ describe('DeletePersonalData', () => {
         expect(landedOn()).toBe(deletePersonalDataPath);
     });
 
-    it('should stay on the page and show the message when the deletion fails', () => {
+    it('should stay on the page and show the message when the deletion fails', async () => {
         // given
         const failure = new AxiosError('Request failed', 'ERR_BAD_REQUEST', undefined, undefined, {
             status: 400,
@@ -155,7 +158,7 @@ describe('DeletePersonalData', () => {
         renderDeletePersonalData();
 
         // when
-        submitDeletion();
+        await submitDeletion();
 
         // then
         expect(mocks.replace).not.toHaveBeenCalled();
@@ -167,7 +170,7 @@ describe('DeletePersonalData', () => {
         expect(screen.getByText('Error: Incorrect password.')).toBeTruthy();
     });
 
-    it("should show the server's refusal as a failure when the deletion is refused", () => {
+    it("should show the server's refusal as a failure when the deletion is refused", async () => {
         // given
         const refusal = 'This is the last administrator holding the "Administrators" role, '
             + 'so it cannot be deleted. Give another account the "Administrators" role first.';
@@ -179,7 +182,7 @@ describe('DeletePersonalData', () => {
         renderDeletePersonalData();
 
         // when
-        submitDeletion();
+        await submitDeletion();
 
         // then
         const alert = screen.getByText(`Error: ${refusal}`);
@@ -187,7 +190,7 @@ describe('DeletePersonalData', () => {
         expect(alert.className).toBe('alert alert-danger');
     });
 
-    it('should show a refusal already marked as a failure unchanged when the deletion is refused', () => {
+    it('should show a refusal already marked as a failure unchanged when the deletion is refused', async () => {
         // given
         mocks.deletePersonalDataMutate.mockImplementation(
             (_password: string, callbacks: DeletePersonalDataCallbacks) =>
@@ -196,7 +199,7 @@ describe('DeletePersonalData', () => {
         renderDeletePersonalData();
 
         // when
-        submitDeletion();
+        await submitDeletion();
 
         // then
         const alert = screen.getByText('Error: Incorrect password.');
@@ -205,7 +208,7 @@ describe('DeletePersonalData', () => {
         expect(screen.queryByText(/Error: Error:/)).toBeNull();
     });
 
-    it('should show its own message as a failure when the deletion fails without one', () => {
+    it('should show its own message as a failure when the deletion fails without one', async () => {
         // given
         const failure = new AxiosError('Request failed', 'ERR_BAD_REQUEST', undefined, undefined, {
             status: 401,
@@ -221,7 +224,7 @@ describe('DeletePersonalData', () => {
         renderDeletePersonalData();
 
         // when
-        submitDeletion();
+        await submitDeletion();
 
         // then
         const alert = screen.getByText('Error: Unexpected error occurred deleting user.');
@@ -238,7 +241,7 @@ describe('DeletePersonalData', () => {
             (_password: string, callbacks: DeletePersonalDataCallbacks) => { settle = callbacks; });
 
         renderDeletePersonalData();
-        submitDeletion();
+        await submitDeletion();
         leaveThePage();
 
         // when

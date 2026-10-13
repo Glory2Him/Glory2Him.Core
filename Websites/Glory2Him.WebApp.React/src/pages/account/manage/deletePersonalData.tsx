@@ -18,19 +18,20 @@ export function DeletePersonalData() {
         event.preventDefault();
         setMessage(null);
 
-        deletePersonalData.mutate(password, {
-            onSuccess: () => {
+        // The promise settles even once the reader has left the page, where callbacks handed
+        // to mutate would be dropped, so the load still follows a success (§UI20.8 rule 3).
+        deletePersonalData.mutateAsync(password).then(
+            () => {
                 location.replace('/');
             },
-            onError: (error: unknown) => {
+            (error: unknown) => {
                 const failure = extractApiErrorMessage(
                     error, 'Error: Unexpected error occurred deleting user.');
 
                 setMessage(failure.startsWith('Error')
                     ? failure
                     : `Error: ${failure}`);
-            }
-        });
+            });
     };
 
     return (
