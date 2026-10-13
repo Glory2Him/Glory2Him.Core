@@ -71,7 +71,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.18 [Must]** The page's single round refresh keeps the round and the thread current as the post page's does (`UI/Pages/ContentItemModerationDetailPage.md rule 2.12`): every 15 seconds while the tab is visible, on returning to the tab, and on reconnect. The association is re-read with the round, because `ReviewPanel` takes its status from the stored association, and the reviewer candidates are left out of it (`UI/Components/ReviewPanel.md rules 2.8 and 2.32`). *(user, 2026-09-27; user, 2026-10-11)* ≠ item 6
 
-**2.19 [Must]** The round's writes behave as the post page's (`UI/Pages/ContentItemModerationDetailPage.md rules 2.11, 2.13 and 2.27`): nothing is optimistic save the card's reaction, a person's write refreshes the whole round and Berean's two writes refresh Berean's status alone, every write to the thread refreshes the verdict too, a refusal is shown with the server's reason, and the reviewer candidates are read when the request picker opens. A decision's success is toasted in the post page's words with *post* replaced by *tag* or *Bible reference* — "The tag has been approved.", "The Bible reference has been rejected." — and a reset's likewise — "The approval has been reset. The tag is back with the reviewers, and its recorded reviews have been dismissed.". *(user, 2026-10-11; code: contentItemModerationDetailPage.tsx — the decision's and the reset's toasts)* ≠ items 7–18
+**2.19 [Must]** The round's writes behave as the post page's (`UI/Pages/ContentItemModerationDetailPage.md rules 2.11, 2.13 and 2.27`): nothing is optimistic save the card's reaction, a person's write refreshes the whole round and Berean's two writes refresh Berean's status and the verdict, every write to the thread refreshes the verdict too, a refusal is shown with the server's reason, and the reviewer candidates are read when the request picker opens. A decision's success is toasted in the post page's words with *post* replaced by *tag* or *Bible reference* — "The tag has been approved.", "The Bible reference has been rejected." — and a reset's likewise — "The approval has been reset. The tag is back with the reviewers, and its recorded reviews have been dismissed.". *(user, 2026-10-11; code: contentItemModerationDetailPage.tsx — the decision's and the reset's toasts)* ≠ items 7–18
 
 **2.20 [Must]** Withdrawing a review comment is confirmed in the post page's words before it is sent, and nothing is sent on Cancel (`UI/Pages/ContentItemModerationDetailPage.md rule 2.14`). *(user, 2026-10-11)* ≠ item 17
 
@@ -226,8 +226,8 @@ and scripture and its suggester's name (rule 2.12), carrying its `ConfidenceScor
 | `onApprovalReset` | An administrator resets a decided round | The reset on the association's round, keyed as the decision is, then a toast (rule 2.19). | ❌ No — item 9 |
 | `onReviewerLookupRequested`, `onReviewRequested` | The request picker opens; a person is picked under Suggestions or Everyone else | Reads the reviewer candidates when the picker opens; asks the person to review on the review-request route, keyed as the decision is. | ❌ No — item 10 |
 | `onReviewRequestWithdrawn` | A person is picked under Requested | Withdraws the request on the review-request route, keyed as the decision is. | ❌ No — item 11 |
-| `onAIReviewerRequested` | Berean is picked, or re-requested | Asks Berean to review on its resource, keyed `Association` and `associationId`, refreshing Berean's status alone. | ❌ No — item 12 |
-| `onAIReviewerWithdrawn` | Berean is picked under Requested | Withdraws Berean on its resource, keyed as above, with no success toast. | ❌ No — item 13 |
+| `onAIReviewerRequested` | Berean is picked | Asks Berean to review on its resource, keyed `Association` and `associationId`, refreshing Berean's status and the verdict. | ❌ No — item 12 |
+| `onAIReviewerWithdrawn` | Berean is picked under Requested | Withdraws Berean on its resource, keyed as above, with no success toast, refreshing Berean's status and the verdict. | ❌ No — item 13 |
 
 ## 5. Security and access
 
@@ -310,9 +310,10 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
 11. (#1064) **Page gap — a review request on the association cannot be withdrawn.** Rules
     2.14 and 2.19: `onReviewRequestWithdrawn`.
 12. (#1065) **Page gap — Berean cannot be asked to review the association.** Rules 2.14 and
-    2.19: `onAIReviewerRequested`, for a first request and a re-request alike.
+    2.19: `onAIReviewerRequested`, which refreshes Berean's status and the verdict (user ruling
+    2026-10-13: there is no re-request).
 13. (#1066) **Page gap — Berean cannot be withdrawn from the association's round.** Rules
-    2.14 and 2.19: `onAIReviewerWithdrawn`.
+    2.14 and 2.19: `onAIReviewerWithdrawn`, which refreshes Berean's status and the verdict.
 14. (#1067) **Page gap — the association's review thread is not shown.** Rules 2.7, 2.14–2.18,
     2.23, 2.25 and 2.26: the thread in `ReviewCommentPanel`, beneath the association's card in the
     left-hand column (rule 2.7), its tiers composed from the association's endpoints, its box

@@ -186,12 +186,14 @@ round**; there is none **and there will be none**, and §EVN18(e) says why.
 
 That is narrower than the flat "there is none" this paragraph used to carry, and
 the narrowing is §EVN18(e)'s amended boundary rather than a change of mind: a
-subscriber that reads no §APR8.5 predicate and moves none is
+subscriber that reads no §APR8.5 predicate and moves none toward an approval is
 admissible on those addresses, and two sit on exactly that footing —
 `ApprovalReviewerOrchestrationService`'s retirement sweep on `Approval-Modified`
-(§ARC12.5.4, built) and `AIReviewerOrchestrationService`'s automatic
-Berean assignment on both addresses (§APR8.6.2.1, built). Neither is
-what these rows describe. `ApprovalUpdatedEvent`'s stated
+(§ARC12.5.4, built), which moves none at all, and `AIReviewerOrchestrationService`'s
+automatic Berean assignment on both addresses (§APR8.6.2.1, built), which moves
+one toward a block once the owner's rulings of 2026-10-13 are built: a round
+Berean is assigned to is held while its review is pending (§APR8.5 rule 8).
+Neither is what these rows describe. `ApprovalUpdatedEvent`'s stated
 purpose — propagating status to a denormalised field — remains something this
 system does through the transition verbs of §EVN18 rules 4–5 and not through a
 subscriber here.
@@ -1527,6 +1529,19 @@ either.
   | `ApprovalReview-Removed` | withdrawing an approving review drops the count; withdrawing a rejection unblocks |
   | `ApprovalReview-Dismissed` | a dismissed verdict leaves the active set |
 
+  **Berean's assignment joins them** (user rulings 2026-10-13; designed, not yet
+  built). Once a live assignment holds its round while Berean's review is
+  pending (§APR8.5 rule 8), the assignment can move a predicate too, so all
+  three of its facts re-test (`DesignFeatures/Backend/Orchestrations/ApprovalOrchestrationService.BereanReview.md`
+  §4–§6), and the integration suite derives its cases from its operation enum
+  as from the other two:
+
+  | Fact | How it moves the gate |
+  | --- | --- |
+  | `AIReviewerAssignment-Added` | holds the round shut until Berean's review completes with a score on the item |
+  | `AIReviewerAssignment-Modified` | the review completing **unblocks** |
+  | `AIReviewerAssignment-Removed` | withdrawing Berean, or the workflow dismissing its review on a content change, **unblocks** |
+
   **Both comment resolution addresses are required.** `IsResolved` has two
   writers by design: the owner through modify, the owner or an administrator
   through the transition. Which one carried a given change depends on nothing
@@ -1638,7 +1653,12 @@ either.
   under this item rather than an exception to it, and the boundary is stated
   so the next subscriber can be tested against it:
 
-  1. **It reads no §APR8.5 predicate and moves none.** §APR7.9's opening sentence
+  1. **It reads no §APR8.5 predicate, and moves none toward an approval.** A
+     subscriber that moves one only toward a block decides nothing, so it needs
+     no re-test of its own, provided whatever later lifts that block arrives on
+     an address item (a) governs. *(Restated on 2026-10-13, when the automatic
+     Berean assignment came to hold a round, below. The retirement here moves
+     no predicate at all.)* §APR7.9's opening sentence
      rules that request rows "appear in **no** §APR8.5 condition — the verdict,
      the counts and the blocks never read it", so retiring one cannot change
      what any evaluation would answer.
@@ -1672,24 +1692,31 @@ either.
   automatically where the resolved policy asks for it (§APR8.6.2.1).
   The four conditions:
 
-  1. **It reads no §APR8.5 predicate and moves none.** An `AIReviewerAssignment`
-     appears in no §APR8.5 condition — the formula reads reviews, comments and the
-     confidence score, and an assignment is none of those — so creating one
-     cannot change what any evaluation would answer. The sharp edge is worth
-     naming: Berean's eventual `ApprovalComment` **can** hold a round shut
-     (§APR8.6.2), but that is a different write on a different
-     address, arriving as `ApprovalComment-Added` where item (a) already
-     governs it. The assignment is the invitation, not the verdict.
+  1. **It reads no §APR8.5 predicate, and moves one only toward a block.** Once
+     the owner's rulings of 2026-10-13 are built, a live assignment holds its
+     round shut until Berean's review completes with a score on the item
+     (§APR8.5 rule 8), so creating one can turn a met round unmet. It can never
+     turn an unmet one met, so it decides nothing. What lifts the block — the
+     completion, as `AIReviewerAssignment-Modified`, and a withdrawal or
+     dismissal, as `AIReviewerAssignment-Removed` — arrives on addresses item (a)
+     governs, and so does anything else Berean leaves that can hold a round:
+     its score, which the completion follows, and its `ApprovalComment`s, as
+     `ApprovalComment-Added`. *(This point used to read "It reads no §APR8.5
+     predicate and moves none", and that an assignment appears in no §APR8.5
+     condition. Today, before the rulings are built, both still hold.)*
   2. **It causes no approval write.** It writes an `AIReviewerAssignment` and
      nothing else, so item (h)'s cycle rule is not engaged and nothing goes
      back out as a `-Modified` on the record that triggered it.
   3. **Its own write terminates, and the argument is longer than the
      retirement's.** The seam publishes `AIReviewerAssignment-Added`, which
-     carries no subscriber today — but §APR8.6.2's open question 3 designs one,
-     the classification pass, and that pass writes an `ApprovalComment` and
-     possibly an `ApprovalReview`. Those re-enter the round's re-test through
-     items (a)–(b), and a re-test that decides publishes `Approval-Modified`,
-     which arrives back here. **Gate 6 is what closes that loop**: the
+     carries no subscriber today. The owner's rulings of 2026-10-13 design two:
+     the round's re-test (item (a)), and the start of Berean's run, which asks
+     the confidence process and, on its answer, writes the item's score, Berean's
+     `ApprovalComment`s and the assignment's completion
+     (`DesignFeatures/BereanReview.md`, *Events*). The score's
+     `<Entity>-ConfidenceSet` has no subscriber. The comments and the completion
+     re-enter the round's re-test through item (a), and a re-test that decides
+     publishes `Approval-Modified`, which arrives back here. **Gate 6 is what closes that loop**: the
      automatic assignment stands down where any assignment row exists for the
      round, live or soft-deleted, so the second arrival finds the row the first
      one wrote and does nothing. The cycle is bounded at one hop by a gate
@@ -2008,7 +2035,16 @@ itself is at-least-once.**
    `AIReviewerAssignmentService.ReturnStaleAIReviewerAssignmentToPendingAsync`
    onto `AIReviewerAssignment-Modified`, and
    `AIReviewerAssignmentService.AddAutomaticAIReviewerAssignmentAsync` onto
-   `AIReviewerAssignment-Added` (§APR8.6.2.1). Each is reached by a
+   `AIReviewerAssignment-Added` (§APR8.6.2.1). *(Once the owner's rulings of
+   2026-10-13 are built, the return to pending goes, and three join the list on
+   the same footing:
+   `AIReviewerAssignmentService.CompleteAIReviewerAssignmentAsync` onto
+   `AIReviewerAssignment-Modified`,
+   `AIReviewerAssignmentService.DismissStaleAIReviewerAssignmentAsync` onto
+   `AIReviewerAssignment-Removed`, and
+   `ApprovalCommentService.AddAIReviewerApprovalCommentAsync` onto
+   `ApprovalComment-Added` — `DesignFeatures/Backend/Foundations/AIReviewerAssignmentService.md`
+   and `ApprovalCommentService.md`.)* Each is reached by a
    direct in-process
    call from an orchestration, on an envelope the service mints for itself
    under the system identity, so **the seam itself** has no inbound delivery to
@@ -2020,9 +2056,9 @@ itself is at-least-once.**
    fact lands on.
 
    Three of the four facts carry no subscriber today — `AIReviewerAssignment-Added`
-   is designed to gain one, the classification pass of §APR8.6.2's
-   open question 3, and §EVN18(e)'s second amendment works through why that
-   second hop still terminates;
+   is designed to gain two, the start of Berean's run and the round's re-test
+   (`DesignFeatures/BereanReview.md`), and §EVN18(e)'s second amendment works
+   through why the chain still terminates;
    `ApprovalReview-Dismissed` carries the one §EVN18(a) requires, and re-entry
    there is held off by the reset loop's suppression window rather than by a
    `ProcessedEvent` row (§EVN18(d)).
