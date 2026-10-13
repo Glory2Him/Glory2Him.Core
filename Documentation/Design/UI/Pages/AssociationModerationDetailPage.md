@@ -334,7 +334,7 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
     2026-10-11 and 2026-10-13): where the block is shown, it carries the suggestion — an approval,
     a rejection, or unable to suggest either — that Berean's status read answers, its
     `confidenceSuggestion` (§APR8.6.2, *The confidence suggestion*), and none where that read
-    answers none or cannot be read. The mock's cut-offs above 7 and below 4 are not the policy.
+    answers none or cannot be read. The mock's cut-offs above 7 and below 4 are not the confidence process's thresholds.
     No read answers the suggestion yet: #1105, #1106, #1107, #1108, #1109 and #1110 build it
     (designed under #863), and #1106's gather of the thresholds waits on #1117's design. The
     panel's half, the line it renders for a band it is handed, is

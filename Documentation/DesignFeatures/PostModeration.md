@@ -160,7 +160,7 @@ The reads of a tag and a Bible reference that the chips and the association card
 - [UI/Foundations/BibleReferenceService.md](UI/Foundations/BibleReferenceService.md) — foundation service, new
 
 The confidence suggestion (rule 13; §APR8.6.2, *The confidence suggestion*), designed under #863,
-from where the policy is resolved up to the read the association page makes:
+from where the suggestion is decided up to the read the association page makes:
 
 - [Backend/Clients/AccessClient.PostModeration.md](Backend/Clients/AccessClient.PostModeration.md) — client, the decision; a second document beside the amender record's
 - [Backend/Brokers/AccessBroker.PostModeration.md](Backend/Brokers/AccessBroker.PostModeration.md) — broker, the gather; a third document beside the Likes and amender ones
@@ -217,9 +217,9 @@ route:
   requests and comments) and the contributor's name. Each is read on its own route by the page;
   no service composes two of them.
 - **The confidence suggestion** reads `Approval` and the association (its score and its endpoints,
-  through `IAccessBroker`), and the confidence process's configured thresholds, which are not an
-  entity (#1117), inside an orchestration that already spans two entity types. It adds no service dependency: the broker it is gathered through costs
-  none (§ARC12.5).
+  through `IAccessBroker`), and the confidence process's configured thresholds, inside an orchestration that already spans two entity types. It adds no service dependency: the broker it is gathered through costs
+  none (§ARC12.5). Whether the thresholds are an entity is #1117's to decide: its open question 1
+  asks whether they are the host's configuration or a stored record an administrator edits.
 - **Events.** None new. The approval record is created by the approval process's existing
   subscriptions (§APR9.7.2, §APR9.7.3; rule 17).
 - **Storage.** None.
@@ -268,7 +268,7 @@ route:
 - **Reversible throughout.** No schema, no event and no route changes. Berean's status gains one
   member, which no existing reader reads. The side panels the post page drops are still rendered
   by the reader pages.
-- **Berean's status read gathers the policy twice.** It already resolves the offer through
+- **Berean's status read gathers through `IAccessBroker` twice.** It already resolves the offer through
   `IAccessBroker`, and the suggestion is a second gather of the round and the row behind it, with
   the configured thresholds and one call the read never made: building the caller's actor asks the security
   client for their user id (`BuildActorAsync`). The read is refreshed with the round on both
