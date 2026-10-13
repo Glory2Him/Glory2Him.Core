@@ -75,7 +75,7 @@ const summaryReadKeysOfAnotherPage: ReadonlyArray<QueryKey> = [
 ];
 
 // Reads no message covers (LiveUpdates.md rule 3): the item's own row, and its review round,
-// whose third key element names the item as a summary read's page holds it.
+// whose third key element is the item's id, where a summary read's key holds its page.
 const otherReadKeys: ReadonlyArray<QueryKey> = [
     ['ContentItemsGetById', 'item-1'],
     ['ApprovalVerdict', EntityType.ContentItem, 'item-1']
@@ -87,6 +87,8 @@ const everyCachedReadKey: ReadonlyArray<QueryKey> = [
     ...summaryReadKeysOfAnotherPage,
     ...otherReadKeys
 ];
+
+const refused = new Error('refused');
 
 const settingMessage: LiveUpdate = {
     type: LiveUpdateType.ContentItemSettingChanged,
@@ -154,8 +156,9 @@ describe('liveUpdateService.useLiveUpdates', () => {
         return { activeSettingRead, activeSummaryRead, activeOtherRead };
     };
 
-    // Only the timer a start that is tried again waits on is faked, so no test waits in real time
-    // and a start still waiting when a test ends never fires in the next one.
+    // Only setTimeout and clearTimeout are faked, the pair a start that is tried again waits on,
+    // so no test waits in real time and a start still waiting when a test ends never fires in
+    // the next. setImmediate stays real, for hearing a failure let go (failuresLetGoOfAsync).
     beforeEach(() => {
         vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
         vi.resetAllMocks();
@@ -270,7 +273,7 @@ describe('liveUpdateService.useLiveUpdates', () => {
         },
         {
             wayBack: 'a start that succeeds after an earlier attempt failed',
-            arrange: () => startLiveUpdatesAsync.mockRejectedValueOnce(new Error('refused')),
+            arrange: () => startLiveUpdatesAsync.mockRejectedValueOnce(refused),
             comeBackAsync: async () => { await vi.advanceTimersByTimeAsync(0); }
         },
         {
@@ -339,8 +342,6 @@ describe('liveUpdateService.useLiveUpdates', () => {
                 .toHaveBeenCalledTimes(startsBefore + 1);
         }
     };
-
-    const refused = new Error('refused');
 
     it.each([
         {
