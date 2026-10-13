@@ -9,7 +9,6 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
@@ -63,6 +62,16 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
         public ValueTask<EventEnvelope<ContentItemSetting>?> OnContentItemSettingModifiedAsync(
             EventEnvelope<ContentItemSetting> envelope,
             CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            TryCatch<EventEnvelope<ContentItemSetting>?>(async () =>
+            {
+                await this.envelopeIntegrityBroker.VerifyAsync(
+                    envelope,
+                    "ContentItemSettingModified",
+                    EnvelopeDirection.Request);
+
+                await SendSettingsChangeAsync(cancellationToken);
+
+                return null;
+            });
     }
 }
