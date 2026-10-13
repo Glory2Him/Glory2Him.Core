@@ -1693,6 +1693,17 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedHandler:
                     this.liveUpdateOrchestrationServiceMock.Object.OnContentItemSettingAddedAsync);
 
+            VerifyContentItemSettingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnContentItemSettingModifiedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers
+                        .LiveUpdateOrchestrationOnContentItemSettingModifiedSubscriptionName,
+                expectedOperation: ContentItemSettingEventOperation.Modified,
+                expectedHandler:
+                    this.liveUpdateOrchestrationServiceMock.Object.OnContentItemSettingModifiedAsync);
+
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.approvalServiceMock.VerifyNoOtherCalls();

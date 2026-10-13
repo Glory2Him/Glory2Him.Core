@@ -162,5 +162,73 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.contentItemSettingServiceMock.VerifyNoOtherCalls();
             this.contentItemSettingOrchestrationServiceMock.VerifyNoOtherCalls();
         }
+
+        // ContentItemSetting-Modified amends an override or a content type's default, so the
+        // forwarder hears it (LiveUpdates.md rule 5). Pinned as literals for the same reason.
+        [Fact]
+        public async Task ShouldSubscribeTheLiveUpdatesToContentItemSettingModified()
+        {
+            // given
+            var modifiedSubscriptions = new List<EventSubscription>();
+            CancellationToken registrationCancellationToken = TestContext.Current.CancellationToken;
+            using var deliveryCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken deliveryCancellationToken = deliveryCancellationTokenSource.Token;
+
+            Func<EventEnvelope<ContentItemSetting>, CancellationToken,
+                ValueTask<EventEnvelope<ContentItemSetting>>> modifiedHandler = null;
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.SubscribeToContentItemSettingEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == new Guid("04949f46-790d-4413-acd5-5ea363df7701")
+                            && subscription.Name ==
+                                "LiveUpdateOrchestrationService.OnContentItemSettingModified"),
+                    ContentItemSettingEventOperation.Modified,
+                    It.Is<Func<EventEnvelope<ContentItemSetting>, CancellationToken,
+                        ValueTask<EventEnvelope<ContentItemSetting>>>>(handler =>
+                            handler != null),
+                    registrationCancellationToken))
+                        .Callback<EventSubscription, ContentItemSettingEventOperation,
+                            Func<EventEnvelope<ContentItemSetting>, CancellationToken,
+                                ValueTask<EventEnvelope<ContentItemSetting>>>,
+                            CancellationToken>((subscription, _, handler, _) =>
+                            {
+                                modifiedSubscriptions.Add(subscription);
+                                modifiedHandler = handler;
+                            });
+
+            var deliveredEnvelope = new EventEnvelope<ContentItemSetting>();
+
+            await this.eventSubscriptionRegistration.RegisterAsync(registrationCancellationToken);
+
+            EventSubscription modifiedSubscription =
+                modifiedSubscriptions.Should().ContainSingle().Subject;
+
+            // when
+            await modifiedHandler(deliveredEnvelope, deliveryCancellationToken);
+
+            // then
+            modifiedSubscription.Id.Should().Be(new Guid("04949f46-790d-4413-acd5-5ea363df7701"));
+
+            modifiedSubscription.Name.Should()
+                .Be("LiveUpdateOrchestrationService.OnContentItemSettingModified");
+
+            Guid modifiedAddressId =
+                EventBrokerIdentifiers.ContentItemSettingEventAddressIds[
+                    ContentItemSettingEventOperation.Modified];
+
+            EventBrokerIdentifiers.ContentItemSettingEventAddresses[modifiedAddressId]
+                .Should().Be("ContentItemSetting-Modified");
+
+            this.liveUpdateOrchestrationServiceMock.Verify(service =>
+                service.OnContentItemSettingModifiedAsync(
+                    deliveredEnvelope,
+                    deliveryCancellationToken),
+                Times.Once);
+
+            this.liveUpdateOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.contentItemSettingServiceMock.VerifyNoOtherCalls();
+            this.contentItemSettingOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
     }
 }
