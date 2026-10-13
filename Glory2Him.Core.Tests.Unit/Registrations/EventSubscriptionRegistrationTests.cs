@@ -1711,6 +1711,15 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedHandler:
                     this.liveUpdateOrchestrationServiceMock.Object.OnAssociationRemovedAsync);
 
+            VerifyAssociationSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.LiveUpdateOrchestrationOnAssociationRestoredSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.LiveUpdateOrchestrationOnAssociationRestoredSubscriptionName,
+                expectedOperation: AssociationEventOperation.Restored,
+                expectedHandler:
+                    this.liveUpdateOrchestrationServiceMock.Object.OnAssociationRestoredAsync);
+
             VerifyContentItemSettingSubscription(
                 expectedSubscriptionId:
                     EventBrokerIdentifiers

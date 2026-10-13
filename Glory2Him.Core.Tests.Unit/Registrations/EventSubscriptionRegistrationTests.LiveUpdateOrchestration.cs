@@ -368,5 +368,71 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.associationServiceMock.VerifyNoOtherCalls();
             this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
         }
+
+        // Association-Restored brings an approved reaction back into a count with no approval behind
+        // it, so the forwarder hears it (LiveUpdates.md rule 6). The approval workflow deliberately
+        // does not (§ARC16.2.2), so the forwarder's is the address's one subscription. Pinned as
+        // literals for the same reason.
+        [Fact]
+        public async Task ShouldSubscribeTheLiveUpdatesToAssociationRestored()
+        {
+            // given
+            var restoredSubscriptions = new List<EventSubscription>();
+            CancellationToken registrationCancellationToken = TestContext.Current.CancellationToken;
+            using var deliveryCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken deliveryCancellationToken = deliveryCancellationTokenSource.Token;
+
+            Func<EventEnvelope<Association>, CancellationToken,
+                ValueTask<EventEnvelope<Association>>> restoredHandler = null;
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.SubscribeToAssociationEventAsync(
+                    It.IsAny<EventSubscription>(),
+                    AssociationEventOperation.Restored,
+                    It.IsAny<Func<EventEnvelope<Association>, CancellationToken,
+                        ValueTask<EventEnvelope<Association>>>>(),
+                    registrationCancellationToken))
+                        .Callback<EventSubscription, AssociationEventOperation,
+                            Func<EventEnvelope<Association>, CancellationToken,
+                                ValueTask<EventEnvelope<Association>>>,
+                            CancellationToken>((subscription, _, handler, _) =>
+                            {
+                                restoredSubscriptions.Add(subscription);
+                                restoredHandler = handler;
+                            });
+
+            var deliveredEnvelope = new EventEnvelope<Association>();
+
+            await this.eventSubscriptionRegistration.RegisterAsync(registrationCancellationToken);
+
+            EventSubscription restoredSubscription =
+                restoredSubscriptions.Should().ContainSingle().Subject;
+
+            // when
+            await restoredHandler(deliveredEnvelope, deliveryCancellationToken);
+
+            // then
+            restoredSubscription.Id.Should().Be(new Guid("a4d6fb22-26cf-4ee8-ad59-1be814252f2e"));
+
+            restoredSubscription.Name.Should()
+                .Be("LiveUpdateOrchestrationService.OnAssociationRestored");
+
+            Guid restoredAddressId =
+                EventBrokerIdentifiers.AssociationEventAddressIds[AssociationEventOperation.Restored];
+
+            EventBrokerIdentifiers.AssociationEventAddresses[restoredAddressId]
+                .Should().Be("Association-Restored");
+
+            this.liveUpdateOrchestrationServiceMock.Verify(service =>
+                service.OnAssociationRestoredAsync(
+                    deliveredEnvelope,
+                    deliveryCancellationToken),
+                Times.Once);
+
+            this.liveUpdateOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
     }
 }
