@@ -15,7 +15,7 @@ ValueTask<ApprovalOutcome> ResetApprovalAsync(
 ```
 
 1. **The reset no longer returns Berean's assignment to pending** (`ApprovalOrchestrationService.Resets.cs`, the call to `ResetStaleAIReviewerAssignmentAsync`). It re-opens the same content, which is no data change, so Berean's assignment, its tracking fields and the item's score stand on the re-opened round (BereanReview.md rules 7 and 9; I1.4, I2.D). Everything else the reset does is unchanged.
-2. **What the re-opening then does to Berean is step 4's**: the reset's command answers with the item's `-Submitted`, which the Modified flow hears, and step 4 publishes the review event where Berean stands assigned (§8), so the review process acts on the standing score and votes again where it may (BereanReview.md rule 9; I1.5c). Nothing in this section publishes it.
+2. **What the re-opening then does to Berean is step 4's**: the reset's command answers with the item's `-Submitted`, which the Modified flow hears, and step 4 assigns nothing on it and publishes the review event where Berean stands assigned (§8 rule 2), so the review process acts on the standing score and votes again where it may (BereanReview.md rule 9; I1.5c). Nothing in this section publishes it.
 
 ## 2. ProcessEntityModifiedAsync — the data change (#1167)
 
@@ -76,7 +76,7 @@ ValueTask<EventEnvelope<AIReviewerAssignment>?> OnAIReviewerAssignmentAddedAsync
 1. **As §4, on `AIReviewerAssignment-Removed`**, with the accepted name `"AIReviewerAssignmentRemoved"`. Withdrawing Berean, or §2's dismissal, lifts Berean's blocks.
 2. **It extends `WorkflowRecordFactTests`' derivation to `AIReviewerAssignmentEventOperation`**, after §4 and §5, so the suite finds all three of the assignment's facts subscribed when it starts deriving them.
 
-## 7. ProcessEntityAddedAsync — step 4: Berean assigned and its review started (needs issue)
+## 7. ProcessEntityAddedAsync — step 4: Berean assigned and its review started (#1224)
 
 ```csharp
 ValueTask<ApprovalOutcome> ProcessEntityAddedAsync(
@@ -92,9 +92,10 @@ ValueTask<ApprovalOutcome> ProcessEntityAddedAsync(
 5. **A failure of the assignment faults the flow before the evaluation**, so the round stays `Submitted` and unevaluated: the policy requires Berean (I2.B), and a round evaluated without it on such a tier is one Berean was meant to hold. *(The automatic assignment this replaces logged its failure and let the round proceed, §APR8.6.2.1, Failure posture, because a missed assignment then cost one click.)* **A failure of the publish is logged and the flow goes on**, as §2 rule 4 of the AI reviewer story has it: Berean is assigned, its review has not started, and the pending block holds the round (BereanReview.md rule 11) until a person asks for Berean again, which publishes it (I7).
 6. **It records no `ProcessedEvent`**, as the flow does not (§EVN19 rules 1 and 4). A redelivered `-Added` finds the live assignment rule 2 made, adds nothing, and publishes the event again (rule 3), which the review process hears more than once (BereanReview.md, *Risks*).
 
-## 8. ProcessEntityModifiedAsync — step 4: Berean assigned and its review started (needs issue)
+## 8. ProcessEntityModifiedAsync — step 4: Berean assigned and its review started (#1225)
 
 1. **On every fact the Modified flow hears for a round that stands `Submitted`** — `-Modified`, `-Submitted` and `Association-Repointed`, a data change or not (BereanReview.md rule 9, step 4) — once the round has followed the entity and any data change's steps (§2) have run, and before the round is evaluated, the flow does as §7 rules 2 and 3 do: it assigns Berean where the policy asks for it automatically and no live assignment stands, and then publishes the review event once where one stands. A round that stands `Draft` after the flow has followed the entity runs none of it.
-2. **So the review event is published again on an update while Berean stands assigned**, whatever the update was: under `RequireReapprovalOnChange = false` after a data change, which is what the owner asks (I4.4); on an echo; on a submission from `Draft`; and on the reset's re-opening (§1 rule 2). What the review process does with it is #1216's (BereanReview.md rule 17).
-3. **Its failures are §7 rule 5's**: a failed assignment faults the flow before the evaluation, and a failed publish is logged.
-4. **It replaces the automatic assignment's subscription on `Approval-Modified`**, which hears the same submissions (§APR8.6.2.1), and must reach `main` before that subscription is retired (`Backend/Orchestrations/AIReviewerOrchestrationService.BereanReview.md §6`; BereanReview.md, *What ships together* step 7). It does not wait for #1215: it asks nothing of whether the fact was a data change.
+2. **A `-Submitted` that finds its round already `Submitted` assigns nothing.** That is the reset's re-opening (§1 rule 2), a dismissal and no data change, after which *"Berean will NOT be added to the next review round unless `IsAIAllowedToVote==true`"* (BereanReview.md rule 9, step 4.2; I1.5c). No other `-Submitted` finds it so: the submit verb refuses any stored status but `Draft` (§APR9.2 rule 3), so a submission's round is one the flow moves from `Draft`. The event is still published where Berean stands assigned.
+3. **So the review event is published again on an update while Berean stands assigned**, whatever the update was: under `RequireReapprovalOnChange = false` after a data change, which is what the owner asks (I4.4); on an echo; on a submission from `Draft`; and on the reset's re-opening (§1 rule 2). What the review process does with it is #1216's (BereanReview.md rule 17).
+4. **Its failures are §7 rule 5's**: a failed assignment faults the flow before the evaluation, and a failed publish is logged.
+5. **It replaces the automatic assignment's subscription on `Approval-Modified`**, which hears the same submissions (§APR8.6.2.1), and must reach `main` before that subscription is retired (`Backend/Orchestrations/AIReviewerOrchestrationService.BereanReview.md §6`; BereanReview.md, *What ships together* step 7). It does not wait for #1215: it asks nothing of whether the fact was a data change.

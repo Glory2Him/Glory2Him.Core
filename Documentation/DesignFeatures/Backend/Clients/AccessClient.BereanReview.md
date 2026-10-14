@@ -42,7 +42,7 @@ ValueTask<AIReviewerPolicyVerdict> ResolveAIReviewerPolicyAsync(
 1. **`IsOffered` is `true` only where the resolved policy has `IsAIReviewerOffered = true` and `RequireApprovals = true`, and the request's `IsPersonal` is not `true`** — the item is not a personal association (BereanReview.md rule 3). `IsAutomaticallyRequested` is `IsOffered && IsAIReviewerAutomaticallyRequested`, so it carries the same two terms.
 2. Every reader of the verdict follows by construction: the caller-facing request's gate (`AIReviewerOrchestrationService.ValidateAIReviewerIsOffered`), the reviewer suggestion, the automatic assignment's gate 4 while it stands (§APR8.6.2.1), the approval process's step 4.2 (`Backend/Orchestrations/ApprovalOrchestrationService.BereanReview.md §7–§8`), and the withdrawal's gate (`Backend/Orchestrations/AIReviewerOrchestrationService.BereanReview.md §4`).
 
-## 4. The vote, kept
+## 4. The vote, kept (#1149, closed)
 
 Retired from this design. It removed `ApprovalPolicy.IsAIAllowedToVote` (#1149, closed), and the owner's rulings of 2026-10-14 keep Berean's vote (BereanReview.md rule 5). The member and its mapping stay. The number is kept so that §5–§8 keep theirs.
 
@@ -60,14 +60,14 @@ Retired from this design. It removed `ApprovalPolicy.IsAIAllowedToVote` (#1149, 
 2. **An approval is refused with `BlockedByPendingAIReview` or `BlockedByAIReviewInFlight`** where §5's blocks hold. A bypass waives either as §2 rule 3 waives the low-score block, and a rejection is never refused by them.
 3. The code is §5's, shared by both operations, so this section pins it on the decision path.
 
-## 7. EvaluateApprovalConditionsAsync — a round that requires no review (needs issue)
+## 7. EvaluateApprovalConditionsAsync — a round that requires no review (#1220)
 
 1. **A round requires no review where the resolved `RequireApprovals` is `false`, or the request's `IsPersonal` is `true`** — the item is a personal association (BereanReview.md rule 22).
 2. **Such a round's conditions are met and it is approved automatically**: `AreConditionsMet` and `ShouldAutoApprove` are `true` whatever `AutoApproveIfAllApprovalRequirementsMet` says, and the count, the rejection and the comment conditions are not asked. The explanation reads *"No review is required: the round is approved as it opens."*
 3. **Berean's three blocks are still asked**, §1's and §5's, so a round Berean was assigned to before this rule shipped is still held by them (BereanReview.md rule 22, I1.5b). Where one holds, neither member is `true`.
 4. Every flow that evaluates follows by construction: the Added and Modified flows apply `Approved` wherever `ShouldAutoApprove` is `true` (§APR9.7.7).
 
-## 8. MayDecideApprovalAsync — a round that requires no review, on a decision (needs issue)
+## 8. MayDecideApprovalAsync — a round that requires no review, on a decision (#1221)
 
 1. **A publisher's approve of a round §7 rule 1 names is permitted on route 1 without its count, its rejection or its comments** — a personal association under a tier that asks approvals, or a round with an outstanding comment under `RequireApprovals = false` — while Berean's three blocks still refuse it as §2 and §6 do. Such a round is approved as it opens (§7), so the decision meets one only where a round open before §7 shipped is decided before its next evaluation. Every other term the decision asks — the tier, the veto, the open round, HR-2 and §APR8.6 regardless-rule 1 — is unchanged.
 2. **The automatic approval is not this gate's.** The flows apply it under the system identity, which holds no publisher-tier role, through the item's transition, which admits that identity in process (§SEC14.7 posture A′, its transitions table), so §7 alone governs it.

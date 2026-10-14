@@ -53,6 +53,6 @@ The approval record's own decision door (§APR9.7.5, *Built on the `Approval` ro
 1. **The item's stored score is the traversal's**, for every item type, as §3 rule 4 extends it, and **`IsAIReviewerAssigned`, `IsAIReviewStarted` and `IsAIReviewCompleted` are gathered** as §4 rule 2 gathers them.
 2. It waits as §4 does.
 
-## 7. IsAIReviewerEverAssignedAsync, retired (needs issue)
+## 7. IsAIReviewerEverAssignedAsync, retired (#1228)
 
 Gate 6's unfiltered presence read (§APR8.6.2.1, *The security boundary* rule 3) has one caller, the automatic assignment's two subscriptions, and both leave `AIReviewerOrchestrationService` (`Backend/Orchestrations/AIReviewerOrchestrationService.BereanReview.md §5–§6`). Once both are gone it leaves `IAccessBroker` and `AccessBroker`, with its tests. The approval process's step 4.2 asks a different question, whether a live assignment stands, through §1 (BereanReview.md rule 9). `IStorageBroker.SelectAllAIReviewerAssignmentsAsync`, which the read composed its condition over, stays: it is the collection read every other entity on that broker carries.

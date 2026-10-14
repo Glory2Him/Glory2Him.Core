@@ -5,7 +5,7 @@ Inherits: §APR8.6.2, *Assignment*, §APR8.6.2.1, *The write is a seam verb*, §
 
 Berean's assignment is its review: it records where the review stands (BereanReview.md rule 21). Every write the workflow makes on it is the system's own and goes through the seam, which mints the system identity itself, because the caller-facing gate asks for a review-tier role and the system holds none (§APR8.6.2.1, *The write is a seam verb*). After this story the seam carries three verbs for the approval process: the automatic add, the dismissal and the return to pending, which clears the review's tracking fields. The writers of the review's start and completion are the review process's, designed under #1216. The caller-facing modify, which nothing calls once the re-request is gone (BereanReview.md rule 4), leaves the service.
 
-## 1. CompleteAIReviewerAssignmentAsync, moved to #1216
+## 1. CompleteAIReviewerAssignmentAsync, moved to #1216 (#1159, closed)
 
 Retired from this design. It marked a live, pending assignment completed for the write-back (#1159, closed). The review process now writes both the start and the completion (BereanReview.md rule 21), and #1216 designs their verbs with it. The number is kept so that §2–§6 keep theirs.
 
@@ -45,7 +45,7 @@ The seam's return to pending stays, as the approval process's step 3 under `Requ
 3. It publishes `AIReviewerAssignment-Modified`, which the round's re-test hears (`Backend/Orchestrations/ApprovalOrchestrationService.BereanReview.md §5`).
 4. **Its callers change**: the reset stops calling it (`Backend/Orchestrations/ApprovalOrchestrationService.BereanReview.md §1`), and the Modified flow calls it under `RequireReapprovalOnChange = false` alone (§2), where today it calls it under `true` on every dismissing `-Modified`. The seam's summary is rewritten to say what its three verbs are for: the automatic add, the dismissal and this clear. Its summary of this verb stops saying that *"only the two flags recording what its pass reported go back"*.
 
-## 6. AddAIReviewerAssignmentAsync — the tracking fields refused (needs issue)
+## 6. AddAIReviewerAssignmentAsync — the tracking fields refused (#1218)
 
 ```csharp
 ValueTask<AIReviewerAssignment> AddAIReviewerAssignmentAsync(

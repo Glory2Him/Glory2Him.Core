@@ -16,6 +16,6 @@ Inherits: §APR8.2, §APR8.4 rule 2, §APR8.6.2, §ARC12.5.1, BereanReview.md ru
 1. **One migration renames the column** `BlockOnZeroApprovalScore` to `BlockOnRejectApprovalScore` on `ApprovalSettings`, keeping every row's value, and `HasColumnName` goes from the configuration. One statement, so one batch with nothing to `EXEC`. `Down` renames it back.
 2. It follows §1 on `main`.
 
-## 3. The vote, kept
+## 3. The vote, kept (#1152, closed)
 
 Retired from this design. It dropped `IsAIAllowedToVote` and `CK_ApprovalSetting_AIVoteRequiresAIReviewer` (#1152, closed), and the owner's rulings of 2026-10-14 keep Berean's vote (BereanReview.md rule 5; I2.A). The column, the constraint, the seed's `false` and its drift entry stay, and so do the comments over `CK_ApprovalSetting_AIThresholdOrder` and in `ApprovalSettingService.IsApprovalThresholdBelowRejectionThreshold`, which give the vote's two verdicts as the order's reason and are true again. The number is kept so that a citation of this section still finds it.

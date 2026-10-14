@@ -19,7 +19,7 @@ ValueTask<AIReviewerAssignment> RequestAIReviewerAsync(
 3. **The comment over `ValidateUserMayRequestAIReviewer`** stops saying *"an assignment sets nothing"*: an assignment holds the round shut until Berean's review has completed (BereanReview.md rule 11). The requesting tier still asks no HR-3 term, because asking Berean decides nothing — it moves the round only toward a block.
 4. The interface's summary of the operation stops calling it *"asks it again once a prior assignment has completed"*.
 
-## 2. RequestAIReviewerAsync — the review event (needs issue)
+## 2. RequestAIReviewerAsync — the review event (#1222)
 
 1. **Once the request has run, the round's live assignment is read**, and where one stands, `AIReviewer-Reviewing` is published once, carrying it (BereanReview.md rule 4; I6, I7). That holds whether the request has just added it or found it standing, pending or completed: a person who asks while Berean stands assigned publishes the event again (I7). Where none stands — the add failed — nothing is published. The read is the one the request already makes, through `IAIReviewerAssignmentService.RetrieveAIReviewerAssignmentByApprovalIdAsync`, made again once the add has answered.
 2. **The event is minted under `IEventEnvelopeBroker.CreateSystemAsync`** (BereanReview.md rule 19): the review it asks for acts for nobody, though a person asked for Berean. The add stays under the caller's identity.
@@ -27,11 +27,11 @@ ValueTask<AIReviewerAssignment> RequestAIReviewerAsync(
 4. **A failed publish is logged and does not fault the request**, because the assignment it follows is written and the person's request has done what they asked: the round stays held by the pending block (BereanReview.md rule 11), and asking again publishes the event again (I7). A failed add publishes nothing and faults as it does today.
 5. **The service gains `IEventBroker`**, through its constructor, registered by the host. It is a broker of the kind an orchestration may hold, outside the two-to-three (§ARC12.5).
 
-## 3. The write-back, moved to #1216
+## 3. The write-back, moved to #1216 (#1177, closed)
 
 Retired from this design. It heard the confidence process's answer on `ContentAnalysis-Scored` and recorded the score, Berean's comments and the completion (#1177, closed). The review process now does all of it (BereanReview.md rule 6), and #1216 designs it. `ContentAnalysis-Scoring`, `ContentAnalysis-Scored`, `ContentAnalysisRequest` and `ContentAnalysisResult` were never built. The number is kept so that §4–§6 keep theirs.
 
-## 4. WithdrawAIReviewerAsync — only before Berean's review starts (needs issue)
+## 4. WithdrawAIReviewerAsync — only before Berean's review starts (#1223)
 
 ```csharp
 ValueTask<AIReviewerAssignment> WithdrawAIReviewerAsync(
@@ -46,10 +46,10 @@ ValueTask<AIReviewerAssignment> WithdrawAIReviewerAsync(
 4. **Rule 1 is asked before rule 2**, so a started review is refused for being started whatever the policy says.
 5. **The operation's summary** stops calling the withdrawal *"Unconditional, unlike the human withdrawal"*, and says what it now refuses.
 
-## 5. OnApprovalAddedAsync, retired (needs issue)
+## 5. OnApprovalAddedAsync, retired (#1226)
 
 The automatic assignment's subscription on `Approval-Added` goes: the subscription, its accepted name and identifiers, the handler and its tests. The approval process's step 4 on an add assigns Berean in its place (`Backend/Orchestrations/ApprovalOrchestrationService.BereanReview.md §7`), and must be on `main` first (BereanReview.md, *What ships together* step 7). The private body both subscriptions share stays until §6 retires the other.
 
-## 6. OnApprovalModifiedAsync, retired (needs issue)
+## 6. OnApprovalModifiedAsync, retired (#1227)
 
 The automatic assignment's subscription on `Approval-Modified` goes, as §5's goes, after the approval process's step 4 on an update (`Backend/Orchestrations/ApprovalOrchestrationService.BereanReview.md §8`) is on `main`. With it go the body both shared (`AIReviewerOrchestrationService.Substrate.cs`), the six gates' code, and the comment over the two subscriptions in `EventSubscriptionRegistration.cs`. **Two dependencies leave the constructor with it**, because that body is their only caller: `IAIReviewerAssignmentWorkflowService`, whose automatic add the approval process now calls through the seam it holds, and `IEnvelopeIntegrityBroker`, which verified the two facts' envelopes. `IEventEnvelopeBroker` stays, for §2. The entity-service count is unchanged: the seam shares the foundation class's arm with `IAIReviewerAssignmentService` (§ARC16.7.1 finding 2).
