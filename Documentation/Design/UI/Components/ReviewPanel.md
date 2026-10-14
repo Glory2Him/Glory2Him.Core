@@ -126,7 +126,7 @@ The rules below are grouped by the panel's parts: the contract, freshness, the r
 
 **2.46 [Must]** Berean spends no request slot, and keeps its withdrawal at the cap. *(test: "should neither spend a request slot nor lose its withdrawal at the cap")*
 
-**2.47 [Won't]** The panel knows nothing of Berean's score. Berean casts no review (user ruling 2026-10-13, §APR8.6.2), so there is no vote of Berean's to show, and what its run records on the item is the consuming page's to show, not this picker's. *(code: reviewPanel.tsx — `aiReviewerCandidate` note)* ≠ item 16
+**2.47 [Won't]** The panel knows nothing of `IsAIAllowedToVote`: whether Berean casts a review happens on the round, not in this picker, and what its review records on the item is the consuming page's to show. *(code: reviewPanel.tsx — `aiReviewerCandidate` note)* *(The owner's ruling of 2026-10-13 had Berean cast no review, and the rulings of 2026-10-14 restore its vote where `IsAIAllowedToVote` is on, §APR8.6.2. How its vote shows among the round's votes is the review process's design, #1216.)*
 
 *The identity block*
 
@@ -456,13 +456,12 @@ Two further endpoints the one consumer calls, not in the relocated table:
     says no more. The read-only-role view's disabled controls each carry a tooltip saying why
     (rule 2.53). Should these carry one too, and in what words? An answer adds a rule of its own
     beside rule 2.55, which stands either way: until then they carry none.
-16. (#1163) **Gap — Berean's re-request control is still rendered.** Rules 2.45 and 2.47
-    (user ruling 2026-10-13): a completed Berean review shows the comments glyph alone, and the
-    panel knows nothing of a vote. `renderAIReviewerControl` still renders the recycle button
+16. (#1163) **Gap — Berean's re-request control is still rendered.** Rule 2.45
+    (user ruling 2026-10-13): a completed Berean review shows the comments glyph alone. `renderAIReviewerControl` still renders the recycle button
     beside the glyph and raises `onAIReviewerRequested` from it. The button, its
     `aiReviewReRequestTooltip` property and default, its `aria-label`, its class hook
     `g2h-ai-reviewer-rerequest` and the test "should raise onAIReviewerRequested when the recycle
-    control is clicked" go. The `aiReviewerCandidate` note stops citing `IsAIAllowedToVote`, and
-    `reviewPanelDoc.tsx` stops showing the button and describing a vote. Rules 2.50, 2.55, 3.1.13
+    control is clicked" go. `reviewPanelDoc.tsx` stops showing the button. The `aiReviewerCandidate`
+    note keeps citing `IsAIAllowedToVote`, which rule 2.47 keeps. Rules 2.50, 2.55, 3.1.13
     and 3.3.6, section 4's two re-request rows, section 5's and section 9's no longer name the
     control, and each reads true once it is gone.

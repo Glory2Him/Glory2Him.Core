@@ -5,7 +5,7 @@ Inherits: §APR8.5, §APR9.7.1 rules 2 and 5, §EVN2, §EVN19, §SEC14.6 rule 4,
 
 `BibleReference` implements `IApproval`, which now extends `IConfidence` (`Backend/Models/IApproval.md §1`), so a Bible reference carries a confidence score and a reason (BereanReview.md rule 2). Only the system identity writes them, through set-confidence (rule 1). §1 and §2 keep every other write from carrying them, and they land before the columns are mapped (`Backend/Models/IApproval.md §2`): mapped first, a caller's score would be stored on any path not yet keeping it out.
 
-**Build order** (BereanReview.md, *What ships together* step 5). §1, §2, §3 and §5 build on `Backend/Models/IApproval.md §1`, and §4 on §3. Until `Backend/Models/IApproval.md §2` maps the columns, which waits for §1 and §2 here and on the other five foundations, each runs and stores nothing. The content-change flow and the write-back publish to §4's door (`Backend/Orchestrations/ApprovalOrchestrationService.BereanReview.md §2`, `Backend/Orchestrations/AIReviewerOrchestrationService.BereanReview.md §3`).
+**Build order** (BereanReview.md, *What ships together* step 5). §1, §2, §3 and §5 build on `Backend/Models/IApproval.md §1`, and §4 on §3. Until `Backend/Models/IApproval.md §2` maps the columns, which waits for §1 and §2 here and on the other five foundations, each runs and stores nothing. The data change publishes to §4's door to clear a score (`Backend/Orchestrations/ApprovalOrchestrationService.BereanReview.md §2`), and the review process will to write one (BereanReview.md rule 6, designed under #1216).
 
 ## 1. AddBibleReferenceAsync — the confidence fields refused (#1194)
 

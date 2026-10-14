@@ -1,9 +1,9 @@
 # AI reviewer orchestration service — Berean's review
 Parent: [BereanReview.md](../../BereanReview.md)
 Level: orchestration — `IAIReviewerOrchestrationService` (`Glory2Him.Core/Services/Orchestrations/AIReviewers/`)
-Inherits: §APR8.6.2, *Assignment*, §APR8.6.2.1, §ARC12.5 (entry 4, and *an orchestration holds brokers*), §EVN2, §EVN18(e), §EVN19 rules 1 and 4, §EVN23, §SEC14.6 rule 4, §SEC14.6.1, BereanReview.md rules 4, 6–8, 16–20, *Layer placement* items 3 and 5
+Inherits: §APR8.6.2, *Assignment*, §APR8.6.2.1, §ARC12.5 (entry 4, and *an orchestration holds brokers*), §EVN2, §EVN18(e), §EVN19 rules 1 and 4, §EVN23, §SEC14.6 rule 4, §SEC14.6.1, BereanReview.md rules 3, 4, 8, 11, 18 and 19, *Layer placement* items 3–5
 
-Berean's lifecycle: asking for it, the start of its run, and the record of what the run answered. The service spans `Approval`, `AIReviewerAssignment` and — from §3 — `ApprovalComment`, three entity services and each a foundation, within two-to-three (§ARC12.5). It reaches the item under review only by its set-confidence request address (BereanReview.md, *Layer placement* item 2), so no item service is added. It gains `IEventBroker` to publish, and `IApprovalCommentWorkflowService` (`Backend/Foundations/ApprovalCommentService.md §1`), both registered by the host.
+Berean's caller-facing lifecycle: a person's request and the review event it publishes, the withdrawal and its gate, and the status read. The service spans `Approval` and `AIReviewerAssignment`, two entity services, each a foundation, within two-to-three (§ARC12.5). It gains `IEventBroker`, to publish the review event, registered by the host. Its automatic assignment leaves it for the approval process (BereanReview.md, *Layer placement* item 4), and with it its two subscriptions on `Approval` facts. What answers the review event is the review process, designed under #1216.
 
 ## 1. RequestAIReviewerAsync — no re-request (#1162)
 
@@ -16,46 +16,40 @@ ValueTask<AIReviewerAssignment> RequestAIReviewerAsync(
 
 1. **Asking Berean onto a round whose live assignment is completed changes nothing**: it answers the standing row and writes nothing, as asking onto a pending one already does (BereanReview.md rules 4 and 8). It no longer resets a completed assignment to pending through `IAIReviewerAssignmentService.ModifyAIReviewerAssignmentAsync`, which this service then calls nowhere.
 2. **Everything else is unchanged**: a round with no live assignment gets one, through the caller-facing add, under the caller's identity, gated on the resolved offer and an open round.
-3. **The comment over `ValidateUserMayRequestAIReviewer`** stops saying *"an assignment sets nothing"*: an assignment holds the round shut while Berean's review is pending (BereanReview.md rule 11). The requesting tier still asks no HR-3 term, because asking Berean decides nothing — it moves the round only toward a block.
+3. **The comment over `ValidateUserMayRequestAIReviewer`** stops saying *"an assignment sets nothing"*: an assignment holds the round shut until Berean's review has completed (BereanReview.md rule 11). The requesting tier still asks no HR-3 term, because asking Berean decides nothing — it moves the round only toward a block.
 4. The interface's summary of the operation stops calling it *"asks it again once a prior assignment has completed"*.
 
-## 2. OnAIReviewerAssignmentAddedAsync — the start (#1176)
+## 2. RequestAIReviewerAsync — the review event (needs issue)
+
+1. **Once the request has run, the round's live assignment is read**, and where one stands, `AIReviewer-Reviewing` is published once, carrying it (BereanReview.md rule 4; I6, I7). That holds whether the request has just added it or found it standing, pending or completed: a person who asks while Berean stands assigned publishes the event again (I7). Where none stands — the add failed — nothing is published. The read is the one the request already makes, through `IAIReviewerAssignmentService.RetrieveAIReviewerAssignmentByApprovalIdAsync`, made again once the add has answered.
+2. **The event is minted under `IEventEnvelopeBroker.CreateSystemAsync`** (BereanReview.md rule 19): the review it asks for acts for nobody, though a person asked for Berean. The add stays under the caller's identity.
+3. **This section mints the address.** `AIReviewer-Reviewing` is a request address `AIReviewerOrchestrationService` owns, registered under stable identifiers in `EventBrokerIdentifiers.AIReviewerOrchestration.cs`, its content `AIReviewerAssignment`. Nothing subscribes to it until #1216 builds the review process, and publishing to it with no subscriber succeeds, as `Association-ConfidenceSet` is published today with none (§APR9.7.1 rule 5). The approval process's two publishes build on it (`Backend/Orchestrations/ApprovalOrchestrationService.BereanReview.md §7–§8`).
+4. **A failed publish is logged and does not fault the request**, because the assignment it follows is written and the person's request has done what they asked: the round stays held by the pending block (BereanReview.md rule 11), and asking again publishes the event again (I7). A failed add publishes nothing and faults as it does today.
+5. **The service gains `IEventBroker`**, through its constructor, registered by the host. It is a broker of the kind an orchestration may hold, outside the two-to-three (§ARC12.5).
+
+## 3. The write-back, moved to #1216
+
+Retired from this design. It heard the confidence process's answer on `ContentAnalysis-Scored` and recorded the score, Berean's comments and the completion (#1177, closed). The review process now does all of it (BereanReview.md rule 6), and #1216 designs it. `ContentAnalysis-Scoring`, `ContentAnalysis-Scored`, `ContentAnalysisRequest` and `ContentAnalysisResult` were never built. The number is kept so that §4–§6 keep theirs.
+
+## 4. WithdrawAIReviewerAsync — only before Berean's review starts (needs issue)
 
 ```csharp
-ValueTask OnAIReviewerAssignmentAddedAsync(
-    EventEnvelope<AIReviewerAssignment> envelope,
+ValueTask<AIReviewerAssignment> WithdrawAIReviewerAsync(
+    EntityType entityType,
+    Guid entityId,
     CancellationToken cancellationToken = default);
 ```
 
-A new subscription on `AIReviewerAssignment-Added`, registered under stable identifiers (`EventBrokerIdentifiers.AIReviewerOrchestration.cs`, `EventSubscriptionRegistration`). It hears every assignment's arrival — a person's request, the automatic assignment, and the fresh assignment after a content change — and so it is the one start (BereanReview.md rule 4).
+1. **A withdrawal of a live assignment whose `IsAIReviewStarted` is `true` is refused**, with the service's validation exception and the message *"Berean's review has started, so Berean can no longer be withdrawn."* (BereanReview.md rule 18; I1.5c).
+2. **A withdrawal on a round whose resolved policy asks for Berean automatically is refused**, with the message *"This round's policy asks for Berean automatically, so Berean is removed only by changing the policy."* The automatic request is the resolved `AIReviewerPolicyVerdict.IsAutomaticallyRequested`, read through `IAccessBroker.ResolveAIReviewerPolicyByIdAsync` — `IsAIReviewerOffered && IsAIReviewerAutomaticallyRequested`, with the round requiring review (`Backend/Clients/AccessClient.BereanReview.md §3`). So a policy whose offer is switched off lets an assignment made under it be withdrawn, as the withdrawal's own summary requires (*"taking Berean off a round is the one act that has to keep working after the switch closes"*). (I2.B)
+3. **Otherwise the withdrawal is unchanged**: it soft-deletes the live assignment under the caller's identity, and nothing standing is a no-op. It changes no tracking field and no score (BereanReview.md rule 18). Its read of the assignment is the one it makes today, through `IAIReviewerAssignmentService.RetrieveAIReviewerAssignmentByApprovalIdAsync`.
+4. **Rule 1 is asked before rule 2**, so a started review is refused for being started whatever the policy says.
+5. **The operation's summary** stops calling the withdrawal *"Unconditional, unlike the human withdrawal"*, and says what it now refuses.
 
-1. **The envelope verifies** against the accepted name `"AIReviewerAssignmentAdded"`, through `IEnvelopeIntegrityBroker` (§SEC14.6 rule 4). A null, contentless or tampered envelope starts nothing.
-2. **The assignment on the envelope is not soft deleted**, and the round its `ApprovalId` names reads back, through `IApprovalWorkflowService.RetrieveApprovalByIdAsync`, not soft deleted and `Submitted`. Otherwise the start does nothing.
-3. **Whether the item is owed a run** is read through `IAccessBroker.RetrieveApprovalSubjectConfidenceAsync` (`Backend/Brokers/AccessBroker.BereanReview.md §3`), never through a caller-facing read (BereanReview.md rule 20):
-   - an item that is not available starts nothing, and the assignment stays pending (rule 16);
-   - an item that already holds a score is not run again (rule 7): the assignment is completed at once, through `IAIReviewerAssignmentWorkflowService.CompleteAIReviewerAssignmentAsync` with `isAIReviewCommentsPresent = false`;
-   - an item with no score is owed a run: the start publishes `ContentAnalysis-Scoring`, whose content is `ContentAnalysisRequest` — `ApprovalId`, `EntityType`, `EntityId` and `AIReviewerAssignmentId` — under `IEventEnvelopeBroker.CreateSystemAsync` (rule 19). The address is minted here (`EventBrokerIdentifiers.ContentAnalysis.cs`). The confidence process that hears it is not built (BereanReview.md, *Out of scope*).
-4. **It records no `ProcessedEvent`** (§EVN19 rules 1 and 4). A redelivered fact on an assignment the first delivery completed finds it completed and does nothing. One redelivered while the run is in flight publishes a second request, whose answer the write-back discards (§3 rule 2) — the cost of a redelivery, recorded under the feature's *Risks*.
-5. **A failure is logged and contained** (§EVN23), and the assignment stays pending, so the round stays held. The person's way back is BereanReview.md rule 16's.
-6. **The comment over the automatic assignment's two subscriptions** in `EventSubscriptionRegistration.cs` — the code's copy of §EVN18(e)'s point 1, *"it reads no §8.5 predicate and moves none"* — is rewritten to the restated point 1: it moves one predicate, and only toward a block.
+## 5. OnApprovalAddedAsync, retired (needs issue)
 
-## 3. OnContentAnalysisScoredAsync — the write-back (#1177)
+The automatic assignment's subscription on `Approval-Added` goes: the subscription, its accepted name and identifiers, the handler and its tests. The approval process's step 4 on an add assigns Berean in its place (`Backend/Orchestrations/ApprovalOrchestrationService.BereanReview.md §7`), and must be on `main` first (BereanReview.md, *What ships together* step 7). The private body both subscriptions share stays until §6 retires the other.
 
-```csharp
-ValueTask OnContentAnalysisScoredAsync(
-    EventEnvelope<ContentAnalysisResult> envelope,
-    CancellationToken cancellationToken = default);
-```
+## 6. OnApprovalModifiedAsync, retired (needs issue)
 
-A new subscription on `ContentAnalysis-Scored`, the confidence process's answer, minted here with its content model `ContentAnalysisResult`: `Guid ApprovalId`, `Guid AIReviewerAssignmentId`, `decimal? ConfidenceScore`, `string? ConfidenceReason`, `Guid? SourceBatchId`, `string? ModelVersion`, and `Comments`, a list of `(string Text, ApprovalCommentType CommentType)`, empty where the run files none (BereanReview.md rule 6). The four confidence fields are nullable so that a field the answer leaves out reads as absent, never as `0.00`, which would be a low score.
-
-1. **The envelope verifies, and its answer is a score.** It verifies against the accepted name `"ContentAnalysisScored"`, and a null, contentless or tampered envelope writes nothing. Then, before anything is read or written, the answer's four fields are held to set-confidence's *score* shape (`Backend/Foundations/TagService.BereanReview.md §3` rule 3): a score on the scale with at most two decimal places, a reason, a source batch and a model version, each present and within its length. An answer that is not a score — a field absent, or one outside the shape — is refused as an unverifiable envelope is: nothing is written, filed or completed, the refusal is logged, and the assignment stays pending, so the round stays held (BereanReview.md rules 11 and 16). So the write-back never sends set-confidence a clear, and a completed review always leaves a score.
-2. **The run's assignment must still be the round's live one, and not yet completed** (BereanReview.md rule 17). That is read through `IAccessBroker.RetrieveLiveAIReviewerAssignmentAsync` for the fact's `ApprovalId` (`Backend/Brokers/AccessBroker.BereanReview.md §1`). Where no live assignment stands, where it is another, or where it is already completed, nothing is written: the run was withdrawn, dismissed, superseded or already recorded.
-3. **The item is the round's**, read through `IApprovalWorkflowService.RetrieveApprovalByIdAsync`, its `EntityType` and `EntityId` — never the fact's own claim of either.
-4. **Three writes, in this order, each under `CreateSystemAsync`** (rule 19):
-   1. **the score**: `<EntityType>-SettingConfidence` is published for the item, carrying the four fields, and its reply is awaited. The address is each item's door: `Association-SettingConfidence`, which exists, and the six others' (`Backend/Foundations/<Entity>Service.BereanReview.md §4`). The item's set-confidence lands the score only if the item has none (rule 7);
-   2. **the comments**: each one the fact carries, through `IApprovalCommentWorkflowService.AddAIReviewerApprovalCommentAsync`, in the order the fact lists them, and only while the round is still `Submitted`: on a round decided since the run began, none is filed;
-   3. **the completion**: `IAIReviewerAssignmentWorkflowService.CompleteAIReviewerAssignmentAsync`, with `isAIReviewCommentsPresent` `true` where the fact carries at least one comment.
-5. **Until the completion lands the round stays held** (BereanReview.md rule 11), so a question Berean files is on the round before the round can pass. The completion's `AIReviewerAssignment-Modified` re-tests the round (`Backend/Orchestrations/ApprovalOrchestrationService.BereanReview.md §5`).
-6. **A failed write ends the write-back there, and faults the delivery.** Nothing in this host delivers a failed delivery again (§EVN23 rule 6), so what was written stays and the rest is never written: the assignment stays pending, and the round held, until a person withdraws Berean (BereanReview.md rule 16). Were the answer heard again, it would find a completed assignment and do nothing (rule 2), or a pending one and write again — the score, which lands on an unscored item only, the comments, and the completion — so a comment filed before the fault would be filed a second time. A question filed twice is settled twice, and nothing is lost. Each is recorded under the feature's *Risks*.
-7. **`CreateElevatedAsync`'s summary** stops drawing the line between the two mints at whether a person asked (*"This one is for an act a person asked for but is not permitted to write directly, and records the person"*, `IEventEnvelopeBroker.cs`): a person's request of Berean is written under the system mint (§SEC14.6.1).
+The automatic assignment's subscription on `Approval-Modified` goes, as §5's goes, after the approval process's step 4 on an update (`Backend/Orchestrations/ApprovalOrchestrationService.BereanReview.md §8`) is on `main`. With it go the body both shared (`AIReviewerOrchestrationService.Substrate.cs`), the six gates' code, and the comment over the two subscriptions in `EventSubscriptionRegistration.cs`. **Two dependencies leave the constructor with it**, because that body is their only caller: `IAIReviewerAssignmentWorkflowService`, whose automatic add the approval process now calls through the seam it holds, and `IEnvelopeIntegrityBroker`, which verified the two facts' envelopes. `IEventEnvelopeBroker` stays, for §2. The entity-service count is unchanged: the seam shares the foundation class's arm with `IAIReviewerAssignmentService` (§ARC16.7.1 finding 2).

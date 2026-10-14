@@ -571,12 +571,12 @@ everyone who reaches the page; each association's round is the association page'
     `UI/Components/ReviewPanel.md §10 item 2`, and the server refuses such a review whatever the
     panel offers (§APR8.6 HR-5).
 22. (#1178) **Page gap — `/Admin/Posts/{id}`: asking Berean leaves the verdict stale.** Rule 2.11
-    (user ruling 2026-10-13): once Berean holds a round while its review is pending (§APR8.5 rule 8),
-    asking Berean moves the verdict, so `onAIReviewerRequested` refreshes the verdict as well as
-    Berean's status. Today it refreshes Berean's status alone (`contentItemModerationDetailPage.tsx`,
+    (user ruling 2026-10-13): once Berean holds a round until its review has completed (§APR8.5
+    rule 8), asking Berean moves the verdict, so `onAIReviewerRequested` refreshes the verdict as well
+    as Berean's status. Today it refreshes Berean's status alone (`contentItemModerationDetailPage.tsx`,
     the request's `onSuccess`), so the decision menu stays live on a round the server now refuses,
     until the 15-second refresh (rule 2.12). The comment over the request that says Berean may vote
-    goes with it.
+    stays: the owner's rulings of 2026-10-14 restore the vote (§APR8.6.2).
 23. (#1179) **Page gap — `/Admin/Posts/{id}`: withdrawing Berean leaves the verdict stale.** Rule
     2.11 (user ruling 2026-10-13): withdrawing Berean lifts the pending block, so
     `onAIReviewerWithdrawn` refreshes the verdict as well as Berean's status. Today it refreshes
