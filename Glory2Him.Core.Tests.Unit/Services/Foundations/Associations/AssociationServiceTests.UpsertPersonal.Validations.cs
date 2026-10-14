@@ -608,7 +608,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfTheNewRowIsInvalidAndLogItAsync(
             string invalidity,
             string invalidField,
-            string expectedMessage)
+            string[] expectedMessages)
         {
             // given: the reader has no row, so the request would be inserted, and it breaks one of
             // the add's rules that no earlier check asks. The new row is validated as the add
@@ -627,9 +627,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             var invalidAssociationException = new InvalidAssociationException(
                 message: "Content item association is invalid, fix the errors and try again.");
 
-            invalidAssociationException.UpsertDataList(
+            invalidAssociationException.AddData(
                 key: invalidField,
-                value: expectedMessage);
+                values: expectedMessages);
 
             var expectedAssociationValidationException =
                 new AssociationValidationException(
@@ -683,59 +683,60 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         }
 
         // each rule of the add that no earlier check of the upsert asks, save the empty Id the
-        // create arm mints over (§2 rule 10), with the field and the add's message for it
-        public static TheoryData<string, string, string> InvalidNewPersonalRows() =>
-            new TheoryData<string, string, string>
+        // create arm mints over (§2 rule 10), with the field and the add's messages for it. A
+        // field an operation owns is refused as set beside its range or length (§17 rule 1).
+        public static TheoryData<string, string, string[]> InvalidNewPersonalRows() =>
+            new TheoryData<string, string, string[]>
             {
                 {
                     "EntityAContentTypeNotApplicable",
                     nameof(Association.EntityAContentType),
-                    "Value is only applicable to a ContentItem endpoint"
+                    ["Value is only applicable to a ContentItem endpoint"]
                 },
                 {
                     "EntityAContentTypeUndefined",
                     nameof(Association.EntityAContentType),
-                    "Value is not a supported content type"
+                    ["Value is not a supported content type"]
                 },
                 {
                     "EntityBContentTypeNotApplicable",
                     nameof(Association.EntityBContentType),
-                    "Value is only applicable to a ContentItem endpoint"
+                    ["Value is only applicable to a ContentItem endpoint"]
                 },
                 {
                     "EntityBContentTypeUndefined",
                     nameof(Association.EntityBContentType),
-                    "Value is not a supported content type"
+                    ["Value is not a supported content type"]
                 },
                 {
                     "ReactionNamedAsEndpointACarryingAContentType",
                     nameof(Association.EntityBContentType),
-                    "Value is only applicable to a ContentItem endpoint"
+                    ["Value is only applicable to a ContentItem endpoint"]
                 },
                 {
                     nameof(Association.UserId),
                     nameof(Association.UserId),
-                    "Text exceed max length of 255 characters"
+                    ["Text exceed max length of 255 characters"]
                 },
                 {
                     nameof(Association.ConfidenceReason),
                     nameof(Association.ConfidenceReason),
-                    "Text exceed max length of 500 characters"
+                    ["Text exceed max length of 500 characters", "Value is not allowed on add"]
                 },
                 {
                     nameof(Association.ModelVersion),
                     nameof(Association.ModelVersion),
-                    "Text exceed max length of 128 characters"
+                    ["Text exceed max length of 128 characters", "Value is not allowed on add"]
                 },
                 {
                     "ConfidenceScoreBelowZero",
                     nameof(Association.ConfidenceScore),
-                    "Value is not within range of 0 and 10"
+                    ["Value is not within range of 0 and 10", "Value is not allowed on add"]
                 },
                 {
                     "ConfidenceScoreAboveTen",
                     nameof(Association.ConfidenceScore),
-                    "Value is not within range of 0 and 10"
+                    ["Value is not within range of 0 and 10", "Value is not allowed on add"]
                 }
             };
 
@@ -1091,6 +1092,225 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             }
 
             return InvalidateEndpointField(request, field);
+        }
+
+        [Theory]
+        [MemberData(nameof(OperationOwnedFields))]
+        public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfTheNewRowSetsAnOperationOwnedFieldAndLogItAsync(
+            string operationOwnedField)
+        {
+            // given: the reader has no row, so the request would be inserted, and it sets a
+            // field an operation owns, to a value the create arm's range and length checks
+            // accept (§17 rule 1)
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            Association upsertRequest = SetOperationOwnedField(
+                association: CreatePersonalUpsertRequest(readerUserId),
+                operationOwnedField: operationOwnedField);
+
+            var invalidAssociationException = new InvalidAssociationException(
+                message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.AddData(
+                key: operationOwnedField,
+                values: "Value is not allowed on add");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(
+                CreateRandomAssociations(),
+                TestContext.Current.CancellationToken);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(upsertTask.AsTask);
+
+            // then: the create is refused, and no Id is minted, nothing is inserted and no fact
+            // is published
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(upsertRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalUpsertLookupAsked(TestContext.Current.CancellationToken, Times.Once());
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(EmptyOrWhitespaceOperationOwnedTexts))]
+        public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfTheNewRowsOperationOwnedTextIsEmptyOrWhitespaceAndLogItAsync(
+            string operationOwnedTextField,
+            string emptyOrWhitespaceText)
+        {
+            // given: the reader has no row, and an empty or whitespace string is not null, so
+            // it is set (§15 rule 1, which §17 rule 1 applies)
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            Association upsertRequest = SetOperationOwnedText(
+                association: CreatePersonalUpsertRequest(readerUserId),
+                operationOwnedTextField: operationOwnedTextField,
+                text: emptyOrWhitespaceText);
+
+            var invalidAssociationException = new InvalidAssociationException(
+                message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.AddData(
+                key: operationOwnedTextField,
+                values: "Value is not allowed on add");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(
+                CreateRandomAssociations(),
+                TestContext.Current.CancellationToken);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(upsertTask.AsTask);
+
+            // then: the create is refused, and no Id is minted, nothing is inserted and no fact
+            // is published
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(upsertRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalUpsertLookupAsked(TestContext.Current.CancellationToken, Times.Once());
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfTheNewRowSetsEveryOperationOwnedFieldAndLogItAsync()
+        {
+            // given: the reader has no row, and the request sets all seven fields, so one
+            // exception names every one (§17 rule 1)
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            Association upsertRequest =
+                SetEveryOperationOwnedField(CreatePersonalUpsertRequest(readerUserId));
+
+            var invalidAssociationException = new InvalidAssociationException(
+                message: "Content item association is invalid, fix the errors and try again.");
+
+            foreach (string operationOwnedField in OperationOwnedFieldNames)
+            {
+                invalidAssociationException.AddData(
+                    key: operationOwnedField,
+                    values: "Value is not allowed on add");
+            }
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(
+                CreateRandomAssociations(),
+                TestContext.Current.CancellationToken);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(upsertTask.AsTask);
+
+            // then: the create is refused, and no Id is minted, nothing is inserted and no fact
+            // is published
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(upsertRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalUpsertLookupAsked(TestContext.Current.CancellationToken, Times.Once());
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
         }
     }
 }

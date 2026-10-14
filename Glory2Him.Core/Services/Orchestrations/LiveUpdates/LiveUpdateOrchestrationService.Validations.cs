@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
@@ -23,9 +24,17 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
         // the publisher signed, and it is inside the HMAC, so a receiver verifying under another
         // name refuses every genuine fact it is delivered — and the direction is the request
         // leg, because a fact is published, never replied.
+        private ValueTask ValidateAssociationFactEnvelopeAsync(
+            EventEnvelope<Association> envelope,
+            string eventName) =>
+            ValidateAssociationFactEnvelopeAsync(envelope, eventNames: new[] { eventName });
+
+        // An address can carry more than one name, told apart by the one the publisher signed
+        // (§EVN2 rule 4): a fact that verifies under any of them is genuine, and one that verifies
+        // under none is refused (§EVN15).
         private async ValueTask ValidateAssociationFactEnvelopeAsync(
             EventEnvelope<Association> envelope,
-            string eventName)
+            IReadOnlyList<string> eventNames)
         {
             // a signature proves provenance, never that a section is present (§SEC14.6 rule 4)
             if (envelope is null || envelope.Content is null)
@@ -35,22 +44,31 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
                         "The fact envelope and its content are required.");
             }
 
-            bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
-                envelope, eventName, EnvelopeDirection.Request);
-
-            if (isSignatureValid is false)
+            foreach (string eventName in eventNames)
             {
-                throw new InvalidLiveUpdateOrchestrationException(
-                    message: "Invalid live update orchestration fact. " +
-                        "Integrity verification failed.");
+                bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
+                    envelope, eventName, EnvelopeDirection.Request);
+
+                if (isSignatureValid)
+                {
+                    return;
+                }
             }
+
+            throw new InvalidLiveUpdateOrchestrationException(
+                message: "Invalid live update orchestration fact. " +
+                    "Integrity verification failed.");
         }
 
         // The setting facts' own check, kept apart from the association facts' so that one can
-        // change without the other.
+        // change without the other. It takes the names the ear's address carries: one for every
+        // address but Removed, where a soft and a hard removal share the address and are told
+        // apart by the signed name (§EVN2 rule 4). Both are names this system signs for that
+        // address, so accepting either is not accepting any name, and an empty set verifies
+        // nothing and refuses.
         private async ValueTask ValidateContentItemSettingFactEnvelopeAsync(
             EventEnvelope<ContentItemSetting> envelope,
-            string eventName)
+            string[] acceptedEventNames)
         {
             // a signature proves provenance, never that a section is present (§SEC14.6 rule 4)
             if (envelope is null || envelope.Content is null)
@@ -60,15 +78,20 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
                         "The fact envelope and its content are required.");
             }
 
-            bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
-                envelope, eventName, EnvelopeDirection.Request);
-
-            if (isSignatureValid is false)
+            foreach (string eventName in acceptedEventNames)
             {
-                throw new InvalidLiveUpdateOrchestrationException(
-                    message: "Invalid live update orchestration fact. " +
-                        "Integrity verification failed.");
+                bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
+                    envelope, eventName, EnvelopeDirection.Request);
+
+                if (isSignatureValid)
+                {
+                    return;
+                }
             }
+
+            throw new InvalidLiveUpdateOrchestrationException(
+                message: "Invalid live update orchestration fact. " +
+                    "Integrity verification failed.");
         }
     }
 }

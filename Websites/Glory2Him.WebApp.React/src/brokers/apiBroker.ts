@@ -1,4 +1,5 @@
 import axios, { AxiosResponse } from 'axios';
+import { ResponseListeners } from '../models/foundations/networkStatuses/responseListeners';
 
 // navigator.onLine (useOnlineStatus.ts) only reports whether a network adapter is connected,
 // not whether this origin is actually reachable. A response reaching the app at all — even an
@@ -80,6 +81,26 @@ class ApiBroker {
 
     public async DeleteAsync(relativeUrl: string): Promise<AxiosResponse> {
         return axios.delete(relativeUrl, this.config);
+    }
+
+    // Registered on the shared axios module, as the interceptor above is, so it hears every
+    // request the app makes. The response is handed on and the failure rejected unchanged, so
+    // listening never changes a request's outcome. The function returned takes this
+    // interceptor, and no other, back out.
+    public ListenToResponses(listeners: ResponseListeners): () => void {
+        const interceptorId = axios.interceptors.response.use(
+            (response: AxiosResponse) => {
+                listeners.onResponse(response);
+
+                return response;
+            },
+            (error: unknown) => {
+                listeners.onFailure(error);
+
+                return Promise.reject(error);
+            });
+
+        return () => axios.interceptors.response.eject(interceptorId);
     }
 }
 

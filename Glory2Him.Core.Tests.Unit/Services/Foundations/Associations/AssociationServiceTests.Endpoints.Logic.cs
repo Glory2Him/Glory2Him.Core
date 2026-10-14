@@ -98,7 +98,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             Guid bibleReferenceKeyId = Guid.NewGuid();
 
             Association inputAssociation =
-                CreateAssociationFiller(randomDateTimeOffset).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset);
 
             inputAssociation.EntityAType = EntityType.ContentItem;
             inputAssociation.EntityAKeyId = contentItemKeyId;
@@ -141,7 +141,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             Association inputAssociation =
-                CreateAssociationFiller(randomDateTimeOffset).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset);
 
             inputAssociation.EntityAType = EntityType.BibleReference;
             inputAssociation.EntityAKeyId = SqlHighGuid;
@@ -179,7 +179,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             Association inputAssociation =
-                CreateAssociationFiller(randomDateTimeOffset).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset);
 
             inputAssociation.EntityAType = entityType;
             inputAssociation.EntityAKeyId = SqlLowGuid;
@@ -220,7 +220,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             Guid tagKeyId = Guid.NewGuid();
 
             Association inputAssociation =
-                CreateAssociationFiller(randomDateTimeOffset).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset);
 
             inputAssociation.EntityAType = EntityType.ContentItem;
             inputAssociation.EntityAKeyId = Guid.NewGuid();
@@ -257,7 +257,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             Guid bibleReferenceKeyId = Guid.NewGuid();
 
             Association inputAssociation =
-                CreateAssociationFiller(randomDateTimeOffset).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset);
 
             inputAssociation.EntityAType = EntityType.ContentItem;
             inputAssociation.EntityAKeyId = contentItemKeyId;

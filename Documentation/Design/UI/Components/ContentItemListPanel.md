@@ -369,7 +369,7 @@ The paging behind `hasMore` is the consumer's. *(code: services/foundations/cont
     `UI/Pages/MyPosts.md rule 2.14`, `UI/Pages/ContentItemModerationPage.md rule 2.13`,
     `UI/Pages/BibleReference.md rule 2.17` and §6 item 6), and how a read narrows by either is
     not designed.
-    The narrowing waits on reading associations over HTTP
+    The narrowing builds on reading associations over HTTP
     (`UI/Components/AssociationPanel.md §10 item 21`), and is not part of that read's design: the
     user ruled on 2026-10-05 that #857 plans only the read (#857, Open question 1: *"only the
     read"*).

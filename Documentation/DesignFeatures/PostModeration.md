@@ -30,9 +30,11 @@ https://github.com/Glory2Him/Glory2Him.Core/issues/705#issuecomment-6113417041),
 the association page's breadcrumb the same day (rulings 24–26,
 https://github.com/Glory2Him/Glory2Him.Core/issues/705#issuecomment-6113739849). The two rulings
 on the confidence suggestion were made on 2026-10-13, under #863, and §APR8.6.2, *The confidence
-suggestion*, rules 4 and 5 record them. A later ruling the same day, ruling 3 on #1117, put the
-confidence process's thresholds in configuration, and §APR8.6.2, *The confidence suggestion*,
-rule 1 records it. Each rule below names its source.
+suggestion*, rules 4 and 5 record them. The owner's answer A1 on #1117 the same day kept the
+thresholds on the approval-setting tiers, and the rulings of 2026-10-14 made the suggestion's
+comparisons strict and kept out the rule that answered nothing where no settings row resolves;
+§APR8.6.2, *The confidence suggestion*, rules 1 and 3 record them. Each rule below names its
+source.
 
 1. **Two screens.** The post page, `/Admin/Posts/{contentItemId}`
    (`Design/UI/Pages/ContentItemModerationDetailPage.md`), and the association page, nested under
@@ -89,12 +91,16 @@ rule 1 records it. Each rule below names its source.
 13. **The confidence block.** It applies only where the association records both a confidence score
     and a confidence reason (§APR9.7.1 rule 5). It then shows Berean as the reviewer, the score, the
     reason, and the suggestion — an approval, a rejection, or that it is unable to suggest either —
-    which §APR8.6.2 decides against the confidence process's configured thresholds. Where either the score or the reason is null the
-    block is not rendered, and nothing about it affects the round: the confidence feature may be
-    switched off, and the rest of the process must not depend on it. The suggestion is
+    which §APR8.6.2 decides against the round's resolved `AIApprovalConfidenceApprovalThreshold`
+    and `AIApprovalConfidenceRejectionThreshold`. Where either the score or the reason is null the
+    block is not rendered, and, unless Berean is assigned to the round, nothing about it affects
+    the round: the confidence feature may be switched off, and the rest of the process must not
+    depend on it. While Berean is assigned and its review is pending, a null score holds the round
+    (§APR8.5 rule 8; user ruling 2026-10-13, `BereanReview.md` rule 11). The suggestion is
     §APR8.6.2's confidence suggestion, carried on Berean's status read, and what it is compared
     against and when it is answered are §APR8.6.2's (*The confidence suggestion* rules 1, 4 and
-    5). *(ruling 5; §APR8.6.2 records the user rulings of 2026-10-13, under #863 and #1117)*
+    5). *(ruling 5; narrowed 2026-10-13; §APR8.6.2 records the user rulings of 2026-10-13 and
+    2026-10-14 on the suggestion, under #863)*
 14. **What a moderator can do on an association.** Everything `ReviewPanel` offers for its round —
     see the reviews, cast a vote, request reviewers and Berean, decide it with its bypass (the
     publisher tier and `Administrators`), and reset a decided round (`Administrators`) — the
@@ -190,10 +196,10 @@ route:
 
 - **The page is handed the band, and compares nothing.** The panel never works out the suggestion
   (`Design/UI/Components/AssociationDetailPanel.md` rule 2.5), and neither does the page. The
-  thresholds are the confidence process's configuration, read on the server (§APR8.6.2, *The
-  confidence suggestion* rule 1; #1117), and handing them to the page would leave it the
-  comparison, and leave who may see the answer (suggestion rule 6) to a page that decides no
-  access.
+  thresholds are those of the approval-setting tier that governs the round, which the server
+  resolves (§APR8.4; §APR8.6.2, *The confidence suggestion* rule 1), and handing them to the page
+  would leave it the tier's resolution and the comparison, and leave who may see the answer
+  (suggestion rule 6) to a page that decides no access.
 - **The decision is the security client's**, `IAccessClient`, which decides every policy question
   (§APR8.6.1 rules 2 and 4), and `IAccessBroker` gathers for it. It is a decision of its own,
   not a widening of `AIReviewerPolicyVerdict`: who is answered it depends on the caller
@@ -205,8 +211,9 @@ route:
   that read for its round (`Design/UI/Pages/AssociationModerationDetailPage.md` rule 2.16), keyed
   by `Association` and the association's id, so the suggestion waits on no approval id. Neither
   `ApprovalVerdict` nor `GET api/ApprovalSettings` is widened: the verdict is the publisher tier's
-  read of the round's conditions, and the settings read answers rows, which do not hold the
-  thresholds the suggestion reads. The rulings of 2026-10-13 change none of this placement: the suggestion asks none of Berean's
+  read of the round's conditions, and the settings read answers rows, which would leave the page
+  to resolve which tier governs the round, a decision the security client makes (§APR8.4,
+  §APR8.6.1 rule 4). The rulings of 2026-10-13 and 2026-10-14 change none of this placement: the suggestion asks none of Berean's
   switches, but the block presents it as Berean's, and the read that carries it is the one the
   page makes for Berean anyway.
 
@@ -216,32 +223,32 @@ route:
   association's far end (`Tag` or `BibleReference`), the round (`Approval`, with its reviews,
   requests and comments) and the contributor's name. Each is read on its own route by the page;
   no service composes two of them.
-- **The confidence suggestion** reads `Approval` and the association (its score and its endpoints,
-  through `IAccessBroker`), and the confidence process's configured thresholds, inside an orchestration that already spans two entity types. It adds no service dependency: the broker it is gathered through costs
-  none (§ARC12.5). Whether the thresholds are an entity is #1117's to decide: its open question 1
-  asks whether they are the host's configuration or a stored record an administrator edits.
+- **The confidence suggestion** reads `Approval`, the association (its score and its endpoints)
+  and the round's candidate `ApprovalSetting` rows, all through `IAccessBroker`, inside an
+  orchestration that already spans two entity types. It adds no service dependency: the broker it
+  is gathered through costs none (§ARC12.5).
 - **Events.** None new. The approval record is created by the approval process's existing
   subscriptions (§APR9.7.2, §APR9.7.3; rule 17).
 - **Storage.** None.
 
 ## Reads and writes this feature builds on
 
-- **The association reads, #857.** The chips need every association of the post — its id, its far
-  end's type and id, its status and its `CreatedWhen` — from `GET /api/associations`, and the
-  association page needs one association by its id, with its endpoints, its `CreatedBy`, its
-  `CreatedWhen`, its status, and its `ConfidenceScore` and `ConfidenceReason`, from
-  `GET /api/associations/{id}` (§ARC17.4). Both are designed under #857 and not built. Every page
-  task that needs one names #857 as the task it is blocked on, and #857's design PR moves it to the
-  task #857 carves for that read (#857, *Next steps* 2).
+- **The association reads, `DesignFeatures/AssociationReads.md` (#857).** The chips need every
+  association of the post — its id, its far end's type and id, its status and its `CreatedWhen` —
+  from `GET /api/associations`, read through `associationService.useGetAssociationsByEffectiveId`
+  (`DesignFeatures/UI/Foundations/AssociationService.AssociationReads.md §1`, #1128). The association
+  page needs one association by its id, with its endpoints, its `CreatedBy`, its `CreatedWhen`,
+  its status, and its `ConfidenceScore` and `ConfidenceReason`, from `GET /api/associations/{id}`,
+  read through `associationService.useGetAssociationById` (that document's §2, #1129) (§ARC17.4).
+  Every page task that needs one is blocked on the task for that read.
 - **The confidence suggestion, #863.** The confidence block's suggestion (rule 13) is carried on
   Berean's status read, built by the user stories listed above for it, and handed to the panel by
   the association page (`Design/UI/Pages/AssociationModerationDetailPage.md §6 item 19`).
-- **The configured thresholds, #1117.** The suggestion compares the score against the confidence
-  process's thresholds, which are configuration (§APR8.6.2, *The confidence suggestion* rule 1).
-  Where they are configured and how the server reads them is #1117's design, which is not written.
-  So this design waits on #1117's: the broker's gather
-  (`Backend/Brokers/AccessBroker.PostModeration.md §1`) cannot be built until #1117's design is on
-  `main`, and neither can anything built on it.
+- **The round's resolved thresholds, design PR #1183.** The suggestion compares the score against
+  the round's resolved `AIApprovalConfidenceRejectionThreshold` and
+  `AIApprovalConfidenceApprovalThreshold`, which stay on the approval-setting tiers, compared
+  strictly (§APR8.6.2, *The thresholds*; `BereanReview.md` rule 12; user rulings 2026-10-13 and
+  2026-10-14). Design PR #1183 records those rulings, and this design merges after it.
 - **The remove by id, #700.** The association's takedown (rule 16) calls
   `DELETE /api/associations/{id}`, which `Design/UI/Components/AssociationPanel.md §10 item 22`
   gives to #700, with the two gates beneath it. #700 has carved no task for it yet, so the
@@ -270,14 +277,19 @@ route:
   by the reader pages.
 - **Berean's status read gathers through `IAccessBroker` twice.** It already resolves the offer through
   `IAccessBroker`, and the suggestion is a second gather of the round and the row behind it, with
-  the configured thresholds and one call the read never made: building the caller's actor asks the security
+  the round's candidate policy rows and one call the read never made: building the caller's actor asks the security
   client for their user id (`BuildActorAsync`). The read is refreshed with the round on both
   moderation pages, every 15 seconds while the tab is visible
   (`Design/UI/Pages/AssociationModerationDetailPage.md` rule 2.18,
   `Design/UI/Pages/ContentItemModerationDetailPage.md` rule 2.12), so the post page pays the
-  second gather too, for content-item rounds whose suggestion is always none (§APR8.6.2 suggestion
-  rule 2). The cost is accepted on both pages rather than folding the suggestion into the
+  second gather too, for content-item rounds, on a page that renders no confidence block
+  (`Design/UI/Pages/ContentItemModerationDetailPage.md` §6 item 24). The cost is accepted on both pages rather than folding the suggestion into the
   actor-independent verdict (*Layer placement*).
+- **The fail-closed default suggests an approval for any score above `0.00`.** Where no settings
+  row resolves — an environment the seed has not reached — the pair read is the fail-closed
+  `0.00`/`0.00` (§APR8.6.2, *The confidence suggestion* rule 3), so every score above `0.00`
+  suggests an approval. The suggestion decides nothing, and on a seeded environment a row always
+  resolves (user ruling 2026-10-14).
 - **A failed suggestion gather fails Berean's whole status.** The read answers nothing where the
   gather fails (`Backend/Orchestrations/AIReviewerOrchestrationService.md §1` rule 6), so
   `IsOffered` and `IsRequested` are lost with the suggestion, and on both moderation pages
@@ -300,10 +312,10 @@ route:
 - The queue, `/Admin/Posts` (`Design/UI/Pages/ContentItemModerationPage.md`), and the mock folder's
   other 15 screens.
 - §ARC17.4's two association reads and §SEC14.7 posture A′ rule 7 (#857).
-- Building §APR8.6.2 rules 1–3, Berean's comment and review, and the confidence process
-  (§APR13.4).
-- #1117's rulings: Berean casting no vote, the confidence process's start, where its thresholds
-  are configured, `BlockOnBelowBereanRejectionScore`, and the approval-setting screen.
+- Berean's review and its vote (§APR8.6.2, *Berean's review* and *Berean's vote*), and the review
+  process behind them (#1216).
+- #1117's design (design PR #1183): Berean's blocks, the low-score block's rename, what starts
+  Berean's review, and the approval-setting screens.
 - The remove by id, `DELETE /api/associations/{id}`, and the two gates beneath it (#700).
 - Moving the round's routes to the approval id (§ARC17.5; #699's stage-2 build).
 - Suggesting a tag or a Bible reference from either page (rule 9).

@@ -709,6 +709,7 @@ The following authentication behaviour is required:
 4. The `Navbar` must reflect auth state — showing login or logout depending on session presence.
 5. Role claims from the token must be used to control visibility of role-restricted navigation items.
 6. Token refresh or silent renewal must be handled transparently.
+7. **A passkey's failure is announced once, by the page that ran it.** The passkeys page, `/Account/Manage/Passkeys`, adds a passkey, and the sign-in page, `/Account/Login`, signs in with one. While the page that ran either is shown, it tells the reader of each failure in its own status message, a cancelled passkey prompt among them, which the browser reports as it reports a prompt that timed out or was refused, so the app's global error toast (`apiBroker.globals.ts`) announces none of them. A failure that lands after the reader has left that page is announced by nothing, since it leaves nothing the reader must act on. `DesignFeatures/UI/Foundations/PasskeyService.Authentication.md` builds this rule in the two hooks that run the ceremony, and says, for each, what the reader is told. Since the page is then the only thing that announces a failure, what each page shows is pinned by tests of the page's own: the passkeys page's (#1114) and the sign-in page's (#1115).
 
 #### UI20.8.1 The return after sign-in *(new)*
 

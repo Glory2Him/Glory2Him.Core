@@ -413,6 +413,140 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         private static Association CreateRandomAssociation() =>
             CreateAssociationFiller(dateTimeOffset: GetRandomDateTimeOffset()).Create();
 
+        // the add refuses the seven fields an operation owns (§15 rule 1), and the filler
+        // draws them for modify and the transitions, so an add that is about something else
+        // takes its input from here with the seven unset
+        private static Association CreateRandomAddAssociation(
+            DateTimeOffset dateTimeOffset,
+            string userId = "") =>
+                UnsetOperationOwnedFields(CreateAssociationFiller(dateTimeOffset, userId).Create());
+
+        private static Association UnsetOperationOwnedFields(Association association)
+        {
+            association.SortOrder = null;
+            association.ConfidenceScore = null;
+            association.ConfidenceReason = null;
+            association.SourceBatchId = null;
+            association.ModelVersion = null;
+            association.IsApprovedByBypass = false;
+            association.ApprovedByBypassReason = null;
+
+            return association;
+        }
+
+        private static readonly string[] OperationOwnedFieldNames =
+        [
+            nameof(Association.SortOrder),
+            nameof(Association.ConfidenceScore),
+            nameof(Association.ConfidenceReason),
+            nameof(Association.SourceBatchId),
+            nameof(Association.ModelVersion),
+            nameof(Association.IsApprovedByBypass),
+            nameof(Association.ApprovedByBypassReason)
+        ];
+
+        public static TheoryData<string> OperationOwnedFields() =>
+            new TheoryData<string>(OperationOwnedFieldNames);
+
+        public static TheoryData<string, string> EmptyOrWhitespaceOperationOwnedTexts()
+        {
+            string[] operationOwnedTextFields =
+            [
+                nameof(Association.ConfidenceReason),
+                nameof(Association.ModelVersion),
+                nameof(Association.ApprovedByBypassReason)
+            ];
+
+            var emptyOrWhitespaceTexts = new TheoryData<string, string>();
+
+            foreach (string operationOwnedTextField in operationOwnedTextFields)
+            {
+                emptyOrWhitespaceTexts.Add(operationOwnedTextField, "");
+                emptyOrWhitespaceTexts.Add(operationOwnedTextField, " ");
+            }
+
+            return emptyOrWhitespaceTexts;
+        }
+
+        private static Association SetOperationOwnedText(
+            Association association,
+            string operationOwnedTextField,
+            string text)
+        {
+            switch (operationOwnedTextField)
+            {
+                case nameof(Association.ConfidenceReason):
+                    association.ConfidenceReason = text;
+                    break;
+
+                case nameof(Association.ModelVersion):
+                    association.ModelVersion = text;
+                    break;
+
+                case nameof(Association.ApprovedByBypassReason):
+                    association.ApprovedByBypassReason = text;
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(operationOwnedTextField));
+            }
+
+            return association;
+        }
+
+        private static Association SetEveryOperationOwnedField(Association association)
+        {
+            foreach (string operationOwnedField in OperationOwnedFieldNames)
+            {
+                SetOperationOwnedField(association, operationOwnedField);
+            }
+
+            return association;
+        }
+
+        // each value is one the write's range and length checks accept, so the only rule the
+        // field breaks is its own refusal
+        private static Association SetOperationOwnedField(
+            Association association,
+            string operationOwnedField)
+        {
+            switch (operationOwnedField)
+            {
+                case nameof(Association.SortOrder):
+                    association.SortOrder = GetRandomNumber();
+                    break;
+
+                case nameof(Association.ConfidenceScore):
+                    association.ConfidenceScore = 5.5m;
+                    break;
+
+                case nameof(Association.ConfidenceReason):
+                    association.ConfidenceReason = GetRandomStringWithLengthOf(500);
+                    break;
+
+                case nameof(Association.SourceBatchId):
+                    association.SourceBatchId = Guid.NewGuid();
+                    break;
+
+                case nameof(Association.ModelVersion):
+                    association.ModelVersion = GetRandomStringWithLengthOf(128);
+                    break;
+
+                case nameof(Association.IsApprovedByBypass):
+                    association.IsApprovedByBypass = true;
+                    break;
+
+                case nameof(Association.ApprovedByBypassReason):
+                    association.ApprovedByBypassReason = GetRandomString();
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(operationOwnedField));
+            }
+
+            return association;
+        }
+
         // a reader's reaction on a Quote: a personal row, created and keyed by one reader
         private static Association CreateRandomReaction(string readerUserId)
         {

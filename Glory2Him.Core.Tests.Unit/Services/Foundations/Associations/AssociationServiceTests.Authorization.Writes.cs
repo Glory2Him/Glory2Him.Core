@@ -408,7 +408,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             Association invalidAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
 
             invalidAssociation.ApprovalStatus = verdictStatus;
 
@@ -452,7 +452,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             Association invalidAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
 
             invalidAssociation.IsPublished = true;
             invalidAssociation.PublishDate = randomDateTimeOffset;
@@ -505,7 +505,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             Association inputAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
 
             inputAssociation.ApprovalStatus = contributableStatus;
 

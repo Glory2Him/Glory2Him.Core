@@ -59,7 +59,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.12 [Must]** The association's card shows whether it is a tag or a Bible reference, the tag's name or the reference, the reference's scripture where its row carries one, who suggested it — the association's `CreatedBy`, named from the contributor read — and when, its `CreatedWhen`, and its status. The page reads the far end through `DesignFeatures/UI/Foundations/TagService.md §1` or `DesignFeatures/UI/Foundations/BibleReferenceService.md §1`, and hands the whole to `AssociationDetailPanel`. *(user, 2026-10-11)* ≠ item 1
 
-**2.13 [Must]** The confidence block applies only where the association records both a confidence score and a confidence reason: the page hands both over as the association carries them, and the panel renders the block only then (`UI/Components/AssociationDetailPanel.md rule 2.4`). Where either is null, the block is absent and nothing else on the page depends on it. The suggestion — an approval, a rejection, or unable to suggest either, against the confidence process's configured thresholds — is the band the page hands the panel from Berean's status read, its `confidenceSuggestion`, and the page hands none where that read answers none or cannot be read (§APR8.6.2, *The confidence suggestion*; `DesignFeatures/PostModeration.md` rule 13). *(user, 2026-10-11; user, 2026-10-13)* ≠ item 19
+**2.13 [Must]** The confidence block applies only where the association records both a confidence score and a confidence reason: the page hands both over as the association carries them, and the panel renders the block only then (`UI/Components/AssociationDetailPanel.md rule 2.4`). Where either is null, the block is absent and nothing else on the page depends on it. The suggestion — an approval, a rejection, or unable to suggest either, against the round's resolved thresholds — is the band the page hands the panel from Berean's status read, its `confidenceSuggestion`, and the page hands none where that read answers none or cannot be read (§APR8.6.2, *The confidence suggestion*; `DesignFeatures/PostModeration.md` rule 13). *(user, 2026-10-11; user, 2026-10-13)* ≠ item 19
 
 **2.14 [Must]** The page offers everything `ReviewPanel` offers on the association's round — its reviews, a vote, requesting reviewers and Berean, the decision with its bypass for the publisher tier and `Administrators`, and the reset of a decided round for `Administrators` — and the association's own review thread (`DesignFeatures/PostModeration.md` rule 14). *(user, 2026-10-11)* ≠ items 6–18
 
@@ -71,7 +71,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.18 [Must]** The page's single round refresh keeps the round and the thread current as the post page's does (`UI/Pages/ContentItemModerationDetailPage.md rule 2.12`): every 15 seconds while the tab is visible, on returning to the tab, and on reconnect. The association is re-read with the round, because `ReviewPanel` takes its status from the stored association, and the reviewer candidates are left out of it (`UI/Components/ReviewPanel.md rules 2.8 and 2.32`). *(user, 2026-09-27; user, 2026-10-11)* ≠ item 6
 
-**2.19 [Must]** The round's writes behave as the post page's (`UI/Pages/ContentItemModerationDetailPage.md rules 2.11, 2.13 and 2.27`): nothing is optimistic save the card's reaction, a person's write refreshes the whole round and Berean's two writes refresh Berean's status alone, every write to the thread refreshes the verdict too, a refusal is shown with the server's reason, and the reviewer candidates are read when the request picker opens. A decision's success is toasted in the post page's words with *post* replaced by *tag* or *Bible reference* — "The tag has been approved.", "The Bible reference has been rejected." — and a reset's likewise — "The approval has been reset. The tag is back with the reviewers, and its recorded reviews have been dismissed.". *(user, 2026-10-11; code: contentItemModerationDetailPage.tsx — the decision's and the reset's toasts)* ≠ items 7–18
+**2.19 [Must]** The round's writes behave as the post page's (`UI/Pages/ContentItemModerationDetailPage.md rules 2.11, 2.13 and 2.27`): nothing is optimistic save the card's reaction, a person's write refreshes the whole round and Berean's two writes refresh Berean's status and the verdict, every write to the thread refreshes the verdict too, a refusal is shown with the server's reason, and the reviewer candidates are read when the request picker opens. A decision's success is toasted in the post page's words with *post* replaced by *tag* or *Bible reference* — "The tag has been approved.", "The Bible reference has been rejected." — and a reset's likewise — "The approval has been reset. The tag is back with the reviewers, and its recorded reviews have been dismissed.". *(user, 2026-10-11; code: contentItemModerationDetailPage.tsx — the decision's and the reset's toasts)* ≠ items 7–18
 
 **2.20 [Must]** Withdrawing a review comment is confirmed in the post page's words before it is sent, and nothing is sent on Cancel (`UI/Pages/ContentItemModerationDetailPage.md rule 2.14`). *(user, 2026-10-11)* ≠ item 17
 
@@ -228,8 +228,8 @@ two endpoints (rule 2.15); `showBorder`.
 | `onApprovalReset` | An administrator resets a decided round | The reset on the association's round, keyed as the decision is, then a toast (rule 2.19). | ❌ No — item 9 |
 | `onReviewerLookupRequested`, `onReviewRequested` | The request picker opens; a person is picked under Suggestions or Everyone else | Reads the reviewer candidates when the picker opens; asks the person to review on the review-request route, keyed as the decision is. | ❌ No — item 10 |
 | `onReviewRequestWithdrawn` | A person is picked under Requested | Withdraws the request on the review-request route, keyed as the decision is. | ❌ No — item 11 |
-| `onAIReviewerRequested` | Berean is picked, or re-requested | Asks Berean to review on its resource, keyed `Association` and `associationId`, refreshing Berean's status alone. | ❌ No — item 12 |
-| `onAIReviewerWithdrawn` | Berean is picked under Requested | Withdraws Berean on its resource, keyed as above, with no success toast. | ❌ No — item 13 |
+| `onAIReviewerRequested` | Berean is picked | Asks Berean to review on its resource, keyed `Association` and `associationId`, refreshing Berean's status and the verdict. | ❌ No — item 12 |
+| `onAIReviewerWithdrawn` | Berean is picked under Requested | Withdraws Berean on its resource, keyed as above, with no success toast, refreshing Berean's status and the verdict. | ❌ No — item 13 |
 
 ## 5. Security and access
 
@@ -312,9 +312,10 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
 11. (#1064) **Page gap — a review request on the association cannot be withdrawn.** Rules
     2.14 and 2.19: `onReviewRequestWithdrawn`.
 12. (#1065) **Page gap — Berean cannot be asked to review the association.** Rules 2.14 and
-    2.19: `onAIReviewerRequested`, for a first request and a re-request alike.
+    2.19: `onAIReviewerRequested`, which refreshes Berean's status and the verdict (user ruling
+    2026-10-13: there is no re-request).
 13. (#1066) **Page gap — Berean cannot be withdrawn from the association's round.** Rules
-    2.14 and 2.19: `onAIReviewerWithdrawn`.
+    2.14 and 2.19: `onAIReviewerWithdrawn`, which refreshes Berean's status and the verdict.
 14. (#1067) **Page gap — the association's review thread is not shown.** Rules 2.7, 2.14–2.18,
     2.23, 2.25 and 2.26: the thread in `ReviewCommentPanel`, beneath the association's card in the
     left-hand column (rule 2.7), its tiers composed from the association's endpoints, its box
@@ -334,9 +335,9 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
     2026-10-11 and 2026-10-13): where the block is shown, it carries the suggestion — an approval,
     a rejection, or unable to suggest either — that Berean's status read answers, its
     `confidenceSuggestion` (§APR8.6.2, *The confidence suggestion*), and none where that read
-    answers none or cannot be read. The mock's cut-offs above 7 and below 4 are not the confidence process's thresholds.
+    answers none or cannot be read. The mock's cut-offs above 7 and below 4 are not the policy.
     No read answers the suggestion yet: #1105, #1106, #1107, #1108, #1109 and #1110 build it
-    (designed under #863), and #1106's gather of the thresholds waits on #1117's design. The
+    (designed under #863). The
     panel's half, the line it renders for a band it is handed, is
     `UI/Components/AssociationDetailPanel.md §10 item 2`.
 20. (needs issue) **Page gap — the association cannot be taken down.** Rule 2.21 (user rulings

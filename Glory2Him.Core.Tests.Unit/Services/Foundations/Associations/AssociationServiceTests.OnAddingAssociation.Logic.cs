@@ -20,6 +20,7 @@ using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
@@ -32,7 +33,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // given
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             Association randomAssociation =
-                CreateAssociationFiller(randomDateTimeOffset).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset);
             Association inputAssociation = randomAssociation;
             Association auditAppliedAssociation = inputAssociation.DeepClone();
             Association storageAssociation = auditAppliedAssociation.DeepClone();
@@ -190,7 +191,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             string contributorUserId = GetRandomString();
 
             Association inputAssociation =
-                CreateAssociationFiller(currentDateTime, contributorUserId).Create();
+                CreateRandomAddAssociation(currentDateTime, contributorUserId);
 
             // the envelope's content names an Id of its own, or none; the row takes the Id the
             // service mints, and the claim is neither compared nor refused (§14 rule 1)
@@ -386,6 +387,116 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldReplyNullWithoutRefusingTheFieldsWhenAddingAssociationEventAlreadyProcessedAsync()
+        {
+            // given: deduplication runs before the shared body, so a replay checks nothing in
+            // its content, the fields an operation owns included
+            Association someAssociation = SetEveryOperationOwnedField(
+                CreateRandomAddAssociation(GetRandomDateTimeOffset()));
+
+            var requestEnvelope = new EventEnvelope<Association>
+            {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
+                Content = someAssociation,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.AssociationOnAddingAssociationSubscriptionName,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(true);
+
+            // when
+            EventEnvelope<Association>? actualReplyEnvelope =
+                await this.associationService.OnAddingAssociationAsync(
+                    requestEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualReplyEnvelope.Should().BeNull();
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.AssociationOnAddingAssociationSubscriptionName,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddingAssociationEventIfUserIsNotAuthenticatedBeforeTheFieldsAreAskedAndLogItAsync()
+        {
+            // given: the refusals come after the contribution gate, which reads the
+            // envelope's security context (§15 rule 2)
+            Association someAssociation = SetEveryOperationOwnedField(
+                CreateRandomAddAssociation(GetRandomDateTimeOffset()));
+
+            var requestEnvelope = new EventEnvelope<Association>
+            {
+                SecurityContext = new SecurityContext { IsAuthenticated = false },
+                Content = someAssociation,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.AssociationOnAddingAssociationSubscriptionName,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(false);
+
+            var unauthorizedAssociationException = new UnauthorizedAssociationException(
+                message: "The current user is not authenticated.");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedAssociationException);
+
+            // when
+            ValueTask<EventEnvelope<Association>?> onAddingTask =
+                this.associationService.OnAddingAssociationAsync(
+                    requestEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.AssociationOnAddingAssociationSubscriptionName,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }

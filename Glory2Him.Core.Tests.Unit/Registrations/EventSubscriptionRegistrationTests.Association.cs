@@ -184,9 +184,10 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         }
 
         // A READER'S CHANGED REACTION GOES BACK THROUGH APPROVAL (#727). Association-Repointed is
-        // bound to the approval workflow's ear and to nothing else (§ARC16.2.2). The id and the
-        // name are pinned as LITERALS for the reason the adding address's are: the id is what the
-        // substrate knows the subscription by, so a new one orphans it.
+        // bound to the approval workflow's ear (§ARC16.2.2), and the forwarder hears the address
+        // too (§EVN26), so this test reads the workflow's own subscription, by its id. The id and
+        // the name are pinned as LITERALS for the reason the adding address's are: the id is what
+        // the substrate knows the subscription by, so a new one orphans it.
         [Fact]
         public async Task ShouldSubscribeTheApprovalWorkflowToAssociationRepointed()
         {
@@ -196,13 +197,15 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             CancellationToken registrationCancellationToken = TestContext.Current.CancellationToken;
             using var deliveryCancellationTokenSource = new CancellationTokenSource();
             CancellationToken deliveryCancellationToken = deliveryCancellationTokenSource.Token;
+            var approvalSubscriptionId = new Guid("01a0e17c-3a0f-7742-b50d-df70ca55b2fd");
 
             Func<EventEnvelope<Association>, CancellationToken,
                 ValueTask<EventEnvelope<Association>>> repointedHandler = null;
 
             this.eventBrokerMock.Setup(broker =>
                 broker.SubscribeToAssociationEventAsync(
-                    It.IsAny<EventSubscription>(),
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == approvalSubscriptionId),
                     AssociationEventOperation.Repointed,
                     It.IsAny<Func<EventEnvelope<Association>, CancellationToken,
                         ValueTask<EventEnvelope<Association>>>>(),

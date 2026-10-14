@@ -35,7 +35,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             Guid sharedGroupId = Guid.NewGuid();
 
             Association invalidAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
 
             invalidAssociation.EntityAGroupId = sharedGroupId;
             invalidAssociation.EntityBGroupId = sharedGroupId;
@@ -103,7 +103,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             Association invalidAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
 
             invalidAssociation.EntityAType = (EntityType)int.MaxValue;
 
@@ -173,7 +173,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             Association invalidAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
 
             invalidAssociation.EntityAType = nonContentItemType;
             invalidAssociation.EntityAKeyId = Guid.NewGuid();
@@ -243,7 +243,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             Association invalidAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
 
             invalidAssociation.EntityBContentType = (ContentType)int.MaxValue;
 
@@ -292,7 +292,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             Association invalidAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
 
             invalidAssociation.UserId = GetRandomStringWithLengthOf(256);
 
@@ -340,7 +340,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             Association invalidAssociation =
-                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+                CreateRandomAddAssociation(randomDateTimeOffset, randomUserId);
 
             invalidAssociation.ModelVersion = GetRandomStringWithLengthOf(129);
 
@@ -350,7 +350,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             invalidAssociationException.AddData(
                 key: nameof(Association.ModelVersion),
-                values: "Text exceed max length of 128 characters");
+                values: ["Text exceed max length of 128 characters", "Value is not allowed on add"]);
 
             var expectedAssociationValidationException =
                 new AssociationValidationException(

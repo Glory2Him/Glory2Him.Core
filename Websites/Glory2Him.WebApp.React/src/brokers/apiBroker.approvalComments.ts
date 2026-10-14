@@ -1,4 +1,5 @@
 import ApiBroker from './apiBroker';
+import { ODataQuery } from '../models/foundations/oDataQueries/oDataQuery';
 
 import {
     ApprovalComment,
@@ -17,6 +18,25 @@ import {
 // degrades to the caller's own comments rather than refusing, the writes are the author's alone
 // and the resolution is the author's or the publisher tier's, all re-decided against the stored
 // row (§14.6).
+// The OData query written onto the wire as it is handed: an option the query does not carry
+// does not travel.
+const toODataParameters = (query: ODataQuery): URLSearchParams => {
+    const parameters = new URLSearchParams();
+
+    if (query.filter !== undefined) parameters.set('$filter', query.filter);
+    if (query.orderBy !== undefined) parameters.set('$orderby', query.orderBy);
+    if (query.skip !== undefined) parameters.set('$skip', String(query.skip));
+    if (query.top !== undefined) parameters.set('$top', String(query.top));
+
+    return parameters;
+};
+
+const withQueryString = (url: string, parameters: URLSearchParams): string => {
+    const queryString = parameters.toString();
+
+    return queryString ? `${url}?${queryString}` : url;
+};
+
 class ApprovalCommentBroker {
     relativeApprovalCommentsUrl = '/api/approvalcomments';
     private apiBroker: ApiBroker = new ApiBroker();
@@ -83,6 +103,13 @@ class ApprovalCommentBroker {
         const result = await this.apiBroker.PostAsync(url, {});
 
         return result.data as ApprovalComment;
+    }
+
+    async GetApprovalCommentsByQueryAsync(query: ODataQuery): Promise<ApprovalComment[]> {
+        const url = withQueryString(this.relativeApprovalCommentsUrl, toODataParameters(query));
+        const result = await this.apiBroker.GetAsync(url);
+
+        return result.data as ApprovalComment[];
     }
 }
 
