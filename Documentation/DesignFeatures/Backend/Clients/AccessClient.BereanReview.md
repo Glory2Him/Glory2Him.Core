@@ -17,6 +17,7 @@ ValueTask<ApprovalConditionsVerdict> EvaluateApprovalConditionsAsync(
 3. **The block is collected with every other**, in the precedence the conditions keep today, so a single-valued consumer still reads the first.
 4. **`ApprovalPolicyDefaults` holds `BlockOnRejectApprovalScore = true`** with the two thresholds at `0.00` (§APR8.4 rule 2, BereanReview.md rule 13), so a score of exactly `0.00` blocks where no row resolves and no other does.
 5. **The words that call the block zero-only are rewritten**: the comment over it in `AccessService` (*"Only an explicit zero blocks"*), `IAccessClient`'s *"the zero-score block"*, `AccessDenialReason`'s *"exactly zero"*, and `ApprovalPolicy`'s and `ApprovalPolicyDefaults`' own comments on the field.
+6. **The thresholds' words are rewritten wherever they say the rejection threshold is read only under the vote**, because from this section on the low-score block reads it: `ApprovalPolicy`'s summaries of the two thresholds (*"Meaningful only where `IsAIAllowedToVote` is true"*, and the reviews Berean *"would file"*); `ApprovalPolicyDefaults`' comment on their `0.00` (*"Never read while IsAIAllowedToVote is false"*); `ApprovalSetting`'s summaries of the two (*"Read only when `IsAIAllowedToVote` is true"*, and the reviews Berean *"files"*); the seed's comment on their constants (*"The two thresholds are inert while IsAIAllowedToVote is false"*, `ApprovalSettingSeedData.cs`); and the React model's comment on them (*"read only when isAIAllowedToVote is"*, `approvalSetting.ts`). Each says instead that the rejection threshold decides this block, and that the pair's order holds the confidence suggestion's band (BereanReview.md rule 12). `ApprovalPolicyDefaults`' says that at `0.00` the block refuses a score of exactly `0.00` alone (rule 4). The vote's own members, and their words, stay until §4 and `Backend/Models/ApprovalSetting.md §3` remove them.
 
 ## 2. MayDecideApprovalAsync — the low-score block on a decision (#1141)
 
@@ -44,8 +45,9 @@ ValueTask<AIReviewerPolicyVerdict> ResolveAIReviewerPolicyAsync(
 
 Groundwork, with no operation: `ApprovalPolicy.IsAIAllowedToVote` is removed (BereanReview.md rule 5).
 
-1. `ApprovalPolicy` loses the member, and `ApprovalPolicyDefaults` its line. Their comments that read the thresholds *"only where `IsAIAllowedToVote` is true"* say instead that the rejection threshold is read by §1's block, and the pair by the confidence suggestion (BereanReview.md rule 12).
+1. `ApprovalPolicy` loses the member and its summary, and `ApprovalPolicyDefaults` its line and the sentence about `CK_ApprovalSetting_AIVoteRequiresAIReviewer`. The thresholds' words were rewritten by §1 rule 6.
 2. `AccessBroker`'s mapping loses the line that copies the setting, so Core keeps compiling. The stored column stays until `Backend/Models/ApprovalSetting.md §3` drops it.
+3. The tests that set or assert the member lose it: the security client's own (`AccessServiceTests.cs`, the policy its helper builds), and the broker's assertion that the narrowed policy carries the stored vote (`AccessBrokerTests.MayDecideApproval.Logic.cs`, `narrowPolicy.IsAIAllowedToVote`). The same test's stored setting keeps `IsAIAllowedToVote` until `Backend/Models/ApprovalSetting.md §3` drops the property.
 
 ## 5. EvaluateApprovalConditionsAsync — the pending block (#1170)
 

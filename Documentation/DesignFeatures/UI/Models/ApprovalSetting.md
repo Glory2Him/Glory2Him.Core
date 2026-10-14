@@ -16,6 +16,6 @@ The server renames `blockOnZeroApprovalScore` to `blockOnRejectApprovalScore` (`
 
 1. **The model's field is renamed `blockOnRejectApprovalScore`**, and both mappers read and send that name alone. `fromApprovalSettingResponse` stops consulting `blockOnZeroApprovalScore`.
 2. **`isAIAllowedToVote` leaves the model** and its mappers, with its comments. `newApprovalSetting` keeps the block `true`.
-3. **The comments on the two thresholds** stop saying they are *"read only when isAIAllowedToVote is true"*, and say what reads them (BereanReview.md rule 12).
+3. **The automatic switch's comment stops naming the vote** (*"A SIBLING of isAIAllowedToVote, not its child"*), and says that no constraint pairs it to the offer. The comment on the two thresholds was rewritten earlier, by the low-score block that starts reading the rejection threshold (`Backend/Clients/AccessClient.BereanReview.md §1` rule 6).
 4. The pages' and the hooks' references follow by name, with no change in what they do.
 5. **It waits for `Backend/Models/ApprovalSetting.md §1` on `main`.** Before it, the deployed server still sends the old name.

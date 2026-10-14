@@ -33,10 +33,11 @@ ValueTask<ApprovalSubjectConfidence?> RetrieveApprovalSubjectConfidenceAsync(
 1. **It answers whether the round's item reads back, and not soft deleted, and that item's stored score**, read through the subject traversal for every approvable type with a row (BereanReview.md rule 2). `null` where no round carries the id.
 2. **It reads the item unfiltered**, so a non-public item answers its own score, and an item that is gone answers `IsSubjectAvailable = false` — never a null score that could pass for "not yet scored" (BereanReview.md rule 20).
 3. The start reads it to decide whether a run is owed (`Backend/Orchestrations/AIReviewerOrchestrationService.BereanReview.md §2`).
+4. **This section owns the traversal's change, and it reaches two decisions at once.** The traversal is one private read, `ResolveEntityAsync`, whose `Association` arm alone hands a score today and whose other six arms hand `null`. Extended to hand each arm's row `ConfidenceScore`, it hands that score to `EvaluateApprovalConditionsByIdAsync` (§4) and `MayDecideApprovalByIdAsync` (§6) as well, since both read the item through it. So this section pins the score on both, because a test of that change can fail first only where the change is made, and §4 and §6 add no score of their own. Until `Backend/Models/IApproval.md §2` maps the columns, every one of the six reads back null, so the decisions are handed what they are handed today.
 
 ## 4. EvaluateApprovalConditionsByIdAsync — the item's score and Berean's assignment (#1180)
 
-1. **The subject traversal reads every item type's stored score**, where today only the `Association` arm reads one and every other arm hands the decision `null` (`AccessBroker.cs`, the traversal's arms). `ContentItem`, `Link`, `Tag`, `Reaction`, `Comment` and `BibleReference` each hand their row's `ConfidenceScore`.
+1. **The item's stored score comes through the subject traversal, for every type**, as §3 rule 4 extends it. This section adds nothing to the score.
 2. **`IsAIReviewerAssigned` and `IsAIReviewCompleted` are gathered** from the round's live assignment, read as §1 reads it: `true` and that row's `IsAIReviewCompleted` where one stands, and `false` and `false` where none does. They replace the `false` `Backend/Clients/AccessClient.BereanReview.md §5` passes.
 3. **It waits for the confidence process to answer** (BereanReview.md, *What ships together* step 4): once it is merged, a round Berean is assigned to is held until a score lands.
 
@@ -49,5 +50,5 @@ ValueTask<ApprovalSubjectConfidence?> RetrieveApprovalSubjectConfidenceAsync(
 
 The approval record's own decision door (§APR9.7.5, *Built on the `Approval` row*), which reads the item through the same traversal.
 
-1. **The item's stored score is the traversal's**, for every item type, as §4 rule 1 reads it, and **`IsAIReviewerAssigned` and `IsAIReviewCompleted` are gathered** as §4 rule 2 gathers them.
+1. **The item's stored score is the traversal's**, for every item type, as §3 rule 4 extends it, and **`IsAIReviewerAssigned` and `IsAIReviewCompleted` are gathered** as §4 rule 2 gathers them.
 2. It waits as §4 does.
