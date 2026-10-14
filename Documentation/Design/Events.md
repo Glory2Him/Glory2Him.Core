@@ -2035,25 +2035,27 @@ itself is at-least-once.**
    `AIReviewerAssignmentService.ReturnStaleAIReviewerAssignmentToPendingAsync`
    onto `AIReviewerAssignment-Modified`, and
    `AIReviewerAssignmentService.AddAutomaticAIReviewerAssignmentAsync` onto
-   `AIReviewerAssignment-Added` (§APR8.6.2.1). *(Once the owner's rulings of
-   2026-10-13 are built, the return to pending goes, and three join the list on
-   the same footing:
-   `AIReviewerAssignmentService.CompleteAIReviewerAssignmentAsync` onto
-   `AIReviewerAssignment-Modified`,
-   `AIReviewerAssignmentService.DismissStaleAIReviewerAssignmentAsync` onto
-   `AIReviewerAssignment-Removed`, and
-   `ApprovalCommentService.AddAIReviewerApprovalCommentAsync` onto
-   `ApprovalComment-Added` — `DesignFeatures/Backend/Foundations/AIReviewerAssignmentService.md`
-   and `ApprovalCommentService.md`.)* Each is reached by a
+   `AIReviewerAssignment-Added` (§APR8.6.2.1). Each is reached by a
    direct in-process
    call from an orchestration, on an envelope the service mints for itself
    under the system identity, so **the seam itself** has no inbound delivery to
    deduplicate and no request handler of its own to key the outbound record
-   against. The fourth is the first of them to publish on an address that also
+   against. The automatic add is the first of them to publish on an address that also
    carries a caller-facing publisher — the ordinary
    `AIReviewerAssignment-Added` — which changes nothing here: the pair follows
    the handler, and the seam verb has no request handler whichever address its
    fact lands on.
+
+   **Designed, not yet built** (user rulings 2026-10-13;
+   `DesignFeatures/Backend/Foundations/AIReviewerAssignmentService.md` and
+   `ApprovalCommentService.md`), each on the same footing as the list above:
+   the return to pending leaves the list (#1168);
+   `AIReviewerAssignmentService.CompleteAIReviewerAssignmentAsync` joins it onto
+   `AIReviewerAssignment-Modified` (#1159);
+   `AIReviewerAssignmentService.DismissStaleAIReviewerAssignmentAsync` joins it onto
+   `AIReviewerAssignment-Removed` (#1160); and
+   `ApprovalCommentService.AddAIReviewerApprovalCommentAsync` joins it onto
+   `ApprovalComment-Added` (#1161).
 
    Three of the four facts carry no subscriber today — `AIReviewerAssignment-Added`
    is designed to gain two, the start of Berean's run and the round's re-test
