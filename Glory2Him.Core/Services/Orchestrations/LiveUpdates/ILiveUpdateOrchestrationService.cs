@@ -39,6 +39,55 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Hears <c>Association-Rejected</c>. A rejection takes a reaction out of a count only
+        /// where it overrides an approved one; one of an open round moves nothing, and the page's
+        /// read finds the counts as they were. Runs the reactions body
+        /// <see cref="OnAssociationApprovedAsync"/> runs.
+        /// </summary>
+        ValueTask<EventEnvelope<Association>?> OnAssociationRejectedAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Hears <c>Association-Submitted</c>, which the approval workflow's ear hears too. An
+        /// approved reaction sent back to <c>Submitted</c> leaves its item's counts until its
+        /// round is decided again. Runs the reactions body
+        /// <see cref="OnAssociationApprovedAsync"/> runs.
+        /// </summary>
+        ValueTask<EventEnvelope<Association>?> OnAssociationSubmittedAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Hears <c>Association-Removed</c>, under either name the address carries:
+        /// <c>AssociationRemoved</c> or <c>AssociationHardRemoved</c> (§EVN2 rule 4). A removed
+        /// reaction leaves its item's counts. Runs the reactions body
+        /// <see cref="OnAssociationApprovedAsync"/> runs.
+        /// </summary>
+        ValueTask<EventEnvelope<Association>?> OnAssociationRemovedAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Hears <c>Association-Restored</c>, which the approval workflow deliberately does not.
+        /// A revived reaction keeps the status it was withdrawn at, so an approved one is counted
+        /// again with no approval behind it to announce it. Runs the reactions body
+        /// <see cref="OnAssociationApprovedAsync"/> runs.
+        /// </summary>
+        ValueTask<EventEnvelope<Association>?> OnAssociationRestoredAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Hears <c>Association-Repointed</c>, which the approval workflow's ear hears too. A
+        /// reader's changed reaction moves from one reaction's count to another's on the same
+        /// item. Runs the reactions body <see cref="OnAssociationApprovedAsync"/> runs.
+        /// </summary>
+        ValueTask<EventEnvelope<Association>?> OnAssociationRepointedAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Hears <c>ContentItemSetting-Added</c>. An override added for one item tells every open
         /// page that the settings it shows may have changed, naming no content item: every setting
         /// row is public-read (§SEC14.7 posture C rule 2).

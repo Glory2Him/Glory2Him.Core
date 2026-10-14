@@ -43,6 +43,96 @@ namespace Glory2Him.Core.Services.Orchestrations.LiveUpdates
                 return null;
             });
 
+        public ValueTask<EventEnvelope<Association>?> OnAssociationRejectedAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatch<EventEnvelope<Association>?>(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                await ValidateAssociationFactEnvelopeAsync(
+                    envelope,
+                    eventName: "AssociationRejected");
+
+                await SendReactionsChangeAsync(envelope.Content, cancellationToken);
+
+                return null;
+            });
+
+        // The approval workflow's ear hears this address too, and the two rely on no order
+        // between them (§EVN26 rule 5).
+        public ValueTask<EventEnvelope<Association>?> OnAssociationSubmittedAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatch<EventEnvelope<Association>?>(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                await ValidateAssociationFactEnvelopeAsync(
+                    envelope,
+                    eventName: "AssociationSubmitted");
+
+                await SendReactionsChangeAsync(envelope.Content, cancellationToken);
+
+                return null;
+            });
+
+        // A soft and a hard removal share the address, told apart by the signed name (§EVN2
+        // rule 4), and either takes the reaction out of its item's counts.
+        public ValueTask<EventEnvelope<Association>?> OnAssociationRemovedAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatch<EventEnvelope<Association>?>(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                await ValidateAssociationFactEnvelopeAsync(
+                    envelope,
+                    eventNames: new[] { "AssociationRemoved", "AssociationHardRemoved" });
+
+                await SendReactionsChangeAsync(envelope.Content, cancellationToken);
+
+                return null;
+            });
+
+        // A revive keeps the status the row was withdrawn at (§ARC16.2.2), so an approved
+        // reaction is counted again with no Association-Approved behind it: this fact is the only
+        // announcement of that count moving.
+        public ValueTask<EventEnvelope<Association>?> OnAssociationRestoredAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatch<EventEnvelope<Association>?>(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                await ValidateAssociationFactEnvelopeAsync(
+                    envelope,
+                    eventName: "AssociationRestored");
+
+                await SendReactionsChangeAsync(envelope.Content, cancellationToken);
+
+                return null;
+            });
+
+        // The approval workflow's ear hears this address too, and the two rely on no order
+        // between them (§EVN26 rule 5): the writes that ear makes publish the facts the
+        // Submitted and Approved ears hear, so a later message follows the last change.
+        public ValueTask<EventEnvelope<Association>?> OnAssociationRepointedAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatch<EventEnvelope<Association>?>(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                await ValidateAssociationFactEnvelopeAsync(
+                    envelope,
+                    eventName: "AssociationRepointed");
+
+                await SendReactionsChangeAsync(envelope.Content, cancellationToken);
+
+                return null;
+            });
+
         public ValueTask<EventEnvelope<ContentItemSetting>?> OnContentItemSettingAddedAsync(
             EventEnvelope<ContentItemSetting> envelope,
             CancellationToken cancellationToken = default) =>
