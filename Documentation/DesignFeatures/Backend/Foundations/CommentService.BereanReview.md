@@ -3,21 +3,21 @@ Parent: [BereanReview.md](../../BereanReview.md)
 Level: foundation — `ICommentService` (`Glory2Him.Core/Services/Foundations/Comments/`). The amender record's work on the same service is `Backend/Foundations/CommentService.md`.
 Inherits: §APR8.5, §APR9.7.1 rules 2 and 5, §EVN2, §EVN19, §SEC14.6 rule 4, §SEC14.6.1, BereanReview.md rules 1, 2, 7, 9, 10 and 19
 
-`Comment` implements `IApproval`, which now extends `IConfidence` (`Backend/Models/IApproval.md §1`), so a comment carries a confidence score and a reason (BereanReview.md rule 2). Only the system identity writes them, through set-confidence (rule 1). §1 and §2 keep every other write from carrying them, and they land before the columns are mapped (`Backend/Models/IApproval.md §2`): mapped first, a caller's score would be stored on any path not yet refusing it.
+`Comment` implements `IApproval`, which now extends `IConfidence` (`Backend/Models/IApproval.md §1`), so a comment carries a confidence score and a reason (BereanReview.md rule 2). Only the system identity writes them, through set-confidence (rule 1). §1 and §2 keep every other write from carrying them, and they land before the columns are mapped (`Backend/Models/IApproval.md §2`): mapped first, a caller's score would be stored on any path not yet keeping it out.
 
 **Build order** (BereanReview.md, *What ships together* step 5). §1, §2, §3 and §5 build on `Backend/Models/IApproval.md §1`, and §4 on §3. Until `Backend/Models/IApproval.md §2` maps the columns, which waits for §1 and §2 here and on the other five foundations, each runs and stores nothing. The content-change flow and the write-back publish to §4's door (`Backend/Orchestrations/ApprovalOrchestrationService.BereanReview.md §2`, `Backend/Orchestrations/AIReviewerOrchestrationService.BereanReview.md §3`).
 
-## 1. AddCommentAsync — the confidence fields refused (needs issue)
+## 1. AddCommentAsync — the confidence fields refused (#1192)
 
 1. **An add that carries any of `ConfidenceScore`, `ConfidenceReason`, `SourceBatchId` or `ModelVersion` is refused**, with a validation failure naming each field that is set, as the add already refuses `IsPublished` and `PublishDate` (`IsSetOnAdd`). The fields arrive null on every honest add, so nothing that works today changes.
 2. It is asked on the direct path and on the `Comment-Adding` door alike, because both converge on the add's one validation.
 
-## 2. ModifyCommentAsync — a change to the confidence fields refused (needs issue)
+## 2. ModifyCommentAsync — the confidence fields kept as stored (#1193)
 
-1. **A modify whose `ConfidenceScore`, `ConfidenceReason`, `SourceBatchId` or `ModelVersion` differs from the stored row's is refused**, with a validation failure naming each field, as the modify already refuses a change to `IsApprovedByBypass` (`IsNotSame`). A modify that echoes the stored values is accepted.
+1. **A modify takes `ConfidenceScore`, `ConfidenceReason`, `SourceBatchId` and `ModelVersion` from the stored row, and ignores the caller's copy**, neither comparing nor refusing it, as every write but the insert does with `ApprovalId` (§APR9.7.1) and as the general modify does with `AmenderUserIds` (§APR8.6.3 rule 4). So the general modify never sets or clears a score (BereanReview.md rule 1). Taking rather than comparing is what lets a caller holding a copy read before a run's score landed save at all: the author editing while Berean runs, or a moderator whose editor was opened before the score was written. Refusing a difference, as the modify refuses a change to `IsApprovedByBypass`, was rejected for that reason: the bypass pair changes only when the round closes, and the score changes while the item is open to edits.
 2. It is asked on the direct path and on the `Comment-Modifying` door alike.
 
-## 3. SetCommentConfidenceAsync (needs issue)
+## 3. SetCommentConfidenceAsync (#1205)
 
 ```csharp
 ValueTask<Comment> SetCommentConfidenceAsync(
@@ -32,7 +32,7 @@ ValueTask<Comment> SetCommentConfidenceAsync(
 5. **It publishes `Comment-ConfidenceSet`**, never `Comment-Modified`, so writing a score never re-enters the approval workflow (§APR9.7.1 rule 5). `UpdatedBy` names the system and `UpdatedWhen` is stamped, as every write is (§SEC14.6.1).
 6. Its failures map as the foundation's other transitions do: validation, dependency validation, dependency and service, and its token's cancellation and timeout.
 
-## 4. OnSettingCommentConfidenceAsync (needs issue)
+## 4. OnSettingCommentConfidenceAsync (#1206)
 
 The `Comment-SettingConfidence` request door, new. Address and subscription are registered under stable identifiers (`EventBrokerIdentifiers.Comment.cs`, `EventSubscriptionRegistration`). It converges on §3's private body, so §3 proves the gate, the shapes and the write; this door adds what a handler adds (`the-standard-foundations` ts-foundations-011, -014, -015):
 
@@ -42,6 +42,6 @@ The `Comment-SettingConfidence` request door, new. Address and subscription are 
 4. it replies with the row as stored;
 5. a failure is rethrown to the substrate, after the reply.
 
-## 5. TransitionCommentApprovalAsync — the stored score handed to the decision (needs issue)
+## 5. TransitionCommentApprovalAsync — the stored score handed to the decision (#1213)
 
 1. **The decision query carries the stored row's `ConfidenceScore`** where it carries `null` today (`CommentService.Transitions.Validations.cs`), so §APR8.5's low-score block reads it on the approve and the bypass (BereanReview.md rule 10). Nothing else in the transition changes.
