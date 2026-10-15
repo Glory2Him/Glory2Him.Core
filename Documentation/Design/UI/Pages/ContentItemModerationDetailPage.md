@@ -573,14 +573,21 @@ everyone who reaches the page; each association's round is the association page'
 22. (#1178) **Page gap — `/Admin/Posts/{id}`: asking Berean leaves the verdict stale.** Rule 2.11
     (user ruling 2026-10-13): once Berean holds a round until its review has completed (§APR8.5
     rule 8), asking Berean moves the verdict, so `onAIReviewerRequested` refreshes the verdict as well
-    as Berean's status. Today it refreshes Berean's status alone (`contentItemModerationDetailPage.tsx`,
-    the request's `onSuccess`), so the decision menu stays live on a round the server now refuses,
-    until the 15-second refresh (rule 2.12). The comment over the request that says Berean may vote
-    stays: the owner's rulings of 2026-10-14 restore the vote (§APR8.6.2).
+    as Berean's status. Today it refreshes Berean's status alone (`aiReviewerService.ts`,
+    `useAssignAIReviewer`'s `onSuccess`), so the decision menu stays live on a round the server now
+    refuses, until the 15-second refresh (rule 2.12). The refresh is made in that hook, as the
+    thread's writes refresh the verdict in theirs (`approvalCommentService.ts`): this page holds no
+    query client. The hook is shared with the association page, so it also gives that page the
+    refresh its rule 2.19 asks (`UI/Pages/AssociationModerationDetailPage.md` §6 item 12, #1065).
+    The comment over the request, which says a content item is out of confidence scoring and
+    Berean's vote unreachable here, is untrue since the owner's rulings of 2026-10-13 and 2026-10-14
+    (`DesignFeatures/BereanReview.md` rules 2 and 5), and is rewritten with this item.
 23. (#1179) **Page gap — `/Admin/Posts/{id}`: withdrawing Berean leaves the verdict stale.** Rule
     2.11 (user ruling 2026-10-13): withdrawing Berean lifts the pending block, so
     `onAIReviewerWithdrawn` refreshes the verdict as well as Berean's status. Today it refreshes
-    Berean's status alone.
+    Berean's status alone (`aiReviewerService.ts`, `useWithdrawAIReviewer`'s `onSuccess`). The
+    refresh is made in that hook, as item 22's is, and gives the association page its refresh too
+    (`UI/Pages/AssociationModerationDetailPage.md` §6 item 13, #1066).
 24. (needs issue) **Page gap — `/Admin/Posts/{id}`: the post's confidence score and reason are not shown.**
     The owner ruled on 2026-10-13 that every approvable item carries a confidence score and a reason,
     and that where `BlockOnRejectApprovalScore` does not enforce them, *"the score and reason will just

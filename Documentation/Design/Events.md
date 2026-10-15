@@ -1729,8 +1729,9 @@ either.
      re-test there would count them
      (`DesignFeatures/Backend/Orchestrations/ApprovalOrchestrationService.BereanReview.md`
      §4 rule 2). The two never stand together. Berean's review starts
-     on `AIReviewer-Reviewing`, which only the approval process's flows and a
-     person's request publish (`DesignFeatures/BereanReview.md`, *Events*), and
+     on `AIReviewerOrchestration-Reviewing`, which only the approval
+     process's flows and a person's request publish
+     (`DesignFeatures/BereanReview.md`, *Events*), and
      what the review writes — the item's score, Berean's `ApprovalComment`s, its
      vote and where it stands — goes out on `<Entity>-ConfidenceSet`, which has
      no subscriber, and on addresses that re-enter the round's re-test through
