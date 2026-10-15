@@ -1924,19 +1924,22 @@ than something this design should solve locally.
    would tell a subscriber the opposite of what happened. §EVN2 rule 7 already
    establishes this vocabulary — a transition owning a narrower field scope than
    a general modify is a separate method and therefore a separate verb, and its
-   fact need not echo its request. The transition's scope is the whole of
-   `IApproval` bar its `ApprovalId`, which it keeps from the stored row
-   (§APR7.4 item 6), so no separate publish verb is required.
-5. This operation writes only the `IApproval` members, and **must not** publish
-   `<Entity>-Modified` or `<Entity>-Added`. Those two are the addresses rule 1's
-   invalidation subscriptions bind to, so an approval-caused write cannot
-   re-enter the handler that caused it. Within that field scope `ApprovalStatus`
-   is copied from the command; `IsPublished` and `PublishDate` are gated on the
-   decision, so publication survives only where the target is `Approved` and the
-   date is cleared with the flag; and the bypass pair is taken from the access
-   verdict rather than from the caller. Nothing outside `IApproval` is widened
-   into — the `ShortCode` derivation §DOM19.7 places at a group's first publish is
-   designed and not built, and no column exists for it.
+   fact need not echo its request. The transition's scope is the members
+   `IApproval` declares bar its `ApprovalId`, which it keeps from the stored
+   row (§APR7.4 item 6) — never the four `IConfidence` members `IApproval`
+   extends, which set-confidence alone writes (§APR9.7.1 rule 5) — so no
+   separate publish verb is required.
+5. This operation writes only the members `IApproval` declares, and **must
+   not** publish `<Entity>-Modified` or `<Entity>-Added`. Those two are the
+   addresses rule 1's invalidation subscriptions bind to, so an approval-caused
+   write cannot re-enter the handler that caused it. Within that field scope
+   `ApprovalStatus` is copied from the command; `IsPublished` and `PublishDate`
+   are gated on the decision, so publication survives only where the target is
+   `Approved` and the date is cleared with the flag; and the bypass pair is taken
+   from the access verdict rather than from the caller. Nothing outside the
+   members `IApproval` declares is widened into — the `ShortCode` derivation
+   §DOM19.7 places at a group's first publish is designed and not built, and no
+   column exists for it.
 
    `<Entity>-Submitted` is the one subscribed address the workflow can also
    cause, and it is deliberate. An administrator reset drives the entity back to
