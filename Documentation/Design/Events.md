@@ -2074,7 +2074,10 @@ itself is at-least-once.**
    the same footing as the list above: the return to pending stays, and clears
    every tracking field of the review (#1168);
    `AIReviewerAssignmentService.DismissStaleAIReviewerAssignmentAsync` joins it onto
-   `AIReviewerAssignment-Removed` (#1160); and the writers the review process
+   `AIReviewerAssignment-Removed` (#1160);
+   `AIReviewerAssignmentService.RemoveUnofferedAIReviewerAssignmentAsync` joins it
+   onto the same address, removing Berean from a round that no longer offers it
+   (user ruling 2026-10-15; #1233); and the writers the review process
    needs — of the review's start and completion, of Berean's comments and of its
    vote — join it as #1216 designs them.
 
