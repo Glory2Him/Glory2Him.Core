@@ -13,7 +13,7 @@ ValueTask<AIReviewerAssignment?> RetrieveLiveAIReviewerAssignmentAsync(
     CancellationToken cancellationToken = default);
 ```
 
-1. **It answers the round's live Berean assignment, pending or completed, or `null` where there is none** — none ever, or one withdrawn or dismissed. The approval process reads it to dismiss it or clear it on a data change, to know whether step 4.2 has anything to assign, and to publish it on the review event at step 4.3 (`Backend/Orchestrations/ApprovalOrchestrationService.BereanReview.md §2`, `§7` and `§8`).
+1. **It answers the round's live Berean assignment, pending or completed, or `null` where there is none** — none ever, or one withdrawn, dismissed or removed. The approval process reads it to dismiss it or clear it on a data change, to know whether step 4.2 has anything to assign, and at step 4.3 to publish it on the review event, or to remove it from a round that no longer offers Berean (`Backend/Orchestrations/ApprovalOrchestrationService.BereanReview.md §2`, `§7` and `§8`).
 2. **No identity filters it**: the approval process runs as whoever changed the item, who may see nothing on the round (§APR9.7.4).
 
 ## 2. FindResettableAIReviewerAssignmentIdAsync, retired (#1169)

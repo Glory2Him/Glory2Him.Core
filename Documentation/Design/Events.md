@@ -1533,8 +1533,8 @@ either.
   | `ApprovalReview-Removed` | withdrawing an approving review drops the count; withdrawing a rejection unblocks |
   | `ApprovalReview-Dismissed` | a dismissed verdict leaves the active set |
 
-  **Berean's assignment joins them** (user rulings 2026-10-13 and 2026-10-14;
-  designed, not yet built). Once a live assignment holds its round until
+  **Berean's assignment joins them** (user rulings 2026-10-13, 2026-10-14 and
+  2026-10-15; designed, not yet built). Once a live assignment holds its round until
   Berean's review has completed (§APR8.5 rule 8), the assignment can move a
   predicate too, so all three of its facts re-test (`DesignFeatures/Backend/Orchestrations/ApprovalOrchestrationService.BereanReview.md`
   §4–§6), and the integration suite derives its cases from its operation enum
@@ -1544,7 +1544,7 @@ either.
   | --- | --- |
   | `AIReviewerAssignment-Added` | holds the round shut until Berean's review has started and completed |
   | `AIReviewerAssignment-Modified` | the review starting moves the round from the pending block to the in-flight one; the review completing **unblocks** them, and its score may then hold the round under the low-score block; a data change clearing the review holds it again |
-  | `AIReviewerAssignment-Removed` | withdrawing Berean, or the workflow dismissing it on a data change, **unblocks** |
+  | `AIReviewerAssignment-Removed` | withdrawing Berean, the workflow dismissing it on a data change, or the approval process removing it from a round that no longer offers it, **unblocks** |
 
   **Both comment resolution addresses are required.** `IsResolved` has two
   writers by design: the owner through modify, the owner or an administrator
@@ -2076,8 +2076,8 @@ itself is at-least-once.**
    `AIReviewerAssignmentService.DismissStaleAIReviewerAssignmentAsync` joins it onto
    `AIReviewerAssignment-Removed` (#1160);
    `AIReviewerAssignmentService.RemoveUnofferedAIReviewerAssignmentAsync` joins it
-   onto the same address, removing Berean from a round that no longer offers it
-   (user ruling 2026-10-15; #1233); and the writers the review process
+   onto `AIReviewerAssignment-Removed`, removing Berean from a round that no
+   longer offers it (user ruling 2026-10-15; #1233); and the writers the review process
    needs — of the review's start and completion, of Berean's comments and of its
    vote — join it as #1216 designs them.
 
