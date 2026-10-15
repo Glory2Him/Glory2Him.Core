@@ -1706,7 +1706,9 @@ either.
      the owner's rulings are built, a live assignment holds its round shut
      until Berean's review has started and completed (§APR8.5 rule 8), so
      creating one can turn a met round unmet. It can never turn an unmet one
-     met, so it decides nothing. What lifts the block — the start and the
+     met, so it decides nothing. The re-test its write starts can, because it
+     reads the round's other inputs as they stand, which is why that re-test
+     is not wired while this subscriber stands (condition 3). What lifts the block — the start and the
      completion, as `AIReviewerAssignment-Modified`, and a withdrawal or
      dismissal, as `AIReviewerAssignment-Removed` — arrives on addresses item (a)
      governs, and so does anything else Berean leaves that can hold a round:
@@ -1720,7 +1722,13 @@ either.
   3. **Its own write terminates, and the argument is longer than the
      retirement's.** The seam publishes `AIReviewerAssignment-Added`, which
      carries no subscriber today. The owner's rulings design one: the round's
-     re-test (item (a)), which publishes no review event. Berean's review starts
+     re-test (item (a)), which publishes no review event. It is wired only once
+     this subscriber has left both addresses: this subscriber's write lands
+     inside the round's own write of its status, before the Modified flow or
+     the reset that wrote it has dismissed the reviews it dismisses, and a
+     re-test there would count them
+     (`DesignFeatures/Backend/Orchestrations/ApprovalOrchestrationService.BereanReview.md`
+     §4 rule 2). The two never stand together. Berean's review starts
      on `AIReviewer-Reviewing`, which only the approval process's flows and a
      person's request publish (`DesignFeatures/BereanReview.md`, *Events*), and
      what the review writes — the item's score, Berean's `ApprovalComment`s, its
