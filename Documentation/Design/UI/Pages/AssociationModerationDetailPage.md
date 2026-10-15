@@ -311,9 +311,12 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
     2.14 and 2.19: `onReviewRequestWithdrawn`.
 12. (#1065) **Page gap — Berean cannot be asked to review the association.** Rules 2.14 and
     2.19: `onAIReviewerRequested`, which refreshes Berean's status and the verdict (user ruling
-    2026-10-13: there is no re-request).
+    2026-10-13: there is no re-request) through the hook the post page calls, whose refresh is
+    `DesignFeatures/UI/Foundations/AIReviewerService.BereanReview.md` §1 (#1178).
 13. (#1066) **Page gap — Berean cannot be withdrawn from the association's round.** Rules
-    2.14 and 2.19: `onAIReviewerWithdrawn`, which refreshes Berean's status and the verdict.
+    2.14 and 2.19: `onAIReviewerWithdrawn`, which refreshes Berean's status and the verdict
+    through the hook the post page calls, whose refresh is
+    `DesignFeatures/UI/Foundations/AIReviewerService.BereanReview.md` §2 (#1179).
 14. (#1067) **Page gap — the association's review thread is not shown.** Rules 2.7, 2.14–2.18,
     2.23, 2.25 and 2.26: the thread in `ReviewCommentPanel`, beneath the association's card in the
     left-hand column (rule 2.7), its tiers composed from the association's endpoints, its box

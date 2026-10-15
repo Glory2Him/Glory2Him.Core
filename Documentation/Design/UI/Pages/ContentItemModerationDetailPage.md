@@ -577,8 +577,10 @@ everyone who reaches the page; each association's round is the association page'
     `useAssignAIReviewer`'s `onSuccess`), so the decision menu stays live on a round the server now
     refuses, until the 15-second refresh (rule 2.12). The refresh is made in that hook, as the
     thread's writes refresh the verdict in theirs (`approvalCommentService.ts`): this page holds no
-    query client. The hook is shared with the association page, so it also gives that page the
-    refresh its rule 2.19 asks (`UI/Pages/AssociationModerationDetailPage.md` §6 item 12, #1065).
+    query client. It is the hook's story, `DesignFeatures/UI/Foundations/AIReviewerService.BereanReview.md`
+    §1, and is tested at the hook, since this page's tests mock the service whole. The hook is
+    shared with the association page, so it also gives that page the refresh its rule 2.19 asks
+    (`UI/Pages/AssociationModerationDetailPage.md` §6 item 12, #1065).
     The comment over the request, which says a content item is out of confidence scoring and
     Berean's vote unreachable here, is untrue since the owner's rulings of 2026-10-13 and 2026-10-14
     (`DesignFeatures/BereanReview.md` rules 2 and 5), and is rewritten with this item.
@@ -586,7 +588,8 @@ everyone who reaches the page; each association's round is the association page'
     2.11 (user ruling 2026-10-13): withdrawing Berean lifts the pending block, so
     `onAIReviewerWithdrawn` refreshes the verdict as well as Berean's status. Today it refreshes
     Berean's status alone (`aiReviewerService.ts`, `useWithdrawAIReviewer`'s `onSuccess`). The
-    refresh is made in that hook, as item 22's is, and gives the association page its refresh too
+    refresh is made in that hook, as item 22's is (`DesignFeatures/UI/Foundations/AIReviewerService.BereanReview.md`
+    §2), and gives the association page its refresh too
     (`UI/Pages/AssociationModerationDetailPage.md` §6 item 13, #1066).
 24. (needs issue) **Page gap — `/Admin/Posts/{id}`: the post's confidence score and reason are not shown.**
     The owner ruled on 2026-10-13 that every approvable item carries a confidence score and a reason,
