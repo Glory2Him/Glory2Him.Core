@@ -70,7 +70,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.10 [Must]** The round is read, not invented. The verdict, the reviews, the outstanding requests, the reviewer candidates, Berean's status, the names and the thread all come off the approval endpoints through `useApprovalRound`. `ReviewPanel`'s owner and status come off the stored item. A caller the verdict refuses gets the round read-only. *(code: contentItemModerationDetailPage.tsx — the comments above `useApprovalRound` and `ReviewPanel`; test: contentItemModerationDetailPage.test.tsx — "should ask for the round of the item in the url", "should show the round the approval endpoints answer with", "should claim nothing about a round the verdict would not answer for")*
 
-**2.11 [Must]** Nothing is optimistic, save the card's reaction. Every write invalidates what it can move, and the panels repaint off the reads. A person's write refreshes the whole round, and Berean's two writes refresh Berean's status alone. Every write to the review thread also refreshes the verdict, because an outstanding comment is a block reason (`UI/Components/ReviewCommentPanel.md rule 2.15`). *(code: contentItemModerationDetailPage.tsx — the comments above the writes)* The reaction is the Likes feature's one exception. The engagement hook shows the reader's choice on the card at once, as an overlay that the read following the item's latest write replaces (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rules 5, 6 and 8).
+**2.11 [Must]** Nothing is optimistic, save the card's reaction. Every write invalidates what it can move, and the panels repaint off the reads. A person's write refreshes the whole round, and Berean's two writes refresh Berean's status and the verdict, because asking Berean holds the round while its review is pending and withdrawing it lifts that block (§APR8.5 rule 8; user ruling 2026-10-13, `DesignFeatures/BereanReview.md` rule 14). Every write to the review thread also refreshes the verdict, because an outstanding comment is a block reason (`UI/Components/ReviewCommentPanel.md rule 2.15`). What Berean's run writes later reaches the page through rule 2.12's refresh. *(code: contentItemModerationDetailPage.tsx — the comments above the writes)* ≠ items 22 and 23 The reaction is the Likes feature's one exception. The engagement hook shows the reader's choice on the card at once, as an overlay that the read following the item's latest write replaces (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2` rules 5, 6 and 8).
 
 **2.12 [Must]** The page's single round refresh keeps the round and the review thread current: every 15 seconds while the tab is visible, on returning to the tab, and on reconnect — refreshing on reconnect is required, so a change missed while the connection was down never leaves a stale panel. The item is re-read with the round, because `ReviewPanel` takes its open-or-closed status from the stored item. The thread is re-read as part of the same refresh, and the reviewer candidates are left out of it (`UI/Components/ReviewPanel.md §6`). *(user, 2026-09-27; code: useApprovalRoundChanges.ts — `useApprovalRoundChanges`; test: useApprovalRoundChanges.test.ts — "polls refresh on the interval while the tab is visible", "refreshes immediately when the tab becomes visible again", "refreshes on reconnect — a missed message must not leave a stale panel"; test: contentItemModerationDetailPage.test.tsx — "re-fetches the round on an interval so an external change is seen unprompted", "re-fetches the item too, since the panel takes its open-or-closed status from it", "re-fetches the review thread, so another moderator's comment appears unprompted", "leaves the reviewer candidates out of the poll")*
 
@@ -296,8 +296,8 @@ only suggestion. It reads the candidates when the page loads, not when the picke
 | `onReviewerLookupRequested` | The request picker opens | Reads the reviewer candidates (rule 2.27). ≠ item 6 | ❌ No — the page does not wire it, and reads the candidates with the round when the page loads; item 6 |
 | `onReviewRequested` ≠ item 11 | A person is picked under Suggestions or Everyone else | Asks them to review, on the review-request route addressed by the approval id (rule 2.23). | ✅ Yes, on the route keyed by the item, `POST api/Approvals/ContentItem/{id}/ReviewRequests?requestedUserId=` (`contentItemModerationDetailPage.tsx`, lines 494 and 828; `apiBroker.approvals.ts`, line 160); item 11 |
 | `onReviewRequestWithdrawn` ≠ item 11 | A person is picked under Requested | Withdraws the request, on the review-request route addressed by the approval id (rule 2.23). | ✅ Yes, on the route keyed by the item, `DELETE api/Approvals/ContentItem/{id}/ReviewRequests?requestedUserId=` (`contentItemModerationDetailPage.tsx`, lines 512 and 829; `apiBroker.approvals.ts`, line 175); item 11 |
-| `onAIReviewerRequested` ≠ item 11 | Berean is picked, or re-requested | Asks Berean to review, an upsert on Berean's resource addressed by the approval id (rule 2.23). It refreshes Berean's status alone. | ✅ Yes, on the route keyed by the item, `POST api/AIReviewers/ContentItem/{id}` (`contentItemModerationDetailPage.tsx`, lines 386 and 833; `apiBroker.aiReviewers.ts`, line 41); item 11 |
-| `onAIReviewerWithdrawn` ≠ item 11 | Berean is picked under Requested | Withdraws Berean, on its resource addressed by the approval id (rule 2.23), with no success toast. | ✅ Yes, on the route keyed by the item, `DELETE api/AIReviewers/ContentItem/{id}` (`contentItemModerationDetailPage.tsx`, lines 407 and 835; `apiBroker.aiReviewers.ts`, line 59); item 11 |
+| `onAIReviewerRequested` ≠ items 11 and 22 | Berean is picked | Asks Berean to review, on Berean's resource addressed by the approval id (rule 2.23). It refreshes Berean's status and the verdict (rule 2.11). | ✅ Yes, on the route keyed by the item, `POST api/AIReviewers/ContentItem/{id}` (`contentItemModerationDetailPage.tsx`, lines 386 and 833; `apiBroker.aiReviewers.ts`, line 41); item 11 |
+| `onAIReviewerWithdrawn` ≠ items 11 and 23 | Berean is picked under Requested | Withdraws Berean, on its resource addressed by the approval id (rule 2.23), with no success toast. It refreshes Berean's status and the verdict (rule 2.11). | ✅ Yes, on the route keyed by the item, `DELETE api/AIReviewers/ContentItem/{id}` (`contentItemModerationDetailPage.tsx`, lines 407 and 835; `apiBroker.aiReviewers.ts`, line 59); item 11 |
 
 ### 4.6 ContentItemSettingsPanel — the settings in force
 
@@ -570,3 +570,31 @@ everyone who reaches the page; each association's round is the association page'
     the item's model carries no record yet (`UI/Models/ContentItem.md §1`). The panel's half is
     `UI/Components/ReviewPanel.md §10 item 2`, and the server refuses such a review whatever the
     panel offers (§APR8.6 HR-5).
+22. (#1178) **Page gap — `/Admin/Posts/{id}`: asking Berean leaves the verdict stale.** Rule 2.11
+    (user ruling 2026-10-13): once Berean holds a round until its review has completed (§APR8.5
+    rule 8), asking Berean moves the verdict, so `onAIReviewerRequested` refreshes the verdict as well
+    as Berean's status. Today it refreshes Berean's status alone (`aiReviewerService.ts`,
+    `useAssignAIReviewer`'s `onSuccess`), so the decision menu stays live on a round the server now
+    refuses, until the 15-second refresh (rule 2.12). The refresh is made in that hook, as the
+    thread's writes refresh the verdict in theirs (`approvalCommentService.ts`): this page holds no
+    query client. It is the hook's story, `DesignFeatures/UI/Foundations/AIReviewerService.BereanReview.md`
+    §1, and is tested at the hook, since this page's tests mock the service whole. The hook is
+    shared with the association page, so it also gives that page the refresh its rule 2.19 asks
+    (`UI/Pages/AssociationModerationDetailPage.md` §6 item 12, #1065).
+    The comment over the request, which says a content item is out of confidence scoring and
+    Berean's vote unreachable here, is untrue since the owner's rulings of 2026-10-13 and 2026-10-14
+    (`DesignFeatures/BereanReview.md` rules 2 and 5), and is rewritten with this item.
+23. (#1179) **Page gap — `/Admin/Posts/{id}`: withdrawing Berean leaves the verdict stale.** Rule
+    2.11 (user ruling 2026-10-13): withdrawing Berean lifts the pending block, so
+    `onAIReviewerWithdrawn` refreshes the verdict as well as Berean's status. Today it refreshes
+    Berean's status alone (`aiReviewerService.ts`, `useWithdrawAIReviewer`'s `onSuccess`). The
+    refresh is made in that hook, as item 22's is (`DesignFeatures/UI/Foundations/AIReviewerService.BereanReview.md`
+    §2), and gives the association page its refresh too
+    (`UI/Pages/AssociationModerationDetailPage.md` §6 item 13, #1066).
+24. (needs issue) **Page gap — `/Admin/Posts/{id}`: the post's confidence score and reason are not shown.**
+    The owner ruled on 2026-10-13 that every approvable item carries a confidence score and a reason,
+    and that where `BlockOnRejectApprovalScore` does not enforce them, *"the score and reason will just
+    be visible warning on the UI"* (`DesignFeatures/BereanReview.md`, A4). The association page
+    shows them in its confidence block (`DesignFeatures/PostModeration.md` rule 13); this page has no
+    place for them, and none is designed. It needs a mockup and a design task before a task can be
+    carved.

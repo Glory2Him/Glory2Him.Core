@@ -88,9 +88,11 @@ names its source.
     reason, and the suggestion — an approval, a rejection, or that it is unable to suggest either —
     which §APR8.6.2 decides against the round's resolved `AIApprovalConfidenceApprovalThreshold`
     and `AIApprovalConfidenceRejectionThreshold`. Where either the score or the reason is null the
-    block is not rendered, and nothing about it affects the round: the confidence feature may be
-    switched off, and the rest of the process must not depend on it. The suggestion waits on the
-    read #863 designs. *(ruling 5)*
+    block is not rendered, and, unless Berean is assigned to the round, nothing about it affects
+    the round: the confidence feature may be switched off, and the rest of the process must not
+    depend on it. While Berean is assigned and its review is pending, a null score holds the round
+    (§APR8.5 rule 8; user ruling 2026-10-13, `BereanReview.md` rule 11). The suggestion waits on
+    the read #863 designs. *(ruling 5; narrowed 2026-10-13)*
 14. **What a moderator can do on an association.** Everything `ReviewPanel` offers for its round —
     see the reviews, cast a vote, request reviewers and Berean, decide it with its bypass (the
     publisher tier and `Administrators`), and reset a decided round (`Administrators`) — the
