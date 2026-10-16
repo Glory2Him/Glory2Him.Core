@@ -204,7 +204,8 @@ route:
   (§APR8.6.1 rules 2 and 4), and `IAccessBroker` gathers for it. It is a decision of its own,
   not a widening of `AIReviewerPolicyVerdict`: who is answered it depends on the caller
   (§APR8.6.2 suggestion rule 6), and that verdict is the same whoever asks
-  (`Backend/Clients/AccessClient.PostModeration.md`, the paragraph above §1).
+  (`Backend/Clients/AccessClient.PostModeration.md`, *A new operation, not a widening of
+  `ResolveAIReviewerPolicyAsync`*).
 - **Berean's status read carries it**, `AIReviewerOrchestrationService.RetrieveAIReviewerStatusAsync`
   on `GET api/AIReviewers/{entityType}/{entityId}`, an orchestration because it already spans
   `Approval` and `AIReviewerAssignment` (§ARC12.5 entry 4). The association page already makes
