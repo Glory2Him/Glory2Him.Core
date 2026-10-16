@@ -1709,8 +1709,10 @@ either.
      met, so it decides nothing. The re-test its write starts can, because it
      reads the round's other inputs as they stand, which is why that re-test
      is not wired while this subscriber stands (condition 3). What lifts the block — the start and the
-     completion, as `AIReviewerAssignment-Modified`, and a withdrawal or
-     dismissal, as `AIReviewerAssignment-Removed` — arrives on addresses item (a)
+     completion, as `AIReviewerAssignment-Modified`, and a withdrawal, a
+     dismissal, or the approval process's removal of Berean from a round that
+     no longer offers it (`DesignFeatures/BereanReview.md` rule 9, step 4.3),
+     as `AIReviewerAssignment-Removed` — arrives on addresses item (a)
      governs, and so does anything else Berean leaves that can hold a round:
      its score, which the completion follows, its `ApprovalComment`s, as
      `ApprovalComment-Added`, and its vote, as `ApprovalReview-Added`. *(This point used to read "It reads no §APR8.5
