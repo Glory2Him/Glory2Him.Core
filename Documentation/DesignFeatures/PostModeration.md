@@ -203,8 +203,8 @@ route:
 - **The decision is the security client's**, `IAccessClient`, which decides every policy question
   (§APR8.6.1 rules 2 and 4), and `IAccessBroker` gathers for it. It is a decision of its own,
   not a widening of `AIReviewerPolicyVerdict`: who is answered it depends on the caller
-  (§APR8.6.2 suggestion rule 6), and that verdict is resolved under the roleless system identity
-  by the automatic assignment (§APR8.6.2.1 gate 4).
+  (§APR8.6.2 suggestion rule 6), and that verdict is the same whoever asks
+  (`Backend/Clients/AccessClient.PostModeration.md`, the paragraph above §1).
 - **Berean's status read carries it**, `AIReviewerOrchestrationService.RetrieveAIReviewerStatusAsync`
   on `GET api/AIReviewers/{entityType}/{entityId}`, an orchestration because it already spans
   `Approval` and `AIReviewerAssignment` (§ARC12.5 entry 4). The association page already makes
@@ -244,11 +244,11 @@ route:
 - **The confidence suggestion, #863.** The confidence block's suggestion (rule 13) is carried on
   Berean's status read, built by the user stories listed above for it, and handed to the panel by
   the association page (`Design/UI/Pages/AssociationModerationDetailPage.md §6 item 19`).
-- **The round's resolved thresholds, design PR #1183.** The suggestion compares the score against
+- **The round's resolved thresholds, #1117.** The suggestion compares the score against
   the round's resolved `AIApprovalConfidenceRejectionThreshold` and
   `AIApprovalConfidenceApprovalThreshold`, which stay on the approval-setting tiers, compared
   strictly (§APR8.6.2, *The thresholds*; `BereanReview.md` rule 12; user rulings 2026-10-13 and
-  2026-10-14). Design PR #1183 records those rulings, and this design merges after it.
+  2026-10-14). `BereanReview.md`, *The rulings*, records those rulings.
 - **The remove by id, #700.** The association's takedown (rule 16) calls
   `DELETE /api/associations/{id}`, which `Design/UI/Components/AssociationPanel.md §10 item 22`
   gives to #700, with the two gates beneath it. #700 has carved no task for it yet, so the
@@ -314,7 +314,7 @@ route:
 - §ARC17.4's two association reads and §SEC14.7 posture A′ rule 7 (#857).
 - Berean's review and its vote (§APR8.6.2, *Berean's review* and *Berean's vote*), and the review
   process behind them (#1216).
-- #1117's design (design PR #1183): Berean's blocks, the low-score block's rename, what starts
+- #1117's design (`BereanReview.md`): Berean's blocks, the low-score block's rename, what starts
   Berean's review, and the approval-setting screens.
 - The remove by id, `DELETE /api/associations/{id}`, and the two gates beneath it (#700).
 - Moving the round's routes to the approval id (§ARC17.5; #699's stage-2 build).
