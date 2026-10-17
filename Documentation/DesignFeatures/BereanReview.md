@@ -163,6 +163,8 @@ The owner ruled again on 2026-10-14, answering this document's open questions 2 
 
 In build order. Stage 1 — the low-score block, the rename and the screens — can ship alone, save two of the detail page's texts: the automatic approval's explanation, which waits for stage 3's rule 22, and the low-score block's explanation, which waits for the block's first gather (rule 15). Stage 2 gives the association's set-confidence to the system alone, every item the fields, and the six items their own writes. Stage 3 is Berean's review: the assignment's tracking fields, its blocks, its start, the withdrawal's gate and the data change. Two parts wait for the review process: stage 3's three gathers for Berean's blocks (*What ships together*, step 4), and the low-score block's explanation, which waits for the first of them, #1180, which the other two follow (rule 15).
 
+Rule 24 is built by a sub-feature of its own, [ConfidenceReads.md](ConfidenceReads.md), which lists its user stories and their order.
+
 | Story | Level | Sections |
 | --- | --- | --- |
 | [Backend/Clients/AccessClient.BereanReview.md](Backend/Clients/AccessClient.BereanReview.md) | client | the low-score block (§1–§2), the offer (§3), the vote kept (§4), Berean's pending and in-flight blocks (§5–§6), a round that requires no review (§7–§8) |
