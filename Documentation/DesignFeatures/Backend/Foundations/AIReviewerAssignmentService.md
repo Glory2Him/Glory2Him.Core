@@ -73,7 +73,7 @@ ValueTask<AIReviewerAssignment> AddAIReviewerAssignmentAsync(
 ```
 
 1. **An add that carries `IsAIReviewStarted` `true`, or either of `AIReviewQueuedAt` and `AIReviewCompletedAt` set, is refused**, with a validation failure naming each field, as the add already refuses `IsAIReviewCompleted` and `IsAIReviewCommentsPresent` set (`IsSetOnAdd`): an assignment is born pending, and a row claiming a review that has started or finished claims work that never ran (BereanReview.md rule 21).
-2. It is asked on the direct path and on the `AIReviewerAssignment-Adding` door alike, because both converge on the add's one validation. The automatic add (`AddAutomaticAIReviewerAssignmentAsync`) mints its row itself, with all five fields empty.
+2. **It is asked in the add's one validation**, which the `AIReviewerAssignment-Adding` door converges on, so it reaches the door as this section builds it, and §8 proves it there. The automatic add (`AddAutomaticAIReviewerAssignmentAsync`) mints its row itself, with all five fields empty.
 3. **It builds on `Backend/Models/AIReviewerAssignment.md §1`**, which gives the model the three fields, and lands before §2 there maps them.
 
 ## 7. RemoveUnofferedAIReviewerAssignmentAsync — Berean removed from a round that no longer offers it (#1233)
@@ -94,3 +94,14 @@ The approval process's step 4 removes Berean from a round that no longer offers 
 6. **Its failures map as §2 rule 6 maps the dismissal's**, through the class's one `TryCatch`, and each is proven by a test of its own.
 7. **Its own summary** says that it removes Berean's live assignment from a round whose policy no longer offers Berean, under the system identity, and leaves where its review stood as it is.
 8. **It lands after §2**, whose words on the seam's verbs it extends, each as §2 leaves it: the class summary over the seam's arm in `AIReviewerAssignmentService.Transitions.cs`, which lists the seam's acts and gains this one; §APR8.6.2.1's count of the seam's members; §ARC16.7.1's note *A seam may grow a second verb*, whose *"The one removal the seam carries"* it makes untrue; §EVN19's list of the seam verbs that publish a fact and write no `ProcessedEvent`, which it joins; and the constructor comment of `AIReviewerOrchestrationService.cs`, the code twin of §ARC16.7.1's note, whose paragraph on the seam's verbs that service does not call names the dismissal once §2 has landed, and gains this one.
+
+## 8. OnAddingAIReviewerAssignmentAsync — the tracking fields refused on the `AIReviewerAssignment-Adding` door (#1324)
+
+```csharp
+ValueTask<EventEnvelope<AIReviewerAssignment>?> OnAddingAIReviewerAssignmentAsync(
+    EventEnvelope<AIReviewerAssignment> envelope,
+    CancellationToken cancellationToken = default);
+```
+
+1. **An add that arrives on the door carrying `IsAIReviewStarted` `true`, or either of `AIReviewQueuedAt` and `AIReviewCompletedAt` set, is refused**, naming each field, as §6 refuses it on the direct path: the door converges on the add's one validation, which §6 changes.
+2. **It adds no code.** Its test passes as soon as it is written, once §6 is built, and is committed as a pin (`README.md`, *One section per operation*; ConfidenceReads.md, *The rulings*). Its envelope's refusals, its deduplication and its rethrow are unchanged, and their tests stand. It follows §6, and `Backend/Models/AIReviewerAssignment.md §2` does not wait for it.

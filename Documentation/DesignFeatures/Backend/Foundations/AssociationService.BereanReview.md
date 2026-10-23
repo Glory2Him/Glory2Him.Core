@@ -34,5 +34,17 @@ ValueTask<Association> ModifyAssociationAsync(
 ```
 
 1. **A modify takes `ConfidenceScore`, `ConfidenceReason`, `SourceBatchId` and `ModelVersion` from the stored row, and ignores the caller's copy**, neither comparing nor refusing it, as the six items' general modify does and for the same reason (`Backend/Foundations/ContentItemService.BereanReview.md §2` rule 1): once the review process writes a score while the round is open, a caller holding a copy read before it — the owner moving the association between `Draft` and `Submitted`, or a moderator whose editor was opened earlier — would be refused for a value they never touched. Today `ValidateAgainstStorageAssociationOnModify` compares the four and refuses a difference (`AssociationService.Validations.cs`); those four comparisons go, and so do the range and length rules the modify asks of the caller's score and reason, since nothing of the caller's is written. Every other field the modify pins — sorting, the two scopes, the reacting user and the bypass pair among them — stays pinned. The comment over the four comparisons, which explains why confidence is pinned with sorting and scope, is rewritten to say why the four are taken instead.
-2. It is asked on the direct path and on the `Association-Modifying` door alike, because both converge on `DoModifyAssociationAsync`.
+2. **It is asked in `DoModifyAssociationAsync`**, which the `Association-Modifying` door converges on, so it reaches the door as this section builds it, and §4 proves it there.
 3. It builds on nothing of this design's: `Association` already carries the four, stored. It is no prerequisite of `Backend/Models/IApproval.md §2`, which maps the other seven tables' columns.
+
+## 4. OnModifyingAssociationAsync — the confidence fields kept as stored on the `Association-Modifying` door (#1323)
+
+```csharp
+ValueTask<EventEnvelope<Association>?> OnModifyingAssociationAsync(
+    EventEnvelope<Association> envelope,
+    CancellationToken cancellationToken = default);
+```
+
+1. **A modify that arrives on the door keeps the stored four**, whatever its copy carries, as §3 keeps them on the direct path: the door converges on `DoModifyAssociationAsync`, which §3 changes.
+2. **It adds no code.** Its test passes as soon as it is written, once §3 is built, and is committed as a pin (`README.md`, *One section per operation*; ConfidenceReads.md, *The rulings*). Its envelope's refusals, its deduplication and its rethrow are unchanged, and their tests stand.
+3. **The withholding of the modify's answer changes its test**, where it answers a caller outside the review tier, and builds on this section (`Backend/Foundations/AssociationService.ConfidenceReads.md §3`; ConfidenceReads.md, *What ships together* step 5).
