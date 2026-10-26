@@ -160,7 +160,7 @@ The page renders both stories the same way and sets the same properties on each.
 | Property | Value | Why |
 | --- | --- | --- |
 | `associationCollection` | `[]` | Rule 2.14. |
-| `onAdd` | a toast, "Suggesting tags is coming soon." or "Suggesting bible references is coming soon." | The page is not yet wired to the suggestion write (rule 2.14; item 5). |
+| `onAdd` | a toast, "Suggesting tags is coming soon." or "Suggesting bible references is coming soon." | The page is not yet wired to the suggestion write (rule 2.14; item 18). |
 | `showBorder`, `cssClass` | `true`, `mb-4` | Spacing in the column. |
 | The post's content type (`UI/Components/AssociationPanel.md rule 2.30`) | Not passed; the panel has no such property yet (`UI/Components/AssociationPanel.md §10 item 20`) | Rule 2.16; item 13. |
 
@@ -172,7 +172,7 @@ rule 3.1.1`, `UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md r
 
 | Hook | Raised when | What the page does | Built today |
 | --- | --- | --- | --- |
-| `onAdd` | A suggestion is committed in the add box | Toasts that suggesting is coming soon, and sends nothing. ≠ item 5 | ❌ No — item 5 |
+| `onAdd` | A suggestion is committed in the add box | Toasts that suggesting is coming soon, and sends nothing. ≠ item 18 | ❌ No — item 18 |
 | `chipOnClick` or `chipHrefFor` | A chip's label is pressed | The page supplies both links: a reference leads to the page showing the verse, `/BibleReferences/{USFM}` (`UI/Pages/BibleReference.md`), or, where it cannot be read as a passage, to that page all the same, which says it could not be found (rule 2.23); a tag opens `/posts` handed the tag, its search bar showing it in the Tags box with the advanced section expanded (rule 2.15). ≠ items 7 and 17 | ❌ No — item 7, and item 17 for a reference it cannot read. The page supplies neither a link nor a hook, so a tag leads to `/Search?q=<tag>` and a reference to `/BibleReferences/{USFM}`, or `/Search?q=<reference>` for one it cannot read, both composed by the story; `chipOnClick` is unreachable while each story's default `chipHrefFor` wins (`UI/Components/AssociationPanel.TagAssociationPanel.md §10 item 1`, `UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 2`). No chip renders today (rule 2.14). |
 | `onRemove` | Remove is pressed on the owner's own `Draft` or `Submitted` chip, which the panel offers with its moderation actions off (`UI/Components/AssociationPanel.md rule 2.18`) | Nothing: the page does not listen. No chip renders today. ≠ item 8 | ❌ No — item 8 |
 | `onReject`, `onApprove` | Reject or Approve is pressed | Never offered: `showModerationActions` stays off, as on every surface but a moderation one (`UI/Components/AssociationPanel.md rule 2.15`). | *Not wired — switched off* |
@@ -258,15 +258,12 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
    11a; #745). A reaction the reader chooses is recorded, changed or cleared by the same hook
    (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2`; #739), and no signed-out reader chooses
    one here, because `SecuredRoute` admits none.
-5. (needs issue) **Page gap — `/myposts/{id}`: suggesting a tag or a Bible reference sends
-   nothing.** The page answers each panel's `onAdd` with a "coming soon" toast and reads no
-   associations, so both lists are always empty (`myPostDetail.tsx` — `suggestTag`,
-   `suggestBibleReference`, `associationCollection={[]}`). The server work is the suggestion, an editorial pairing sent to `POST /api/associations`
-   (#728, #1088), and the association read `GET /api/associations` (§ARC17.4;
-   `DesignFeatures/AssociationReads.md`), and `UI/Components/AssociationPanel.md §7` records which of
-   them are served. The page's half is to read the item's associations, project
-   them to the panels, and send each suggestion with the viewer as its owner
-   (`UI/Components/AssociationPanel.md §7`, the note on `asSuggestedAssociation`).
+5. (needs issue) **Page gap — `/myposts/{id}`: the page reads no associations.** The page reads no
+   associations, so both lists are always empty (`myPostDetail.tsx` — `associationCollection={[]}`).
+   The server work is the association read `GET /api/associations` (§ARC17.4;
+   `DesignFeatures/AssociationReads.md`), and `UI/Components/AssociationPanel.md §7` records whether
+   it is served. The page's half is to read the item's associations and project them to the panels.
+   Sending a suggestion is item 18, split from this item.
 6. (needs issue) **Page gap — `/myposts/{id}`: the tag and Bible reference facet switches are not
    wired.** Each panel renders only where the item's effective `ShowTags` or `ShowBibleReferences` is
    on, and its add box shows only where `TagsAllowed` or `BibleReferenceAllowed` is on, each ANDed
@@ -378,3 +375,13 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
     its chip follows the reference story's own `/Search?q=<reference>`
     (`UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 5`). The same gap on
     the cards is `UI/Pages/Home.md §6 item 14`.
+18. (#1352) **Page gap — `/myposts/{id}`: suggesting a tag or a Bible reference sends nothing.**
+    The page answers each panel's `onAdd` with a "coming soon" toast (`myPostDetail.tsx` —
+    `suggestTag`, `suggestBibleReference`). The page's half is to send each suggestion with the
+    viewer as its owner (`UI/Components/AssociationPanel.md §7`, the note on
+    `asSuggestedAssociation`). The panels raise `onAdd` with the text the reader typed
+    (`UI/Components/AssociationPanel.md rule 3.1.15`), and the editorial arm of
+    `POST /api/associations` (#728, #1088) takes two endpoint ids
+    (`DesignFeatures/Backend/Orchestrations/AssociationOrchestrationService.md §6 rule 1`). Held for
+    #1352, *Design The Submission Of A Suggested Tag Or Bible Reference*, which designs the write.
+    Split from item 5, which keeps the read.
