@@ -332,6 +332,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     && (association.PublishDate == null
                         || association.PublishDate <= currentDateTime))
                 || (includeOwnAssociations
+                    && association.UserId == null
                     && association.CreatedBy == actorUserId)
                 || (includeOwnAssociations
                     && association.UserId == actorUserId));
