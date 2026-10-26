@@ -368,6 +368,54 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 association.Id == ownPersonalAssociation.Id);
         }
 
+        /// <summary>
+        /// #1121 criterion 9: §SEC14.7 posture A′ rule 7 withholds a public personal row from
+        /// an anonymous caller in SQL, and leaves a public editorial row answered beside it
+        /// (AssociationService.AssociationReads.md §1 rules 1 and 4).
+        /// </summary>
+        [Fact]
+        public async Task ShouldWithholdAPublicPersonalAssociationFromAnAnonymousCallerInSqlAsync()
+        {
+            // given: a reader's reaction and an editorial association, both approved and
+            // published with no publish date
+            this.broker.ActAsAnonymous();
+            string readerUserId = Guid.NewGuid().ToString();
+
+            Association publicPersonalAssociation = CreateAssociation(
+                entityAType: EntityType.ContentItem,
+                entityAContentType: ContentType.Testimony,
+                entityBType: EntityType.Reaction,
+                isPublished: true,
+                createdBy: readerUserId,
+                approvalStatus: ApprovalStatus.Approved,
+                userId: readerUserId);
+
+            Association publicEditorialAssociation = CreateAssociation(
+                entityAType: EntityType.ContentItem,
+                entityAContentType: ContentType.Testimony,
+                entityBType: EntityType.Tag,
+                isPublished: true,
+                createdBy: Guid.NewGuid().ToString(),
+                approvalStatus: ApprovalStatus.Approved);
+
+            await SeedAsync(publicPersonalAssociation, publicEditorialAssociation);
+
+            // when
+            IQueryable<Association> query =
+                await this.broker.AssociationService.RetrieveAllAssociationsAsync(
+                    CancellationToken.None);
+
+            List<Association> actualAssociations =
+                await query.ToListAsync(TestContext.Current.CancellationToken);
+
+            // then
+            actualAssociations.Should().Contain(association =>
+                association.Id == publicEditorialAssociation.Id);
+
+            actualAssociations.Should().NotContain(association =>
+                association.Id == publicPersonalAssociation.Id);
+        }
+
         private async ValueTask SeedAsync(params Association[] associations)
         {
             await this.broker.InsertAsync(associations);

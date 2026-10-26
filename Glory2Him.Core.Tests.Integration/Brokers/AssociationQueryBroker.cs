@@ -113,6 +113,29 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                     .ReturnsAsync(DateTimeOffset.UtcNow);
         }
 
+        /// <summary>
+        /// Makes the caller the service sees an anonymous one: the envelope the envelope
+        /// broker mints carries an unauthenticated context, so no user id is resolved.
+        /// </summary>
+        public void ActAsAnonymous()
+        {
+            var securityContext = new SecurityContext { IsAuthenticated = false };
+
+            EventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(It.IsAny<Association>()))
+                    .ReturnsAsync((Association content) =>
+                        new EventEnvelope<Association>
+                        {
+                            Content = content,
+                            SecurityContext = securityContext,
+                            Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+                        });
+
+            DateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(DateTimeOffset.UtcNow);
+        }
+
         public async ValueTask InsertAsync(params Association[] associations)
         {
             foreach (Association association in associations)
