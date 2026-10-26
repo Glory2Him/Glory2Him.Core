@@ -326,7 +326,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 || (association.EntityBType == EntityType.ContentItem
                     && association.EntityBContentType != null
                     && reviewableContentTypes.Contains(association.EntityBContentType.Value))
-                || (association.ApprovalStatus == ApprovalStatus.Approved
+                || (association.UserId == null
+                    && association.ApprovalStatus == ApprovalStatus.Approved
                     && association.IsPublished
                     && (association.PublishDate == null
                         || association.PublishDate <= currentDateTime))
