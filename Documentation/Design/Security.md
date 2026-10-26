@@ -400,7 +400,7 @@ The §SEC14.6 mandate is applied per entity according to what the entity is. Fou
 
    **Where it is built.** `DesignFeatures/Backend/Foundations/AssociationService.AssociationReads.md` builds it in three parts, and a read whose part is not yet built returns a public personal row to any caller:
    - the collection filter (§1; built, #1121);
-   - the read by id (§2; not yet built, #1122);
+   - the read by id (§2; built, #1122);
    - the read by id's event handler, which takes it through the body it shares with the direct path (§3; not yet built, #1123).
 
 **Approval and publication now have a code path.** `TransitionAssociationApprovalAsync` owns every member `IApproval` declares bar its `ApprovalId`, which it keeps from the stored row (posture A rule 5), and none of the four `IConfidence` members `IApproval` extends, which set-confidence alone writes — `ApprovalStatus`, `IsPublished` and `PublishDate` move together, so approve and publish are one operation and there is no separate publish verb. It is the **only** path that writes the three fields: add still refuses a caller-supplied `IsPublished`, `PublishDate` or non-`Draft`/`Submitted` status, and the general modify still pins all three against storage. The public clause on both read paths is therefore reachable, and rules 3 and 5 above describe live behaviour rather than a caveat.
