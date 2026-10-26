@@ -220,5 +220,19 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(reactedContentItem.Id);
             }
         }
+
+        [Fact]
+        public async Task ShouldReturnBadRequestOnGetByIdIfTheIdIsEmptyAsync()
+        {
+            // given
+            Guid emptyAssociationId = Guid.Empty;
+
+            // when
+            HttpResponseMessage actualResponse =
+                await this.apiBroker.GetAssociationByIdAsync(emptyAssociationId);
+
+            // then
+            actualResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
     }
 }
