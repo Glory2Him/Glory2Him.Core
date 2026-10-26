@@ -313,6 +313,73 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
         [Theory]
         [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.ReactionReviewers)]
+        public async Task ShouldRetrieveAnotherReadersPublicPersonalAssociationByIdWhenCallerHasReviewRoleAsync(
+            string reviewRole)
+        {
+            // given: another reader's reaction, approved, published and past its publish date,
+            // read by a global reviewer and by one scoped to the reaction endpoint alone; a
+            // personal row is answered to the review tier (§2 rule 1)
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(reviewRole);
+            string randomActorUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            int randomDaysInPast = GetRandomNegativeNumber();
+
+            Association storageAssociation =
+                CreateRandomReaction(readerUserId: GetRandomString());
+
+            storageAssociation.IsDeleted = false;
+            storageAssociation.ApprovalStatus = ApprovalStatus.Approved;
+            storageAssociation.IsPublished = true;
+            storageAssociation.PublishDate = randomDateTimeOffset.AddDays(randomDaysInPast);
+            Association expectedAssociation = storageAssociation;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(randomActorUserId);
+
+            // when
+            Association actualAssociation =
+                await this.associationService.RetrieveAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualAssociation.Should().BeEquivalentTo(expectedAssociation);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [InlineData(Roles.Reviewers)]
         [InlineData(Roles.TagReviewers)]
         public async Task ShouldRetrieveANonPublicEditorialAssociationByIdWhenCallerHasReviewRoleAsync(
             string reviewRole)
