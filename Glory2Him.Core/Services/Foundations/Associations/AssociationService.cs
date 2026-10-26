@@ -309,14 +309,20 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             // both enums persist as strings EF parameterises the converted values.
             //
             // A caller with no scoped roles gets two empty sets, and an empty
-            // `HashSet.Contains` is constant-false, so the query degrades to exactly the
-            // public-plus-own predicate it had before.
+            // `HashSet.Contains` is constant-false, so the query degrades to the public and
+            // own terms below alone.
             HashSet<EntityType> reviewableEntityTypes =
                 ResolveReviewableEntityTypes(securityContext);
 
             HashSet<ContentType> reviewableContentTypes =
                 ResolveReviewableContentTypes(securityContext);
 
+            // Posture A′ rule 7: a personal row, one whose UserId is set, reaches only its
+            // owner and the review tier, so the public and created-by terms admit editorial
+            // rows alone. The owner is the account UserId names, never CreatedBy, and the
+            // term compares in SQL under the column's case-insensitive collation (§DOM4.6
+            // rule 3). It is not composed for a caller with no user id, who would otherwise
+            // match every editorial row's null UserId.
             return visibleAssociations.Where(association =>
                 reviewableEntityTypes.Contains(association.EntityAType)
                 || reviewableEntityTypes.Contains(association.EntityBType)
@@ -326,12 +332,16 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 || (association.EntityBType == EntityType.ContentItem
                     && association.EntityBContentType != null
                     && reviewableContentTypes.Contains(association.EntityBContentType.Value))
-                || (association.ApprovalStatus == ApprovalStatus.Approved
+                || (association.UserId == null
+                    && association.ApprovalStatus == ApprovalStatus.Approved
                     && association.IsPublished
                     && (association.PublishDate == null
                         || association.PublishDate <= currentDateTime))
                 || (includeOwnAssociations
-                    && association.CreatedBy == actorUserId));
+                    && association.UserId == null
+                    && association.CreatedBy == actorUserId)
+                || (includeOwnAssociations
+                    && association.UserId == actorUserId));
         }
 
         // the entity types this caller may review, from the coarse tier. Enumerating the

@@ -464,8 +464,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldExcludeNonPublicRowsFromTheCollectionReadForAnUnscopedCallerAsync()
         {
             // given: no scoped roles at all. Both sets resolve empty, and an empty
-            // HashSet.Contains is constant-false, so the query must degrade to exactly the
-            // public-plus-own predicate it had before endpoint scoping existed.
+            // HashSet.Contains is constant-false, so the query must degrade to its public
+            // and own terms alone.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
             string randomActorUserId = GetRandomString();
 
