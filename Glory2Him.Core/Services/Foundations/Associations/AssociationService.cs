@@ -331,7 +331,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     && (association.PublishDate == null
                         || association.PublishDate <= currentDateTime))
                 || (includeOwnAssociations
-                    && association.CreatedBy == actorUserId));
+                    && association.CreatedBy == actorUserId)
+                || (includeOwnAssociations
+                    && association.UserId == actorUserId));
         }
 
         // the entity types this caller may review, from the coarse tier. Enumerating the
