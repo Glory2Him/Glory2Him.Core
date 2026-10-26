@@ -68,18 +68,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         [Fact]
         public async Task ShouldRetrieveAllOnlyPublicAssociationsWhenCallerIsAnonymousAsync()
         {
-            // given
+            // given: every row is editorial, so what this tests is the editorial posture,
+            // which rule 7 leaves unchanged (AssociationService.AssociationReads.md §1 rule 4)
             this.ambientSecurityContext = new SecurityContext { IsAuthenticated = false };
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             Association publicAssociation = CreateRandomAssociation();
             publicAssociation.IsDeleted = false;
+            publicAssociation.UserId = null;
             publicAssociation.ApprovalStatus = ApprovalStatus.Approved;
             publicAssociation.IsPublished = true;
             publicAssociation.PublishDate = null;
 
             Association pastPublishedAssociation = CreateRandomAssociation();
             pastPublishedAssociation.IsDeleted = false;
+            pastPublishedAssociation.UserId = null;
             pastPublishedAssociation.ApprovalStatus = ApprovalStatus.Approved;
             pastPublishedAssociation.IsPublished = true;
 
@@ -88,11 +91,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             Association draftAssociation = CreateRandomAssociation();
             draftAssociation.IsDeleted = false;
+            draftAssociation.UserId = null;
             draftAssociation.ApprovalStatus = ApprovalStatus.Draft;
             draftAssociation.IsPublished = false;
 
             Association futurePublishedAssociation = CreateRandomAssociation();
             futurePublishedAssociation.IsDeleted = false;
+            futurePublishedAssociation.UserId = null;
             futurePublishedAssociation.ApprovalStatus = ApprovalStatus.Approved;
             futurePublishedAssociation.IsPublished = true;
 
@@ -101,6 +106,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             Association deletedAssociation = CreateRandomAssociation();
             deletedAssociation.IsDeleted = true;
+            deletedAssociation.UserId = null;
             deletedAssociation.ApprovalStatus = ApprovalStatus.Approved;
             deletedAssociation.IsPublished = true;
             deletedAssociation.PublishDate = null;
@@ -156,30 +162,35 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         [Fact]
         public async Task ShouldRetrieveAllPublicAndOwnAssociationsWhenUserHasNoReviewRoleAsync()
         {
-            // given
+            // given: every row is editorial, so what this tests is the editorial posture,
+            // which rule 7 leaves unchanged (AssociationService.AssociationReads.md §1 rule 4)
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
             string randomActorUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             Association publicAssociation = CreateRandomAssociation();
             publicAssociation.IsDeleted = false;
+            publicAssociation.UserId = null;
             publicAssociation.ApprovalStatus = ApprovalStatus.Approved;
             publicAssociation.IsPublished = true;
             publicAssociation.PublishDate = null;
 
             Association ownDraftAssociation = CreateRandomAssociation();
             ownDraftAssociation.IsDeleted = false;
+            ownDraftAssociation.UserId = null;
             ownDraftAssociation.ApprovalStatus = ApprovalStatus.Draft;
             ownDraftAssociation.IsPublished = false;
             ownDraftAssociation.CreatedBy = randomActorUserId;
 
             Association othersDraftAssociation = CreateRandomAssociation();
             othersDraftAssociation.IsDeleted = false;
+            othersDraftAssociation.UserId = null;
             othersDraftAssociation.ApprovalStatus = ApprovalStatus.Draft;
             othersDraftAssociation.IsPublished = false;
 
             Association ownDeletedAssociation = CreateRandomAssociation();
             ownDeletedAssociation.IsDeleted = true;
+            ownDeletedAssociation.UserId = null;
             ownDeletedAssociation.CreatedBy = randomActorUserId;
 
             IQueryable<Association> storageAssociations =
