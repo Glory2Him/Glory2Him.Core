@@ -326,6 +326,96 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 association.Id == storyAssociation.Id);
         }
 
+        /// <summary>
+        /// #1121 criterion 4: the owner term of §SEC14.7 posture A′ rule 7 translates, and
+        /// compares under the column's collation (AssociationService.AssociationReads.md §1
+        /// rules 2 and 7; §DOM4.6 rule 3). The unit tests compare ordinally and cannot show
+        /// the second.
+        /// </summary>
+        [Fact]
+        public async Task ShouldRetrieveTheCallersOwnPersonalAssociationInSqlWhateverTheLetterCaseOfTheirUserIdAsync()
+        {
+            // given: stored in upper case, signed in with it in lower case. The row is under
+            // review and written by another account, so only the owner term can admit it.
+            string storedUserId = $"Reader-{Guid.NewGuid():N}".ToUpperInvariant();
+            string callerUserId = storedUserId.ToLowerInvariant();
+            this.broker.ActAs(callerUserId);
+
+            Association ownPersonalAssociation = CreateAssociation(
+                entityAType: EntityType.ContentItem,
+                entityAContentType: ContentType.Testimony,
+                entityBType: EntityType.Reaction,
+                isPublished: false,
+                createdBy: Guid.NewGuid().ToString(),
+                approvalStatus: ApprovalStatus.Submitted,
+                userId: storedUserId);
+
+            await SeedAsync(ownPersonalAssociation);
+
+            // when
+            IQueryable<Association> query =
+                await this.broker.AssociationService.RetrieveAllAssociationsAsync(
+                    CancellationToken.None);
+
+            List<Association> actualAssociations =
+                await query.ToListAsync(TestContext.Current.CancellationToken);
+
+            // then
+            callerUserId.Should().NotBe(storedUserId);
+            callerUserId.Should().BeEquivalentTo(storedUserId);
+
+            actualAssociations.Should().Contain(association =>
+                association.Id == ownPersonalAssociation.Id);
+        }
+
+        /// <summary>
+        /// #1121 criterion 9: §SEC14.7 posture A′ rule 7 withholds a public personal row from
+        /// an anonymous caller in SQL, and leaves a public editorial row answered beside it
+        /// (AssociationService.AssociationReads.md §1 rules 1 and 4).
+        /// </summary>
+        [Fact]
+        public async Task ShouldWithholdAPublicPersonalAssociationFromAnAnonymousCallerInSqlAsync()
+        {
+            // given: a reader's reaction and an editorial association, both approved and
+            // published with no publish date
+            this.broker.ActAsAnonymous();
+            string readerUserId = Guid.NewGuid().ToString();
+
+            Association publicPersonalAssociation = CreateAssociation(
+                entityAType: EntityType.ContentItem,
+                entityAContentType: ContentType.Testimony,
+                entityBType: EntityType.Reaction,
+                isPublished: true,
+                createdBy: readerUserId,
+                approvalStatus: ApprovalStatus.Approved,
+                userId: readerUserId);
+
+            Association publicEditorialAssociation = CreateAssociation(
+                entityAType: EntityType.ContentItem,
+                entityAContentType: ContentType.Testimony,
+                entityBType: EntityType.Tag,
+                isPublished: true,
+                createdBy: Guid.NewGuid().ToString(),
+                approvalStatus: ApprovalStatus.Approved);
+
+            await SeedAsync(publicPersonalAssociation, publicEditorialAssociation);
+
+            // when
+            IQueryable<Association> query =
+                await this.broker.AssociationService.RetrieveAllAssociationsAsync(
+                    CancellationToken.None);
+
+            List<Association> actualAssociations =
+                await query.ToListAsync(TestContext.Current.CancellationToken);
+
+            // then
+            actualAssociations.Should().Contain(association =>
+                association.Id == publicEditorialAssociation.Id);
+
+            actualAssociations.Should().NotContain(association =>
+                association.Id == publicPersonalAssociation.Id);
+        }
+
         private async ValueTask SeedAsync(params Association[] associations)
         {
             await this.broker.InsertAsync(associations);
@@ -333,14 +423,17 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
         }
 
         // entityBContentType defaults to null because most cases only need the A side; the
-        // B-side narrow tier is a separate branch of the filter and has to be able to set it
+        // B-side narrow tier is a separate branch of the filter and has to be able to set it.
+        // userId defaults to null, an editorial row; a personal row sets it.
         private static Association CreateAssociation(
             EntityType entityAType,
             ContentType? entityAContentType,
             EntityType entityBType,
             bool isPublished,
             string createdBy,
-            ContentType? entityBContentType = null)
+            ContentType? entityBContentType = null,
+            ApprovalStatus approvalStatus = ApprovalStatus.Draft,
+            string userId = null)
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
 
@@ -357,7 +450,8 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 EntityBGroupId = Guid.NewGuid(),
                 EntityBScope = Scope.AllVersions,
                 EntityBContentType = entityBContentType,
-                ApprovalStatus = ApprovalStatus.Draft,
+                UserId = userId,
+                ApprovalStatus = approvalStatus,
                 IsPublished = isPublished,
                 IsDeleted = false,
                 CreatedBy = createdBy,
