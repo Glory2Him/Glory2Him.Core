@@ -255,7 +255,10 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             bool isOwner =
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && (maybeAssociation.CreatedBy == actorUserId
-                        || maybeAssociation.UserId == actorUserId);
+                        || string.Equals(
+                            maybeAssociation.UserId,
+                            actorUserId,
+                            StringComparison.OrdinalIgnoreCase));
 
             // the review check is endpoint-derived and the row is in hand, so a reviewer
             // scoped to either end can audit it. The contribution veto is deliberately NOT
