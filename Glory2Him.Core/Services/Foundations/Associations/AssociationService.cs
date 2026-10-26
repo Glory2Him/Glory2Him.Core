@@ -317,6 +317,12 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             HashSet<ContentType> reviewableContentTypes =
                 ResolveReviewableContentTypes(securityContext);
 
+            // Posture A′ rule 7: a personal row, one whose UserId is set, reaches only its
+            // owner and the review tier, so the public and created-by terms admit editorial
+            // rows alone. The owner is the account UserId names, never CreatedBy, and the
+            // term compares in SQL under the column's case-insensitive collation (§DOM4.6
+            // rule 3). It is not composed for a caller with no user id, who would otherwise
+            // match every editorial row's null UserId.
             return visibleAssociations.Where(association =>
                 reviewableEntityTypes.Contains(association.EntityAType)
                 || reviewableEntityTypes.Contains(association.EntityBType)
