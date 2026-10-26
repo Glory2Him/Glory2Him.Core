@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using RESTFulSense.Clients.Extensions;
+using Xeptions;
 
 namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
 {
@@ -101,6 +102,45 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
                     someAssociationId,
                     cancellationToken))
                         .ThrowsAsync(associationOrchestrationValidationException);
+
+            // when
+            ActionResult<Association> actualActionResult =
+                await this.associationsController.GetAssociationByIdAsync(
+                    someAssociationId,
+                    cancellationToken);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.associationOrchestrationServiceMock.Verify(service =>
+                service.RetrieveAssociationByIdAsync(
+                    someAssociationId,
+                    cancellationToken),
+                        Times.Once);
+
+            this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ValidationExceptions))]
+        public async Task ShouldReturnBadRequestOnGetByIdIfValidationErrorOccurredAsync(
+            Xeption validationException)
+        {
+            // given
+            Guid someAssociationId = Guid.NewGuid();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+            BadRequestObjectResult expectedBadRequestObjectResult =
+                BadRequest(validationException.InnerException);
+
+            var expectedActionResult =
+                new ActionResult<Association>(expectedBadRequestObjectResult);
+
+            this.associationOrchestrationServiceMock.Setup(service =>
+                service.RetrieveAssociationByIdAsync(
+                    someAssociationId,
+                    cancellationToken))
+                        .ThrowsAsync(validationException);
 
             // when
             ActionResult<Association> actualActionResult =
