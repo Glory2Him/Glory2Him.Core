@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using RESTFulSense.Clients.Extensions;
+using RESTFulSense.Models;
 using Xeptions;
 
 namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
@@ -141,6 +142,49 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
                     someAssociationId,
                     cancellationToken))
                         .ThrowsAsync(validationException);
+
+            // when
+            ActionResult<Association> actualActionResult =
+                await this.associationsController.GetAssociationByIdAsync(
+                    someAssociationId,
+                    cancellationToken);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.associationOrchestrationServiceMock.Verify(service =>
+                service.RetrieveAssociationByIdAsync(
+                    someAssociationId,
+                    cancellationToken),
+                        Times.Once);
+
+            this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldReturnFailedDependencyOnGetByIdIfDependencyErrorOccurredAsync()
+        {
+            // given
+            Guid someAssociationId = Guid.NewGuid();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var someInnerException = new Xeption();
+
+            var associationOrchestrationDependencyException =
+                new AssociationOrchestrationDependencyException(
+                    message: GetRandomString(),
+                    innerException: someInnerException);
+
+            FailedDependencyObjectResult expectedFailedDependencyObjectResult =
+                FailedDependency(someInnerException);
+
+            var expectedActionResult =
+                new ActionResult<Association>(expectedFailedDependencyObjectResult);
+
+            this.associationOrchestrationServiceMock.Setup(service =>
+                service.RetrieveAssociationByIdAsync(
+                    someAssociationId,
+                    cancellationToken))
+                        .ThrowsAsync(associationOrchestrationDependencyException);
 
             // when
             ActionResult<Association> actualActionResult =
