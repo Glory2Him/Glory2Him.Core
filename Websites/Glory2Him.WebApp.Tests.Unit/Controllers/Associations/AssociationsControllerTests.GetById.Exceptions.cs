@@ -203,5 +203,48 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
 
             this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldReturnInternalServerErrorOnGetByIdIfServerErrorOccurredAsync()
+        {
+            // given
+            Guid someAssociationId = Guid.NewGuid();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var someInnerException = new Xeption();
+
+            var associationOrchestrationServiceException =
+                new AssociationOrchestrationServiceException(
+                    message: GetRandomString(),
+                    innerException: someInnerException);
+
+            InternalServerErrorObjectResult expectedInternalServerErrorObjectResult =
+                InternalServerError(associationOrchestrationServiceException);
+
+            var expectedActionResult =
+                new ActionResult<Association>(expectedInternalServerErrorObjectResult);
+
+            this.associationOrchestrationServiceMock.Setup(service =>
+                service.RetrieveAssociationByIdAsync(
+                    someAssociationId,
+                    cancellationToken))
+                        .ThrowsAsync(associationOrchestrationServiceException);
+
+            // when
+            ActionResult<Association> actualActionResult =
+                await this.associationsController.GetAssociationByIdAsync(
+                    someAssociationId,
+                    cancellationToken);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.associationOrchestrationServiceMock.Verify(service =>
+                service.RetrieveAssociationByIdAsync(
+                    someAssociationId,
+                    cancellationToken),
+                        Times.Once);
+
+            this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
     }
 }
