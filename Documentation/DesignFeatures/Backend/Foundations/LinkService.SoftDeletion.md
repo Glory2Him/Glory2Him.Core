@@ -1,11 +1,11 @@
 # Link service — soft deletion
 Parent: [SoftDeletion.md](../../SoftDeletion.md)
 Level: foundation — `ILinkService` (`Glory2Him.Core/Services/Foundations/Links/`). Its other user stories are `Backend/Foundations/LinkService.md`, `LinkService.BereanReview.md` and `LinkService.ConfidenceReads.md`.
-Inherits: §SEC14.5 rules 1–3, 6 and 7, §SEC14.6 rules 1–4, §SEC14.7 posture A rules 1 and 3, §ARC12.3.1 shared rule 9, SoftDeletion.md rules 1–3 and *The rulings*
+Inherits: §SEC14.5 rules 1–3, 6 and 7, §SEC14.6 rules 1–4, §SEC14.7 posture A rules 1 and 3, §ARC12.3.1 shared rule 9, SoftDeletion.md rules 1–3, 16 and 19, and *The rulings*
 
-`ModifyLinkAsync` refuses a soft-deleted link (SoftDeletion.md rule 5). The refusal is asked in `DoModifyLinkAsync` (`LinkService.cs`), the body the direct path and its `Link-Modifying` door share, so §1 builds it and §2 proves it on the door, with tests that pass as soon as they are written and are committed as pins (`FOUNDATIONS: Pin That …`). Each interface method has a section and a task of its own, as the owner ruled on 2026-10-17 (`ConfidenceReads.md`, *The rulings*).
+`ModifyLinkAsync` refuses a soft-deleted link (SoftDeletion.md rule 5). The refusal is asked in `DoModifyLinkAsync` (`LinkService.cs`), the body the direct path and its `Link-Modifying` door share, so §1 builds it and §2 proves it on the door, with tests that pass as soon as they are written and are committed as pins (`FOUNDATIONS: Pin That …`). Each interface method has a section and a task of its own, as the owner ruled on 2026-10-17 (`ConfidenceReads.md`, *The rulings*). §3 rewrites what the service's code says of its group's published slot (SoftDeletion.md rule 19).
 
-**Build order** (SoftDeletion.md, *What ships together*). §1 lands after `Backend/Foundations/ContentItemService.SoftDeletion.md §1`, which rewrites the lines every later refusal keeps true, and before `Backend/Foundations/AssociationService.SoftDeletion.md §1`, the last refusal to land. §2 lands after §1.
+**Build order** (SoftDeletion.md, *What ships together*). §1 lands after `Backend/Foundations/ContentItemService.SoftDeletion.md §1`, which rewrites the lines every later refusal keeps true, and before `Backend/Foundations/AssociationService.SoftDeletion.md §1`, the last refusal to land. §2 lands after §1. §3 waits for neither.
 
 ## 1. ModifyLinkAsync — refuse a soft-deleted link (#1332)
 
@@ -33,6 +33,14 @@ ValueTask<EventEnvelope<Link>?> OnModifyingLinkAsync(
 
 1. **It refuses a soft-deleted link as §1 does**, decided against its inbound envelope's security context, since it runs the body §1 changes: it throws `LinkValidationException` over `NotFoundLinkException`, logs as §1 logs, writes nothing, publishes nothing and records no processed event, as it does for a missing link today.
 2. **It adds no code.** Its tests pass as soon as they are written, once §1 is built, and are committed as pins. Its envelope's refusals, its deduplication and its failures are unchanged, and their tests stand.
+
+## 3. What the code says of the published slot (#1347)
+
+No operation: the code text of `LinkService` and its unit tests that says, or rests on, a soft-deleted link holding its group's published slot (SoftDeletion.md rules 16 and 19). It has a section of its own so that its task has a section to name.
+
+1. **The texts** are the unpublish's comment (`LinkService.Transitions.cs`) and its summary (`ILinkService.cs`); the published-sibling probe's comments (`LinkService.Lookup.cs`) and its summary (`ILinkService.cs`); the version read's comment, where it likens a lineage to the published slot (`LinkService.Lookup.cs`); the collection read's summary of the questions a tombstone answers (`ILinkService.cs`); and, in its unit tests, the probe's tests (`LinkServiceTests.Lookup.cs`, two test names among them) and the unpublish's (`LinkServiceTests.Unpublish.cs`). Its task fixes each text's words, before and after.
+2. **What they say instead** (SoftDeletion.md rule 16; §APR9.7.7 rule 7): a tombstone holds no slot, since the slot index excludes deleted rows. It can still carry `IsPublished`, the probe still finds it, and the publication swap's unpublish clears its flag. *"A soft delete never clears IsPublished"* stays wherever a text says it, true until the removal's demotion is built (#1329).
+3. **Nothing runs differently.** It changes comments, summaries and test names alone, and each renamed test passes under its new name.
 
 ## Deviations
 

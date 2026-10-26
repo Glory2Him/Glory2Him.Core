@@ -1,11 +1,11 @@
 # ContentItem service — soft deletion
 Parent: [SoftDeletion.md](../../SoftDeletion.md)
 Level: foundation — `IContentItemService` (`Glory2Him.Core/Services/Foundations/ContentItems/`). Its other user stories are `Backend/Foundations/ContentItemService.md`, `ContentItemService.Amenders.md`, `ContentItemService.BereanReview.md`, `ContentItemService.ConfidenceReads.md` and `ContentItemService.LiveUpdates.md`.
-Inherits: §SEC14.5 rules 1–3, 6 and 7, §SEC14.6 rules 1–4, §SEC14.7 posture A rules 1 and 3, §SEC18.6 rule 2, §ARC12.3.1 shared rule 9, SoftDeletion.md rules 1–3 and *The rulings*
+Inherits: §SEC14.5 rules 1–3, 6 and 7, §SEC14.6 rules 1–4, §SEC14.7 posture A rules 1 and 3, §SEC18.6 rule 2, §ARC12.3.1 shared rule 9, SoftDeletion.md rules 1–3, 16 and 18, and *The rulings*
 
-`ModifyContentItemAsync` refuses a soft-deleted content item (SoftDeletion.md rule 4). The refusal is asked in `DoModifyContentItemAsync` (`ContentItemService.cs`), the body the direct path and its `ContentItem-Modifying` door share, so §1 builds it and §2 proves it on the door, with tests that pass as soon as they are written and are committed as pins (`FOUNDATIONS: Pin That …`). Each interface method has a section and a task of its own, as the owner ruled on 2026-10-17 (`ConfidenceReads.md`, *The rulings*).
+`ModifyContentItemAsync` refuses a soft-deleted content item (SoftDeletion.md rule 4). The refusal is asked in `DoModifyContentItemAsync` (`ContentItemService.cs`), the body the direct path and its `ContentItem-Modifying` door share, so §1 builds it and §2 proves it on the door, with tests that pass as soon as they are written and are committed as pins (`FOUNDATIONS: Pin That …`). Each interface method has a section and a task of its own, as the owner ruled on 2026-10-17 (`ConfidenceReads.md`, *The rulings*). §3 rewrites what the service's code says of its group's published slot (SoftDeletion.md rule 18).
 
-**Build order** (SoftDeletion.md, *What ships together*). §1 is the first refusal to land: its build makes two lines of `ConfidenceReads.md` untrue, and it rewrites them into the words every later refusal keeps true (§1 rule 8). The other six items' refusals land after it. §2 lands after §1.
+**Build order** (SoftDeletion.md, *What ships together*). §1 is the first refusal to land: its build makes two lines of `ConfidenceReads.md` untrue, and it rewrites them into the words every later refusal keeps true (§1 rule 8). The other six items' refusals land after it. §2 lands after §1. §3 waits for neither.
 
 ## 1. ModifyContentItemAsync — refuse a soft-deleted content item (#1330)
 
@@ -34,6 +34,14 @@ ValueTask<EventEnvelope<ContentItem>?> OnModifyingContentItemAsync(
 
 1. **It refuses a soft-deleted content item as §1 does**, decided against its inbound envelope's security context, since it runs the body §1 changes: it throws `ContentItemValidationException` over `NotFoundContentItemException`, logs as §1 logs, writes nothing, publishes nothing and records no processed event, as it does for a missing content item today.
 2. **It adds no code.** Its tests pass as soon as they are written, once §1 is built, and are committed as pins. Its envelope's refusals, its deduplication and its failures are unchanged, and their tests stand.
+
+## 3. What the code says of the published slot (#1346)
+
+No operation: the code text of `ContentItemService` and its unit tests that says, or rests on, a soft-deleted content item holding its group's published slot (SoftDeletion.md rules 16 and 18). It has a section of its own so that its task has a section to name.
+
+1. **The texts** are the unpublish's comment (`ContentItemService.Transitions.cs`) and its summary (`IContentItemService.cs`); the published-sibling probe's comments (`ContentItemService.Lookup.cs`) and its summary (`IContentItemService.cs`); the version read's comment, where it likens a lineage to the published slot (`ContentItemService.Lookup.cs`); the collection read's summary of the questions a tombstone answers (`IContentItemService.cs`); and, in its unit tests, the probe's tests (`ContentItemServiceTests.Lookup.cs`, two test names among them) and the unpublish's (`ContentItemServiceTests.Unpublish.cs`). Its task fixes each text's words, before and after.
+2. **What they say instead** (SoftDeletion.md rule 16; §APR9.7.7 rule 7): a tombstone holds no slot, since the slot index excludes deleted rows. It can still carry `IsPublished`, the probe still finds it, and the publication swap's unpublish clears its flag. *"A soft delete never clears IsPublished"* stays wherever a text says it, true until the removal's demotion is built (#1329).
+3. **Nothing runs differently.** It changes comments, summaries and test names alone, and each renamed test passes under its new name.
 
 ## Deviations
 
