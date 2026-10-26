@@ -15,6 +15,7 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
@@ -283,6 +284,73 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // then
             storageUserId.Should().NotBe(callerUserId);
             storageUserId.Should().BeEquivalentTo(callerUserId);
+            actualAssociation.Should().BeEquivalentTo(expectedAssociation);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.TagReviewers)]
+        public async Task ShouldRetrieveANonPublicEditorialAssociationByIdWhenCallerHasReviewRoleAsync(
+            string reviewRole)
+        {
+            // given: a pending tag on a post, written by another account, read by a global
+            // reviewer and by one scoped to the tag endpoint alone. An editorial row is
+            // answered as before rule 7, the review tier included (§2 rule 7).
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(reviewRole);
+            string randomActorUserId = GetRandomString();
+            Association storageAssociation = CreateRandomAssociation();
+            storageAssociation.EntityAType = EntityType.ContentItem;
+            storageAssociation.EntityAContentType = ContentType.Quote;
+            storageAssociation.EntityBType = EntityType.Tag;
+            storageAssociation.EntityBContentType = null;
+            storageAssociation.IsDeleted = false;
+            storageAssociation.ApprovalStatus = ApprovalStatus.Submitted;
+            storageAssociation.IsPublished = false;
+            storageAssociation.UserId = null;
+            storageAssociation.CreatedBy = GetRandomString();
+            Association expectedAssociation = storageAssociation;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(randomActorUserId);
+
+            // when
+            Association actualAssociation =
+                await this.associationService.RetrieveAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken);
+
+            // then
             actualAssociation.Should().BeEquivalentTo(expectedAssociation);
 
             this.storageBrokerMock.Verify(broker =>
