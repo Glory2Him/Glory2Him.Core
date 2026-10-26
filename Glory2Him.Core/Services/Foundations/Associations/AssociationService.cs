@@ -309,8 +309,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             // both enums persist as strings EF parameterises the converted values.
             //
             // A caller with no scoped roles gets two empty sets, and an empty
-            // `HashSet.Contains` is constant-false, so the query degrades to exactly the
-            // public-plus-own predicate it had before.
+            // `HashSet.Contains` is constant-false, so the query degrades to the public and
+            // own terms below alone.
             HashSet<EntityType> reviewableEntityTypes =
                 ResolveReviewableEntityTypes(securityContext);
 
