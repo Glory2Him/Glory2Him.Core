@@ -73,5 +73,51 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
 
             this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldReturnNotFoundOnGetByIdIfAnEndpointIsNotVisibleAsync()
+        {
+            // given
+            Guid someAssociationId = Guid.NewGuid();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+            var notFoundAssociationOrchestrationException =
+                new NotFoundAssociationOrchestrationException(
+                    message: $"Content item association not found with id: {someAssociationId}.");
+
+            var associationOrchestrationValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: GetRandomString(),
+                    innerException: notFoundAssociationOrchestrationException);
+
+            NotFoundObjectResult expectedNotFoundObjectResult =
+                NotFound(notFoundAssociationOrchestrationException);
+
+            var expectedActionResult =
+                new ActionResult<Association>(expectedNotFoundObjectResult);
+
+            this.associationOrchestrationServiceMock.Setup(service =>
+                service.RetrieveAssociationByIdAsync(
+                    someAssociationId,
+                    cancellationToken))
+                        .ThrowsAsync(associationOrchestrationValidationException);
+
+            // when
+            ActionResult<Association> actualActionResult =
+                await this.associationsController.GetAssociationByIdAsync(
+                    someAssociationId,
+                    cancellationToken);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.associationOrchestrationServiceMock.Verify(service =>
+                service.RetrieveAssociationByIdAsync(
+                    someAssociationId,
+                    cancellationToken),
+                        Times.Once);
+
+            this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
     }
 }
