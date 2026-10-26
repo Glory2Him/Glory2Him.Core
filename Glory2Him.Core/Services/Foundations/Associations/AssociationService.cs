@@ -275,9 +275,13 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 && HasReviewRoleForAssociation(securityContext, maybeAssociation) is false)
             {
                 await this.loggingBroker.LogWarningAsync(
-                    message: $"Content item association read denied. Content item association " +
-                        $"{associationId} is not publicly visible and user \"{actorUserId}\" " +
-                        "is neither the owner nor in a review role; reported to the caller as not found.");
+                    message: isPersonalAssociation
+                        ? $"Content item association read denied. Content item association " +
+                            $"{associationId} is a personal association and user \"{actorUserId}\" " +
+                            "is neither its owner nor in a review role; reported to the caller as not found."
+                        : $"Content item association read denied. Content item association " +
+                            $"{associationId} is not publicly visible and user \"{actorUserId}\" " +
+                            "is neither the owner nor in a review role; reported to the caller as not found.");
 
                 throw new NotFoundAssociationException(
                     message: $"Content item association not found with id: {associationId}.");
