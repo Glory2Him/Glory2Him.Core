@@ -383,5 +383,81 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldRetrieveAnotherReadersPersonalAssociationWhenCallerHoldsAnEndpointReviewRoleAsync()
+        {
+            // given: another reader's reaction, still under review, read by a caller whose one
+            // role is scoped to the reaction endpoint. The control row is another reader's too,
+            // on endpoints the role does not cover.
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.ReactionReviewers);
+
+            string randomActorUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            Association othersReaction = CreateRandomReaction(readerUserId: GetRandomString());
+            othersReaction.IsDeleted = false;
+            othersReaction.ApprovalStatus = ApprovalStatus.Submitted;
+            othersReaction.IsPublished = false;
+
+            Association othersUnscopedPersonalAssociation = CreateRandomAssociation();
+            othersUnscopedPersonalAssociation.IsDeleted = false;
+            othersUnscopedPersonalAssociation.ApprovalStatus = ApprovalStatus.Submitted;
+            othersUnscopedPersonalAssociation.IsPublished = false;
+            othersUnscopedPersonalAssociation.UserId = GetRandomString();
+            othersUnscopedPersonalAssociation.CreatedBy = GetRandomString();
+
+            IQueryable<Association> storageAssociations =
+                new List<Association>
+                {
+                    othersReaction,
+                    othersUnscopedPersonalAssociation
+                }.AsQueryable();
+
+            IQueryable<Association> expectedAssociations =
+                new List<Association>
+                {
+                    othersReaction
+                }.AsQueryable();
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageAssociations);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomActorUserId);
+
+            // when
+            IQueryable<Association> actualAssociations =
+                await this.associationService.RetrieveAllAssociationsAsync(
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualAssociations.Should().BeEquivalentTo(expectedAssociations);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
