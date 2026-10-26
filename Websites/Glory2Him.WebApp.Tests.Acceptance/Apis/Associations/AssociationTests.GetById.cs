@@ -172,5 +172,53 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(reactedContentItem.Id);
             }
         }
+
+        /// <summary>
+        /// §SEC14.5 rule 1, <i>Indistinguishability</i>: the withheld reaction is answered with the
+        /// body an id that names no row is answered with. Each body names its own id in its
+        /// message, so each id is masked before the two are compared.
+        /// </summary>
+        [Fact]
+        public async Task ShouldAnswerAnotherReadersReactionAsAnIdThatNamesNothingAsync()
+        {
+            // given
+            CoreContentItem reactedContentItem = await InsertPublishedContentItemAsync();
+            Guid freshAssociationId = Guid.NewGuid();
+            string idMask = "{associationId}";
+
+            try
+            {
+                (_, Guid reactionId) = await GiveAmenAsANewReaderAsync(reactedContentItem.Id);
+                this.apiBroker.ActAsContributor();
+
+                HttpResponseMessage expectedResponse =
+                    await this.apiBroker.GetAssociationByIdAsync(freshAssociationId);
+
+                string expectedBody =
+                    (await expectedResponse.Content.ReadAsStringAsync())
+                        .Replace(freshAssociationId.ToString(), idMask);
+
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.GetAssociationByIdAsync(reactionId);
+
+                // then
+                expectedResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+                string actualBody =
+                    (await actualResponse.Content.ReadAsStringAsync())
+                        .Replace(reactionId.ToString(), idMask);
+
+                actualBody.Should().Contain(idMask);
+                actualBody.Should().Be(expectedBody);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(reactedContentItem.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(reactedContentItem.Id);
+            }
+        }
     }
 }
