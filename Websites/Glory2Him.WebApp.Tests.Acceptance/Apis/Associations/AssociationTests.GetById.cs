@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -68,6 +69,43 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 }
 
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
+            }
+        }
+
+        [Fact]
+        public async Task ShouldServeAReaderTheirOwnReactionByIdAsync()
+        {
+            // given
+            CoreContentItem reactedContentItem = await InsertPublishedContentItemAsync();
+
+            try
+            {
+                (string readerId, Guid reactionId) =
+                    await GiveAmenAsANewReaderAsync(reactedContentItem.Id);
+
+                CoreAssociation expectedAssociation =
+                    await this.apiBroker.GetCoreAssociationByIdAsync(reactionId);
+
+                this.apiBroker.ActAs(readerId);
+
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.GetAssociationByIdAsync(reactionId);
+
+                // then
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                CoreAssociation actualAssociation =
+                    await actualResponse.Content.ReadFromJsonAsync<CoreAssociation>();
+
+                actualAssociation.Should().BeEquivalentTo(expectedAssociation);
+                actualAssociation.UserId.Should().Be(readerId);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(reactedContentItem.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(reactedContentItem.Id);
             }
         }
     }
