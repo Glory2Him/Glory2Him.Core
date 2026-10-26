@@ -335,5 +335,86 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowNotFoundOnRetrieveByIdIfAnonymousCallerAsksForAPublicPersonalAssociationAsync(
+            SecurityContext unauthenticatedSecurityContext)
+        {
+            // given: a reader's reaction, approved, published and past its publish date, is
+            // still answered to its owner and the review tier alone (§2 rules 1 and 2)
+            this.ambientSecurityContext = unauthenticatedSecurityContext;
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            int randomDaysInPast = GetRandomNegativeNumber();
+
+            Association storageAssociation =
+                CreateRandomReaction(readerUserId: GetRandomString());
+
+            storageAssociation.IsDeleted = false;
+            storageAssociation.ApprovalStatus = ApprovalStatus.Approved;
+            storageAssociation.IsPublished = true;
+            storageAssociation.PublishDate = randomDateTimeOffset.AddDays(randomDaysInPast);
+            Guid associationId = storageAssociation.Id;
+
+            var notFoundAssociationException = new NotFoundAssociationException(
+                message: $"Content item association not found with id: {associationId}.");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: notFoundAssociationException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<Association> retrieveAssociationByIdTask =
+                this.associationService.RetrieveAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    retrieveAssociationByIdTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(
+                    $"Content item association read denied. Content item association " +
+                        $"{associationId} is a personal association and the caller is not " +
+                        "authenticated; reported to the caller as not found."),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
