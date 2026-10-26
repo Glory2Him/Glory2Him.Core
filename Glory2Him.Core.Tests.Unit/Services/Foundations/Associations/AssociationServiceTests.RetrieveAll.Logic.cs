@@ -357,7 +357,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 }.AsQueryable();
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
+                broker.SelectAllAssociationsAsync(TestContext.Current.CancellationToken))
                     .ReturnsAsync(storageAssociations);
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -365,7 +365,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     .ReturnsAsync(randomDateTimeOffset);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                broker.GetUserIdAsync(this.ambientSecurityContext))
                     .ReturnsAsync(randomActorUserId);
 
             // when
@@ -377,7 +377,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             actualAssociations.Should().BeEquivalentTo(expectedAssociations);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectAllAssociationsAsync(TestContext.Current.CancellationToken),
                 Times.Once);
 
             this.dateTimeBrokerMock.Verify(broker =>
@@ -385,7 +385,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                broker.GetUserIdAsync(this.ambientSecurityContext),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
@@ -433,7 +433,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 }.AsQueryable();
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
+                broker.SelectAllAssociationsAsync(TestContext.Current.CancellationToken))
                     .ReturnsAsync(storageAssociations);
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -441,7 +441,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     .ReturnsAsync(randomDateTimeOffset);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                broker.GetUserIdAsync(this.ambientSecurityContext))
                     .ReturnsAsync(randomActorUserId);
 
             // when
@@ -453,7 +453,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             actualAssociations.Should().BeEquivalentTo(expectedAssociations);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectAllAssociationsAsync(TestContext.Current.CancellationToken),
                 Times.Once);
 
             this.dateTimeBrokerMock.Verify(broker =>
@@ -461,7 +461,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                broker.GetUserIdAsync(this.ambientSecurityContext),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
@@ -515,7 +515,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 }.AsQueryable();
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
+                broker.SelectAllAssociationsAsync(TestContext.Current.CancellationToken))
                     .ReturnsAsync(storageAssociations);
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -531,7 +531,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             actualAssociations.Should().BeEquivalentTo(expectedAssociations);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectAllAssociationsAsync(TestContext.Current.CancellationToken),
                 Times.Once);
 
             this.dateTimeBrokerMock.Verify(broker =>
@@ -583,7 +583,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 }.AsQueryable();
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
+                broker.SelectAllAssociationsAsync(TestContext.Current.CancellationToken))
                     .ReturnsAsync(storageAssociations);
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -591,7 +591,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     .ReturnsAsync(randomDateTimeOffset);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                broker.GetUserIdAsync(this.ambientSecurityContext))
                     .ReturnsAsync(randomActorUserId);
 
             // when
@@ -603,7 +603,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             actualAssociations.Should().BeEquivalentTo(expectedAssociations);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectAllAssociationsAsync(TestContext.Current.CancellationToken),
                 Times.Once);
 
             this.dateTimeBrokerMock.Verify(broker =>
@@ -611,7 +611,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                broker.GetUserIdAsync(this.ambientSecurityContext),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
@@ -659,7 +659,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 }.AsQueryable();
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
+                broker.SelectAllAssociationsAsync(TestContext.Current.CancellationToken))
                     .ReturnsAsync(storageAssociations);
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -667,7 +667,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     .ReturnsAsync(randomDateTimeOffset);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                broker.GetUserIdAsync(this.ambientSecurityContext))
                     .ReturnsAsync(randomActorUserId);
 
             // when
@@ -679,7 +679,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             actualAssociations.Should().BeEquivalentTo(expectedAssociations);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectAllAssociationsAsync(TestContext.Current.CancellationToken),
                 Times.Once);
 
             this.dateTimeBrokerMock.Verify(broker =>
@@ -687,7 +687,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                broker.GetUserIdAsync(this.ambientSecurityContext),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
@@ -723,7 +723,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 }.AsQueryable();
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
+                broker.SelectAllAssociationsAsync(TestContext.Current.CancellationToken))
                     .ReturnsAsync(storageAssociations);
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -731,7 +731,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     .ReturnsAsync(randomDateTimeOffset);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                broker.GetUserIdAsync(this.ambientSecurityContext))
                     .ReturnsAsync(blankUserId);
 
             // when
@@ -743,7 +743,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             actualAssociations.Should().BeEmpty();
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectAllAssociationsAsync(TestContext.Current.CancellationToken),
                 Times.Once);
 
             this.dateTimeBrokerMock.Verify(broker =>
@@ -751,7 +751,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                broker.GetUserIdAsync(this.ambientSecurityContext),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
@@ -788,7 +788,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 }.AsQueryable();
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
+                broker.SelectAllAssociationsAsync(TestContext.Current.CancellationToken))
                     .ReturnsAsync(storageAssociations);
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -796,7 +796,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     .ReturnsAsync(randomDateTimeOffset);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                broker.GetUserIdAsync(this.ambientSecurityContext))
                     .ReturnsAsync(blankUserId);
 
             // when
@@ -808,7 +808,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             actualAssociations.Should().BeEmpty();
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectAllAssociationsAsync(TestContext.Current.CancellationToken),
                 Times.Once);
 
             this.dateTimeBrokerMock.Verify(broker =>
@@ -816,7 +816,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                broker.GetUserIdAsync(this.ambientSecurityContext),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
