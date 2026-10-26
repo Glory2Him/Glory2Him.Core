@@ -760,5 +760,70 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData(" ")]
+        public async Task ShouldNotRetrieveANonPublicEditorialAssociationForACallerWithNoUserIdAsync(
+            string blankUserId)
+        {
+            // given: a signed-in caller whose identity carries no user id, and a non-public
+            // editorial row another account created. An owner term composed for this caller
+            // would match the row's null UserId (§1 rule 5).
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            Association nonPublicEditorialAssociation = CreateRandomAssociation();
+            nonPublicEditorialAssociation.IsDeleted = false;
+            nonPublicEditorialAssociation.ApprovalStatus = ApprovalStatus.Submitted;
+            nonPublicEditorialAssociation.IsPublished = false;
+            nonPublicEditorialAssociation.UserId = null;
+            nonPublicEditorialAssociation.CreatedBy = GetRandomString();
+
+            IQueryable<Association> storageAssociations =
+                new List<Association>
+                {
+                    nonPublicEditorialAssociation
+                }.AsQueryable();
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageAssociations);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(blankUserId);
+
+            // when
+            IQueryable<Association> actualAssociations =
+                await this.associationService.RetrieveAllAssociationsAsync(
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualAssociations.Should().BeEmpty();
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
