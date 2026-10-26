@@ -156,6 +156,8 @@ namespace Glory2Him.WebApp.Controllers.Associations
             }
         }
 
+        [HttpGet("{associationId}")]
+        [AllowAnonymous]
         public async ValueTask<ActionResult<Association>> GetAssociationByIdAsync(
             Guid associationId,
             CancellationToken cancellationToken)
