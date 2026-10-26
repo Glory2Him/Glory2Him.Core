@@ -231,7 +231,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     && (maybeAssociation.PublishDate is null
                         || maybeAssociation.PublishDate <= currentDateTime);
 
-            if (isPubliclyVisible)
+            bool isPersonalAssociation = maybeAssociation.UserId is not null;
+
+            if (isPubliclyVisible && isPersonalAssociation is false)
             {
                 return maybeAssociation;
             }
@@ -241,9 +243,13 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             if (securityContext is null || securityContext.IsAuthenticated is false)
             {
                 await this.loggingBroker.LogWarningAsync(
-                    message: $"Content item association read denied. Content item association " +
-                        $"{associationId} is not publicly visible and the caller is not " +
-                        "authenticated; reported to the caller as not found.");
+                    message: isPersonalAssociation
+                        ? $"Content item association read denied. Content item association " +
+                            $"{associationId} is a personal association and the caller is not " +
+                            "authenticated; reported to the caller as not found."
+                        : $"Content item association read denied. Content item association " +
+                            $"{associationId} is not publicly visible and the caller is not " +
+                            "authenticated; reported to the caller as not found.");
 
                 throw new NotFoundAssociationException(
                     message: $"Content item association not found with id: {associationId}.");
