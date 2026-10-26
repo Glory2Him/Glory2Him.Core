@@ -156,10 +156,17 @@ namespace Glory2Him.WebApp.Controllers.Associations
             }
         }
 
-        public ValueTask<ActionResult<Association>> GetAssociationByIdAsync(
+        public async ValueTask<ActionResult<Association>> GetAssociationByIdAsync(
             Guid associationId,
-            CancellationToken cancellationToken) =>
-            throw new NotImplementedException();
+            CancellationToken cancellationToken)
+        {
+            Association association =
+                await this.associationOrchestrationService.RetrieveAssociationByIdAsync(
+                    associationId,
+                    cancellationToken);
+
+            return Ok(association);
+        }
 
         [HttpDelete("Pair")]
         [Authorize]
