@@ -25,9 +25,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         [Fact]
         public async Task ShouldRetrieveAssociationByIdAsync()
         {
-            // given
+            // given: the row is editorial, so what this tests is the editorial posture,
+            // which rule 7 leaves unchanged (AssociationService.AssociationReads.md §2 rule 7)
             Association randomAssociation = CreateRandomAssociation();
             Association storageAssociation = randomAssociation;
+            storageAssociation.UserId = null;
             storageAssociation.IsDeleted = false;
             storageAssociation.ApprovalStatus = ApprovalStatus.Approved;
             storageAssociation.IsPublished = true;
@@ -73,9 +75,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         [Fact]
         public async Task ShouldRetrieveNonPublicAssociationByIdWhenUserIsOwnerAsync()
         {
-            // given
+            // given: the row is editorial, so what this tests is the editorial posture,
+            // which rule 7 leaves unchanged (AssociationService.AssociationReads.md §2 rule 7)
             Association randomAssociation = CreateRandomAssociation();
             Association storageAssociation = randomAssociation;
+            storageAssociation.UserId = null;
             storageAssociation.IsDeleted = false;
             storageAssociation.ApprovalStatus = ApprovalStatus.Draft;
             storageAssociation.IsPublished = false;

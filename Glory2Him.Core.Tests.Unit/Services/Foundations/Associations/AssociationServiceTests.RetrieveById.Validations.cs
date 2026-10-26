@@ -187,9 +187,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfNotVisibleAndUserIsNotAuthenticatedAndLogItAsync(
             SecurityContext invalidSecurityContext)
         {
-            // given
+            // given: the row is editorial, so what this tests is the editorial posture,
+            // which rule 7 leaves unchanged (AssociationService.AssociationReads.md §2 rule 7)
             this.ambientSecurityContext = invalidSecurityContext;
             Association storageAssociation = CreateRandomAssociation();
+            storageAssociation.UserId = null;
             storageAssociation.IsDeleted = false;
             storageAssociation.ApprovalStatus = ApprovalStatus.Draft;
             storageAssociation.IsPublished = false;
@@ -259,9 +261,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         [Fact]
         public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfNotVisibleAndUserIsNotOwnerAndLogItAsync()
         {
-            // given
+            // given: the row is editorial, so what this tests is the editorial posture,
+            // which rule 7 leaves unchanged (AssociationService.AssociationReads.md §2 rule 7)
             string randomActorUserId = GetRandomString();
             Association storageAssociation = CreateRandomAssociation();
+            storageAssociation.UserId = null;
             storageAssociation.IsDeleted = false;
             storageAssociation.ApprovalStatus = ApprovalStatus.Draft;
             storageAssociation.IsPublished = false;

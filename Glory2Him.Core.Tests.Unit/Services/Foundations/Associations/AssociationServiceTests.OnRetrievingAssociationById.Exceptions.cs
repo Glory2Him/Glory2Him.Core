@@ -156,8 +156,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         [Fact]
         public async Task ShouldThrowServiceExceptionOnRetrievingAssociationByIdEventIfServiceErrorOccursAndLogItAsync()
         {
-            // given
+            // given: the row is editorial and public, so the read answers it and the handler
+            // reaches the step that throws (AssociationService.AssociationReads.md §2 rule 7)
             Association storageAssociation = CreateRandomAssociation();
+            storageAssociation.UserId = null;
             storageAssociation.IsDeleted = false;
             storageAssociation.ApprovalStatus = ApprovalStatus.Approved;
             storageAssociation.IsPublished = true;
