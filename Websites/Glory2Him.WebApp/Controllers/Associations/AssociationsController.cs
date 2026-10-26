@@ -162,12 +162,22 @@ namespace Glory2Him.WebApp.Controllers.Associations
             Guid associationId,
             CancellationToken cancellationToken)
         {
-            Association association =
-                await this.associationOrchestrationService.RetrieveAssociationByIdAsync(
-                    associationId,
-                    cancellationToken);
+            try
+            {
+                Association association =
+                    await this.associationOrchestrationService.RetrieveAssociationByIdAsync(
+                        associationId,
+                        cancellationToken);
 
-            return Ok(association);
+                return Ok(association);
+            }
+            catch (AssociationOrchestrationDependencyValidationException
+                associationOrchestrationDependencyValidationException)
+                when (associationOrchestrationDependencyValidationException.InnerException
+                    is NotFoundAssociationException)
+            {
+                return NotFound(associationOrchestrationDependencyValidationException.InnerException);
+            }
         }
 
         [HttpDelete("Pair")]
