@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
@@ -219,6 +220,69 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     TestContext.Current.CancellationToken);
 
             // then
+            actualAssociation.Should().BeEquivalentTo(expectedAssociation);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldRetrieveTheCallersOwnPersonalAssociationByIdWhateverTheLetterCaseOfTheirUserIdAsync()
+        {
+            // given: the caller is signed in with their id in lower case and the row holds it
+            // in upper case; two ids differing only in letter case name one reader (§2 rule 3;
+            // §DOM4.6 rule 3)
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            string callerUserId = Guid.NewGuid().ToString().ToLowerInvariant();
+            string storageUserId = callerUserId.ToUpperInvariant();
+            Association storageAssociation = CreateRandomAssociation();
+            storageAssociation.IsDeleted = false;
+            storageAssociation.ApprovalStatus = ApprovalStatus.Submitted;
+            storageAssociation.IsPublished = false;
+            storageAssociation.UserId = storageUserId;
+            storageAssociation.CreatedBy = GetRandomString();
+            Association expectedAssociation = storageAssociation;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(callerUserId);
+
+            // when
+            Association actualAssociation =
+                await this.associationService.RetrieveAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            storageUserId.Should().NotBe(callerUserId);
+            storageUserId.Should().BeEquivalentTo(callerUserId);
             actualAssociation.Should().BeEquivalentTo(expectedAssociation);
 
             this.storageBrokerMock.Verify(broker =>
