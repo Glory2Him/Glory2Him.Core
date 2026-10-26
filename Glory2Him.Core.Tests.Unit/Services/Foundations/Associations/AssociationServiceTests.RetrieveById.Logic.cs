@@ -373,5 +373,59 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldRetrieveAPublicEditorialAssociationByIdWhenCallerIsAnonymousAsync(
+            SecurityContext unauthenticatedSecurityContext)
+        {
+            // given: an editorial association, approved, published and past its publish date,
+            // is answered to every caller, an anonymous one included (§2 rule 7)
+            this.ambientSecurityContext = unauthenticatedSecurityContext;
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            int randomDaysInPast = GetRandomNegativeNumber();
+            Association storageAssociation = CreateRandomAssociation();
+            storageAssociation.IsDeleted = false;
+            storageAssociation.ApprovalStatus = ApprovalStatus.Approved;
+            storageAssociation.IsPublished = true;
+            storageAssociation.PublishDate = randomDateTimeOffset.AddDays(randomDaysInPast);
+            storageAssociation.UserId = null;
+            Association expectedAssociation = storageAssociation;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            Association actualAssociation =
+                await this.associationService.RetrieveAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualAssociation.Should().BeEquivalentTo(expectedAssociation);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
