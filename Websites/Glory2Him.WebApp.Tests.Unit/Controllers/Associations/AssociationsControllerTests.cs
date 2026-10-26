@@ -62,6 +62,24 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
             };
 
         /// <summary>
+        /// A stored row, every member drawn, as the read by id answers it: its body is the whole
+        /// row (<c>AssociationReads.md</c> rule 8), unlike the caller's two-endpoint shape above.
+        /// </summary>
+        private static Association CreateRandomStoredAssociation()
+        {
+            DateTimeOffset randomDateTimeOffset =
+                new DateTimeRange(earliestDate: new DateTime(year: 2000, month: 1, day: 1)).GetValue();
+
+            var filler = new Filler<Association>();
+
+            filler.Setup()
+                .OnType<DateTimeOffset>().Use(randomDateTimeOffset)
+                .OnType<DateTimeOffset?>().Use(randomDateTimeOffset);
+
+            return filler.Create();
+        }
+
+        /// <summary>
         /// Every member compared, serialised, so an association carrying anything beyond what the
         /// expected one carries — a member set, or two endpoints swapped — does not match.
         /// </summary>
