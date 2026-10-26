@@ -146,5 +146,31 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(reactedContentItem.Id);
             }
         }
+
+        [Fact]
+        public async Task ShouldAnswerNotFoundForAReadersReactionToAnAnonymousCallerAsync()
+        {
+            // given
+            CoreContentItem reactedContentItem = await InsertPublishedContentItemAsync();
+
+            try
+            {
+                (_, Guid reactionId) = await GiveAmenAsANewReaderAsync(reactedContentItem.Id);
+                this.apiBroker.ActAsAnonymous();
+
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.GetAssociationByIdAsync(reactionId);
+
+                // then
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(reactedContentItem.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(reactedContentItem.Id);
+            }
+        }
     }
 }
