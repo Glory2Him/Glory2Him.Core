@@ -187,9 +187,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfNotVisibleAndUserIsNotAuthenticatedAndLogItAsync(
             SecurityContext invalidSecurityContext)
         {
-            // given
+            // given: the row is editorial, so what this tests is the editorial posture,
+            // which rule 7 leaves unchanged (AssociationService.AssociationReads.md §2 rule 7)
             this.ambientSecurityContext = invalidSecurityContext;
             Association storageAssociation = CreateRandomAssociation();
+            storageAssociation.UserId = null;
             storageAssociation.IsDeleted = false;
             storageAssociation.ApprovalStatus = ApprovalStatus.Draft;
             storageAssociation.IsPublished = false;
@@ -259,9 +261,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         [Fact]
         public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfNotVisibleAndUserIsNotOwnerAndLogItAsync()
         {
-            // given
+            // given: the row is editorial, so what this tests is the editorial posture,
+            // which rule 7 leaves unchanged (AssociationService.AssociationReads.md §2 rule 7)
             string randomActorUserId = GetRandomString();
             Association storageAssociation = CreateRandomAssociation();
+            storageAssociation.UserId = null;
             storageAssociation.IsDeleted = false;
             storageAssociation.ApprovalStatus = ApprovalStatus.Draft;
             storageAssociation.IsPublished = false;
@@ -322,6 +326,603 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     $"Content item association read denied. Content item association " +
                         $"{associationId} is not publicly visible and user \"{randomActorUserId}\" " +
                         "is neither the owner nor in a review role; reported to the caller as not found."),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowNotFoundOnRetrieveByIdIfAnonymousCallerAsksForAPublicPersonalAssociationAsync(
+            SecurityContext unauthenticatedSecurityContext)
+        {
+            // given: a reader's reaction, approved, published and past its publish date, is
+            // still answered to its owner and the review tier alone (§2 rules 1 and 2)
+            this.ambientSecurityContext = unauthenticatedSecurityContext;
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            int randomDaysInPast = GetRandomNegativeNumber();
+
+            Association storageAssociation =
+                CreateRandomReaction(readerUserId: GetRandomString());
+
+            storageAssociation.IsDeleted = false;
+            storageAssociation.ApprovalStatus = ApprovalStatus.Approved;
+            storageAssociation.IsPublished = true;
+            storageAssociation.PublishDate = randomDateTimeOffset.AddDays(randomDaysInPast);
+            Guid associationId = storageAssociation.Id;
+
+            var notFoundAssociationException = new NotFoundAssociationException(
+                message: $"Content item association not found with id: {associationId}.");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: notFoundAssociationException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<Association> retrieveAssociationByIdTask =
+                this.associationService.RetrieveAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    retrieveAssociationByIdTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(
+                    $"Content item association read denied. Content item association " +
+                        $"{associationId} is a personal association and the caller is not " +
+                        "authenticated; reported to the caller as not found."),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowNotFoundOnRetrieveByIdIfCallerAsksForAnotherReadersPublicPersonalAssociationAsync()
+        {
+            // given: another reader's reaction, approved and published, read by a signed-in
+            // caller with no review role (§2 rule 2)
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            string randomActorUserId = GetRandomString();
+
+            Association storageAssociation =
+                CreateRandomReaction(readerUserId: GetRandomString());
+
+            storageAssociation.IsDeleted = false;
+            storageAssociation.ApprovalStatus = ApprovalStatus.Approved;
+            storageAssociation.IsPublished = true;
+            storageAssociation.PublishDate = null;
+            Guid associationId = storageAssociation.Id;
+
+            var notFoundAssociationException = new NotFoundAssociationException(
+                message: $"Content item association not found with id: {associationId}.");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: notFoundAssociationException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(randomActorUserId);
+
+            // when
+            ValueTask<Association> retrieveAssociationByIdTask =
+                this.associationService.RetrieveAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    retrieveAssociationByIdTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(
+                    $"Content item association read denied. Content item association " +
+                        $"{associationId} is a personal association and user \"{randomActorUserId}\" " +
+                        "is neither its owner nor in a review role; reported to the caller as not found."),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowNotFoundOnRetrieveByIdIfCallerCreatedAPersonalAssociationForAnotherReaderAsync()
+        {
+            // given: a non-public personal row the caller wrote for another reader, so its
+            // CreatedBy is the caller and its UserId is not; CreatedBy does not make a
+            // personal row the caller's (§2 rule 4)
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            string randomActorUserId = GetRandomString();
+            Association storageAssociation = CreateRandomAssociation();
+            storageAssociation.IsDeleted = false;
+            storageAssociation.ApprovalStatus = ApprovalStatus.Submitted;
+            storageAssociation.IsPublished = false;
+            storageAssociation.UserId = GetRandomString();
+            storageAssociation.CreatedBy = randomActorUserId;
+            Guid associationId = storageAssociation.Id;
+
+            var notFoundAssociationException = new NotFoundAssociationException(
+                message: $"Content item association not found with id: {associationId}.");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: notFoundAssociationException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(randomActorUserId);
+
+            // when
+            ValueTask<Association> retrieveAssociationByIdTask =
+                this.associationService.RetrieveAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    retrieveAssociationByIdTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(
+                    $"Content item association read denied. Content item association " +
+                        $"{associationId} is a personal association and user \"{randomActorUserId}\" " +
+                        "is neither its owner nor in a review role; reported to the caller as not found."),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData(" ")]
+        public async Task ShouldThrowNotFoundOnRetrieveByIdIfCallerWithNoUserIdAsksForAPersonalAssociationAsync(
+            string blankActorUserId)
+        {
+            // given: a signed-in caller whose identity carries no user id, and a non-public
+            // personal row whose UserId is that same blank value; a caller with no user id
+            // owns no personal row (§2 rule 5)
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association storageAssociation = CreateRandomAssociation();
+            storageAssociation.IsDeleted = false;
+            storageAssociation.ApprovalStatus = ApprovalStatus.Submitted;
+            storageAssociation.IsPublished = false;
+            storageAssociation.UserId = blankActorUserId;
+            Guid associationId = storageAssociation.Id;
+
+            var notFoundAssociationException = new NotFoundAssociationException(
+                message: $"Content item association not found with id: {associationId}.");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: notFoundAssociationException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(blankActorUserId);
+
+            // when
+            ValueTask<Association> retrieveAssociationByIdTask =
+                this.associationService.RetrieveAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    retrieveAssociationByIdTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(
+                    $"Content item association read denied. Content item association " +
+                        $"{associationId} is a personal association and user \"{blankActorUserId}\" " +
+                        "is neither its owner nor in a review role; reported to the caller as not found."),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData(" ")]
+        public async Task ShouldThrowNotFoundOnRetrieveByIdIfCallerWithNoUserIdAsksForANonPublicEditorialAssociationAsync(
+            string blankActorUserId)
+        {
+            // given: a signed-in caller whose identity carries no user id, and a non-public
+            // editorial row written by another account; an owner comparison made for that
+            // caller would match the row's null UserId (§2 rule 5)
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association storageAssociation = CreateRandomAssociation();
+            storageAssociation.IsDeleted = false;
+            storageAssociation.ApprovalStatus = ApprovalStatus.Submitted;
+            storageAssociation.IsPublished = false;
+            storageAssociation.UserId = null;
+            storageAssociation.CreatedBy = GetRandomString();
+            Guid associationId = storageAssociation.Id;
+
+            var notFoundAssociationException = new NotFoundAssociationException(
+                message: $"Content item association not found with id: {associationId}.");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: notFoundAssociationException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(blankActorUserId);
+
+            // when
+            ValueTask<Association> retrieveAssociationByIdTask =
+                this.associationService.RetrieveAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    retrieveAssociationByIdTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(
+                    $"Content item association read denied. Content item association " +
+                        $"{associationId} is not publicly visible and user \"{blankActorUserId}\" " +
+                        "is neither the owner nor in a review role; reported to the caller as not found."),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowNotFoundOnRetrieveByIdIfAnonymousCallerAsksForANonPublicPersonalAssociationAsync(
+            SecurityContext unauthenticatedSecurityContext)
+        {
+            // given: a reader's reaction still under review; every denial of a personal row
+            // says that the row is a personal association, whatever its approval status, its
+            // IsPublished and its PublishDate (§2 rule 6)
+            this.ambientSecurityContext = unauthenticatedSecurityContext;
+
+            Association storageAssociation =
+                CreateRandomReaction(readerUserId: GetRandomString());
+
+            storageAssociation.IsDeleted = false;
+            storageAssociation.ApprovalStatus = ApprovalStatus.Submitted;
+            storageAssociation.IsPublished = false;
+            Guid associationId = storageAssociation.Id;
+
+            var notFoundAssociationException = new NotFoundAssociationException(
+                message: $"Content item association not found with id: {associationId}.");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: notFoundAssociationException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            // when
+            ValueTask<Association> retrieveAssociationByIdTask =
+                this.associationService.RetrieveAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    retrieveAssociationByIdTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(
+                    $"Content item association read denied. Content item association " +
+                        $"{associationId} is a personal association and the caller is not " +
+                        "authenticated; reported to the caller as not found."),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowNotFoundOnRetrieveByIdIfCallerWhoseReviewRoleMatchesNeitherEndpointAsksForAnotherReadersPublicPersonalAssociationAsync()
+        {
+            // given: another reader's reaction, approved, published and past its publish date,
+            // read by a caller whose one review role is scoped to comments. A scoped role
+            // reaches the review tier only where it matches one of the row's endpoints, and this
+            // one matches neither a ContentItem nor a Reaction (§2 rules 1 and 2).
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.CommentReviewers);
+
+            string randomActorUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            int randomDaysInPast = GetRandomNegativeNumber();
+
+            Association storageAssociation =
+                CreateRandomReaction(readerUserId: GetRandomString());
+
+            storageAssociation.IsDeleted = false;
+            storageAssociation.ApprovalStatus = ApprovalStatus.Approved;
+            storageAssociation.IsPublished = true;
+            storageAssociation.PublishDate = randomDateTimeOffset.AddDays(randomDaysInPast);
+            Guid associationId = storageAssociation.Id;
+
+            var notFoundAssociationException = new NotFoundAssociationException(
+                message: $"Content item association not found with id: {associationId}.");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: notFoundAssociationException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(randomActorUserId);
+
+            // when
+            ValueTask<Association> retrieveAssociationByIdTask =
+                this.associationService.RetrieveAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    retrieveAssociationByIdTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(
+                    $"Content item association read denied. Content item association " +
+                        $"{associationId} is a personal association and user \"{randomActorUserId}\" " +
+                        "is neither its owner nor in a review role; reported to the caller as not found."),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>

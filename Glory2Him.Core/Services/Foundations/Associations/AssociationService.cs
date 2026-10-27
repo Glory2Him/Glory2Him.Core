@@ -195,10 +195,10 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     cancellationToken: cancellationToken);
             });
 
-        // the shared read posture of design §14.1/§14.5/§14.6: a publicly visible version
-        // is readable by anyone; a non-public version answers not-found — never
-        // unauthorized — to everyone but the owner and the review roles, with the true
-        // denial reason logged server-side only
+        // the shared read posture of design §14.1/§14.5/§14.6: a publicly visible editorial
+        // version is readable by anyone; a non-public one, and a personal one whatever its
+        // state, answers not-found — never unauthorized — to everyone but the owner and the
+        // review roles, with the true denial reason logged server-side only
         private async ValueTask<Association> DoRetrieveAssociationByIdAsync(
             Guid associationId,
             EventEnvelope<Association> inboundEnvelope,
@@ -231,7 +231,13 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     && (maybeAssociation.PublishDate is null
                         || maybeAssociation.PublishDate <= currentDateTime);
 
-            if (isPubliclyVisible)
+            // Posture A′ rule 7: a personal row, one whose UserId is set, reaches only its
+            // owner and the review tier, so being public answers an editorial row alone. The
+            // owner of a personal row is the account UserId names, never CreatedBy, compared
+            // ignoring letter case (§DOM4.6 rule 3), and a caller with no user id owns none.
+            bool isPersonalAssociation = maybeAssociation.UserId is not null;
+
+            if (isPubliclyVisible && isPersonalAssociation is false)
             {
                 return maybeAssociation;
             }
@@ -241,9 +247,13 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             if (securityContext is null || securityContext.IsAuthenticated is false)
             {
                 await this.loggingBroker.LogWarningAsync(
-                    message: $"Content item association read denied. Content item association " +
-                        $"{associationId} is not publicly visible and the caller is not " +
-                        "authenticated; reported to the caller as not found.");
+                    message: isPersonalAssociation
+                        ? $"Content item association read denied. Content item association " +
+                            $"{associationId} is a personal association and the caller is not " +
+                            "authenticated; reported to the caller as not found."
+                        : $"Content item association read denied. Content item association " +
+                            $"{associationId} is not publicly visible and the caller is not " +
+                            "authenticated; reported to the caller as not found.");
 
                 throw new NotFoundAssociationException(
                     message: $"Content item association not found with id: {associationId}.");
@@ -254,7 +264,12 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
             bool isOwner =
                 string.IsNullOrWhiteSpace(actorUserId) is false
-                    && maybeAssociation.CreatedBy == actorUserId;
+                    && (isPersonalAssociation
+                        ? string.Equals(
+                            maybeAssociation.UserId,
+                            actorUserId,
+                            StringComparison.OrdinalIgnoreCase)
+                        : maybeAssociation.CreatedBy == actorUserId);
 
             // the review check is endpoint-derived and the row is in hand, so a reviewer
             // scoped to either end can audit it. The contribution veto is deliberately NOT
@@ -265,9 +280,13 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 && HasReviewRoleForAssociation(securityContext, maybeAssociation) is false)
             {
                 await this.loggingBroker.LogWarningAsync(
-                    message: $"Content item association read denied. Content item association " +
-                        $"{associationId} is not publicly visible and user \"{actorUserId}\" " +
-                        "is neither the owner nor in a review role; reported to the caller as not found.");
+                    message: isPersonalAssociation
+                        ? $"Content item association read denied. Content item association " +
+                            $"{associationId} is a personal association and user \"{actorUserId}\" " +
+                            "is neither its owner nor in a review role; reported to the caller as not found."
+                        : $"Content item association read denied. Content item association " +
+                            $"{associationId} is not publicly visible and user \"{actorUserId}\" " +
+                            "is neither the owner nor in a review role; reported to the caller as not found.");
 
                 throw new NotFoundAssociationException(
                     message: $"Content item association not found with id: {associationId}.");
