@@ -94,7 +94,7 @@ ValueTask<EventEnvelope<Association>?> OnRetrievingAssociationByIdAsync(
 ```
 
 1. **Its reply carries the answer of the body it shares with §2**, decided against its inbound envelope's security context (ConfidenceReads.md rules 2 and 8): the four as stored where that context holds the row's tier, and all four as null where it does not.
-2. **A null security context is answered as one that holds no role.** The door can be handed an envelope whose security context is null, and answers a public row before it asks any (ConfidenceReads.md rule 2), so it replies with that row's four as null.
+2. **A null security context is answered as one that holds no role.** The door can be handed an envelope whose security context is null, and answers a public editorial row before it asks any (ConfidenceReads.md rule 2; `AssociationService.AssociationReads.md §2` rule 7), so it replies with that row's four as null.
 3. **It adds no code.** Its tests pass as soon as they are written, once §2 is built, and are committed as pins (ConfidenceReads.md, *The rulings*). Its envelope's refusals and its failures are unchanged, and their tests stand.
 
 ## 8. OnModifyingAssociationAsync — the `Association-Modifying` door (#1309)
