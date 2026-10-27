@@ -37,7 +37,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.6 [Must]** The two panels are handed the item's associations, read for this item from the association read (§ARC17.4, keyed per §DOM4.6 rule 1). *(code: postDetail.tsx — the comment above the two panels)* ≠ item 4
 
-**2.7 [Must]** A signed-in reader may suggest a tag or a Bible reference, and the page writes the suggestion (§ARC17.4). *(code: postDetail.tsx — `suggestTag`, `suggestBibleReference`; test: postDetail.test.tsx — "should offer a signed-in reader the box itself, not only its heading")* ≠ item 4
+**2.7 [Must]** A signed-in reader may suggest a tag or a Bible reference, and the page writes the suggestion (§ARC17.4). *(code: postDetail.tsx — `suggestTag`, `suggestBibleReference`; test: postDetail.test.tsx — "should offer a signed-in reader the box itself, not only its heading")* ≠ item 17
 
 **2.8 [Must]** The two panels' moderation actions stay off: a reader may suggest, and withdraw their own suggestion while it is `Draft` or `Submitted` (§APR9.9), and nothing on the page decides anything (`UI/Components/AssociationPanel.md rule 2.15`). *(code: postDetail.tsx — the comment above the two panels)* ≠ item 4
 
@@ -144,7 +144,7 @@ beneath it. While the item loads, or when it cannot be read, a single centred co
 
 | Hook | Raised when | What the page does | Built today |
 | --- | --- | --- | --- |
-| `onAdd` ≠ item 4 | A signed-in reader commits a tag in the box, once per tag | Writes the suggestion, `POST /api/associations` (§ARC17.4), and refreshes the panel's collection (rule 2.7) | ❌ No — it says *Suggesting tags is coming soon.* (`postDetail.tsx`, line 135); item 4 |
+| `onAdd` ≠ item 17 | A signed-in reader commits a tag in the box, once per tag | Writes the suggestion, `POST /api/associations` (§ARC17.4), and refreshes the panel's collection (rule 2.7) | ❌ No — it says *Suggesting tags is coming soon.* (`postDetail.tsx`, line 135); item 17 |
 | `onRemove` ≠ item 4 | The reader withdraws their own `Draft` or `Submitted` tag | Removes it, `DELETE /api/associations/{id}` (§ARC17.4), and refreshes (rule 2.8) | ❌ No — not wired; no chip renders while the collection is empty; item 4 |
 | `chipOnClick` or `chipHrefFor` ≠ item 5 | A tag is clicked | Opens `/posts` handed the tag, its search bar showing it in the Tags box with the advanced section expanded (rule 2.13) | ❌ No — the page supplies neither; the story's own default links the tag to `/Search?q=<tag>` (`UI/Components/AssociationPanel.TagAssociationPanel.md §10 item 5`); item 5 |
 | `loginButtonOnClick` or `loginHref` ≠ item 5 | A signed-out reader presses *Login to suggest a tag* | Sends them to sign in through the one reusable sign-in action (rule 2.13) | ❌ No — the page supplies neither; the panel composes its own sign-in route (`UI/Components/AssociationPanel.md §10 item 15`); item 5 |
@@ -166,7 +166,7 @@ beneath it. While the item loads, or when it cannot be read, a single centred co
 
 | Hook | Raised when | What the page does | Built today |
 | --- | --- | --- | --- |
-| `onAdd` ≠ item 4 | A signed-in reader commits a reference in the box, once per reference | Writes the suggestion, `POST /api/associations` (§ARC17.4), and refreshes (rule 2.7) | ❌ No — it says *Suggesting bible references is coming soon.* (`postDetail.tsx`, lines 137-138); item 4 |
+| `onAdd` ≠ item 17 | A signed-in reader commits a reference in the box, once per reference | Writes the suggestion, `POST /api/associations` (§ARC17.4), and refreshes (rule 2.7) | ❌ No — it says *Suggesting bible references is coming soon.* (`postDetail.tsx`, lines 137-138); item 17 |
 | `onRemove` ≠ item 4 | The reader withdraws their own `Draft` or `Submitted` reference | Removes it, `DELETE /api/associations/{id}` (§ARC17.4), and refreshes (rule 2.8) | ❌ No — not wired; item 4 |
 | `chipOnClick` or `chipHrefFor` ≠ items 5 and 15 | A reference is clicked | Leads to a page showing the passage, `/BibleReferences/{reference}` (rule 2.13), or, for a reference it cannot read, to that page all the same, which says it could not be found (rule 2.23) | ❌ No — the page supplies neither; the story's own default builds `/BibleReferences/<USFM>`, or `/Search?q=<reference>` for a reference it cannot read (`UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 5`); item 5, and item 15 for a reference it cannot read |
 | `loginButtonOnClick` or `loginHref` ≠ item 5 | A signed-out reader presses *Login to suggest a bible reference* | As section 4.2 | ❌ No — as section 4.2; item 5 |
@@ -201,7 +201,7 @@ contributor in the rows about the item, and a suggestion's contributor in the ro
 | Share | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | Save ≠ item 3 | ✅ Yes⁴ | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | The type chip, *Submitted by* and *Author*, as buttons ≠ item 9 | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
-| The suggest boxes, where the item's setting allows suggestions, no read-only role the panel composes, the post's own included ≠ items 4, 8 and 11 | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| The suggest boxes, where the item's setting allows suggestions, no read-only role the panel composes, the post's own included ≠ items 8, 11 and 17 | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | The panels' login prompts ≠ item 5 | ✅ Yes | ❌ No⁵ | ❌ No⁵ | ❌ No⁵ | ❌ No⁵ | ❌ No⁵ |
 | Withdrawing one's own `Draft` or `Submitted` suggestion ≠ item 4 | ❌ No | ❌ No | ✅ Yes | ❌ No | ❌ No | ❌ No |
 | Approve, Reject, or Remove of another reader's suggestion | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
@@ -265,11 +265,10 @@ page is a courtesy (§SEC14.6).
    under §UI20.6.6 rule 4, is `UI/Pages/Home.md §6 item 5`: one handler serves every page that renders the card.
 4. (needs issue) **The association panels are inert.** Rules 2.6–2.8 have the page read the
    item's tags and Bible references, write a reader's suggestion and remove their own withdrawn
-   one. The page hands both panels an empty collection, answers every suggestion with a *coming
-   soon* notice, and wires no `onRemove` (`postDetail.tsx`, lines 135-138 and 195-205; test:
-   `postDetail.test.tsx` — "should answer a suggested tag honestly rather than dropping it",
-   "should answer a suggested bible reference honestly rather than dropping it"). The read and the
-   two writes are designed (§ARC17.4; the read in `DesignFeatures/AssociationReads.md`), and `UI/Components/AssociationPanel.md §7` records which of them are served; the page's
+   one. Writing the suggestion is item 17, held for #1352; this item keeps the read and the
+   withdrawal. The page hands both panels an empty collection and wires no `onRemove`
+   (`postDetail.tsx` — `associationCollection={[]}` on each panel). The read and the withdrawal are
+   designed (§ARC17.4; the read in `DesignFeatures/AssociationReads.md`), and `UI/Components/AssociationPanel.md §7` records which of them are served; the page's
    wiring is its own work on top of them. With the collection empty, no chip renders, so the missing
    `onRemove` would surface as a dead withdrawal only once the read is wired
    (`UI/Components/AssociationPanel.md §10 item 8`).
@@ -395,3 +394,14 @@ page is a courtesy (§SEC14.6).
     each item's reaction counts, on every page that renders the card with Like, `/posts/{id}`
     among them, read from the item's reaction summary (§ARC16.8). Rule 2.17 now says so and cites
     them. The card shows its counts (item 2).
+17. (#1352) **Page gap — `/posts/{id}`: a reader's suggestion is written nowhere.** Rule 2.7 has
+    the page write a reader's suggested tag or Bible reference. The page answers each panel's
+    `onAdd` with a *coming soon* notice instead (`postDetail.tsx` — `suggestTag`,
+    `suggestBibleReference`; test: `postDetail.test.tsx` — "should answer a suggested tag honestly
+    rather than dropping it", "should answer a suggested bible reference honestly rather than
+    dropping it"). The panels raise `onAdd` with the text the reader typed
+    (`UI/Components/AssociationPanel.md rule 3.1.15`), and the editorial arm of
+    `POST /api/associations` takes two endpoint ids
+    (`DesignFeatures/Backend/Orchestrations/AssociationOrchestrationService.md §6 rule 1`). Held for
+    #1352, *Design The Submission Of A Suggested Tag Or Bible Reference*, which designs the write.
+    Split from item 4, which keeps the read and the withdrawal.
