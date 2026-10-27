@@ -377,9 +377,7 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
     the cards is `UI/Pages/Home.md §6 item 14`.
 18. (#1352) **Page gap — `/myposts/{id}`: suggesting a tag or a Bible reference sends nothing.**
     The page answers each panel's `onAdd` with a "coming soon" toast (`myPostDetail.tsx` —
-    `suggestTag`, `suggestBibleReference`). The page's half is to send each suggestion with the
-    viewer as its owner (`UI/Components/AssociationPanel.md §7`, the note on
-    `asSuggestedAssociation`). The panels raise `onAdd` with the text the reader typed
+    `suggestTag`, `suggestBibleReference`). The panels raise `onAdd` with the text the reader typed
     (`UI/Components/AssociationPanel.md rule 3.1.15`), and the editorial arm of
     `POST /api/associations` (#728, #1088) takes two endpoint ids
     (`DesignFeatures/Backend/Orchestrations/AssociationOrchestrationService.md §6 rule 1`). Held for

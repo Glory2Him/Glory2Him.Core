@@ -201,7 +201,7 @@ contributor in the rows about the item, and a suggestion's contributor in the ro
 | Share | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | Save ≠ item 3 | ✅ Yes⁴ | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | The type chip, *Submitted by* and *Author*, as buttons ≠ item 9 | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
-| The suggest boxes, where the item's setting allows suggestions, no read-only role the panel composes, the post's own included ≠ items 4, 8 and 11 | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| The suggest boxes, where the item's setting allows suggestions, no read-only role the panel composes, the post's own included ≠ items 8, 11 and 17 | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | The panels' login prompts ≠ item 5 | ✅ Yes | ❌ No⁵ | ❌ No⁵ | ❌ No⁵ | ❌ No⁵ | ❌ No⁵ |
 | Withdrawing one's own `Draft` or `Submitted` suggestion ≠ item 4 | ❌ No | ❌ No | ✅ Yes | ❌ No | ❌ No | ❌ No |
 | Approve, Reject, or Remove of another reader's suggestion | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
@@ -266,11 +266,9 @@ page is a courtesy (§SEC14.6).
 4. (needs issue) **The association panels are inert.** Rules 2.6–2.8 have the page read the
    item's tags and Bible references, write a reader's suggestion and remove their own withdrawn
    one. Writing the suggestion is item 17, held for #1352; this item keeps the read and the
-   withdrawal. The page hands both panels an empty collection, answers every suggestion with a *coming
-   soon* notice, and wires no `onRemove` (`postDetail.tsx`, lines 135-138 and 195-205; test:
-   `postDetail.test.tsx` — "should answer a suggested tag honestly rather than dropping it",
-   "should answer a suggested bible reference honestly rather than dropping it"). The read and the
-   two writes are designed (§ARC17.4; the read in `DesignFeatures/AssociationReads.md`), and `UI/Components/AssociationPanel.md §7` records which of them are served; the page's
+   withdrawal. The page hands both panels an empty collection and wires no `onRemove`
+   (`postDetail.tsx` — `associationCollection={[]}` on each panel). The read and the withdrawal are
+   designed (§ARC17.4; the read in `DesignFeatures/AssociationReads.md`), and `UI/Components/AssociationPanel.md §7` records which of them are served; the page's
    wiring is its own work on top of them. With the collection empty, no chip renders, so the missing
    `onRemove` would surface as a dead withdrawal only once the read is wired
    (`UI/Components/AssociationPanel.md §10 item 8`).
@@ -399,7 +397,9 @@ page is a courtesy (§SEC14.6).
 17. (#1352) **Page gap — `/posts/{id}`: a reader's suggestion is written nowhere.** Rule 2.7 has
     the page write a reader's suggested tag or Bible reference. The page answers each panel's
     `onAdd` with a *coming soon* notice instead (`postDetail.tsx` — `suggestTag`,
-    `suggestBibleReference`). The panels raise `onAdd` with the text the reader typed
+    `suggestBibleReference`; test: `postDetail.test.tsx` — "should answer a suggested tag honestly
+    rather than dropping it", "should answer a suggested bible reference honestly rather than
+    dropping it"). The panels raise `onAdd` with the text the reader typed
     (`UI/Components/AssociationPanel.md rule 3.1.15`), and the editorial arm of
     `POST /api/associations` takes two endpoint ids
     (`DesignFeatures/Backend/Orchestrations/AssociationOrchestrationService.md §6 rule 1`). Held for
