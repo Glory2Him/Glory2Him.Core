@@ -275,12 +275,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldDenyNonPublicReadWhenTheNarrowRoleIsForADifferentContentTypeAsync()
         {
             // given: a reviewer trusted with stories, looking at a testimony. The whole
-            // point of the narrow tier is that it does NOT widen to the entity type.
+            // point of the narrow tier is that it does NOT widen to the entity type. The row
+            // is editorial, so what this tests is the editorial posture, which rule 7 leaves
+            // unchanged (AssociationService.AssociationReads.md §2 rule 7)
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext("ContentItem-Story-Reviewers");
 
             string randomActorUserId = GetRandomString();
             Association storageAssociation = CreateRandomAssociation();
+            storageAssociation.UserId = null;
             storageAssociation.EntityAType = EntityType.Tag;
             storageAssociation.EntityAContentType = null;
             storageAssociation.EntityBType = EntityType.ContentItem;
@@ -323,12 +326,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         [Fact]
         public async Task ShouldDenyNonPublicReadWhenNoScopedRoleMatchesEitherEndpointAsync()
         {
-            // given: a reviewer for an entity type that appears on neither endpoint
+            // given: a reviewer for an entity type that appears on neither endpoint. The row
+            // is editorial, so what this tests is the editorial posture, which rule 7 leaves
+            // unchanged (AssociationService.AssociationReads.md §2 rule 7)
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.CommentReviewers);
 
             string randomActorUserId = GetRandomString();
             Association storageAssociation = CreateRandomAssociation();
+            storageAssociation.UserId = null;
             storageAssociation.EntityAType = EntityType.Tag;
             storageAssociation.EntityAContentType = null;
             storageAssociation.EntityBType = EntityType.ContentItem;
