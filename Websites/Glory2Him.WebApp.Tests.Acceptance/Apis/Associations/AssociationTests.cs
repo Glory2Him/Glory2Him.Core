@@ -134,6 +134,26 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
             return firstReaderId;
         }
 
+        /// <summary>
+        /// Has a new reader react to the item with Amen through the upsert route, and returns
+        /// that reader's id and the reaction's id, which the upsert's answer carries
+        /// (§ARC16.8.1). The caller is left acting as that reader. A test calls it inside the try
+        /// its teardown closes, so a post that throws still leaves nothing behind.
+        /// </summary>
+        private async ValueTask<(string ReaderId, Guid ReactionId)> GiveAmenAsANewReaderAsync(
+            Guid contentItemId)
+        {
+            string readerId = this.apiBroker.ActAsContributor();
+
+            HttpResponseMessage postResponse =
+                await this.apiBroker.PostAssociationAsync(
+                    CreateReactionPair(contentItemId, seededAmenReactionId));
+
+            AssociationSuggestionResult postResult = await ReadResultAsync(postResponse);
+
+            return (readerId, postResult.AssociationId);
+        }
+
         // ReactionSeedData's two rows, as the summary projects them.
         private static List<ContentItemReactionCount> CreateOneAmenAndOneLoveCounts() =>
             new List<ContentItemReactionCount>

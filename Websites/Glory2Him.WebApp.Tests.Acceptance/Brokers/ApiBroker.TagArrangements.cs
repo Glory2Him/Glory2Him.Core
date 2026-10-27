@@ -37,6 +37,31 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         public async ValueTask<CoreTag> InsertDraftTagAsync(string authorUserId) =>
             await InsertTagAtAsync(authorUserId, ApprovalStatus.Draft);
 
+        /// <summary>
+        /// An approved, published tag, visible to every caller. Beneath HTTP because no endpoint
+        /// publishes a tag: approval arrives as an event.
+        /// </summary>
+        public async ValueTask<CoreTag> InsertPublishedTagAsync(string authorUserId)
+        {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+
+            var tag = new CoreTag
+            {
+                Id = Guid.NewGuid(),
+                Name = Guid.NewGuid().ToString("N").Substring(0, 30),
+                ApprovalStatus = ApprovalStatus.Approved,
+                IsPublished = true,
+                PublishDate = now,
+                IsDeleted = false,
+                CreatedBy = authorUserId,
+                CreatedWhen = now,
+                UpdatedBy = authorUserId,
+                UpdatedWhen = now
+            };
+
+            return await this.storageBroker.InsertTagAsync(tag);
+        }
+
         private async ValueTask<CoreTag> InsertTagAtAsync(
             string authorUserId,
             ApprovalStatus approvalStatus)

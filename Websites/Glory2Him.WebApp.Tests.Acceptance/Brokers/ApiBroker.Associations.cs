@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text;
@@ -48,6 +49,11 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
 
             return await this.httpClient.GetAsync(url);
         }
+
+        // The raw response, because the status code is the assertion: the read answers 404 to
+        // every caller a row is withheld from, and a typed read throws on it.
+        public async ValueTask<HttpResponseMessage> GetAssociationByIdAsync(Guid associationId) =>
+            await this.httpClient.GetAsync($"{associationsRelativeUrl}/{associationId}");
 
         // The raw response, because the status code is the assertion and a typed delete throws on
         // every refusal. The pair travels on the query string, each enum as its number, which is

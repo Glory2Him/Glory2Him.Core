@@ -29,7 +29,7 @@ namespace Glory2Him.WebApp.Controllers.Associations
     /// <see cref="IAssociationOrchestrationService"/> alone (§EVN13 rule 3), holds no logic, and
     /// maps the orchestration's exception families onto status codes. Its routes are added by the
     /// work that needs them rather than all at once: today it serves the upsert, the pair-keyed
-    /// withdrawal and the reaction summary read.
+    /// withdrawal, the reaction summary read and the read by id.
     ///
     /// <para><b>The upsert answers <c>201</c> only when a row was created, and <c>200</c>
     /// otherwise</b>, with the result rather than the row as the body. Both depart from
@@ -49,6 +49,14 @@ namespace Glory2Him.WebApp.Controllers.Associations
     /// counts are the same whoever asks, so a signed-out reader is served rather than refused;
     /// and with no <c>[EnableQuery]</c>, no <c>$</c>-prefixed option can reshape the answer
     /// (§ARC16.8, <i>The route</i>).</para>
+    ///
+    /// <para><b>The read by id is open to every caller and answers every miss <c>404</c> with one
+    /// body.</b> Which rows a caller is answered is decided beneath it. No row, a row taken down,
+    /// a row the caller's posture hides and a row with an endpoint they may not see leave the
+    /// orchestration as two families carrying one message, and both are <c>404</c>, so the route
+    /// tells no one which rows exist (§SEC14.5 rule 1). The dependency validation family's
+    /// not-found is an arm the other routes do not have. It has no <c>401</c> arm, because a read
+    /// refuses no caller, and no <c>409</c> arm, because it writes nothing.</para>
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -138,6 +146,57 @@ namespace Glory2Him.WebApp.Controllers.Associations
                 associationOrchestrationValidationException)
             {
                 return BadRequest(associationOrchestrationValidationException.InnerException);
+            }
+            catch (AssociationOrchestrationDependencyValidationException
+                associationOrchestrationDependencyValidationException)
+            {
+                return BadRequest(associationOrchestrationDependencyValidationException.InnerException);
+            }
+            catch (AssociationOrchestrationDependencyException
+                associationOrchestrationDependencyException)
+            {
+                return FailedDependency(associationOrchestrationDependencyException.InnerException);
+            }
+            catch (AssociationOrchestrationServiceException
+                associationOrchestrationServiceException)
+            {
+                return InternalServerError(associationOrchestrationServiceException);
+            }
+        }
+
+        [HttpGet("{associationId}")]
+        [AllowAnonymous]
+        public async ValueTask<ActionResult<Association>> GetAssociationByIdAsync(
+            Guid associationId,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                Association association =
+                    await this.associationOrchestrationService.RetrieveAssociationByIdAsync(
+                        associationId,
+                        cancellationToken);
+
+                return Ok(association);
+            }
+            catch (AssociationOrchestrationValidationException
+                associationOrchestrationValidationException)
+                when (associationOrchestrationValidationException.InnerException
+                    is NotFoundAssociationOrchestrationException)
+            {
+                return NotFound(associationOrchestrationValidationException.InnerException);
+            }
+            catch (AssociationOrchestrationValidationException
+                associationOrchestrationValidationException)
+            {
+                return BadRequest(associationOrchestrationValidationException.InnerException);
+            }
+            catch (AssociationOrchestrationDependencyValidationException
+                associationOrchestrationDependencyValidationException)
+                when (associationOrchestrationDependencyValidationException.InnerException
+                    is NotFoundAssociationException)
+            {
+                return NotFound(associationOrchestrationDependencyValidationException.InnerException);
             }
             catch (AssociationOrchestrationDependencyValidationException
                 associationOrchestrationDependencyValidationException)

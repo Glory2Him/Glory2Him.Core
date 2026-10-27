@@ -13,21 +13,64 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Microsoft.EntityFrameworkCore;
 using CoreAssociation = Glory2Him.Core.Models.Foundations.Associations.Association;
+using CoreContentItem = Glory2Him.Core.Models.Foundations.ContentItems.ContentItem;
+using CoreTag = Glory2Him.Core.Models.Foundations.Tags.Tag;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
 {
     /// <summary>
-    /// Association rows torn down beneath HTTP — the sibling of
+    /// Association rows arranged and torn down beneath HTTP — the sibling of
     /// <c>ApiBroker.ReactionArrangements.cs</c>. No endpoint removes an association physically.
     /// </summary>
     public partial class ApiBroker
     {
         public async ValueTask<CoreAssociation> GetCoreAssociationByIdAsync(Guid associationId) =>
             await this.storageBroker.SelectAssociationByIdAsync(associationId);
+
+        /// <summary>
+        /// An editorial tag on a post, approved and published, as the approval workflow leaves
+        /// one. Beneath HTTP because the upsert writes a tag pairing for review and no endpoint
+        /// approves it. Its endpoint columns are the ones the foundation's add derives: the
+        /// post's group under its default scope, and the tag's own id under its.
+        /// </summary>
+        public async ValueTask<CoreAssociation> InsertPublishedEditorialTagAssociationAsync(
+            CoreContentItem contentItem,
+            CoreTag tag,
+            string authorUserId)
+        {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+
+            var association = new CoreAssociation
+            {
+                Id = Guid.NewGuid(),
+                EntityAType = EntityType.ContentItem,
+                EntityAKeyId = contentItem.Id,
+                EntityAGroupId = contentItem.GroupId,
+                EntityAScope = EntityTypeVersioning.DefaultScopeFor(EntityType.ContentItem),
+                EntityAContentType = contentItem.ContentType,
+                EntityBType = EntityType.Tag,
+                EntityBKeyId = tag.Id,
+                EntityBGroupId = tag.Id,
+                EntityBScope = EntityTypeVersioning.DefaultScopeFor(EntityType.Tag),
+                UserId = null,
+                ApprovalStatus = ApprovalStatus.Approved,
+                IsPublished = true,
+                PublishDate = now,
+                IsDeleted = false,
+                DeletedBy = null,
+                CreatedBy = authorUserId,
+                CreatedWhen = now,
+                UpdatedBy = authorUserId,
+                UpdatedWhen = now
+            };
+
+            return await this.storageBroker.InsertAssociationAsync(association);
+        }
 
         /// <summary>
         /// Physically removes an association if it is still there, and the approval round its
