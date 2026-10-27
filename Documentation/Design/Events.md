@@ -1187,9 +1187,10 @@ method:
   securityContext.IsAuthenticated is false` and refuses, so a null or default
   context fails closed wherever a gate runs (§EVN17). A read that answers from
   the row never reaches one — `DoRetrieveAssociationByIdAsync` returns a
-  publicly visible row before it looks at `SecurityContext` at all — and that is
-  right, because the decision there is made from the row rather than from the
-  caller.
+  publicly visible editorial row before it looks at `SecurityContext` at all —
+  and that is right, because the decision there is made from the row rather
+  than from the caller. A personal row it decides from the caller, public or
+  not, so it reaches the gate for one (§SEC14.7 posture A′ rule 7).
 - **Items 4 and 6 — request context, correlation id.** Not checked. No service
   reads `RequestContext`; it is carried for tracing and audit and nothing
   decides on it, so an absent one costs a trace rather than an invariant.
