@@ -255,7 +255,8 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
 | Any status — **the association's *Take down*** ≠ item 20 | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ✅ Yes |
 | Any status — **the post's *Take down*** ≠ item 5 | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ✅ Yes |
 | Post `Approved` or `Rejected`, not the viewer's — **Edit**, rendered locked ≠ item 4 | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes |
-| The setting allows reactions — **Like** ≠ item 3 | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes |
+| The setting allows reactions, post not `Rejected` — **Like** ≠ item 3 | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes |
+| As the row above, post `Rejected` — **Like** ≠ `UI/Components/ContentItemPanel.md §10 item 29` | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ❌ No |
 
 ¹ The route guard shows *Access Restricted* and a *Login* button.
 ² Once the post page widens (rule 2.2); `Administrators` alone today.
@@ -285,6 +286,9 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
    reaction counts and the reader's own, and records, changes or clears it, through
    `useContentItemEngagement`, as the post page does (`UI/Pages/ContentItemModerationDetailPage.md
    §6 item 3`).
+   A rejected post is the exception: the write refuses a reaction on it (§ARC12.3.1 rule 5a), and
+   the card withholds Like from it, under `UI/Components/ContentItemPanel.md` rule 3.1.8, whose
+   build its §10 item 29 records (`DesignFeatures/RejectedEndpoints.md` rule 9).
 4. (#1057) **Page gap — Edit on the post's card leads nowhere.** Rule 2.10 (user rulings
    2026-10-11): it leads to the post page with the editor open, locked as there. The post page's
    half, opening on the editor, is `UI/Pages/ContentItemModerationDetailPage.md §6 item 18`.
