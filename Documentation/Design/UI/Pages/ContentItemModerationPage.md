@@ -175,9 +175,11 @@ below are what the page adds: who reaches it, and the card's actions for those w
 | --- | --- | --- | --- | --- | --- | --- |
 | The page: the search bar, the status boxes and the list ≠ item 7 | ❌ No¹ | ❌ No² | ❌ No² | ✅ Yes³ | ✅ Yes³ | ✅ Yes |
 | A card — **the moderation action** (labelled *Edit*), or the owner's **Edit** ≠ item 5 | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ❌ No |
-| A card — **Like**, **Save**, the comments control, the filter clicks | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes³ | ✅ Yes³ | ✅ Yes |
+| A card — **Save**, the comments control, the filter clicks | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes³ | ✅ Yes³ | ✅ Yes |
 | A card, the item `Approved` — **Share** | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes³ | ✅ Yes³ | ✅ Yes |
 | A card, the item `Draft`, `Submitted` or `Rejected` — **Share** ≠ item 9 | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ❌ No |
+| A card, the item not `Rejected` — **Like** | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes³ | ✅ Yes³ | ✅ Yes |
+| A card, the item `Rejected` — **Like** ≠ `UI/Components/ContentItemPanel.md §10 item 29` | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ❌ No |
 | A card — **View** ≠ item 5 | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes³ | ✅ Yes³ | ✅ Yes |
 
 ¹ The route guard shows *Access Restricted* and a *Login* button.
@@ -205,6 +207,9 @@ below are what the page adds: who reaches it, and the card's actions for those w
    11a; #746). A reaction the reader chooses is recorded, changed or cleared by the same hook
    (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2`; #739), and no signed-out reader chooses
    one here, because `SecuredRoute` admits none.
+   A rejected post is the exception: the write refuses a reaction on it (§ARC12.3.1 rule 5a), and
+   the card withholds Like from it, under `UI/Components/ContentItemPanel.md` rule 3.1.8, whose
+   build its §10 item 29 records (`DesignFeatures/RejectedEndpoints.md` rule 9).
 3. (needs issue) **Page gap — `/Admin/Posts`: Save saves nothing.** The page wires *Save* to the
    toast "Saving posts is coming soon.", a dead action (§UI20.6.6 rule 4), as `/myposts` does
    (`UI/Pages/MyPosts.md §6 item 3`). Save has no design yet (§APR9.9 rule 6).

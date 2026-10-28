@@ -184,9 +184,11 @@ The read-only roles each action answers to are those components' security and ac
 | --- | --- | --- | --- | --- | --- | --- |
 | The page: the heading, *Share what He has done*, the search bar, the status boxes and the results | ❌ No¹ | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | The persona also holds `ReadOnly` or `ContentItem-ReadOnly` — ***Share what He has done*** ≠ item 9 | ➖ n/a | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
-| A card the viewer owns, holding the column's tier where the column names one — the view template, *read more*, the comments control, the filter clicks, Like and Save | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| A card the viewer owns, holding the column's tier where the column names one — the view template, *read more*, the comments control, the filter clicks and Save | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | As the row above, the item `Approved` — **Share** | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | As the row above, the item `Draft`, `Submitted` or `Rejected` — **Share** ≠ item 5 | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ❌ No | ❌ No |
+| As the row above, the item not `Rejected` — **Like** | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| As the row above, the item `Rejected` — **Like** ≠ `UI/Components/ContentItemPanel.md §10 item 29` | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ❌ No | ❌ No |
 | As the row above — **View** ≠ item 6 | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | As the row above, no ReadOnly covering the item's type — **Edit** (labelled *View* today) | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | As the row above, no ReadOnly covering the item's type — **Moderate** | ➖ n/a | ➖ n/a | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes |
@@ -217,6 +219,9 @@ The read-only roles each action answers to are those components' security and ac
    `DesignFeatures/Likes.md` rules 5, 6 and 11a; #744). A reaction the reader chooses is recorded,
    changed or cleared by the same hook (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2`;
    #739), and no signed-out reader chooses one here, because `SecuredRoute` admits none.
+   A rejected post is the exception: the write refuses a reaction on it (§ARC12.3.1 rule 5a), and
+   the card withholds Like from it, under `UI/Components/ContentItemPanel.md` rule 3.1.8, whose
+   build its §10 item 29 records (`DesignFeatures/RejectedEndpoints.md` rule 9).
 3. (needs issue) **Page gap — `/myposts`: Save saves nothing.** The page wires *Save* to a toast,
    "Saving posts is coming soon." (`useContentItemEngagement.ts` — `onSaveClick`), so the action is
    dead (§UI20.6.6 rule 4). Save has no design yet (§APR9.9 rule 6). By the plan §UI20.6.6 rule 4
