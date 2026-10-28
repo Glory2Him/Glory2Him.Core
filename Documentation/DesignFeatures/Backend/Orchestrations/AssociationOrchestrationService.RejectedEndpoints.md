@@ -42,6 +42,7 @@ An existing member, unchanged. §1's step is in the write flow this door runs (`
 2. **A refused envelope writes nothing**: the foundation's `OnAddingAssociationAsync` is not called, so no row is written, no `Association-Added` is published and no `ProcessedEvents` row is recorded. The occupancy probes are not run.
 3. **The door's earlier refusals come first**, unchanged: the envelope's verification, the deduplication check and the refusal of a personal pair (`AssociationOrchestrationService.md §2`) all run before the flow, so a replayed or personal envelope never reaches the step.
 4. **Its tests are pins.** §1 puts the step into the flow this door already runs, so they pass as soon as they are written, and are committed as pins.
+5. **The write-flow seam theory lists the refusal.** `ShouldRunTheSameWriteFlowOnBothEntryPathsAsync` drives each refusal its `WriteFlowRefusals` list names through both doors and requires the same answer from each, and its comment requires a rule added to the flow later to join that list (`AssociationOrchestrationServiceTests.Substrate.WriteFlow.cs`). The refusal of a rejected endpoint joins it. The facet gate's refusals stay out of it, as the comment excepts them, proven on this door by #753, and nothing about them changes.
 
 ## 3. RemoveAssociationByPairAsync — a withdrawal on a rejected host (#1360)
 

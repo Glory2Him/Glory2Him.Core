@@ -217,6 +217,9 @@ The read-only roles each action answers to are those components' security and ac
    `DesignFeatures/Likes.md` rules 5, 6 and 11a; #744). A reaction the reader chooses is recorded,
    changed or cleared by the same hook (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2`;
    #739), and no signed-out reader chooses one here, because `SecuredRoute` admits none.
+   A rejected post is the exception: the write refuses a reaction on it (§ARC12.3.1 rule 5a), and
+   the card withholds Like from it, under `UI/Components/ContentItemPanel.md` rule 3.1.8, whose
+   build its §10 item 29 records (`DesignFeatures/RejectedEndpoints.md` rule 9).
 3. (needs issue) **Page gap — `/myposts`: Save saves nothing.** The page wires *Save* to a toast,
    "Saving posts is coming soon." (`useContentItemEngagement.ts` — `onSaveClick`), so the action is
    dead (§UI20.6.6 rule 4). Save has no design yet (§APR9.9 rule 6). By the plan §UI20.6.6 rule 4

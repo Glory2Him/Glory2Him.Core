@@ -258,6 +258,9 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
    11a; #745). A reaction the reader chooses is recorded, changed or cleared by the same hook
    (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §2`; #739), and no signed-out reader chooses
    one here, because `SecuredRoute` admits none.
+   A rejected post is the exception: the write refuses a reaction on it (§ARC12.3.1 rule 5a), and
+   the card withholds Like from it, under `UI/Components/ContentItemPanel.md` rule 3.1.8, whose
+   build its §10 item 29 records (`DesignFeatures/RejectedEndpoints.md` rule 9).
 5. (needs issue) **Page gap — `/myposts/{id}`: the page reads no associations.** The page reads no
    associations, so both lists are always empty (`myPostDetail.tsx` — `associationCollection={[]}`).
    The server work is the association read `GET /api/associations` (§ARC17.4;
