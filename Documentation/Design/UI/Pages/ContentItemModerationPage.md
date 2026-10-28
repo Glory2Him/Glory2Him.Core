@@ -175,9 +175,11 @@ below are what the page adds: who reaches it, and the card's actions for those w
 | --- | --- | --- | --- | --- | --- | --- |
 | The page: the search bar, the status boxes and the list ≠ item 7 | ❌ No¹ | ❌ No² | ❌ No² | ✅ Yes³ | ✅ Yes³ | ✅ Yes |
 | A card — **the moderation action** (labelled *Edit*), or the owner's **Edit** ≠ item 5 | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ❌ No |
-| A card — **Like**, **Save**, the comments control, the filter clicks | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes³ | ✅ Yes³ | ✅ Yes |
+| A card — **Save**, the comments control, the filter clicks | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes³ | ✅ Yes³ | ✅ Yes |
 | A card, the item `Approved` — **Share** | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes³ | ✅ Yes³ | ✅ Yes |
 | A card, the item `Draft`, `Submitted` or `Rejected` — **Share** ≠ item 9 | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ❌ No |
+| A card, the item not `Rejected` — **Like** | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes³ | ✅ Yes³ | ✅ Yes |
+| A card, the item `Rejected` — **Like** ≠ `UI/Components/ContentItemPanel.md §10 item 29` | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ❌ No |
 | A card — **View** ≠ item 5 | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes³ | ✅ Yes³ | ✅ Yes |
 
 ¹ The route guard shows *Access Restricted* and a *Login* button.

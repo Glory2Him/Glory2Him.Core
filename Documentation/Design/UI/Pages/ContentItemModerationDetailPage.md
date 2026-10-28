@@ -346,7 +346,8 @@ everyone who reaches the page; each association's round is the association page'
 | Viewer holds their tier only outside the item's review tier, holding neither block of `UI/Components/ReviewCommentPanel.md rule 3.2.2` — **the review comment box**, live, Edit and Delete on their own comment, and the settled tick on a question ≠ `UI/Components/ReviewCommentPanel.md §10 item 19` | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No⁶ | ❌ No⁶ | ➖ n/a |
 | As the row above — **the review comment box rendered disabled**, with the tooltip saying why ≠ `UI/Components/ReviewCommentPanel.md §10 items 19 and 21` | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes⁸ | ✅ Yes⁸ | ➖ n/a |
 | No ReadOnly covering the item's type — **Modify** and **Remove Override** in `ContentItemSettingsPanel` | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ✅ Yes³ | ✅ Yes |
-| The setting allows reactions — **Like** | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes |
+| The setting allows reactions, item not `Rejected` — **Like** | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes |
+| As the row above, item `Rejected` — **Like** ≠ `UI/Components/ContentItemPanel.md §10 item 29` | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ❌ No |
 
 ¹ The route guard shows *Access Restricted* and a *Login* button.
 ² The design: a reviewer sees the item and does not modify it (rule 2.4). Today the action renders for them, labelled *Edit*, and the editor refuses them (`UI/Components/ContentItemPanel.Edit.md rule 3.2.2`).

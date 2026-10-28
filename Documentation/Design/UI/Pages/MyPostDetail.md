@@ -207,7 +207,8 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
 | Editor open, item `Approved` or `Rejected` — ***Delete*** ≠ `UI/Components/ContentItemPanel.Edit.md §10 item 5` | ❌ No¹ | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
 | **View** on the card ≠ item 9 | ❌ No¹ | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
 | The viewer owns the item and holds the column's tier, no ReadOnly covering the item's type — **Moderate** ≠ item 11 | ❌ No¹ | ❌ No | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes |
-| The viewer owns the item, holding the column's tier where the column names one; the setting allows reactions — **Like** | ❌ No¹ | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| The viewer owns the item, holding the column's tier where the column names one; the setting allows reactions; the item not `Rejected` — **Like** | ❌ No¹ | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| As the row above, the item `Rejected` — **Like** ≠ `UI/Components/ContentItemPanel.md §10 item 29` | ❌ No¹ | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
 | The viewer owns the item, holding the column's tier where the column names one; no ReadOnly the panel composes, the post's own included — **the tag and Bible reference add boxes** ≠ item 13 | ❌ No¹ | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | The viewer owns the item, holding the column's tier where the column names one; no `ReadOnly` or `ContentItem-ReadOnly` held — `SharingPanel`, **Submit a contribution** | ❌ No¹ | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | The persona also holds `ReadOnly` or `ContentItem-ReadOnly` — `SharingPanel` ≠ `UI/Components/SharingPanel.md §10 item 5` | ➖ n/a | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |

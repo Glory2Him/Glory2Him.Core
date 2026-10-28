@@ -184,9 +184,11 @@ The read-only roles each action answers to are those components' security and ac
 | --- | --- | --- | --- | --- | --- | --- |
 | The page: the heading, *Share what He has done*, the search bar, the status boxes and the results | ❌ No¹ | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | The persona also holds `ReadOnly` or `ContentItem-ReadOnly` — ***Share what He has done*** ≠ item 9 | ➖ n/a | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
-| A card the viewer owns, holding the column's tier where the column names one — the view template, *read more*, the comments control, the filter clicks, Like and Save | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| A card the viewer owns, holding the column's tier where the column names one — the view template, *read more*, the comments control, the filter clicks and Save | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | As the row above, the item `Approved` — **Share** | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | As the row above, the item `Draft`, `Submitted` or `Rejected` — **Share** ≠ item 5 | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ❌ No | ❌ No |
+| As the row above, the item not `Rejected` — **Like** | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| As the row above, the item `Rejected` — **Like** ≠ `UI/Components/ContentItemPanel.md §10 item 29` | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ❌ No | ❌ No |
 | As the row above — **View** ≠ item 6 | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | As the row above, no ReadOnly covering the item's type — **Edit** (labelled *View* today) | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | As the row above, no ReadOnly covering the item's type — **Moderate** | ➖ n/a | ➖ n/a | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes |
