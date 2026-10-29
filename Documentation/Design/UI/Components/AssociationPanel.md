@@ -392,7 +392,7 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
     ruling 2026-10-02). A page reads them through `associationService.useGetAssociationsByEffectiveId`
     (`DesignFeatures/UI/Foundations/AssociationService.AssociationReads.md §1`), and #1128, which builds
     it, is the last of the tasks that build the read. Removing one is item 22.
-    **Built:** suggesting one by its endpoints' ids, `POST /api/associations` (item 24; #1088).
+    **Built:** suggesting one, `POST /api/associations` (item 24; #1088).
     **Not yet built:** reading an entity's associations (#1128); suggesting a tag by its name,
     `POST /api/associations/tag-suggestions` (item 24; `DesignFeatures/TagSuggestions.md`); and
     removing one (item 22).
