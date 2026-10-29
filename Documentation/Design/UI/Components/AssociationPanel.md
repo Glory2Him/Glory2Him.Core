@@ -393,9 +393,7 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
     (`DesignFeatures/UI/Foundations/AssociationService.AssociationReads.md §1`), and #1128, which builds
     it, is the last of the tasks that build the read. Removing one is item 22.
     **Built:** suggesting one, `POST /api/associations` (item 24; #1088).
-    **Not yet built:** reading an entity's associations (#1128); suggesting a tag by its name,
-    `POST /api/associations/tag-suggestions` (item 24; `DesignFeatures/TagSuggestions.md`); and
-    removing one (item 22).
+    **Not yet built:** reading an entity's associations (#1128), and removing one (item 22).
 22. (#700) **Gap — an association cannot be removed over HTTP.** Removing one, the third part of
     item 21's gap, `DELETE /api/associations/{id}` (section 7; §ARC17.4), is held by a design task
     other than item 21's: #700's point 6 plans the remove by id and the two gates beneath it.
