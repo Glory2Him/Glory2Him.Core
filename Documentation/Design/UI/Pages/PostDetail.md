@@ -71,6 +71,8 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.23 [Could]** A Bible reference in the side panel that cannot be read as a passage leads to the Bible reference page all the same, which says it could not be found and offers the search (`UI/Pages/BibleReference.md rule 2.18`). *(user, 2026-09-28)* ≠ item 15
 
+**2.24 [Must]** The page hands both association panels the item's approval status, as data, so that each offers no suggest box on a rejected item and still shows what is already associated (`UI/Components/AssociationPanel.md rule 2.33`). Rule 2.1 keeps a rejected item off this page once item 12 is built; until then the page shows one to its owner and the review roles, and the panels withhold their boxes there. *(owner, 2026-10-29, `DesignFeatures/TagSuggestions.md`, The rulings, The box on a rejected post)* ≠ items 17 and 18
+
 ## 3. Layout
 
 Two columns at the `lg` breakpoint and wider — the item on the left in seven twelfths, its side
@@ -138,6 +140,7 @@ beneath it. While the item loads, or when it cannot be read, a single centred co
 | `onAdd` | `suggestTag` | Rule 2.7. |
 | `showBorder`, `cssClass` | `true`, `mb-4` | Frames the panel in the sidebar. |
 | The post's content type (`UI/Components/AssociationPanel.md rule 2.30`) | Not passed; the panel has no such property yet (`UI/Components/AssociationPanel.md §10 item 20`) | Rule 2.19; item 11. |
+| The post's approval status (`UI/Components/AssociationPanel.md rule 2.33`) | Not passed | Rule 2.24; item 17. |
 | Everything else | Left at the story's defaults: the add box on, the moderation actions off, the story's texts, its moderation tier, its own chip link and the panel's own sign-in link | Rule 2.8; the chip link and the sign-in link are item 5. That the panel and its box do not follow the item's `ShowTags` and `TagsAllowed` is item 8. |
 
 **Hooks**
@@ -160,6 +163,7 @@ beneath it. While the item loads, or when it cannot be read, a single centred co
 | `onAdd` | `suggestBibleReference` | Rule 2.7. |
 | `showBorder`, `cssClass` | `true`, `mb-4` | As section 4.2. |
 | The post's content type | Not passed, as section 4.2 | Rule 2.19; item 11. |
+| The post's approval status (`UI/Components/AssociationPanel.md rule 2.33`) | Not passed | Rule 2.24; item 18. |
 | Everything else | Left at the story's defaults, as section 4.2 | That the panel and its box do not follow the item's `ShowBibleReferences` and `BibleReferenceAllowed` is item 8. |
 
 **Hooks**
@@ -406,6 +410,9 @@ page is a courtesy (§SEC14.6).
     `POST /api/associations/tag-suggestions` (§ARC17.4) and reads the page's associations again
     once it settles, and the page says in a toast what that feature's rule 8 has it say for the
     answer's status. A refused or failed suggestion is announced by the app's global error toast.
+    Rule 2.24 has the page hand the tag panel the item's approval status, on the property
+    `UI/Components/AssociationPanel.md rule 2.33` gives the panel, so that its box is withheld on
+    a rejected item; the page passes none (section 4.2).
     What the panel then shows is the association read's, which item 4 wires. Split from item 4,
     which keeps the read and the withdrawal, and, for the Bible reference panel, from this item
     into item 18, when #1352 was split (owner ruling 2026-10-27).
@@ -418,5 +425,8 @@ page is a courtesy (§SEC14.6).
     `POST /api/associations` takes two endpoint ids
     (`DesignFeatures/Backend/Orchestrations/AssociationOrchestrationService.md §6 rule 1`). Held for
     #1357, *Design The Submission Of A Suggested Bible Reference*, which designs the write and is
-    held until #700 settles how a passage's row is found. Split from item 17 when #1352 was split
-    (owner ruling 2026-10-27).
+    held until #700 settles how a passage's row is found. Rule 2.24 has the page hand the Bible
+    reference panel the item's approval status too, so that its box is withheld on a rejected
+    item (owner ruling 2026-10-29, which names the Bible reference control, recorded on #1357);
+    that is this item's, with the rest of the panel's write. Split from item 17 when #1352 was
+    split (owner ruling 2026-10-27).

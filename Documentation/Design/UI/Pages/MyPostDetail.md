@@ -79,7 +79,9 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.23 [Could]** A Bible reference in the side panel that cannot be read as a passage leads to the Bible reference page all the same, which says it could not be found and offers the search (`UI/Pages/BibleReference.md rule 2.18`). *(user, 2026-09-28)* ≠ item 17
 
-**2.24 [Must]** The reader may suggest a tag, and the page sends it by its name, with the item's id from the route, and says in a toast what came of it (`DesignFeatures/TagSuggestions.md` rules 1, 8 and 16). A suggestion for the reader's own rejected post is refused, and answered as any failed write (`DesignFeatures/TagSuggestions.md` rule 17). *(owner rulings 2026-10-26 and 2026-10-27, `DesignFeatures/TagSuggestions.md`, The rulings)* ≠ item 18
+**2.24 [Must]** The reader may suggest a tag, and the page sends it by its name, with the item's id from the route, and says in a toast what came of it (`DesignFeatures/TagSuggestions.md` rules 1, 8 and 16). On the reader's own rejected post the box is not offered (rule 2.25); a suggestion that reaches the server for one all the same, from a page shown before the post was rejected, is refused, and answered as any failed write (`DesignFeatures/TagSuggestions.md` rule 17). *(owner rulings 2026-10-26, 2026-10-27 and 2026-10-29, `DesignFeatures/TagSuggestions.md`, The rulings)* ≠ item 18
+
+**2.25 [Must]** The page hands both association panels the item's approval status, as data, so that each offers no suggest box on a rejected post and still shows what is already associated, the owner's withdrawal included (`UI/Components/AssociationPanel.md rule 2.33`). *(owner, 2026-10-29, `DesignFeatures/TagSuggestions.md`, The rulings, The box on a rejected post)* ≠ items 18 and 19
 
 ## 3. Layout
 
@@ -165,6 +167,7 @@ The page renders both stories the same way and sets the same properties on each.
 | `onAdd` | a toast, "Suggesting tags is coming soon." or "Suggesting bible references is coming soon." | The page is not yet wired to the suggestion write (rule 2.14; items 18 and 19). |
 | `showBorder`, `cssClass` | `true`, `mb-4` | Spacing in the column. |
 | The post's content type (`UI/Components/AssociationPanel.md rule 2.30`) | Not passed; the panel has no such property yet (`UI/Components/AssociationPanel.md §10 item 20`) | Rule 2.16; item 13. |
+| The post's approval status (`UI/Components/AssociationPanel.md rule 2.33`) | Not passed | Rule 2.25; items 18 and 19. |
 
 Everything else keeps the story's defaults (`UI/Components/AssociationPanel.TagAssociationPanel.md
 rule 3.1.1`, `UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md rule 3.1.1`). So
@@ -211,7 +214,8 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
 | The viewer owns the item and holds the column's tier, no ReadOnly covering the item's type — **Moderate** ≠ item 11 | ❌ No¹ | ❌ No | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes |
 | The viewer owns the item, holding the column's tier where the column names one; the setting allows reactions; the item not `Rejected` — **Like** | ❌ No¹ | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | As the row above, the item `Rejected` — **Like** ≠ `UI/Components/ContentItemPanel.md §10 item 29` | ❌ No¹ | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
-| The viewer owns the item, holding the column's tier where the column names one; no ReadOnly the panel composes, the post's own included — **the tag and Bible reference add boxes** ≠ item 13 | ❌ No¹ | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| The viewer owns the item, holding the column's tier where the column names one; no ReadOnly the panel composes, the post's own included; the item not `Rejected` — **the tag and Bible reference add boxes** ≠ item 13 | ❌ No¹ | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| As the row above, the item `Rejected` — **the tag and Bible reference add boxes** ≠ items 18 and 19 | ❌ No¹ | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
 | The viewer owns the item, holding the column's tier where the column names one; no `ReadOnly` or `ContentItem-ReadOnly` held — `SharingPanel`, **Submit a contribution** | ❌ No¹ | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | The persona also holds `ReadOnly` or `ContentItem-ReadOnly` — `SharingPanel` ≠ `UI/Components/SharingPanel.md §10 item 5` | ➖ n/a | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
 
@@ -393,7 +397,10 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
     once it settles, and the page says in a toast what that feature's rule 8 has it say for the
     answer's status. A refused or failed suggestion is announced by the app's global error toast,
     a suggestion for the owner's own rejected post among them (`DesignFeatures/TagSuggestions.md`
-    rule 17). What the panel then shows is the association read's, which item 5 wires. Split from
+    rule 17). Rule 2.25 has the page hand the tag panel the item's approval status, on the
+    property `UI/Components/AssociationPanel.md rule 2.33` gives the panel, so that its box is
+    withheld on a rejected post; the page passes none (section 4.2). What the panel then shows is
+    the association read's, which item 5 wires. Split from
     item 5, which keeps the read, and, for the Bible reference panel, from this item into item 19,
     when #1352 was split (owner ruling 2026-10-27).
 19. (#1357) **Page gap — `/myposts/{id}`: suggesting a Bible reference sends nothing.**
@@ -404,4 +411,7 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
     (`DesignFeatures/Backend/Orchestrations/AssociationOrchestrationService.md §6 rule 1`). Held for
     #1357, *Design The Submission Of A Suggested Bible Reference*, which designs the write, the
     page's wiring of it included, and is held until #700 settles how a passage's row is found.
-    Split from item 18 when #1352 was split (owner ruling 2026-10-27).
+    Rule 2.25 has the page hand the Bible reference panel the item's approval status too, so that
+    its box is withheld on a rejected post (owner ruling 2026-10-29, which names the Bible
+    reference control, recorded on #1357); that is this item's, with the rest of the panel's
+    write. Split from item 18 when #1352 was split (owner ruling 2026-10-27).

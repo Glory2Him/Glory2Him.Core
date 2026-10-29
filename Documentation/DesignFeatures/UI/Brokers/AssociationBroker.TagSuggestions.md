@@ -5,7 +5,7 @@ Inherits: §ARC17.4, §UI20.9.1, `UI/Brokers/AssociationBroker.md` (the class an
 
 The React app's door to the tag suggestion's route. It forms the request, sends it and hands back what came, and holds no logic (§UI20.9.1). A broker member has no test paths: its behaviour is proven by the service's tests that mock it, and by the page's.
 
-**The wire models are new**, under `src/models/foundations/associations/`, added by this member: the request, `TagSuggestion` — `contentItemId`, a string, and `name`, a string, and nothing else; and the answer, `AssociationSubmissionResult` — `status`, an `AssociationSubmissionStatus`, a numeric mirror of the server's enum in its order: `Created` `0`, `AlreadySuggested` `1`, `AlreadySuggestedByCaller` `2` (`UI/Brokers/AssociationBroker.md`, *What crosses the wire*).
+**The wire models are new**, under `src/models/foundations/associations/`, added by this member: the request, `TagSuggestion` — `contentItemId`, a string, and `name`, a string, and nothing else; and the answer, `AssociationSubmissionResult` — `status`, an `AssociationSubmissionStatus`, a numeric mirror of the server's enum in its order: `Created` `0`, `AlreadySuggested` `1`, `AlreadySuggestedByCaller` `2`, `PreviouslySuggestedByCaller` `3` (`UI/Brokers/AssociationBroker.md`, *What crosses the wire*).
 
 ## 1. PostTagSuggestionAsync (#1370)
 
