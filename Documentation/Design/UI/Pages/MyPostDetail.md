@@ -381,7 +381,7 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
     its chip follows the reference story's own `/Search?q=<reference>`
     (`UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 5`). The same gap on
     the cards is `UI/Pages/Home.md §6 item 14`.
-18. (#1356) **Page gap — `/myposts/{id}`: suggesting a tag sends nothing.**
+18. (#1373) **Page gap — `/myposts/{id}`: suggesting a tag sends nothing.**
     Rule 2.24 has the page send a suggested tag by its name and say what came of it. The page
     answers the tag panel's `onAdd` with a "coming soon" toast instead (`myPostDetail.tsx` —
     `suggestTag`). The panel raises `onAdd` with the text the reader typed

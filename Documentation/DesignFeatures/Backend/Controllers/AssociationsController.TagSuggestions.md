@@ -5,7 +5,7 @@ Inherits: §ARC17.2 (shape versus served literal), §ARC17.4, §EVN13 rule 3, §
 
 The route of the tag suggestion. The controller keeps binding `IAssociationOrchestrationService` and nothing else (§EVN13 rule 3; `the-standard-exposers` ts-exposers-001), and holds no logic. This document is the single home of the route's literal and its response codes; §ARC17.4 tables its shape beside the other association routes and points here.
 
-## 1. PostTagSuggestionAsync (needs issue)
+## 1. PostTagSuggestionAsync (#1369)
 
 `POST api/Associations/TagSuggestions`, through `[HttpPost("TagSuggestions")]` under the controller's `[Route("api/[controller]")]` (§ARC17.2), `[Authorize]`, the body bound `[FromBody] TagSuggestion` and handed to `SuggestTagAsync` (`Backend/Orchestrations/AssociationOrchestrationService.TagSuggestions.md §1`).
 

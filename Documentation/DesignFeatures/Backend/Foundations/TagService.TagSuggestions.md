@@ -7,7 +7,7 @@ What the tag foundation needs for a tag to be suggested by its name: an add that
 
 **Build order.** §1, then §2. §3 after `Backend/Brokers/StorageBroker.TagSuggestions.md §1`, in either order with §1 and §2.
 
-## 1. AddTagAsync — the add mints the row's `Id` (needs issue)
+## 1. AddTagAsync — the add mints the row's `Id` (#1365)
 
 ```csharp
 ValueTask<Tag> AddTagAsync(
@@ -25,7 +25,7 @@ A tag's `Id` is an `IKey` member, so it belongs to the identifier broker and is 
 4. **The added row, and the `Tag-Added` fact, carry the minted `Id`**, and so does what `AddTagAsync` returns. That is how a caller learns which row was written.
 5. **`POST /api/Tags` answers the minted `Id`**, through `TagsController.PostTagAsync`, unchanged, which hands the add its body and answers `201` with the row the add returns. A caller's `Id` is ignored there. Tests that post a tag and then read it, or a pairing of it, by the `Id` they posted read it by the `Id` the post answered: the acceptance tests that post a tag (`Websites/Glory2Him.WebApp.Tests.Acceptance/Apis/Tags/`, and `Apis/Approvals/ApprovalTests.AutomaticAIReviewer.cs`), and the foundation's add tests (`Glory2Him.Core.Tests.Unit/Services/Foundations/Tags/TagServiceTests.Add.*.cs`).
 
-## 2. OnAddingTagAsync — the minted `Id` on the `Tag-Adding` door (needs issue)
+## 2. OnAddingTagAsync — the minted `Id` on the `Tag-Adding` door (#1366)
 
 ```csharp
 ValueTask<EventEnvelope<Tag>?> OnAddingTagAsync(
@@ -39,7 +39,7 @@ An existing member, unchanged: the handler for `Tag-Adding` (`TagService.Substra
 2. **Its verification, its deduplication on `Metadata.EventId` and its contribution gate run before the mint**, so a replayed or tampered envelope, or a caller the gate refuses, mints nothing and writes nothing (§1 rule 2).
 3. **Its tests are pins.** §1 puts the mint in the shared body, so they pass as soon as they are written, and they are committed as pins.
 
-## 3. FindTagByNameAsync (needs issue)
+## 3. FindTagByNameAsync (#1367)
 
 ```csharp
 internal ValueTask<TagNameMatch?> FindTagByNameAsync(

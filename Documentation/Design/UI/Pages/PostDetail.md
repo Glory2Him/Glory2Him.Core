@@ -265,7 +265,7 @@ page is a courtesy (§SEC14.6).
    under §UI20.6.6 rule 4, is `UI/Pages/Home.md §6 item 5`: one handler serves every page that renders the card.
 4. (needs issue) **The association panels are inert.** Rules 2.6–2.8 have the page read the
    item's tags and Bible references, write a reader's suggestion and remove their own withdrawn
-   one. Writing the suggestion is items 17 and 18, held for #1356 and #1357; this item keeps the read and the
+   one. Writing the suggestion is items 17 and 18, held for #1372 and #1357; this item keeps the read and the
    withdrawal. The page hands both panels an empty collection and wires no `onRemove`
    (`postDetail.tsx` — `associationCollection={[]}` on each panel). The read and the withdrawal are
    designed (§ARC17.4; the read in `DesignFeatures/AssociationReads.md`), and `UI/Components/AssociationPanel.md §7` records which of them are served; the page's
@@ -394,7 +394,7 @@ page is a courtesy (§SEC14.6).
     each item's reaction counts, on every page that renders the card with Like, `/posts/{id}`
     among them, read from the item's reaction summary (§ARC16.8). Rule 2.17 now says so and cites
     them. The card shows its counts (item 2).
-17. (#1356) **Page gap — `/posts/{id}`: a reader's suggested tag is written nowhere.** Rule 2.7 has
+17. (#1372) **Page gap — `/posts/{id}`: a reader's suggested tag is written nowhere.** Rule 2.7 has
     the page send a reader's suggested tag by its name and say what came of it. The page answers
     the tag panel's `onAdd` with a *coming soon* notice instead (`postDetail.tsx` — `suggestTag`;
     test: `postDetail.test.tsx` — "should answer a suggested tag honestly rather than dropping

@@ -7,7 +7,7 @@ The React app's door to the tag suggestion's route. It forms the request, sends 
 
 **The wire models are new**, under `src/models/foundations/associations/`, added by this member: the request, `TagSuggestion` — `contentItemId`, a string, and `name`, a string, and nothing else; and the answer, `AssociationSubmissionResult` — `status`, an `AssociationSubmissionStatus`, a numeric mirror of the server's enum in its order: `Created` `0`, `AlreadySuggested` `1`, `AlreadySuggestedByCaller` `2` (`UI/Brokers/AssociationBroker.md`, *What crosses the wire*).
 
-## 1. PostTagSuggestionAsync (needs issue)
+## 1. PostTagSuggestionAsync (#1370)
 
 ```ts
 PostTagSuggestionAsync(tagSuggestion: TagSuggestion): Promise<AssociationSubmissionResult>

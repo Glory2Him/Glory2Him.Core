@@ -5,7 +5,7 @@ Inherits: §ARC12.3.1 rules 5 and 5a, §ARC12.5 (*an orchestration holds brokers
 
 The suggestion of a tag for a post by its name (TagSuggestions.md rule 1): the one member this feature adds. It finds the tag the name names or adds it, and pairs it with the post unless the pairing exists, reaching the rules that decide a pairing where this service already holds them. It is a third way in beside the upsert and the `Association-Adding` door, and is neither of them: the write-flow seam tests, which hold those two doors to one flow (`AssociationOrchestrationServiceTests.Substrate.WriteFlow.cs`), are unchanged by it.
 
-## 1. SuggestTagAsync (needs issue)
+## 1. SuggestTagAsync (#1368)
 
 ```csharp
 ValueTask<AssociationSubmissionResult> SuggestTagAsync(

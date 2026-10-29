@@ -7,7 +7,7 @@ The read by name asks its question through a query-shaping function that `TagSer
 
 A broker member has no test paths: brokers hold no logic and get no unit tests. The member's behaviour is proven by the tests of the service that authors its condition — unit tests that execute the function (§ARC12.2.1 rule 5) and an integration test against the real catalogue (rule 6).
 
-## 1. SelectTagsAsync (needs issue)
+## 1. SelectTagsAsync (#1364)
 
 ```csharp
 ValueTask<IReadOnlyList<TResult>> SelectTagsAsync<TResult>(

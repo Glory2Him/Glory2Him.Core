@@ -5,7 +5,7 @@ Inherits: §UI20.9.1 departure 4, §UI20.9.2, `UI/Brokers/AssociationBroker.TagS
 
 The hook a page sends a suggested tag through: a member of the existing `associationService` object, constructing its broker (§UI20.9.1 departure 4).
 
-## 1. useSuggestTag (needs issue)
+## 1. useSuggestTag (#1371)
 
 ```ts
 useSuggestTag: () => UseMutationResult<AssociationSubmissionResult, unknown, TagSuggestion>
