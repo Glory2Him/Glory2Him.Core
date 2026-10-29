@@ -299,7 +299,8 @@ Every page renders the family through its stories. No page renders `AssociationP
 | Purpose | Endpoint | State |
 | --- | --- | --- |
 | Read the associations for an entity — "associations for this entity", keyed on the effective id (§DOM4.6 rule 1) | `GET /api/associations` (§ARC17.4) | designed; not yet served (section 10, item 21) |
-| Suggest an association (`onAdd`) | `POST /api/associations` (§ARC17.4, §ARC16.8.1) | served for a reader's reaction (#728) and an editorial suggestion (#1088; section 10, item 24) |
+| Suggest a tag (`TagAssociationPanel`'s `onAdd`), by its name | `POST /api/associations/tag-suggestions` (§ARC17.4; `DesignFeatures/TagSuggestions.md`) | designed; not yet served (section 10, item 24) |
+| Suggest any other association (`onAdd`) | `POST /api/associations` (§ARC17.4, §ARC16.8.1) | served for a reader's reaction (#728) and an editorial suggestion (#1088; section 10, item 24) |
 | Remove an association (`onRemove`) | `DELETE /api/associations/{id}` (§ARC17.4) — owner or `Administrators` | designed; not yet exposed (section 10, item 22) |
 | Approve or reject (`onApprove`, `onReject`) | not ruled — see section 10 | — |
 
@@ -388,8 +389,10 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
     ruling 2026-10-02). A page reads them through `associationService.useGetAssociationsByEffectiveId`
     (`DesignFeatures/UI/Foundations/AssociationService.AssociationReads.md §1`), and #1128, which builds
     it, is the last of the tasks that build the read. Removing one is item 22.
-    **Built:** suggesting one, `POST /api/associations` (item 24; #1088).
-    **Not yet built:** reading an entity's associations (#1128), and removing one (item 22).
+    **Built:** suggesting one by its endpoints' ids, `POST /api/associations` (item 24; #1088).
+    **Not yet built:** reading an entity's associations (#1128); suggesting a tag by its name,
+    `POST /api/associations/tag-suggestions` (item 24; `DesignFeatures/TagSuggestions.md`); and
+    removing one (item 22).
 22. (#700) **Gap — an association cannot be removed over HTTP.** Removing one, the third part of
     item 21's gap, `DELETE /api/associations/{id}` (section 7; §ARC17.4), is held by a design task
     other than item 21's: #700's point 6 plans the remove by id and the two gates beneath it.
@@ -428,4 +431,7 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
     second part of item 21's gap, `POST /api/associations` (section 7; §ARC16.8.1), is served.
     The route is #728's, and #1088 has the foundation's add mint the new row's `Id` rather than
     take it from the caller, so the route's editorial arm takes the two-endpoint body (§APR9.7.1
-    rule 2; `DesignFeatures/Backend/Foundations/AssociationService.md §13`).
+    rule 2; `DesignFeatures/Backend/Foundations/AssociationService.md §13`). It takes ids, and
+    the tag panel raises a name, so a suggested tag is sent by its name to a route of its own
+    instead, `POST /api/associations/tag-suggestions`, which finds or adds the tag and pairs it
+    (§ARC17.4; `DesignFeatures/TagSuggestions.md`, designed and not yet built).

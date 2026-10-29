@@ -37,7 +37,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.6 [Must]** The two panels are handed the item's associations, read for this item from the association read (§ARC17.4, keyed per §DOM4.6 rule 1). *(code: postDetail.tsx — the comment above the two panels)* ≠ item 4
 
-**2.7 [Must]** A signed-in reader may suggest a tag or a Bible reference, and the page writes the suggestion (§ARC17.4). *(code: postDetail.tsx — `suggestTag`, `suggestBibleReference`; test: postDetail.test.tsx — "should offer a signed-in reader the box itself, not only its heading")* ≠ items 17 and 18
+**2.7 [Must]** A signed-in reader may suggest a tag or a Bible reference, and the page writes the suggestion (§ARC17.4). A tag is sent by its name, with the item's id from the route, and the page says in a toast what came of it (`DesignFeatures/TagSuggestions.md` rules 1, 8 and 16). *(code: postDetail.tsx — `suggestTag`, `suggestBibleReference`; test: postDetail.test.tsx — "should offer a signed-in reader the box itself, not only its heading")* ≠ items 17 and 18
 
 **2.8 [Must]** The two panels' moderation actions stay off: a reader may suggest, and withdraw their own suggestion while it is `Draft` or `Submitted` (§APR9.9), and nothing on the page decides anything (`UI/Components/AssociationPanel.md rule 2.15`). *(code: postDetail.tsx — the comment above the two panels)* ≠ item 4
 
@@ -144,7 +144,7 @@ beneath it. While the item loads, or when it cannot be read, a single centred co
 
 | Hook | Raised when | What the page does | Built today |
 | --- | --- | --- | --- |
-| `onAdd` ≠ item 17 | A signed-in reader commits a tag in the box, once per tag | Writes the suggestion, `POST /api/associations` (§ARC17.4), and refreshes the panel's collection (rule 2.7) | ❌ No — it says *Suggesting tags is coming soon.* (`postDetail.tsx`, line 135); item 17 |
+| `onAdd` ≠ item 17 | A signed-in reader commits a tag in the box, once per tag | Sends the tag by its name, with the item's id from the route, through `associationService.useSuggestTag` (`DesignFeatures/UI/Foundations/AssociationService.TagSuggestions.md §1`), to `POST /api/associations/tag-suggestions` (§ARC17.4); says in a toast what came of it; and the panel's collection is read again once the write settles (rule 2.7; `DesignFeatures/TagSuggestions.md` rule 8) | ❌ No — it says *Suggesting tags is coming soon.* (`postDetail.tsx`, line 135); item 17 |
 | `onRemove` ≠ item 4 | The reader withdraws their own `Draft` or `Submitted` tag | Removes it, `DELETE /api/associations/{id}` (§ARC17.4), and refreshes (rule 2.8) | ❌ No — not wired; no chip renders while the collection is empty; item 4 |
 | `chipOnClick` or `chipHrefFor` ≠ item 5 | A tag is clicked | Opens `/posts` handed the tag, its search bar showing it in the Tags box with the advanced section expanded (rule 2.13) | ❌ No — the page supplies neither; the story's own default links the tag to `/Search?q=<tag>` (`UI/Components/AssociationPanel.TagAssociationPanel.md §10 item 5`); item 5 |
 | `loginButtonOnClick` or `loginHref` ≠ item 5 | A signed-out reader presses *Login to suggest a tag* | Sends them to sign in through the one reusable sign-in action (rule 2.13) | ❌ No — the page supplies neither; the panel composes its own sign-in route (`UI/Components/AssociationPanel.md §10 item 15`); item 5 |
@@ -395,13 +395,18 @@ page is a courtesy (§SEC14.6).
     among them, read from the item's reaction summary (§ARC16.8). Rule 2.17 now says so and cites
     them. The card shows its counts (item 2).
 17. (#1356) **Page gap — `/posts/{id}`: a reader's suggested tag is written nowhere.** Rule 2.7 has
-    the page write a reader's suggested tag. The page answers the tag panel's `onAdd` with a
-    *coming soon* notice instead (`postDetail.tsx` — `suggestTag`; test: `postDetail.test.tsx` —
-    "should answer a suggested tag honestly rather than dropping it"). The panel raises `onAdd`
-    with the text the reader typed (`UI/Components/AssociationPanel.md rule 3.1.15`), and the
-    editorial arm of `POST /api/associations` takes two endpoint ids
-    (`DesignFeatures/Backend/Orchestrations/AssociationOrchestrationService.md §6 rule 1`). Held for
-    #1356, *Design The Submission Of A Suggested Tag*, which designs the write. Split from item 4,
+    the page send a reader's suggested tag by its name and say what came of it. The page answers
+    the tag panel's `onAdd` with a *coming soon* notice instead (`postDetail.tsx` — `suggestTag`;
+    test: `postDetail.test.tsx` — "should answer a suggested tag honestly rather than dropping
+    it"). The panel raises `onAdd` with the text the reader typed
+    (`UI/Components/AssociationPanel.md rule 3.1.15`). The write is designed in
+    `DesignFeatures/TagSuggestions.md` (#1356): the page hands each value to
+    `associationService.useSuggestTag` with the item's id from the route
+    (`DesignFeatures/UI/Foundations/AssociationService.TagSuggestions.md §1`), which sends it to
+    `POST /api/associations/tag-suggestions` (§ARC17.4) and reads the page's associations again
+    once it settles, and the page says in a toast what that feature's rule 8 has it say for the
+    answer's status. A refused or failed suggestion is announced by the app's global error toast.
+    What the panel then shows is the association read's, which item 4 wires. Split from item 4,
     which keeps the read and the withdrawal, and, for the Bible reference panel, from this item
     into item 18, when #1352 was split (owner ruling 2026-10-27).
 18. (#1357) **Page gap — `/posts/{id}`: a reader's suggested Bible reference is written nowhere.**

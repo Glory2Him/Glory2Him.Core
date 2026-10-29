@@ -79,6 +79,8 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.23 [Could]** A Bible reference in the side panel that cannot be read as a passage leads to the Bible reference page all the same, which says it could not be found and offers the search (`UI/Pages/BibleReference.md rule 2.18`). *(user, 2026-09-28)* ≠ item 17
 
+**2.24 [Must]** The reader may suggest a tag, and the page sends it by its name, with the item's id from the route, and says in a toast what came of it (`DesignFeatures/TagSuggestions.md` rules 1, 8 and 16). A suggestion for the reader's own rejected post is refused, and answered as any failed write (`DesignFeatures/TagSuggestions.md` rule 17). *(owner rulings 2026-10-26 and 2026-10-27, `DesignFeatures/TagSuggestions.md`, The rulings)* ≠ item 18
+
 ## 3. Layout
 
 Two columns inside the public chrome: the item on the left, and on the right the surfaces that
@@ -172,7 +174,7 @@ rule 3.1.1`, `UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md r
 
 | Hook | Raised when | What the page does | Built today |
 | --- | --- | --- | --- |
-| `onAdd` | A suggestion is committed in the add box | Toasts that suggesting is coming soon, and sends nothing. ≠ items 18 and 19 | ❌ No — items 18 and 19 |
+| `onAdd` | A suggestion is committed in the add box | On the tag panel, sends the tag by its name, with the item's id from the route, through `associationService.useSuggestTag` (`DesignFeatures/UI/Foundations/AssociationService.TagSuggestions.md §1`), to `POST /api/associations/tag-suggestions` (§ARC17.4), and says in a toast what came of it (rule 2.24). On the Bible reference panel, toasts that suggesting is coming soon, and sends nothing. ≠ items 18 and 19 | ❌ No — items 18 and 19 |
 | `chipOnClick` or `chipHrefFor` | A chip's label is pressed | The page supplies both links: a reference leads to the page showing the verse, `/BibleReferences/{USFM}` (`UI/Pages/BibleReference.md`), or, where it cannot be read as a passage, to that page all the same, which says it could not be found (rule 2.23); a tag opens `/posts` handed the tag, its search bar showing it in the Tags box with the advanced section expanded (rule 2.15). ≠ items 7 and 17 | ❌ No — item 7, and item 17 for a reference it cannot read. The page supplies neither a link nor a hook, so a tag leads to `/Search?q=<tag>` and a reference to `/BibleReferences/{USFM}`, or `/Search?q=<reference>` for one it cannot read, both composed by the story; `chipOnClick` is unreachable while each story's default `chipHrefFor` wins (`UI/Components/AssociationPanel.TagAssociationPanel.md §10 item 1`, `UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 2`). No chip renders today (rule 2.14). |
 | `onRemove` | Remove is pressed on the owner's own `Draft` or `Submitted` chip, which the panel offers with its moderation actions off (`UI/Components/AssociationPanel.md rule 2.18`) | Nothing: the page does not listen. No chip renders today. ≠ item 8 | ❌ No — item 8 |
 | `onReject`, `onApprove` | Reject or Approve is pressed | Never offered: `showModerationActions` stays off, as on every surface but a moderation one (`UI/Components/AssociationPanel.md rule 2.15`). | *Not wired — switched off* |
@@ -380,14 +382,20 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
     (`UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 5`). The same gap on
     the cards is `UI/Pages/Home.md §6 item 14`.
 18. (#1356) **Page gap — `/myposts/{id}`: suggesting a tag sends nothing.**
-    The page answers the tag panel's `onAdd` with a "coming soon" toast (`myPostDetail.tsx` —
+    Rule 2.24 has the page send a suggested tag by its name and say what came of it. The page
+    answers the tag panel's `onAdd` with a "coming soon" toast instead (`myPostDetail.tsx` —
     `suggestTag`). The panel raises `onAdd` with the text the reader typed
-    (`UI/Components/AssociationPanel.md rule 3.1.15`), and the editorial arm of
-    `POST /api/associations` (#728, #1088) takes two endpoint ids
-    (`DesignFeatures/Backend/Orchestrations/AssociationOrchestrationService.md §6 rule 1`). Held for
-    #1356, *Design The Submission Of A Suggested Tag*, which designs the write, the page's wiring of
-    it included. Split from item 5, which keeps the read, and, for the Bible reference panel, from
-    this item into item 19, when #1352 was split (owner ruling 2026-10-27).
+    (`UI/Components/AssociationPanel.md rule 3.1.15`). The write is designed in
+    `DesignFeatures/TagSuggestions.md` (#1356): the page hands each value to
+    `associationService.useSuggestTag` with the item's id from the route
+    (`DesignFeatures/UI/Foundations/AssociationService.TagSuggestions.md §1`), which sends it to
+    `POST /api/associations/tag-suggestions` (§ARC17.4) and reads the page's associations again
+    once it settles, and the page says in a toast what that feature's rule 8 has it say for the
+    answer's status. A refused or failed suggestion is announced by the app's global error toast,
+    a suggestion for the owner's own rejected post among them (`DesignFeatures/TagSuggestions.md`
+    rule 17). What the panel then shows is the association read's, which item 5 wires. Split from
+    item 5, which keeps the read, and, for the Bible reference panel, from this item into item 19,
+    when #1352 was split (owner ruling 2026-10-27).
 19. (#1357) **Page gap — `/myposts/{id}`: suggesting a Bible reference sends nothing.**
     The page answers the Bible reference panel's `onAdd` with a "coming soon" toast
     (`myPostDetail.tsx` — `suggestBibleReference`). The panel raises `onAdd` with the text the
