@@ -295,5 +295,58 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnAddIfIdentifierBrokerFailsAndLogItAsync()
+        {
+            // given
+            Tag someTag = CreateRandomTag();
+            var serviceException = new Exception();
+
+            var failedTagServiceException = new FailedTagServiceException(
+                message: "Failed tag service error occurred, please contact support.",
+                innerException: serviceException,
+                data: serviceException.Data);
+
+            var expectedTagServiceException = new TagServiceException(
+                message: "Tag service error occurred, contact support.",
+                innerException: failedTagServiceException);
+
+            // the identifier broker raises no family of its own, so its failure reaches the
+            // closing catch-all arm
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<Tag> addTagTask =
+                this.tagService.AddTagAsync(
+                    someTag,
+                    TestContext.Current.CancellationToken);
+
+            TagServiceException actualTagServiceException =
+                await Assert.ThrowsAsync<TagServiceException>(
+                    addTagTask.AsTask);
+
+            // then: nothing is inserted or published
+            actualTagServiceException.Should().BeEquivalentTo(
+                expectedTagServiceException);
+
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagServiceException))),
+                Times.Once);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }

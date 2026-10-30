@@ -333,6 +333,11 @@ namespace Glory2Him.Core.Services.Foundations.Tags
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
 
+            // the new row's Id is minted here and never taken from the caller, whose copy may
+            // carry one or none; minting in the shared body binds both entry paths
+            // (TagService.TagSuggestions.md §1 rule 1)
+            tag.Id = await this.identifierBroker.GetIdentifierAsync();
+
             tag = await this.securityAuditBroker
                 .ApplyAddAuditValuesAsync(entity: tag, securityContext: inboundEnvelope.SecurityContext);
 
