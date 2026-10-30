@@ -79,6 +79,8 @@ The panel is the generic half of a family. It knows nothing about tags or bible 
 
 **2.32 [Should]** The panel's one loading state, the loading line of rule 3.1.3, is announced as a status (§UI20.6.6 rule 5). *(§UI20.6.6 rule 5)* ≠ item 18
 
+**2.33 [Must]** A rejected post takes no new suggestion. Where the panel hangs off a post, the page hands it the post's approval status, as data — a property, as it hands the post's content type (rule 2.30) — and where that status is `Rejected` the panel offers no add box, and no login prompt in its place, to anyone. Everything else it renders stays as its other gates have it: the chips, their links, and Remove, Reject and Approve, the owner's withdrawal included. The server refuses a suggestion for a rejected post all the same (`DesignFeatures/TagSuggestions.md` rule 9, step 5; `DesignFeatures/RejectedEndpoints.md` rule 1), so this gate decides what is offered and is no authorization boundary, as every gate here is (§5, *Render-only*). *(owner, 2026-10-29, `DesignFeatures/TagSuggestions.md`, The rulings, The box on a rejected post: "When the post is rejected, this control will only display what is already associated and prevent any new submissions.")* ≠ item 25
+
 ## 3. Presentation / Behaviour rules
 
 ### 3.1 Driven by properties
@@ -125,7 +127,7 @@ The panel is the generic half of a family. It knows nothing about tags or bible 
 
 **3.2.4** **Reject and Approve** are offered together, and only when `showModerationActions` is on, the viewer is signed in, the item is Submitted, the viewer does not own it, and the viewer holds a `moderationRoles` role of the publisher tier or `Administrators`. The review tier is never offered either, at any scope: a reviewer may never set an `ApprovalStatus` (§APR8.6 HR-3), and the server admits only the publisher tier to an association's approval transition (§SEC14.7 posture A′). `[OWNER]` in `moderationRoles` is ignored. *(code: associationPanel.tsx — mayModerate; test: associationPanel.test.tsx — "should not offer a decision on an already approved item"; §APR8.6 HR-3)* ≠ item 16
 
-**3.2.5** **The add box** shows when `showAdd` is on, the viewer is signed in, the viewer holds no read-only role (rule 2.30), and `addRoles` is empty (the default: any signed-in reader) or the viewer holds a listed role. A signed-in reader lacking the role sees neither the box nor a login prompt. `[OWNER]` in `addRoles` is ignored — there is no item yet to own. *(code: associationPanel.tsx — mayAdd; test: associationPanel.test.tsx — "should hide the add box entirely from a signed-in reader lacking the add role"; user, 2026-09-26; user, 2026-09-27)* ≠ items 1 and 20
+**3.2.5** **The add box** shows when `showAdd` is on, the host is not `Rejected` (rule 2.33), the viewer is signed in, the viewer holds no read-only role (rule 2.30), and `addRoles` is empty (the default: any signed-in reader) or the viewer holds a listed role. A signed-in reader lacking the role sees neither the box nor a login prompt. `[OWNER]` in `addRoles` is ignored — there is no item yet to own. *(code: associationPanel.tsx — mayAdd; test: associationPanel.test.tsx — "should hide the add box entirely from a signed-in reader lacking the add role"; user, 2026-09-26; user, 2026-09-27)* ≠ items 1, 20 and 25
 
 ### 3.3 Combinations
 
@@ -137,7 +139,7 @@ The panel is the generic half of a family. It knows nothing about tags or bible 
 
 **3.3.4** An owner who also holds a moderation role gets Remove on their own Submitted item and never Reject or Approve. With actions on and `Administrators` held, they also get Remove on their own Approved item, through the role rather than the owner branch. *(code: associationPanel.tsx — mayRemove, mayModerate; test: associationPanel.test.tsx — "should give the owner a delete rather than a decision on their own submission")*
 
-**3.3.5** The login prompt depends on `showAdd` and on being signed out alone. It is shown even when `addRoles` would refuse the reader after they sign in (rule 2.20). *(code: associationPanel.tsx — showLoginPrompt; user, 2026-09-27)*
+**3.3.5** The login prompt depends on `showAdd`, on the host not being `Rejected` (rule 2.33), and on being signed out, and on nothing else. It is shown even when `addRoles` would refuse the reader after they sign in (rule 2.20). *(code: associationPanel.tsx — showLoginPrompt; user, 2026-09-27; owner, 2026-10-29)* ≠ item 25
 
 **3.3.6** The read-only roles the panel composes (rule 2.30), the host post's included, are asked before every grant, and withhold the add box, Remove, Reject and Approve, the owner's withdrawal included (§SEC18.6 rule 2, rule 2.5), as the server refuses a write blocked on either end (§SEC14.7 posture A′ rule 1). The chips stay visible (rule 3.3.2). *(§SEC18.6 rule 2; §SEC14.7 posture A′ rule 1; user, 2026-09-26; user, 2026-09-27)* ≠ items 1 and 20
 
@@ -164,8 +166,9 @@ Defaults throughout: `viewAllRoles="Administrators"`, `moderationRoles="Reviewer
 | `showModerationActions=true`, the viewer's own Submitted chip, viewer also holds the column's tier — **Reject / Approve** | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ❌ No | ❌ No |
 | `showModerationActions=true`, the viewer's own Submitted chip, viewer also holds the column's tier — **Remove** | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | `showAdd=false` — **add box** or **login prompt** | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
-| `showAdd=true`, no read-only role the panel composes (rule 3.3.6) — **add box** | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
-| `showAdd=true` — **login prompt** | ✅ Yes | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
+| `showAdd=true`, the host not `Rejected`, no read-only role the panel composes (rule 3.3.6) — **add box** | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| `showAdd=true`, the host not `Rejected` — **login prompt** | ✅ Yes | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
+| `showAdd=true`, the host `Rejected` (rule 2.33), any `addRoles` — **add box** or **login prompt** ≠ item 25 | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
 | `showAdd=true`, `addRoles="Administrators"`, no read-only role the panel composes — **add box** | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No | ✅ Yes |
 | `showAdd=true`, `addRoles="Administrators"` — **login prompt** | ✅ Yes¹ | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
 | `showAdd=true`, viewer also holds a read-only role the panel composes (rule 2.30) — **add box** ≠ items 1 and 20 | ➖ n/a | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
@@ -225,7 +228,7 @@ The panel renders no child presentation component, so no property passes through
 | `loginButtonText` | `string` | `'Login to suggest'` | Label of the login prompt. | — |
 | `loginButtonCssClass` | `string` | `'btn-outline-primary'` | Theme class of the login prompt. | — |
 
-Rule 2.21 requires a property for the add box's separators, rule 2.31 one for the loading line's text, and rule 2.30 one carrying the host post's content type; none exists yet (section 10, items 17, 19 and 20).
+Rule 2.21 requires a property for the add box's separators, rule 2.31 one for the loading line's text, rule 2.30 one carrying the host post's content type, and rule 2.33 one carrying its approval status; none exists yet (section 10, items 17, 19, 20 and 25).
 
 ### 4.2 Events
 
@@ -256,8 +259,8 @@ Every read-only role in the **Blocked by** column is composed by the component i
 | --- | --- | --- | --- | --- | --- |
 | **The chips** (a gated view) | Every viewer the visibility gate admits, per status (rule 3.2.2) | None: a read, and reads stay outside the veto (§SEC14.7 posture A′ rule 3) | ✅ Allowed — the same chips as anyone of their tier, in the read-only view (rule 2.30) | ✅ Approved chips only (rule 3.2.2) | The association read the consumer hands in (§SEC14.3, §SEC14.7 posture A rule 4) |
 | **A chip's label** — a link or a hook | Everyone who sees the chip (rule 3.1.10) | None: it writes nothing | ✅ Allowed | ✅ Offered; raises `chipOnClick`, or follows the link the page supplies through `chipHrefFor` (rule 3.1.10) | Nothing: where it leads is the page's (§UI20.6.4) |
-| **The add box** — typing, Enter and Add, raising `onAdd` ≠ items 1 and 20 | A signed-in reader when `showAdd` is on; `addRoles` narrows it (rule 3.2.5) | `ReadOnly`, the `%EntityType%-ReadOnly` the story names, and on a post the post's `ContentItem-ReadOnly` and `ContentItem-{ContentType}-ReadOnly` for its type (rule 2.30) | ❌ Refused — the box is withheld, with no login prompt in its place (rules 2.30, 3.2.5) | Not offered; the login prompt stands in its place (rule 2.20) | §SEC14.7 posture A′ rule 1, which also asks the host end's blocks |
-| **The login prompt** ≠ item 15 | Every signed-out reader, when `showAdd` is on (rules 2.20, 3.3.5) | None: its reader holds no role | Not shown — a blocked-role holder is signed in | ✅ Offered; raises `loginButtonOnClick`, or follows the `loginHref` the page supplies (rule 3.1.16) | Nothing: sign-in is the page's (§UI20.6.6 rule 2) |
+| **The add box** — typing, Enter and Add, raising `onAdd` ≠ items 1, 20 and 25 | A signed-in reader when `showAdd` is on and the host is not `Rejected` (rule 2.33); `addRoles` narrows it (rule 3.2.5) | `ReadOnly`, the `%EntityType%-ReadOnly` the story names, and on a post the post's `ContentItem-ReadOnly` and `ContentItem-{ContentType}-ReadOnly` for its type (rule 2.30) | ❌ Refused — the box is withheld, with no login prompt in its place (rules 2.30, 3.2.5) | Not offered; the login prompt stands in its place (rule 2.20) | §SEC14.7 posture A′ rule 1, which also asks the host end's blocks |
+| **The login prompt** ≠ items 15 and 25 | Every signed-out reader, when `showAdd` is on and the host is not `Rejected` (rules 2.20, 2.33, 3.3.5) | None: its reader holds no role | Not shown — a blocked-role holder is signed in | ✅ Offered; raises `loginButtonOnClick`, or follows the `loginHref` the page supplies (rule 3.1.16) | Nothing: sign-in is the page's (§UI20.6.6 rule 2) |
 | **Remove**, raising `onRemove` ≠ items 1 and 20 | The owner, on their own `Draft` or `Submitted` chip, whatever `showModerationActions` says (rule 2.18); with `showModerationActions` on, `removeRoles` — by default `Administrators`, at any status (rule 3.2.3) | As the add box (rule 2.30) | ❌ Refused — withheld, the owner's withdrawal included (rule 3.3.6) | Not offered (rule 3.2.3) | §SEC14.7 posture A rule 3 and posture A′ rule 4; the owner's window is §APR9.9, which the server does not ask yet (section 10, item 12) |
 | **Reject**, raising `onReject` ≠ items 1, 16 and 20 | A `moderationRoles` holder of the publisher tier or `Administrators`, on somebody else's `Submitted` chip, with `showModerationActions` on (rule 3.2.4) | As the add box (rule 2.30) | ❌ Refused — withheld (rule 3.3.6) | Not offered (rule 3.2.4) | `TransitionAssociationApprovalAsync`: the publisher tier, never the review tier (§APR8.6 HR-3) (§SEC14.7 posture A′). The row's author may approve it by the ordinary route only where `AllowSelfApproval` permits, and an `Administrators` author may bypass over their own submission (§APR8.6 HR-2); the panel is stricter and offers its author neither Reject nor Approve (rule 2.16; item 11) |
 | **Approve**, raising `onApprove` ≠ items 1, 16 and 20 | As Reject (rule 3.2.4) | As the add box (rule 2.30) | ❌ Refused — withheld (rule 3.3.6) | Not offered (rule 3.2.4) | As Reject |
@@ -299,7 +302,8 @@ Every page renders the family through its stories. No page renders `AssociationP
 | Purpose | Endpoint | State |
 | --- | --- | --- |
 | Read the associations for an entity — "associations for this entity", keyed on the effective id (§DOM4.6 rule 1) | `GET /api/associations` (§ARC17.4) | designed; not yet served (section 10, item 21) |
-| Suggest an association (`onAdd`) | `POST /api/associations` (§ARC17.4, §ARC16.8.1) | served for a reader's reaction (#728) and an editorial suggestion (#1088; section 10, item 24) |
+| Suggest a tag (`TagAssociationPanel`'s `onAdd`), by its name | `POST /api/associations/tag-suggestions` (§ARC17.4; `DesignFeatures/TagSuggestions.md`) | designed; not yet served (section 10, item 24) |
+| Suggest any other association (`onAdd`) | `POST /api/associations` (§ARC17.4, §ARC16.8.1) | served for a reader's reaction (#728) and an editorial suggestion (#1088; section 10, item 24) |
 | Remove an association (`onRemove`) | `DELETE /api/associations/{id}` (§ARC17.4) — owner or `Administrators` | designed; not yet exposed (section 10, item 22) |
 | Approve or reject (`onApprove`, `onReject`) | not ruled — see section 10 | — |
 
@@ -428,4 +432,20 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
     second part of item 21's gap, `POST /api/associations` (section 7; §ARC16.8.1), is served.
     The route is #728's, and #1088 has the foundation's add mint the new row's `Id` rather than
     take it from the caller, so the route's editorial arm takes the two-endpoint body (§APR9.7.1
-    rule 2; `DesignFeatures/Backend/Foundations/AssociationService.md §13`).
+    rule 2; `DesignFeatures/Backend/Foundations/AssociationService.md §13`). It takes ids, and
+    the tag panel raises a name, so a suggested tag is sent by its name to a route of its own
+    instead, `POST /api/associations/tag-suggestions`, which finds or adds the tag and pairs it
+    (§ARC17.4; `DesignFeatures/TagSuggestions.md`, designed and not yet built).
+25. (#1375) **Gap — the add box is offered on a rejected post.** Rule 2.33 (owner ruling
+    2026-10-29) withholds the add box, and the login prompt in its place, where the post the
+    panel hangs off is `Rejected`, and the page is to hand the panel the post's approval status,
+    as data, for it. The panel takes no such property: `mayAdd` asks only `showAdd`, sign-in and
+    `addRoles`, and `showLoginPrompt` only `showAdd` and sign-in (`associationPanel.tsx`, lines
+    340-347 at 4a839256). The stories forward every panel property through their rest spread
+    (`UI/Components/AssociationPanel.TagAssociationPanel.md §4.3`,
+    `UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §4.3`), so the property
+    reaches both with the panel's. Each page that renders a story beside a post hands it the
+    post's status: the tag panel on `/posts/{id}` and `/myposts/{id}`
+    (`UI/Pages/PostDetail.md §6 item 17`, `UI/Pages/MyPostDetail.md §6 item 18`), and the Bible
+    reference panel there under #1357 (`UI/Pages/PostDetail.md §6 item 18`,
+    `UI/Pages/MyPostDetail.md §6 item 19`).
