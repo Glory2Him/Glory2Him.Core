@@ -90,10 +90,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     message: "Tag is invalid, fix the errors and try again.");
 
             invalidTagException.AddData(
-                key: nameof(Tag.Id),
-                values: "Id is required");
-
-            invalidTagException.AddData(
                 key: nameof(Tag.Name),
                 values: "Text is required");
 
@@ -123,6 +119,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 new TagValidationException(
                     message: "Tag validation error occurred, fix the errors and try again.",
                     innerException: invalidTagException);
+
+            // the broker answers an empty Id, so the Id entry would come back if the add still
+            // asked its empty-Id rule of the Id it minted (§1 rules 2 and 3)
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(Guid.Empty);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(invalidTag, It.IsAny<SecurityContext>()))
@@ -162,11 +164,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Once);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedTagValidationException))),
                 Times.Once);
 
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
