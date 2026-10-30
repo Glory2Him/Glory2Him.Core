@@ -192,7 +192,6 @@ namespace Glory2Him.Core.Services.Foundations.Tags
 
             Validate(
                 message: "Tag is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(tag.Id), Parameter: nameof(Tag.Id)),
                 (Rule: IsInvalid(tag.Name), Parameter: nameof(Tag.Name)),
                 (Rule: IsInvalid(tag.CreatedBy), Parameter: nameof(Tag.CreatedBy)),
                 (Rule: IsInvalid(tag.UpdatedBy), Parameter: nameof(Tag.UpdatedBy)),
