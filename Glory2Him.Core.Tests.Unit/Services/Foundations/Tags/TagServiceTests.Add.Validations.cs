@@ -629,11 +629,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             actualTagValidationException.Should().BeEquivalentTo(
                 expectedTagValidationException);
 
+            // the Id is minted after the contribution gate, so a refused caller mints none
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Never);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedTagValidationException))),
                 Times.Once);
 
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
@@ -672,11 +678,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             actualTagValidationException.Should().BeEquivalentTo(
                 expectedTagValidationException);
 
+            // the Id is minted after the contribution gate, so a refused caller mints none
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Never);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedTagValidationException))),
                 Times.Once);
 
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
