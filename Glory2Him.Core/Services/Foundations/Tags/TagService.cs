@@ -333,6 +333,11 @@ namespace Glory2Him.Core.Services.Foundations.Tags
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
 
+            if (tag.Id == Guid.Empty)
+            {
+                tag.Id = await this.identifierBroker.GetIdentifierAsync();
+            }
+
             tag = await this.securityAuditBroker
                 .ApplyAddAuditValuesAsync(entity: tag, securityContext: inboundEnvelope.SecurityContext);
 
