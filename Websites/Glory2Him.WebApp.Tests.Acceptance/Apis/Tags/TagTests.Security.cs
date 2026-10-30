@@ -383,11 +383,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
             Tag existingTag = await PostRandomTagAsync();
             Tag duplicateTag = CreateRandomTag();
             duplicateTag.Name = existingTag.Name;
+            Task<Tag> postTagTask = null;
 
             try
             {
                 // when
-                var postTagTask = this.apiBroker.PostTagAsync(duplicateTag).AsTask();
+                postTagTask = this.apiBroker.PostTagAsync(duplicateTag).AsTask();
 
                 // then
                 await Assert.ThrowsAsync<HttpResponseConflictException>(() => postTagTask);
@@ -395,7 +396,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
             finally
             {
                 await this.apiBroker.RemoveCoreTagByIdAsync(existingTag.Id);
-                await this.apiBroker.RemoveCoreTagByIdAsync(duplicateTag.Id);
+
+                // a duplicate that was wrongly written is removed under the Id the post
+                // answered, since the service mints it and never keeps the one it was sent
+                if (postTagTask is { IsCompletedSuccessfully: true })
+                {
+                    await this.apiBroker.RemoveCoreTagByIdAsync(postTagTask.Result.Id);
+                }
             }
         }
     }

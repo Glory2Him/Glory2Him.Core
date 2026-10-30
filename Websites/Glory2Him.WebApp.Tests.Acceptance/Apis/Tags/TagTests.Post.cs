@@ -24,17 +24,21 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
             Tag randomTag = CreateRandomTag();
             Tag inputTag = randomTag;
             Tag expectedTag = inputTag;
+            Tag postedTag = null;
 
             try
             {
                 // when
-                await this.apiBroker.PostTagAsync(inputTag);
+                postedTag = await this.apiBroker.PostTagAsync(inputTag);
 
+                // the row is read back under the Id the post answered, never the one it was
+                // sent: the tag's Id is the service's to mint (§1 rule 5)
                 Tag actualTag =
-                    await this.apiBroker.GetTagByIdAsync(inputTag.Id);
+                    await this.apiBroker.GetTagByIdAsync(postedTag.Id);
 
                 // then
                 actualTag.Should().BeEquivalentTo(expectedTag, options => options
+                    .Excluding(property => property.Id)
                     .Excluding(property => property.CreatedBy)
                     .Excluding(property => property.CreatedWhen)
                     .Excluding(property => property.UpdatedBy)
@@ -42,7 +46,10 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
             }
             finally
             {
-                await this.apiBroker.RemoveCoreTagByIdAsync(inputTag.Id);
+                if (postedTag is not null)
+                {
+                    await this.apiBroker.RemoveCoreTagByIdAsync(postedTag.Id);
+                }
             }
         }
     }
