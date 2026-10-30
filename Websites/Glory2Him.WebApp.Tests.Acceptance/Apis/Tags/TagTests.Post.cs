@@ -15,6 +15,8 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.WebApp.Tests.Acceptance.Models.Tags;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
@@ -52,6 +54,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
             {
                 if (postedTag is not null)
                 {
+                    await RemovePostedTagApprovalAsync(postedTag.Id);
                     await this.apiBroker.RemoveCoreTagByIdAsync(postedTag.Id);
                 }
             }
@@ -93,8 +96,22 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
 
                 if (answeredTag is not null)
                 {
+                    await RemovePostedTagApprovalAsync(answeredTag.Id);
                     await this.apiBroker.RemoveCoreTagByIdAsync(answeredTag.Id);
                 }
+            }
+        }
+
+        // Every post opens an approval round on the tag it wrote, and the round carries no key
+        // to the tag, so removing the tag leaves it behind: it goes by the answered Id.
+        private async ValueTask RemovePostedTagApprovalAsync(Guid tagId)
+        {
+            Approval approval =
+                await this.apiBroker.GetCoreApprovalByEntityAsync(EntityType.Tag, tagId);
+
+            if (approval is not null)
+            {
+                await this.apiBroker.RemoveApprovalAsync(approval);
             }
         }
     }
