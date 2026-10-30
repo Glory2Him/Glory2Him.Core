@@ -33,16 +33,31 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             Tag randomTag = CreateTagFiller(randomDateTimeOffset).Create();
             Tag inputTag = randomTag;
+            Guid mintedId = Guid.NewGuid();
+            Guid firstProcessedEventId = Guid.NewGuid();
+            Guid secondProcessedEventId = Guid.NewGuid();
             Tag auditAppliedTag = inputTag.DeepClone();
+            auditAppliedTag.Id = mintedId;
             Tag storageTag = auditAppliedTag.DeepClone();
             Tag expectedTag = storageTag.DeepClone();
+            CancellationToken inputCancellationToken = TestContext.Current.CancellationToken;
+
+            // the add mints the row's Id, its first call to the identifier broker; the two
+            // that follow are the processed-event records written after the insert
+            this.identifierBrokerMock.SetupSequence(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(mintedId)
+                    .ReturnsAsync(firstProcessedEventId)
+                    .ReturnsAsync(secondProcessedEventId);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(inputTag, It.IsAny<SecurityContext>()))
-                    .ReturnsAsync(auditAppliedTag);
+                broker.ApplyAddAuditValuesAsync(
+                    It.Is<Tag>(tag => tag == inputTag && tag.Id == mintedId),
+                    this.ambientSecurityContext))
+                        .ReturnsAsync(auditAppliedTag);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                broker.GetUserIdAsync(this.ambientSecurityContext))
                     .ReturnsAsync(auditAppliedTag.CreatedBy);
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -50,29 +65,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     .ReturnsAsync(randomDateTimeOffset);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.InsertTagAsync(auditAppliedTag, It.IsAny<CancellationToken>()))
+                broker.InsertTagAsync(auditAppliedTag, inputCancellationToken))
                     .ReturnsAsync(storageTag);
-
-            this.eventBrokerMock.Setup(broker =>
-                broker.PublishTagAsync(It.IsAny<EventEnvelope<Tag>>(), TagEventOperation.Added))
-                    .Returns(new ValueTask<EventPublishResult<Tag>>(
-                        new EventPublishResult<Tag>()));
 
             // when
             Tag actualTag =
                 await this.tagService.AddTagAsync(
                     inputTag,
-                    TestContext.Current.CancellationToken);
+                    inputCancellationToken);
 
             // then
             actualTag.Should().BeEquivalentTo(expectedTag);
+            actualTag.Id.Should().Be(mintedId);
+
+            // one Id for the new row, and one for each of the two processed-event records
+            this.identifierBrokerMock.Verify(broker =>
+                    broker.GetIdentifierAsync(),
+                Times.Exactly(3));
 
             this.securityAuditBrokerMock.Verify(broker =>
-                    broker.ApplyAddAuditValuesAsync(inputTag, It.IsAny<SecurityContext>()),
+                    broker.ApplyAddAuditValuesAsync(
+                        It.Is<Tag>(tag => tag == inputTag && tag.Id == mintedId),
+                        this.ambientSecurityContext),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                    broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                    broker.GetUserIdAsync(this.ambientSecurityContext),
                 Times.Once);
 
             this.dateTimeBrokerMock.Verify(broker =>
@@ -80,23 +98,36 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 Times.Exactly(3));
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.InsertTagAsync(auditAppliedTag, It.IsAny<CancellationToken>()),
+                    broker.InsertTagAsync(auditAppliedTag, inputCancellationToken),
                 Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
                 broker.PublishTagAsync(
-                    It.IsAny<EventEnvelope<Tag>>(),
+                    It.Is<EventEnvelope<Tag>>(envelope =>
+                        envelope.Content == storageTag
+                            && envelope.Content.Id == mintedId),
                     TagEventOperation.Added),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
                 broker.InsertProcessedEventAsync(
                     It.Is<ProcessedEvent>(processedEvent =>
-                        processedEvent.ReceiverName ==
-                            EventBrokerIdentifiers.TagOnAddingTagSubscriptionName),
-                    It.IsAny<CancellationToken>()),
-                Times.Exactly(2));
+                        processedEvent.Id == firstProcessedEventId
+                            && processedEvent.ReceiverName ==
+                                EventBrokerIdentifiers.TagOnAddingTagSubscriptionName),
+                    inputCancellationToken),
+                Times.Once);
 
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.Id == secondProcessedEventId
+                            && processedEvent.ReceiverName ==
+                                EventBrokerIdentifiers.TagOnAddingTagSubscriptionName),
+                    inputCancellationToken),
+                Times.Once);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
@@ -112,16 +143,31 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             Tag randomTag = CreateTagFiller(randomDateTimeOffset).Create();
             Tag inputTag = randomTag;
             inputTag.ApprovalStatus = ApprovalStatus.Submitted;
+            Guid mintedId = Guid.NewGuid();
+            Guid firstProcessedEventId = Guid.NewGuid();
+            Guid secondProcessedEventId = Guid.NewGuid();
             Tag auditAppliedTag = inputTag.DeepClone();
+            auditAppliedTag.Id = mintedId;
             Tag storageTag = auditAppliedTag.DeepClone();
             Tag expectedTag = storageTag.DeepClone();
+            CancellationToken inputCancellationToken = TestContext.Current.CancellationToken;
+
+            // the add mints the row's Id, its first call to the identifier broker; the two
+            // that follow are the processed-event records written after the insert
+            this.identifierBrokerMock.SetupSequence(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(mintedId)
+                    .ReturnsAsync(firstProcessedEventId)
+                    .ReturnsAsync(secondProcessedEventId);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(inputTag, It.IsAny<SecurityContext>()))
-                    .ReturnsAsync(auditAppliedTag);
+                broker.ApplyAddAuditValuesAsync(
+                    It.Is<Tag>(tag => tag == inputTag && tag.Id == mintedId),
+                    this.ambientSecurityContext))
+                        .ReturnsAsync(auditAppliedTag);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                broker.GetUserIdAsync(this.ambientSecurityContext))
                     .ReturnsAsync(auditAppliedTag.CreatedBy);
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -129,29 +175,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     .ReturnsAsync(randomDateTimeOffset);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.InsertTagAsync(auditAppliedTag, It.IsAny<CancellationToken>()))
+                broker.InsertTagAsync(auditAppliedTag, inputCancellationToken))
                     .ReturnsAsync(storageTag);
-
-            this.eventBrokerMock.Setup(broker =>
-                broker.PublishTagAsync(It.IsAny<EventEnvelope<Tag>>(), TagEventOperation.Added))
-                    .Returns(new ValueTask<EventPublishResult<Tag>>(
-                        new EventPublishResult<Tag>()));
 
             // when
             Tag actualTag =
                 await this.tagService.AddTagAsync(
                     inputTag,
-                    TestContext.Current.CancellationToken);
+                    inputCancellationToken);
 
             // then
             actualTag.Should().BeEquivalentTo(expectedTag);
+            actualTag.Id.Should().Be(mintedId);
+
+            // one Id for the new row, and one for each of the two processed-event records
+            this.identifierBrokerMock.Verify(broker =>
+                    broker.GetIdentifierAsync(),
+                Times.Exactly(3));
 
             this.securityAuditBrokerMock.Verify(broker =>
-                    broker.ApplyAddAuditValuesAsync(inputTag, It.IsAny<SecurityContext>()),
+                    broker.ApplyAddAuditValuesAsync(
+                        It.Is<Tag>(tag => tag == inputTag && tag.Id == mintedId),
+                        this.ambientSecurityContext),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                    broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                    broker.GetUserIdAsync(this.ambientSecurityContext),
                 Times.Once);
 
             this.dateTimeBrokerMock.Verify(broker =>
@@ -159,23 +208,36 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 Times.Exactly(3));
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.InsertTagAsync(auditAppliedTag, It.IsAny<CancellationToken>()),
+                    broker.InsertTagAsync(auditAppliedTag, inputCancellationToken),
                 Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
                 broker.PublishTagAsync(
-                    It.IsAny<EventEnvelope<Tag>>(),
+                    It.Is<EventEnvelope<Tag>>(envelope =>
+                        envelope.Content == storageTag
+                            && envelope.Content.Id == mintedId),
                     TagEventOperation.Added),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
                 broker.InsertProcessedEventAsync(
                     It.Is<ProcessedEvent>(processedEvent =>
-                        processedEvent.ReceiverName ==
-                            EventBrokerIdentifiers.TagOnAddingTagSubscriptionName),
-                    It.IsAny<CancellationToken>()),
-                Times.Exactly(2));
+                        processedEvent.Id == firstProcessedEventId
+                            && processedEvent.ReceiverName ==
+                                EventBrokerIdentifiers.TagOnAddingTagSubscriptionName),
+                    inputCancellationToken),
+                Times.Once);
 
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.Id == secondProcessedEventId
+                            && processedEvent.ReceiverName ==
+                                EventBrokerIdentifiers.TagOnAddingTagSubscriptionName),
+                    inputCancellationToken),
+                Times.Once);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
