@@ -27,6 +27,10 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
         ValueTask<IQueryable<Tag>> SelectAllTagsAsync(
             CancellationToken cancellationToken = default);
 
+        ValueTask<IReadOnlyList<TResult>> SelectTagsAsync<TResult>(
+            Func<IQueryable<Tag>, IQueryable<TResult>> query,
+            CancellationToken cancellationToken = default);
+
         ValueTask<Tag> SelectTagByIdAsync(
             Guid tagId,
             CancellationToken cancellationToken = default);
