@@ -395,6 +395,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
             }
             finally
             {
+                await RemovePostedTagApprovalAsync(existingTag.Id);
                 await this.apiBroker.RemoveCoreTagByIdAsync(existingTag.Id);
 
                 // a duplicate that was wrongly written is removed under the Id the post
@@ -402,6 +403,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
                 if (postTagTask is { IsCompletedSuccessfully: true })
                 {
                     Tag wronglyPostedTag = await postTagTask;
+                    await RemovePostedTagApprovalAsync(wronglyPostedTag.Id);
                     await this.apiBroker.RemoveCoreTagByIdAsync(wronglyPostedTag.Id);
                 }
             }
