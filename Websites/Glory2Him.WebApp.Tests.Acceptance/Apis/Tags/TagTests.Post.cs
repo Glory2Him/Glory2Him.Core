@@ -73,7 +73,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
                 HttpResponseMessage actualResponse =
                     await this.apiBroker.PostTagForResponseAsync(inputTag);
 
-                answeredTag = await actualResponse.Content.ReadFromJsonAsync<Tag>();
+                answeredTag = await actualResponse.Content.ReadFromJsonAsync<Tag>(
+                    TestContext.Current.CancellationToken);
 
                 Tag actualTag =
                     await this.apiBroker.GetTagByIdAsync(answeredTag.Id);

@@ -401,7 +401,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
                 // answered, since the service mints it and never keeps the one it was sent
                 if (postTagTask is { IsCompletedSuccessfully: true })
                 {
-                    await this.apiBroker.RemoveCoreTagByIdAsync(postTagTask.Result.Id);
+                    Tag wronglyPostedTag = await postTagTask;
+                    await this.apiBroker.RemoveCoreTagByIdAsync(wronglyPostedTag.Id);
                 }
             }
         }
