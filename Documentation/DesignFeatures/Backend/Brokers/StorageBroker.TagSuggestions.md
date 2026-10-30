@@ -3,7 +3,7 @@ Parent: [TagSuggestions.md](../../TagSuggestions.md)
 Level: broker — `IStorageBroker` (`Glory2Him.Core/Brokers/Storages/Sql/`), existing, its `Tag` partial. Its other user stories are `Backend/Brokers/StorageBroker.md`, the Likes feature's, `StorageBroker.Amenders.md` and `StorageBroker.SoftDeletion.md`.
 Inherits: §ARC12.2.1 rules 1–3, 7 and 8; `Backend/Brokers/StorageBroker.md` (the pass-through's shape); `the-standard-brokers`
 
-The read by name asks its question through a query-shaping function that `TagService` authors (`Backend/Foundations/TagService.TagSuggestions.md §3`), and the storage broker hands that function to the storage client unchanged (§ARC12.2.1 rule 3). The broker's `Tag` partial has no such member, so this user story adds the one it needs.
+The read by name asks its question through a query-shaping function that `TagService` authors (`Backend/Foundations/TagService.TagSuggestions.md §3`), and the storage broker hands that function to the storage client unchanged (§ARC12.2.1 rule 3). The broker's `Tag` partial carries the one member that read needs, `SelectTagsAsync` (§1).
 
 A broker member has no test paths: brokers hold no logic and get no unit tests. The member's behaviour is proven by the tests of the service that authors its condition — unit tests that execute the function (§ARC12.2.1 rule 5) and an integration test against the real catalogue (rule 6).
 
