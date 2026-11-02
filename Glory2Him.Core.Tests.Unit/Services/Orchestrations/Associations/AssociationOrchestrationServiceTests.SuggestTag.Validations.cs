@@ -334,5 +334,57 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.associationServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnSuggestTagIfThePostIsRejectedAndLogItAsync()
+        {
+            // given: the post's read answers the version the suggestion names at Rejected. The
+            // suggestion is refused with the write flow's own refusal of a rejected endpoint, asked
+            // of endpoint A, from the status that read kept, so the post is read once
+            // (RejectedEndpoints.md rules 1 and 10; §1 rule 1, step 7).
+            this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString());
+            TagSuggestion tagSuggestion = CreateTagSuggestion();
+            SetupSuggestionForThePost(tagSuggestion, ApprovalStatus.Rejected);
+            SetupFindOrAddOf(tagSuggestion.Name, TagNameOutcome.Added);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "The A endpoint is rejected, so it cannot be paired.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<AssociationSubmissionResult> suggestTagTask =
+                this.associationOrchestrationService.SuggestTagAsync(
+                    tagSuggestion,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    suggestTagTask.AsTask);
+
+            // then: neither the setting nor the tag is read, and nothing is written
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.contentItemServiceMock.Verify(service =>
+                service.RetrieveContentItemByIdAsync(
+                    tagSuggestion.ContentItemId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
