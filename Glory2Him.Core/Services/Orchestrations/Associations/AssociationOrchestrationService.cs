@@ -340,7 +340,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext, isPersonal);
             ValidateOnAddAssociation(association);
 
-            // Each resolution is kept for the facet gate.
+            // Each resolution is kept for the refusal of a rejected endpoint and for the facet gate.
             (ResolvedEndpoint resolvedEntityA, ResolvedEndpoint resolvedEntityB) =
                 await ResolvePairEndpointsAsync(
                     association: association,

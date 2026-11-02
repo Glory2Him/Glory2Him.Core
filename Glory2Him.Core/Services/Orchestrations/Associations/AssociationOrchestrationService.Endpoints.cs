@@ -31,11 +31,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     internal partial class AssociationOrchestrationService
     {
         // What an endpoint resolves to: the group id the effective id keys on, the content type
-        // (only a ContentItem has one — it is the authorization input of §5), and the scope its
-        // publication model implies. A versioned entity (ContentItem, Link, ...) defaults to
-        // AllVersions and keys on its group; a non-versioned one keys on its own id under
-        // ThisVersionOnly. A Reaction also carries its Name, which only the facet gate reads: an
-        // item limited to Love admits a reaction by its name (§ARC16.2.1).
+        // (only a ContentItem has one — it is the authorization input of §5), the scope its
+        // publication model implies, and the approval status of the row read — for a versioned
+        // entity, the version the pairing names — which the add's write flow refuses at Rejected,
+        // whatever the endpoint's type (§ARC12.3.1 rule 5a). A versioned entity (ContentItem,
+        // Link, ...) defaults to AllVersions and keys on its group; a non-versioned one keys on its
+        // own id under ThisVersionOnly. A Reaction also carries its Name, which only the facet gate
+        // reads: an item limited to Love admits a reaction by its name (§ARC16.2.1).
         private readonly struct ResolvedEndpoint
         {
             public ResolvedEndpoint(
