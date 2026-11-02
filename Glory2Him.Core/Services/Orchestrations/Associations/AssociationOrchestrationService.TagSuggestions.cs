@@ -30,6 +30,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
+                ValidateTagSuggestionIsNotNull(tagSuggestion);
+
                 EventEnvelope<TagSuggestion> suggestionEnvelope =
                     await this.eventEnvelopeBroker.CreateAsync(content: tagSuggestion);
 

@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Orchestrations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Glory2Him.Core.Models.Securities;
 
@@ -226,6 +227,15 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             {
                 throw new NullAssociationOrchestrationException(
                     message: "Content item association is null.");
+            }
+        }
+
+        private static void ValidateTagSuggestionIsNotNull(TagSuggestion tagSuggestion)
+        {
+            if (tagSuggestion is null)
+            {
+                throw new NullAssociationOrchestrationException(
+                    message: "Tag suggestion is null.");
             }
         }
 
