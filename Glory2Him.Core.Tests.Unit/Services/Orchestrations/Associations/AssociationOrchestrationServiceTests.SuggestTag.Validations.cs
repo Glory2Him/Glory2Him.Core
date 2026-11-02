@@ -10,10 +10,13 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
+using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Orchestrations.Associations;
@@ -381,6 +384,102 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 Times.Once);
 
             this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        private const string ASettingThatRefusesTags = "a winning setting with TagsAllowed off";
+        private const string NoSetting = "no setting for the post under its type";
+
+        [Theory]
+        [InlineData(ASettingThatRefusesTags, "Value does not allow this association")]
+        [InlineData(NoSetting, "Value could not be resolved")]
+        public async Task ShouldThrowValidationExceptionOnSuggestTagIfTheSettingRefusesTagsAndLogItAsync(
+            string winningSetting,
+            string expectedMessage)
+        {
+            // given: the post's winning setting does not allow tags, or none resolves for the post
+            // under its type, and the gate never falls open. The setting's answer holds, for the
+            // second, a row for each term of the key that misses on that term alone — the same
+            // post under another type, and another post under the same type — so a gate that took
+            // a row for any other key would admit the tag (§1 rule 1, step 8; §ARC16.2.1).
+            this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString());
+            TagSuggestion tagSuggestion = CreateTagSuggestion();
+            ContentItem suggestedPost = SetupSuggestionForThePost(tagSuggestion);
+            SetupFindOrAddOf(tagSuggestion.Name, TagNameOutcome.Added);
+            List<ContentItemSettingKey> expectedSettingKeys = CreateSettingKeysFor(suggestedPost);
+            ContentItemSetting refusingSetting = CreateAllowingContentItemSetting(suggestedPost.ContentType);
+            refusingSetting.TagsAllowed = false;
+
+            List<EffectiveContentItemSetting> effectiveSettings = winningSetting == NoSetting
+                ? new List<EffectiveContentItemSetting>
+                {
+                    new EffectiveContentItemSetting
+                    {
+                        ContentItemId = suggestedPost.Id,
+                        ContentItemSetting = CreateAllowingContentItemSetting(ContentType.Testimony),
+                    },
+
+                    new EffectiveContentItemSetting
+                    {
+                        ContentItemId = Guid.NewGuid(),
+                        ContentItemSetting = CreateAllowingContentItemSetting(suggestedPost.ContentType),
+                    },
+                }
+                : new List<EffectiveContentItemSetting>
+                {
+                    new EffectiveContentItemSetting
+                    {
+                        ContentItemId = suggestedPost.Id,
+                        ContentItemSetting = refusingSetting,
+                    },
+                };
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(effectiveSettings);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationOrchestrationException.AddData(
+                key: nameof(ContentItemSetting.TagsAllowed),
+                values: expectedMessage);
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<AssociationSubmissionResult> suggestTagTask =
+                this.associationOrchestrationService.SuggestTagAsync(
+                    tagSuggestion,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    suggestTagTask.AsTask);
+
+            // then: refused naming the switch, the tag is not read, and nothing is written
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.tagServiceMock.VerifyNoOtherCalls();
             this.associationServiceMock.VerifyNoOtherCalls();
