@@ -18,6 +18,7 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
+using Microsoft.Data.SqlClient;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
@@ -97,6 +98,55 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagDependencyException))),
+                Times.Once);
+
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(FindOrAddStorageCalls))]
+        public async Task ShouldThrowCriticalDependencyExceptionOnFindOrAddIfSqlErrorOccursAndLogItAsync(
+            string failingStorageCall)
+        {
+            // given
+            Tag someTag = CreateTagFiller(GetRandomDateTimeOffset()).Create();
+            someTag.Name = GetRandomTagName();
+            SqlException sqlException = GetSqlException();
+
+            var failedStorageTagException = new FailedStorageTagException(
+                message: "Failed tag storage error occurred, contact support.",
+                innerException: sqlException,
+                data: sqlException.Data);
+
+            var expectedTagDependencyException = new TagDependencyException(
+                message: "Tag dependency error occurred, contact support.",
+                innerException: failedStorageTagException);
+
+            SetupFindOrAddStorageCallToThrow(
+                someTag,
+                failingStorageCall,
+                sqlException);
+
+            // when
+            ValueTask<TagNameResult> findOrAddTagTask =
+                this.tagService.FindOrAddTagAsync(
+                    someTag,
+                    TestContext.Current.CancellationToken);
+
+            TagDependencyException actualTagDependencyException =
+                await Assert.ThrowsAsync<TagDependencyException>(
+                    findOrAddTagTask.AsTask);
+
+            // then
+            actualTagDependencyException.Should().BeEquivalentTo(
+                expectedTagDependencyException);
+
+            VerifyFindOrAddStorageCallAsked(failingStorageCall);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.Is(
                     SameExceptionAs(expectedTagDependencyException))),
                 Times.Once);
 
