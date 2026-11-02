@@ -204,6 +204,55 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnUpsertIfTheCallerIsBlockedFromARejectedEndpointAndLogItAsync()
+        {
+            // given: a caller holding Tag-ReadOnly pairs a post with a tag of their own that was
+            // rejected. Being its owner, the tag's service answers them the row, at Rejected. The
+            // veto is asked first, so they are refused as blocked, as before, and never by the
+            // rejection (AssociationOrchestrationService.RejectedEndpoints.md §1 rule 7).
+            this.ambientSecurityContext =
+                CreateReaderSecurityContext(GetRandomString(), Roles.ReadOnlyFor(EntityType.Tag));
+
+            Association upsertRequest = CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Tag);
+
+            SetupMethodPathEndpointReadsAt(
+                upsertRequest,
+                entityAApprovalStatus: ApprovalStatus.Draft,
+                entityBApprovalStatus: ApprovalStatus.Rejected);
+
+            var unauthorizedAssociationOrchestrationException =
+                new UnauthorizedAssociationOrchestrationException(
+                    message: "The current user is blocked from contributing content item associations.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: unauthorizedAssociationOrchestrationException);
+
+            // when
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    upsertTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         [Theory]
         [InlineData(ModifyMember)]
         [InlineData(RemoveMember)]

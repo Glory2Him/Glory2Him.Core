@@ -52,6 +52,14 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         /// allow the far end's facet, and the pair is refused, naming the switch, where it does
         /// not or where no setting resolves (§ARC16.2.1).</para>
         ///
+        /// <para>A pair with a rejected endpoint is refused before either arm, and before the
+        /// facet gate: an endpoint whose stored status is <c>Rejected</c>, whatever its type, is
+        /// never paired, by any caller, and the refusal names it, <c>A</c> where both are
+        /// rejected (§ARC12.3.1 rule 5a). The endpoint veto is asked first, so a caller it blocks
+        /// is refused as blocked. A caller who may not see the rejected row is answered not found
+        /// by resolution, as for a row that does not exist. Each arm's answers below hold where no
+        /// endpoint is rejected.</para>
+        ///
         /// <para>An editorial pair runs the retrieve-or-add of design §7.4 over the unfiltered
         /// store: a free pair is inserted at <c>Submitted</c> (<c>Created</c>); an occupied one is
         /// returned as it stands — <c>AlreadyApproved</c> for an approved row,

@@ -288,6 +288,31 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     derivedAssociation.UserId),
                     Parameter: nameof(Association.UserId)));
 
+        // THE REFUSAL OF A REJECTED ENDPOINT (§ARC12.3.1 rule 5a; RejectedEndpoints.md rules 1, 2
+        // and 7): an endpoint whose stored status is Rejected, whatever its type, is never paired,
+        // whoever the caller and whichever arm the pair would take. It reads the status resolution
+        // kept, so nothing is read twice. A caller who may not see the row never reaches it,
+        // because resolution has already answered them not found (rule 4). A is asked first, so a
+        // pair whose endpoints are both rejected names A.
+        private static void ValidateNeitherEndpointIsRejected(
+            ResolvedEndpoint resolvedEntityA,
+            ResolvedEndpoint resolvedEntityB)
+        {
+            ValidateEndpointIsNotRejected(resolvedEntityA, endpointName: "A");
+            ValidateEndpointIsNotRejected(resolvedEntityB, endpointName: "B");
+        }
+
+        private static void ValidateEndpointIsNotRejected(
+            ResolvedEndpoint resolvedEndpoint,
+            string endpointName)
+        {
+            if (resolvedEndpoint.ApprovalStatus == ApprovalStatus.Rejected)
+            {
+                throw new InvalidAssociationOrchestrationException(
+                    message: $"The {endpointName} endpoint is rejected, so it cannot be paired.");
+            }
+        }
+
         // THE EVENT PATH'S ANSWER TO AN OCCUPANT (#631 criterion 4c, Architecture.md "Rule 2 — the
         // occupancy check runs on both doors"). The method path answers with a status; this door
         // replies with an EventEnvelope<Association>, and none of its answers is safe — the row
