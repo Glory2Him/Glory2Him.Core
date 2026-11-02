@@ -182,6 +182,89 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // Thirty characters, a tag name's cap (TagSuggestions.md rule 2).
+        private const string ThirtyCharacterTagName = "Grace And Truth Through Christ";
+
+        // Each name as typed, and the name the find-or-add is to be handed: trimmed at both ends,
+        // and nothing else changed, a hash, its letter case and its inner white space included.
+        // A name of thirty characters once trimmed is not refused, though it is longer as typed.
+        public static TheoryData<string, string> SuggestedNamesAndTheirTrimmedNames() =>
+            new TheoryData<string, string>
+            {
+                { "  Grace  ", "Grace" },
+                { "#Grace ", "#Grace" },
+                { "gRace  Notes", "gRace  Notes" },
+                { $"  {ThirtyCharacterTagName}  ", ThirtyCharacterTagName },
+            };
+
+        [Theory]
+        [MemberData(nameof(SuggestedNamesAndTheirTrimmedNames))]
+        public async Task ShouldTrimTheNameBeforeItIsHandedToTheFindOrAddAsync(
+            string suggestedName,
+            string expectedTagName)
+        {
+            // given: a contributor types a name with white space around it. The server trims it at
+            // both ends and changes nothing else, and every step after reads the trimmed name
+            // (TagSuggestions.md rule 2; §1 rule 1, step 3).
+            this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString());
+            TagSuggestion tagSuggestion = CreateTagSuggestion();
+            tagSuggestion.Name = suggestedName;
+            ContentItem suggestedPost = SetupSuggestionForThePost(tagSuggestion);
+
+            Guid addedTagId =
+                SetupFindOrAddOf(expectedTagName, TagNameOutcome.Added);
+
+            Association expectedInsertedPair =
+                CreateSuggestedPairFor(suggestedPost, addedTagId, ApprovalStatus.Submitted);
+
+            Association insertedPair = expectedInsertedPair.DeepClone();
+            insertedPair.Id = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.AddAssociationAsync(
+                    It.Is(SameAssociationAs(expectedInsertedPair)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(insertedPair);
+
+            // when
+            AssociationSubmissionResult actualResult =
+                await this.associationOrchestrationService.SuggestTagAsync(
+                    tagSuggestion,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualResult.Status.Should().Be(AssociationSubmissionStatus.Created);
+
+            this.tagServiceMock.Verify(service =>
+                service.FindOrAddTagAsync(
+                    It.Is(SameTagAs(CreateSuggestedTagNamed(expectedTagName))),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindAssociationByPairAsync(
+                    It.Is(SameAssociationAs(expectedInsertedPair)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindOverlappingAssociationAsync(
+                    It.Is(SameAssociationAs(expectedInsertedPair)),
+                    (Guid?)null,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.AddAssociationAsync(
+                    It.Is(SameAssociationAs(expectedInsertedPair)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A suggestion as a reader sends one: a post's id and a name a tag may carry.
         private static TagSuggestion CreateTagSuggestion() =>
             new TagSuggestion
