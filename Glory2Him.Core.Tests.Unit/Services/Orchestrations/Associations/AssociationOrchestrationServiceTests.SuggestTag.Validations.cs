@@ -259,5 +259,80 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.associationServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        // One case per field and rule: an empty post id; and a name that is null, empty or white
+        // space, or longer than a tag's cap of thirty characters once trimmed, the white space
+        // around it counting against no cap (TagSuggestions.md rule 2; §1 rule 1, step 3).
+        public static TheoryData<bool, string, string, string> InvalidTagSuggestions() =>
+            new TheoryData<bool, string, string, string>
+            {
+                { true, "Grace", nameof(TagSuggestion.ContentItemId), "Id is required" },
+                { false, null, nameof(TagSuggestion.Name), "Text is required" },
+                { false, "", nameof(TagSuggestion.Name), "Text is required" },
+                { false, "   ", nameof(TagSuggestion.Name), "Text is required" },
+
+                {
+                    false,
+                    $" {ThirtyCharacterTagName}s ",
+                    nameof(TagSuggestion.Name),
+                    "Text exceed max length of 30 characters"
+                },
+            };
+
+        [Theory]
+        [MemberData(nameof(InvalidTagSuggestions))]
+        public async Task ShouldThrowValidationExceptionOnSuggestTagIfSuggestionIsInvalidAndLogItAsync(
+            bool isContentItemIdEmpty,
+            string suggestedName,
+            string invalidParameter,
+            string expectedMessage)
+        {
+            // given: a contributor allowed to suggest a tag, and a suggestion one field of which
+            // breaks one rule. The post and the find-or-add are set up to answer, so a flow that
+            // read past the fields would be answered rather than fail.
+            this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString());
+            TagSuggestion tagSuggestion = CreateTagSuggestion();
+            tagSuggestion.ContentItemId = isContentItemIdEmpty ? Guid.Empty : tagSuggestion.ContentItemId;
+            tagSuggestion.Name = suggestedName;
+            SetupSuggestionForThePost(tagSuggestion);
+            SetupFindOrAddOf(suggestedName?.Trim() ?? string.Empty, TagNameOutcome.Added);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "Tag suggestion is invalid, fix the errors and try again.");
+
+            invalidAssociationOrchestrationException.AddData(
+                key: invalidParameter,
+                values: expectedMessage);
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<AssociationSubmissionResult> suggestTagTask =
+                this.associationOrchestrationService.SuggestTagAsync(
+                    tagSuggestion,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    suggestTagTask.AsTask);
+
+            // then: refused, and nothing is read
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
