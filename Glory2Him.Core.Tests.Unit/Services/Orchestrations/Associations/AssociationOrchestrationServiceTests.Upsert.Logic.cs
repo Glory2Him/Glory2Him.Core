@@ -1585,8 +1585,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         }
 
         // Each far end at every status but Rejected, beside a post at Draft, and the post at the
-        // two statuses that leaves, beside a tag at Draft: so each endpoint type is answered at
-        // Draft, Submitted and Approved, and no case repeats another.
+        // three statuses that leaves, beside a tag at Draft: so each endpoint type is answered at
+        // Draft, Submitted, Approved and Dismissed, and no case repeats another. Dismissed is
+        // what pins the step to Rejected alone, against a check widened to Dismissed.
         public static TheoryData<EntityType, ApprovalStatus, ApprovalStatus>
             EditorialPairsWithEndpointsThatAreNotRejected()
         {
@@ -1595,6 +1596,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 ApprovalStatus.Draft,
                 ApprovalStatus.Submitted,
                 ApprovalStatus.Approved,
+                ApprovalStatus.Dismissed,
             };
 
             var editorialPairs = new TheoryData<EntityType, ApprovalStatus, ApprovalStatus>();
@@ -1615,6 +1617,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             editorialPairs.Add(EntityType.Tag, ApprovalStatus.Draft, ApprovalStatus.Submitted);
             editorialPairs.Add(EntityType.Tag, ApprovalStatus.Draft, ApprovalStatus.Approved);
+            editorialPairs.Add(EntityType.Tag, ApprovalStatus.Draft, ApprovalStatus.Dismissed);
 
             return editorialPairs;
         }
