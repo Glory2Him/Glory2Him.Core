@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -20,6 +21,7 @@ using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 using Xeptions;
 
@@ -383,6 +385,123 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        private const string TheEnvelopesMint = "the envelope's mint";
+        private const string TheSettingsRead = "the setting's read";
+
+        // Every call the suggestion makes, each failing outside the Xeption families: a broker
+        // raises no family of its own, so the setting's read failing is one of them (§1 rule 4;
+        // §ARC16.2.1, "the gate never falls open").
+        public static TheoryData<string> CallsOfASuggestion() =>
+            new TheoryData<string>
+            {
+                TheEnvelopesMint,
+                ThePostsRead,
+                TheSettingsRead,
+                TheFindOrAdd,
+                TheTagsRead,
+                ExactPairProbe,
+                OverlapProbe,
+                TheInsert,
+            };
+
+        [Theory]
+        [MemberData(nameof(CallsOfASuggestion))]
+        public async Task ShouldThrowServiceExceptionOnSuggestTagIfServiceErrorOccursAndLogItAsync(
+            string failingCall)
+        {
+            // given: the named call fails with an exception of no Xeption family, the calls before
+            // it answering as the happy path has them
+            TagSuggestion tagSuggestion = SetupSuggestionOfAFoundTag(isTagVisible: true);
+            var serviceException = new Exception(GetRandomString());
+
+            switch (failingCall)
+            {
+                case TheEnvelopesMint:
+                    this.eventEnvelopeBrokerMock.Setup(broker =>
+                        broker.CreateAsync(tagSuggestion))
+                            .ThrowsAsync(serviceException);
+
+                    break;
+
+                case ThePostsRead:
+                    this.contentItemServiceMock.Setup(service =>
+                        service.RetrieveContentItemByIdAsync(
+                            tagSuggestion.ContentItemId,
+                            It.IsAny<CancellationToken>()))
+                                .ThrowsAsync(serviceException);
+
+                    break;
+
+                case TheSettingsRead:
+                    this.accessBrokerMock.Setup(broker =>
+                        broker.RetrieveEffectiveContentItemSettingsAsync(
+                            It.IsAny<IReadOnlyList<ContentItemSettingKey>>(),
+                            It.IsAny<CancellationToken>()))
+                                .ThrowsAsync(serviceException);
+
+                    break;
+
+                case TheFindOrAdd:
+                    this.tagServiceMock.Setup(service =>
+                        service.FindOrAddTagAsync(
+                            It.IsAny<Tag>(),
+                            It.IsAny<CancellationToken>()))
+                                .ThrowsAsync(serviceException);
+
+                    break;
+
+                case TheTagsRead:
+                    this.tagServiceMock.Setup(service =>
+                        service.RetrieveTagByIdAsync(
+                            It.IsAny<Guid>(),
+                            It.IsAny<CancellationToken>()))
+                                .ThrowsAsync(serviceException);
+
+                    break;
+
+                default:
+                    SetupAssociationCallToThrow(failingCall, serviceException);
+                    break;
+            }
+
+            var failedAssociationOrchestrationServiceException =
+                new FailedAssociationOrchestrationServiceException(
+                    message: "Failed content item association orchestration service error occurred, " +
+                        "please contact support.",
+                    innerException: serviceException,
+                    data: serviceException.Data);
+
+            var expectedServiceException =
+                new AssociationOrchestrationServiceException(
+                    message: "Content item association orchestration service error occurred, contact support.",
+                    innerException: failedAssociationOrchestrationServiceException);
+
+            // when
+            ValueTask<AssociationSubmissionResult> suggestTagTask =
+                this.associationOrchestrationService.SuggestTagAsync(
+                    tagSuggestion,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationServiceException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationServiceException>(
+                    suggestTagTask.AsTask);
+
+            // then: no pairing is written but by the insert that failed
+            actualException.Should().BeEquivalentTo(expectedServiceException);
+
+            this.associationServiceMock.Verify(service =>
+                service.AddAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()),
+                failingCall == TheInsert ? Times.Once() : Times.Never());
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedServiceException))),
+                Times.Once);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         private static AssociationValidationException CreateAssociationValidationException(
             Xeption innerException) =>
             new AssociationValidationException(
@@ -412,7 +531,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         }
 
         // The named call fails; a probe before it, left unset, answers no row.
-        private void SetupAssociationCallToThrow(string call, Xeption foundationException)
+        private void SetupAssociationCallToThrow(string call, Exception exception)
         {
             switch (call)
             {
@@ -421,7 +540,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                         service.FindAssociationByPairAsync(
                             It.IsAny<Association>(),
                             It.IsAny<CancellationToken>()))
-                                .ThrowsAsync(foundationException);
+                                .ThrowsAsync(exception);
 
                     break;
 
@@ -431,7 +550,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                             It.IsAny<Association>(),
                             It.IsAny<Guid?>(),
                             It.IsAny<CancellationToken>()))
-                                .ThrowsAsync(foundationException);
+                                .ThrowsAsync(exception);
 
                     break;
 
@@ -440,7 +559,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                         service.AddAssociationAsync(
                             It.IsAny<Association>(),
                             It.IsAny<CancellationToken>()))
-                                .ThrowsAsync(foundationException);
+                                .ThrowsAsync(exception);
 
                     break;
             }
