@@ -370,6 +370,15 @@ namespace Glory2Him.Core.Services.Foundations.Tags
 
                 throw await CreateAndLogCriticalDependencyExceptionAsync(exception: failedStorageTagException);
             }
+            catch (DuplicateKeyException duplicateKeyException)
+            {
+                var alreadyExistsTagException = new AlreadyExistsTagException(
+                    message: "Tag already exists with the same Id.",
+                    innerException: duplicateKeyException,
+                    data: duplicateKeyException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(alreadyExistsTagException);
+            }
             catch (DuplicateKeyWithUniqueIndexException duplicateKeyWithUniqueIndexException)
             {
                 var alreadyExistsTagException = new AlreadyExistsTagException(
@@ -380,6 +389,24 @@ namespace Glory2Him.Core.Services.Foundations.Tags
 
                 throw await CreateAndLogDependencyValidationExceptionAsync(
                     alreadyExistsTagException);
+            }
+            catch (ForeignKeyConstraintConflictException foreignKeyConstraintConflictException)
+            {
+                var invalidTagReferenceException = new InvalidTagReferenceException(
+                    message: "Invalid tag reference error occurred.",
+                    innerException: foreignKeyConstraintConflictException,
+                    data: foreignKeyConstraintConflictException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(invalidTagReferenceException);
+            }
+            catch (DbUpdateConcurrencyException dbUpdateConcurrencyException)
+            {
+                var lockedTagException = new LockedTagException(
+                    message: "Locked tag record, please try again later.",
+                    innerException: dbUpdateConcurrencyException,
+                    data: dbUpdateConcurrencyException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(lockedTagException);
             }
             catch (DbUpdateException dbUpdateException)
             {
