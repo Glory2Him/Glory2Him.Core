@@ -218,5 +218,46 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.associationServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnSuggestTagIfSuggestionIsNullAndLogItAsync()
+        {
+            // given
+            TagSuggestion nullTagSuggestion = null;
+
+            var nullAssociationOrchestrationException =
+                new NullAssociationOrchestrationException(
+                    message: "Tag suggestion is null.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: nullAssociationOrchestrationException);
+
+            // when
+            ValueTask<AssociationSubmissionResult> suggestTagTask =
+                this.associationOrchestrationService.SuggestTagAsync(
+                    nullTagSuggestion,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    suggestTagTask.AsTask);
+
+            // then: refused before the envelope is minted or anything is read
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
