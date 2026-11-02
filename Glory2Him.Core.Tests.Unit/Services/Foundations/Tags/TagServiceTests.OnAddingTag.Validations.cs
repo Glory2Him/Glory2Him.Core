@@ -52,11 +52,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             actualTagValidationException.Should().BeEquivalentTo(
                 expectedTagValidationException);
 
+            // the envelope is refused before deduplication and the shared body, so it mints
+            // no Id (TagService.TagSuggestions.md §2 rule 2)
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Never);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedTagValidationException))),
                 Times.Once);
 
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
@@ -98,11 +105,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             actualTagValidationException.Should().BeEquivalentTo(
                 expectedTagValidationException);
 
+            // the envelope is refused before deduplication and the shared body, so it mints
+            // no Id (TagService.TagSuggestions.md §2 rule 2)
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Never);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedTagValidationException))),
                 Times.Once);
 
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
@@ -144,11 +158,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             actualTagValidationException.Should().BeEquivalentTo(
                 expectedTagValidationException);
 
+            // the envelope is refused before deduplication and the shared body, so it mints
+            // no Id (TagService.TagSuggestions.md §2 rule 2)
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Never);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedTagValidationException))),
                 Times.Once);
 
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
@@ -206,12 +227,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     EnvelopeDirection.Request),
                 Times.Once);
 
+            // the envelope is refused before deduplication and the shared body, so it mints
+            // no Id (TagService.TagSuggestions.md §2 rule 2)
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Never);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedTagValidationException))),
                 Times.Once);
 
             this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
