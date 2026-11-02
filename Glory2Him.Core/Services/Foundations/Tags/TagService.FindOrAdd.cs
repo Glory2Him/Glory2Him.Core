@@ -103,6 +103,11 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             };
         }
 
+        // THE CONDITION IS AUTHORED HERE (§ARC12.2.1 rule 3), by one term: the name. Deliberately
+        // UNFILTERED — no IsDeleted, approval, publication or owner term — so that what a name
+        // names is decided by a read no identity filters (§3 rule 4; §SEC14.6, Cross-row rules
+        // under visibility filtering). IX_Tags_Name is unique and unfiltered, so a name is held
+        // by at most one row, and the query is shaped to one.
         private async ValueTask<TagNameMatch?> SelectTagNameMatchAsync(
             string name,
             CancellationToken cancellationToken)
@@ -116,7 +121,8 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                             Id = tag.Id,
                             ApprovalStatus = tag.ApprovalStatus,
                             IsDeleted = tag.IsDeleted
-                        }),
+                        })
+                        .Take(1),
                     cancellationToken: cancellationToken);
 
             return tagNameMatches.FirstOrDefault();
