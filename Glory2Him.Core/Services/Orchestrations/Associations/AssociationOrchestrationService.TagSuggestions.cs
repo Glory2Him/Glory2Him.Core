@@ -48,11 +48,14 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     EntityBScope = EntityTypeVersioning.DefaultScopeFor(EntityType.Tag),
                 };
 
+                ResolvedEndpoint resolvedPost = default;
+
                 await ResolveEndpointAsync(
                     suggestedPair.EntityAType,
                     suggestedPair.EntityAKeyId,
                     onResolved: resolved =>
                     {
+                        resolvedPost = resolved;
                         suggestedPair.EntityAGroupId = resolved.GroupId;
                         suggestedPair.EntityAContentType = resolved.ContentType;
                         suggestedPair.EntityAScope = resolved.Scope;
@@ -64,6 +67,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 ValidateUserIsNotBlockedFromEndpoints(
                     suggestionEnvelope.SecurityContext,
                     suggestedPair);
+
+                ValidateEndpointIsNotRejected(resolvedPost, endpointName: "A");
 
                 TagNameResult tagNameResult =
                     await this.tagService.FindOrAddTagAsync(
