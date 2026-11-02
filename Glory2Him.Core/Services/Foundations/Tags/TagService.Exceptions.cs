@@ -331,6 +331,20 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             {
                 return await returningTagNameResultFunction();
             }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutTagException =
+                    new TimeoutTagException(
+                        message: "Failed tag timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(exception: timeoutTagException);
+            }
             catch (UnauthorizedTagException unauthorizedTagException)
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedTagException);
