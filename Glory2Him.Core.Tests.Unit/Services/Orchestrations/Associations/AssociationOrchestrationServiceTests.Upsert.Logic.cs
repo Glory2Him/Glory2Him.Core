@@ -1679,8 +1679,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         }
 
         // Each host at every status but Rejected, beside a reaction at Draft, and the reaction at
-        // the two statuses that leaves, on a post at Draft: so the host of each type and the
-        // reaction are each answered at Draft, Submitted and Approved, and no case repeats another.
+        // the three statuses that leaves, on a post at Draft: so the host of each type and the
+        // reaction are each answered at Draft, Submitted, Approved and Dismissed, and no case
+        // repeats another. Dismissed is what pins the step to Rejected alone, against a check
+        // widened to Dismissed.
         public static TheoryData<EntityType, ApprovalStatus, ApprovalStatus>
             ReactionsWhoseHostAndReactionAreNotRejected()
         {
@@ -1693,6 +1695,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     ApprovalStatus.Draft,
                     ApprovalStatus.Submitted,
                     ApprovalStatus.Approved,
+                    ApprovalStatus.Dismissed,
                 })
                 {
                     reactions.Add(hostType, hostApprovalStatus, ApprovalStatus.Draft);
@@ -1701,6 +1704,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             reactions.Add(EntityType.ContentItem, ApprovalStatus.Draft, ApprovalStatus.Submitted);
             reactions.Add(EntityType.ContentItem, ApprovalStatus.Draft, ApprovalStatus.Approved);
+            reactions.Add(EntityType.ContentItem, ApprovalStatus.Draft, ApprovalStatus.Dismissed);
 
             return reactions;
         }
