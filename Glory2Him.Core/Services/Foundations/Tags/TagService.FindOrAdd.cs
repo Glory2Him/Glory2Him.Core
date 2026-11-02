@@ -27,6 +27,7 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 ValidateTagIsNotNull(tag);
 
                 // the envelope exists to capture the ambient caller the contribution gate is
