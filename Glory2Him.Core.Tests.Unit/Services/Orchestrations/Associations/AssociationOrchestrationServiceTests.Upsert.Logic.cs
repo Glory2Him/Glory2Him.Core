@@ -1584,6 +1584,97 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // Each far end at every status but Rejected, beside a post at Draft, and the post at the
+        // two statuses that leaves, beside a tag at Draft: so each endpoint type is answered at
+        // Draft, Submitted and Approved, and no case repeats another.
+        public static TheoryData<EntityType, ApprovalStatus, ApprovalStatus>
+            EditorialPairsWithEndpointsThatAreNotRejected()
+        {
+            ApprovalStatus[] statusesThatAreNotRejected =
+            {
+                ApprovalStatus.Draft,
+                ApprovalStatus.Submitted,
+                ApprovalStatus.Approved,
+            };
+
+            var editorialPairs = new TheoryData<EntityType, ApprovalStatus, ApprovalStatus>();
+
+            foreach (EntityType farEndType in new[]
+            {
+                EntityType.Tag,
+                EntityType.Link,
+                EntityType.Comment,
+                EntityType.BibleReference,
+            })
+            {
+                foreach (ApprovalStatus farEndApprovalStatus in statusesThatAreNotRejected)
+                {
+                    editorialPairs.Add(farEndType, farEndApprovalStatus, ApprovalStatus.Draft);
+                }
+            }
+
+            editorialPairs.Add(EntityType.Tag, ApprovalStatus.Draft, ApprovalStatus.Submitted);
+            editorialPairs.Add(EntityType.Tag, ApprovalStatus.Draft, ApprovalStatus.Approved);
+
+            return editorialPairs;
+        }
+
+        [Theory]
+        [MemberData(nameof(EditorialPairsWithEndpointsThatAreNotRejected))]
+        public async Task ShouldCreateAnEditorialPairWithEndpointsThatAreNotRejectedAsync(
+            EntityType farEndType,
+            ApprovalStatus farEndApprovalStatus,
+            ApprovalStatus postApprovalStatus)
+        {
+            // given: a contributor pairs a post with a far end, each answered by its service at a
+            // status other than Rejected. Only Rejected is refused, so the pair is suggested as
+            // before: the precondition is never "approved" (§ARC12.3.1 rule 5a;
+            // AssociationOrchestrationService.RejectedEndpoints.md §1 rule 8).
+            this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString());
+            Association upsertRequest = CreateRawEditorialPairInCanonicalOrderWith(farEndType);
+            bool isThePostOnA = upsertRequest.EntityAType == EntityType.ContentItem;
+
+            Association expectedAddedAssociation =
+                SetupMethodPathEndpointReadsAt(
+                    upsertRequest,
+                    entityAApprovalStatus: isThePostOnA ? postApprovalStatus : farEndApprovalStatus,
+                    entityBApprovalStatus: isThePostOnA ? farEndApprovalStatus : postApprovalStatus);
+
+            expectedAddedAssociation.UserId = null;
+            expectedAddedAssociation.ApprovalStatus = ApprovalStatus.Submitted;
+            Association insertedAssociation = expectedAddedAssociation.DeepClone();
+            insertedAssociation.Id = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.AddAssociationAsync(
+                    It.Is(SameAssociationAs(expectedAddedAssociation)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(insertedAssociation);
+
+            var expectedResult = new AssociationSuggestionResult
+            {
+                Status = AssociationSuggestionStatus.Created,
+                AssociationId = insertedAssociation.Id,
+            };
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.associationServiceMock.Verify(service =>
+                service.AddAssociationAsync(
+                    It.Is(SameAssociationAs(expectedAddedAssociation)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A signed-in reader's reaction on an item whose setting allows reactions: the envelope,
         // both endpoint reads and the setting. Hands back the row the foundation is to be handed.
         private Association SetupReadersReaction(Association upsertRequest, string readerUserId)

@@ -425,6 +425,121 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             return resolvedContentItem;
         }
 
+        // A raw editorial pair between a post and a far end, in canonical order (§DOM4.4): the
+        // post on A and a tag or a link on B, a comment or a Bible reference on A and the post on B.
+        private static Association CreateRawEditorialPairInCanonicalOrderWith(EntityType farEndType) =>
+            farEndType is EntityType.Tag or EntityType.Link
+                ? CreateRawUpsertRequestBetween(EntityType.ContentItem, farEndType)
+                : CreateRawUpsertRequestBetween(farEndType, EntityType.ContentItem);
+
+        // The method path's endpoint reads for a request between any two of the types the flow
+        // resolves, each row answered at the approval status the test names, keyed on its
+        // endpoint's key id and the test's token. Hands back the pair as resolution derives it
+        // from those rows: a ContentItem (a Story) or a Link at a group of its own under
+        // AllVersions, any other endpoint at its own id under ThisVersionOnly, and only a
+        // ContentItem with a content type. The UserId and the status are left as the request
+        // carries them, because each arm writes its own.
+        private Association SetupMethodPathEndpointReadsAt(
+            Association rawRequest,
+            ApprovalStatus entityAApprovalStatus,
+            ApprovalStatus entityBApprovalStatus)
+        {
+            Association resolvedAssociation = rawRequest.DeepClone();
+
+            (resolvedAssociation.EntityAGroupId,
+                resolvedAssociation.EntityAScope,
+                resolvedAssociation.EntityAContentType) =
+                    SetupMethodPathEndpointReadAt(
+                        rawRequest.EntityAType,
+                        rawRequest.EntityAKeyId,
+                        entityAApprovalStatus);
+
+            (resolvedAssociation.EntityBGroupId,
+                resolvedAssociation.EntityBScope,
+                resolvedAssociation.EntityBContentType) =
+                    SetupMethodPathEndpointReadAt(
+                        rawRequest.EntityBType,
+                        rawRequest.EntityBKeyId,
+                        entityBApprovalStatus);
+
+            return resolvedAssociation;
+        }
+
+        private (Guid GroupId, Scope Scope, ContentType? ContentType) SetupMethodPathEndpointReadAt(
+            EntityType entityType,
+            Guid keyId,
+            ApprovalStatus approvalStatus)
+        {
+            switch (entityType)
+            {
+                case EntityType.ContentItem:
+                    var contentItem = new ContentItem
+                    {
+                        Id = keyId,
+                        GroupId = Guid.NewGuid(),
+                        ContentType = ContentType.Story,
+                        ApprovalStatus = approvalStatus,
+                    };
+
+                    this.contentItemServiceMock.Setup(service =>
+                        service.RetrieveContentItemByIdAsync(keyId, TestContext.Current.CancellationToken))
+                            .ReturnsAsync(contentItem);
+
+                    return (contentItem.GroupId, Scope.AllVersions, contentItem.ContentType);
+
+                case EntityType.Link:
+                    var link = new Link
+                    {
+                        Id = keyId,
+                        GroupId = Guid.NewGuid(),
+                        ApprovalStatus = approvalStatus,
+                    };
+
+                    this.linkServiceMock.Setup(service =>
+                        service.RetrieveLinkByIdAsync(keyId, TestContext.Current.CancellationToken))
+                            .ReturnsAsync(link);
+
+                    return (link.GroupId, Scope.AllVersions, null);
+
+                case EntityType.Tag:
+                    this.tagServiceMock.Setup(service =>
+                        service.RetrieveTagByIdAsync(keyId, TestContext.Current.CancellationToken))
+                            .ReturnsAsync(new Tag { Id = keyId, ApprovalStatus = approvalStatus });
+
+                    return (keyId, Scope.ThisVersionOnly, null);
+
+                case EntityType.Reaction:
+                    this.reactionServiceMock.Setup(service =>
+                        service.RetrieveReactionByIdAsync(keyId, TestContext.Current.CancellationToken))
+                            .ReturnsAsync(new Reaction
+                            {
+                                Id = keyId,
+                                Name = GetRandomString(),
+                                ApprovalStatus = approvalStatus,
+                            });
+
+                    return (keyId, Scope.ThisVersionOnly, null);
+
+                case EntityType.Comment:
+                    this.commentServiceMock.Setup(service =>
+                        service.RetrieveCommentByIdAsync(keyId, TestContext.Current.CancellationToken))
+                            .ReturnsAsync(new Comment { Id = keyId, ApprovalStatus = approvalStatus });
+
+                    return (keyId, Scope.ThisVersionOnly, null);
+
+                case EntityType.BibleReference:
+                    this.bibleReferenceServiceMock.Setup(service =>
+                        service.RetrieveBibleReferenceByIdAsync(keyId, TestContext.Current.CancellationToken))
+                            .ReturnsAsync(new BibleReference { Id = keyId, ApprovalStatus = approvalStatus });
+
+                    return (keyId, Scope.ThisVersionOnly, null);
+
+                default:
+                    throw new NotSupportedException(
+                        $"Entity type {entityType} has no endpoint read to set up.");
+            }
+        }
+
         // A winning setting that admits every facet the gate asks: each <Facet>Allowed switch on,
         // and no narrowing to Love. Every Show<Facet> switch is left off, so a gate that asked the
         // display switch instead (§ARC16.2.1) would refuse.
