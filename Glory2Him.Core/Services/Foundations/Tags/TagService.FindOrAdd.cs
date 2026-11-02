@@ -35,6 +35,7 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                     await this.eventEnvelopeBroker.CreateAsync(content: tag);
 
                 ValidateUserIsAllowedToContribute(envelope.SecurityContext);
+                ValidateOnFindOrAddTag(tag);
 
                 TagNameMatch? tagNameMatch = await SelectTagNameMatchAsync(
                     name: tag.Name,

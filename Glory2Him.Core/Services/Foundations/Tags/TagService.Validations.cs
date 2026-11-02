@@ -374,6 +374,14 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                     Parameter: nameof(Tag.ApprovedByBypassReason)));
         }
 
+        // the name the find-or-add reads by, as handed: neither trimmed nor stripped, since what
+        // names a tag is the suggestion's to settle. The tag's other fields are the add's to
+        // judge, on the add path alone (§3 rule 3).
+        private static void ValidateOnFindOrAddTag(Tag tag) =>
+            Validate(
+                message: "Tag is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(tag.Name), Parameter: nameof(Tag.Name)));
+
         private static void ValidateOnRetrieveTagById(Guid tagId) =>
             Validate(
                 message: "Tag is invalid, fix the errors and try again.",
