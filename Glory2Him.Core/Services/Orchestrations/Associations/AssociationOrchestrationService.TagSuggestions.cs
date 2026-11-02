@@ -37,6 +37,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 
                 ValidateUserMaySuggestTag(suggestionEnvelope.SecurityContext);
 
+                string? tagName = tagSuggestion.Name?.Trim();
+                ValidateOnSuggestTag(tagSuggestion, tagName);
+
                 var suggestedPair = new Association
                 {
                     EntityAType = EntityType.ContentItem,
@@ -66,7 +69,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     await this.tagService.FindOrAddTagAsync(
                         new Tag
                         {
-                            Name = tagSuggestion.Name.Trim(),
+                            Name = tagName!,
                             ApprovalStatus = ApprovalStatus.Submitted,
                         },
                         cancellationToken);

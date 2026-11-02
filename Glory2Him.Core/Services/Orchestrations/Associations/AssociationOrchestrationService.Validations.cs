@@ -28,6 +28,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     {
         private const int MaxContentItemReactionSummaryIds = 25;
 
+        // the cap Tag.Name has (TagService.Validations.cs), asked before anything is read
+        private const int MaxTagNameLength = 30;
+
         // The orchestration enforces the contribution gate itself (§SEC14.6): an exposer may bind
         // to it directly, so it never assumes an upstream layer already gated the caller.
         //
@@ -401,6 +404,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             Enum.IsDefined(entityType)
             && EntityTypePersonalisation.IsPersonal(entityType);
 
+        // THE TAG SUGGESTION's fields (AssociationOrchestrationService.TagSuggestions.md §1 rule 1,
+        // step 3; TagSuggestions.md rule 2), asked of the name once it is trimmed, so a name of
+        // white space alone is empty and the white space around a name counts against no cap.
+        private static void ValidateOnSuggestTag(TagSuggestion tagSuggestion, string? tagName) =>
+            Validate(
+                message: "Tag suggestion is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(tagSuggestion.ContentItemId), Parameter: nameof(TagSuggestion.ContentItemId)),
+                (Rule: IsInvalid(tagName), Parameter: nameof(TagSuggestion.Name)),
+                (Rule: IsGreaterThan(tagName, MaxTagNameLength), Parameter: nameof(TagSuggestion.Name)));
+
         // The id-keyed surfaces' own validation. Kept separate from ValidateOnAddAssociation
         // rather than folded into a shared validator: they compose different rules today and
         // sharing the composition would mean a rule added for one silently binds the other.
@@ -451,6 +464,18 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         {
             Condition = id == Guid.Empty,
             Message = "Id is required"
+        };
+
+        private static dynamic IsInvalid(string? text) => new
+        {
+            Condition = string.IsNullOrWhiteSpace(text),
+            Message = "Text is required"
+        };
+
+        private static dynamic IsGreaterThan(string? text, int maxLength) => new
+        {
+            Condition = (text ?? string.Empty).Length > maxLength,
+            Message = $"Text exceed max length of {maxLength} characters"
         };
 
         private static dynamic IsNotTheDerivedContentType(
