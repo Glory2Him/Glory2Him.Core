@@ -9,8 +9,12 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
+using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
@@ -223,5 +227,95 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Theory]
+        [MemberData(nameof(FieldsTheAddRefuses))]
+        public async Task ShouldThrowValidationExceptionOnFindOrAddIfTheAddRefusesTheTagAndLogItAsync(
+            string refusedField,
+            string expectedRefusalMessage)
+        {
+            // given: no row holds the name, so the handed tag reaches the add, whose own
+            // validations refuse a tag already published or already approved (§3 rule 6)
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Tag invalidTag = CreateTagFiller(randomDateTimeOffset).Create();
+            invalidTag.Name = GetRandomTagName();
+
+            if (refusedField == nameof(Tag.IsPublished))
+            {
+                invalidTag.IsPublished = true;
+            }
+            else
+            {
+                invalidTag.ApprovalStatus = ApprovalStatus.Approved;
+            }
+
+            Tag otherTag = CreateRandomTag();
+            otherTag.Name = GetRandomTagName();
+            CancellationToken inputCancellationToken = TestContext.Current.CancellationToken;
+
+            var invalidTagException =
+                new InvalidTagException(
+                    message: "Tag is invalid, fix the errors and try again.");
+
+            invalidTagException.AddData(
+                key: refusedField,
+                values: expectedRefusalMessage);
+
+            var expectedTagValidationException =
+                new TagValidationException(
+                    message: "Tag validation error occurred, fix the errors and try again.",
+                    innerException: invalidTagException);
+
+            SetupTagNameReadOver(new List<Tag> { otherTag }, inputCancellationToken);
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(Guid.NewGuid());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidTag, this.ambientSecurityContext))
+                    .ReturnsAsync(invalidTag);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(invalidTag.CreatedBy);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<TagNameResult> findOrAddTagTask =
+                this.tagService.FindOrAddTagAsync(
+                    invalidTag,
+                    inputCancellationToken);
+
+            TagValidationException actualTagValidationException =
+                await Assert.ThrowsAsync<TagValidationException>(
+                    findOrAddTagTask.AsTask);
+
+            // then: refused as the add refuses it, and nothing written or published
+            actualTagValidationException.Should().BeEquivalentTo(
+                expectedTagValidationException);
+
+            VerifyTagNameReadAsked(inputCancellationToken, Times.Once());
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // the fields of a handed tag the add refuses, with the refusal it names (§3 rule 6)
+        public static TheoryData<string, string> FieldsTheAddRefuses() =>
+            new TheoryData<string, string>
+            {
+                { nameof(Tag.IsPublished), "Value is not allowed on add" },
+                { nameof(Tag.ApprovalStatus), "Value must be Draft or Submitted on add" }
+            };
     }
 }
