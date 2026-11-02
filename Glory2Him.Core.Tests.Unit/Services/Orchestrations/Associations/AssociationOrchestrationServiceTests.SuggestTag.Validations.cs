@@ -13,6 +13,7 @@ using System;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Orchestrations.Associations;
@@ -135,6 +136,70 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     suggestTagTask.AsTask);
 
             // then: the post alone is read, and nothing is written
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.contentItemServiceMock.Verify(service =>
+                service.RetrieveContentItemByIdAsync(
+                    tagSuggestion.ContentItemId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowNotFoundOnSuggestTagIfThePostIsNotFoundAndLogItAsync()
+        {
+            // given: the post's read refuses it as not found, which it answers alike for a post
+            // that does not exist and one the caller may not see (§SEC14.5 rule 1), so one case
+            // stands for both. The post is endpoint A, and resolution names it so, as it does for
+            // the upsert's endpoint A (§1 rule 1, step 4).
+            this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString());
+            TagSuggestion tagSuggestion = CreateTagSuggestion();
+            SetupSuggestionEnvelopeFor(tagSuggestion);
+            SetupFindOrAddOf(tagSuggestion.Name, TagNameOutcome.Added);
+
+            var contentItemValidationException =
+                new ContentItemValidationException(
+                    message: "Content item validation error occurred, fix the errors and try again.",
+                    innerException: new NotFoundContentItemException(
+                        message: $"Couldn't find content item with id: {tagSuggestion.ContentItemId}."));
+
+            this.contentItemServiceMock.Setup(service =>
+                service.RetrieveContentItemByIdAsync(
+                    tagSuggestion.ContentItemId,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(contentItemValidationException);
+
+            var notFoundAssociationOrchestrationException =
+                new NotFoundAssociationOrchestrationException(
+                    message: "The A endpoint was not found.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: notFoundAssociationOrchestrationException);
+
+            // when
+            ValueTask<AssociationSubmissionResult> suggestTagTask =
+                this.associationOrchestrationService.SuggestTagAsync(
+                    tagSuggestion,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    suggestTagTask.AsTask);
+
+            // then: nothing more is read
             actualException.Should().BeEquivalentTo(expectedValidationException);
 
             this.contentItemServiceMock.Verify(service =>
