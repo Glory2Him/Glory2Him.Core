@@ -81,6 +81,45 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Tags
             actualTagNameResult.Should().BeEquivalentTo(expectedTagNameResult);
         }
 
+        /// <summary>
+        /// The soft-deleted case proves the condition has no <c>IsDeleted</c> term and that
+        /// <c>TagNameMatch</c> carries <c>IsDeleted</c>; the rejected case, that it carries
+        /// <c>ApprovalStatus</c>. A projection that left either column at its default would read
+        /// the row as a live <c>Draft</c> and answer <c>Found</c>.
+        /// </summary>
+        [Theory]
+        [InlineData("Mercy", ApprovalStatus.Rejected, false)]
+        [InlineData("Hope", ApprovalStatus.Submitted, true)]
+        public async Task ShouldWithholdARejectedOrSoftDeletedTagFoundByItsNameAsync(
+            string name,
+            ApprovalStatus approvalStatus,
+            bool isDeleted)
+        {
+            // given
+            Tag storedTag = CreateTag(name);
+            storedTag.ApprovalStatus = approvalStatus;
+            storedTag.IsDeleted = isDeleted;
+            await SeedAsync(storedTag);
+            Tag inputTag = CreateTag(name);
+
+            var expectedTagNameResult = new TagNameResult
+            {
+                Id = storedTag.Id,
+                Outcome = TagNameOutcome.Withheld
+            };
+
+            ITagService tagService = CreateTagService();
+
+            // when
+            TagNameResult actualTagNameResult =
+                await tagService.FindOrAddTagAsync(
+                    inputTag,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualTagNameResult.Should().BeEquivalentTo(expectedTagNameResult);
+        }
+
         // A real service over the real storage broker, so the condition under test is the one
         // the service authors rather than a copy of it. The envelope it mints carries an
         // authenticated caller holding neither ReadOnly nor Tag-ReadOnly, so the contribution
