@@ -14,6 +14,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Tags;
 
 namespace Glory2Him.Core.Services.Foundations.Tags
@@ -24,13 +25,31 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             Tag tag,
             CancellationToken cancellationToken = default)
         {
-            await this.eventEnvelopeBroker.CreateAsync(content: tag);
+            EventEnvelope<Tag> envelope =
+                await this.eventEnvelopeBroker.CreateAsync(content: tag);
 
             TagNameMatch? tagNameMatch = await SelectTagNameMatchAsync(
                 name: tag.Name,
                 cancellationToken: cancellationToken);
 
-            return await AnswerTagNameMatchAsync(tagNameMatch!);
+            if (tagNameMatch is not null)
+            {
+                return await AnswerTagNameMatchAsync(tagNameMatch);
+            }
+
+            // no row holds the name: the handed tag is added as the add adds one, through its
+            // own write body, so its gate, mint, validations, audit, write and Tag-Added fact are
+            // written once (§3 rule 6)
+            Tag addedTag = await DoAddTagAsync(
+                tag: tag,
+                inboundEnvelope: envelope,
+                cancellationToken: cancellationToken);
+
+            return new TagNameResult
+            {
+                Id = addedTag.Id,
+                Outcome = TagNameOutcome.Added
+            };
         }
 
         // A rejected name is never paired, and a soft-deleted tag is withheld until #1362's
