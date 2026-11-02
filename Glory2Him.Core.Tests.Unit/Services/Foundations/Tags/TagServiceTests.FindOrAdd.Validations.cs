@@ -169,5 +169,59 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnFindOrAddIfNameExceedsMaxLengthAndLogItAsync()
+        {
+            // given: one character past the cap, so a cap of 31 or more passes it
+            Tag invalidTag = CreateRandomTag();
+            invalidTag.Name = GetRandomStringWithLengthOf(31);
+
+            var invalidTagException =
+                new InvalidTagException(
+                    message: "Tag is invalid, fix the errors and try again.");
+
+            invalidTagException.AddData(
+                key: nameof(Tag.Name),
+                values: "Text exceed max length of 30 characters");
+
+            var expectedTagValidationException =
+                new TagValidationException(
+                    message: "Tag validation error occurred, fix the errors and try again.",
+                    innerException: invalidTagException);
+
+            // when
+            ValueTask<TagNameResult> findOrAddTagTask =
+                this.tagService.FindOrAddTagAsync(
+                    invalidTag,
+                    TestContext.Current.CancellationToken);
+
+            TagValidationException actualTagValidationException =
+                await Assert.ThrowsAsync<TagValidationException>(
+                    findOrAddTagTask.AsTask);
+
+            // then
+            invalidTag.Name.Length.Should().Be(31);
+
+            actualTagValidationException.Should().BeEquivalentTo(
+                expectedTagValidationException);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(invalidTag),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagValidationException))),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
