@@ -905,6 +905,57 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         }
 
         [Fact]
+        public async Task ShouldThrowValidationExceptionOnUpsertIfThePostIsRejectedAndLogItAsync()
+        {
+            // given: a contributor pairs a post with a tag, and the post's service answers them
+            // the version the pairing names at Rejected. That version is the one read, and no
+            // other is asked (RejectedEndpoints.md rule 10).
+            this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString());
+            Association upsertRequest = CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Tag);
+
+            SetupMethodPathEndpointReadsAt(
+                upsertRequest,
+                entityAApprovalStatus: ApprovalStatus.Rejected,
+                entityBApprovalStatus: ApprovalStatus.Draft);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "The A endpoint is rejected, so it cannot be paired.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(upsertTask.AsTask);
+
+            // then: the version's own read, and nothing more of the post's service
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.contentItemServiceMock.Verify(service =>
+                service.RetrieveContentItemByIdAsync(
+                    upsertRequest.EntityAKeyId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldRunTheFacetGateBeforeAnyProbeOrWriteAsync()
         {
             // given: a pair the item's setting refuses. Each read records itself as it is made, so
