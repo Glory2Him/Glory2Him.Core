@@ -289,5 +289,81 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnAddingTagEventIfIdentifierBrokerFailsAndLogItAsync()
+        {
+            // given
+            Tag inputTag = CreateRandomTag();
+            CancellationToken inputCancellationToken = TestContext.Current.CancellationToken;
+            var serviceException = new Exception();
+
+            var requestEnvelope = new EventEnvelope<Tag>
+            {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
+                Content = inputTag,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            var failedTagServiceException = new FailedTagServiceException(
+                message: "Failed tag service error occurred, please contact support.",
+                innerException: serviceException,
+                data: serviceException.Data);
+
+            var expectedTagServiceException = new TagServiceException(
+                message: "Tag service error occurred, contact support.",
+                innerException: failedTagServiceException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.TagOnAddingTagSubscriptionName,
+                    inputCancellationToken))
+                        .ReturnsAsync(false);
+
+            // the identifier broker raises no family of its own, so its failure reaches the
+            // closing catch-all arm
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<EventEnvelope<Tag>?> onAddingTask =
+                this.tagService.OnAddingTagAsync(
+                    requestEnvelope,
+                    inputCancellationToken);
+
+            TagServiceException actualTagServiceException =
+                await Assert.ThrowsAsync<TagServiceException>(
+                    onAddingTask.AsTask);
+
+            // then: rethrown so the substrate records the delivery as Error and retries, and
+            // nothing is inserted, published or recorded in ProcessedEvents
+            actualTagServiceException.Should().BeEquivalentTo(
+                expectedTagServiceException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.TagOnAddingTagSubscriptionName,
+                    inputCancellationToken),
+                Times.Once);
+
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagServiceException))),
+                Times.Once);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
