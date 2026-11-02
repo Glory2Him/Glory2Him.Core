@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using EFxceptions.Models.Exceptions;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Tags;
@@ -40,16 +41,30 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             // no row holds the name: the handed tag is added as the add adds one, through its
             // own write body, so its gate, mint, validations, audit, write and Tag-Added fact are
             // written once (§3 rule 6)
-            Tag addedTag = await DoAddTagAsync(
-                tag: tag,
-                inboundEnvelope: envelope,
-                cancellationToken: cancellationToken);
-
-            return new TagNameResult
+            try
             {
-                Id = addedTag.Id,
-                Outcome = TagNameOutcome.Added
-            };
+                Tag addedTag = await DoAddTagAsync(
+                    tag: tag,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+
+                return new TagNameResult
+                {
+                    Id = addedTag.Id,
+                    Outcome = TagNameOutcome.Added
+                };
+            }
+            // IX_Tags_Name refused the write: another caller added the name since the read
+            // above, so it is read once more and that row answered, never written twice
+            // (§3 rule 7). A unique-index refusal is this type, never DuplicateKeyException.
+            catch (DuplicateKeyWithUniqueIndexException)
+            {
+                TagNameMatch? takenTagNameMatch = await SelectTagNameMatchAsync(
+                    name: tag.Name,
+                    cancellationToken: cancellationToken);
+
+                return await AnswerTagNameMatchAsync(takenTagNameMatch!);
+            }
         }
 
         // A rejected name is never paired, and a soft-deleted tag is withheld until #1362's
