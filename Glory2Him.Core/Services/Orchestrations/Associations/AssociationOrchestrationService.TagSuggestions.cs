@@ -52,7 +52,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 await this.tagService.FindOrAddTagAsync(
                     new Tag
                     {
-                        Name = tagSuggestion.Name,
+                        Name = tagSuggestion.Name.Trim(),
                         ApprovalStatus = ApprovalStatus.Submitted,
                     },
                     cancellationToken);
