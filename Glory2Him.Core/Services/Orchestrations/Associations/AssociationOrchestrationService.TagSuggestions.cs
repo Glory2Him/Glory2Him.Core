@@ -127,8 +127,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     suggestedPair,
                     cancellationToken);
             }
-            catch (AssociationDependencyValidationException)
-                when (isTagVisible is false)
+            catch (AssociationDependencyValidationException associationDependencyValidationException)
+                when (isTagVisible is false
+                    && associationDependencyValidationException.InnerException is AlreadyExistsAssociationException)
             {
             }
         }
