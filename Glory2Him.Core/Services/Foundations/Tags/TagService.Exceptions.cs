@@ -26,6 +26,7 @@ namespace Glory2Him.Core.Services.Foundations.Tags
     {
         private delegate ValueTask<Tag> ReturningTagFunction();
         private delegate ValueTask<IQueryable<Tag>> ReturningTagsFunction();
+        private delegate ValueTask<TagNameResult> ReturningTagNameResultFunction();
 
         private delegate ValueTask<EventEnvelope<Tag>?>
             ReturningTagEventEnvelopeFunction();
@@ -320,6 +321,19 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                     data: exception.Data);
 
                 throw await CreateAndLogServiceExceptionAsync(failedTagServiceException);
+            }
+        }
+
+        private async ValueTask<TagNameResult> TryCatch(
+            ReturningTagNameResultFunction returningTagNameResultFunction)
+        {
+            try
+            {
+                return await returningTagNameResultFunction();
+            }
+            catch (UnauthorizedTagException unauthorizedTagException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedTagException);
             }
         }
 

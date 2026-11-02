@@ -22,50 +22,55 @@ namespace Glory2Him.Core.Services.Foundations.Tags
 {
     internal partial class TagService
     {
-        public async ValueTask<TagNameResult> FindOrAddTagAsync(
+        public ValueTask<TagNameResult> FindOrAddTagAsync(
             Tag tag,
-            CancellationToken cancellationToken = default)
-        {
-            EventEnvelope<Tag> envelope =
-                await this.eventEnvelopeBroker.CreateAsync(content: tag);
-
-            TagNameMatch? tagNameMatch = await SelectTagNameMatchAsync(
-                name: tag.Name,
-                cancellationToken: cancellationToken);
-
-            if (tagNameMatch is not null)
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
             {
-                return await AnswerTagNameMatchAsync(tagNameMatch);
-            }
+                // the envelope exists to capture the ambient caller the contribution gate is
+                // asked of, as the association's pair probe mints one for its gate (§3 rule 2)
+                EventEnvelope<Tag> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: tag);
 
-            // no row holds the name: the handed tag is added as the add adds one, through its
-            // own write body, so its gate, mint, validations, audit, write and Tag-Added fact are
-            // written once (§3 rule 6)
-            try
-            {
-                Tag addedTag = await DoAddTagAsync(
-                    tag: tag,
-                    inboundEnvelope: envelope,
-                    cancellationToken: cancellationToken);
+                ValidateUserIsAllowedToContribute(envelope.SecurityContext);
 
-                return new TagNameResult
-                {
-                    Id = addedTag.Id,
-                    Outcome = TagNameOutcome.Added
-                };
-            }
-            // IX_Tags_Name refused the write: another caller added the name since the read
-            // above, so it is read once more and that row answered, never written twice
-            // (§3 rule 7). A unique-index refusal is this type, never DuplicateKeyException.
-            catch (DuplicateKeyWithUniqueIndexException)
-            {
-                TagNameMatch? takenTagNameMatch = await SelectTagNameMatchAsync(
+                TagNameMatch? tagNameMatch = await SelectTagNameMatchAsync(
                     name: tag.Name,
                     cancellationToken: cancellationToken);
 
-                return await AnswerTagNameMatchAsync(takenTagNameMatch!);
-            }
-        }
+                if (tagNameMatch is not null)
+                {
+                    return await AnswerTagNameMatchAsync(tagNameMatch);
+                }
+
+                // no row holds the name: the handed tag is added as the add adds one, through
+                // its own write body, so its gate, mint, validations, audit, write and Tag-Added
+                // fact are written once (§3 rule 6)
+                try
+                {
+                    Tag addedTag = await DoAddTagAsync(
+                        tag: tag,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                    return new TagNameResult
+                    {
+                        Id = addedTag.Id,
+                        Outcome = TagNameOutcome.Added
+                    };
+                }
+                // IX_Tags_Name refused the write: another caller added the name since the read
+                // above, so it is read once more and that row answered, never written twice
+                // (§3 rule 7). A unique-index refusal is this type, never DuplicateKeyException.
+                catch (DuplicateKeyWithUniqueIndexException)
+                {
+                    TagNameMatch? takenTagNameMatch = await SelectTagNameMatchAsync(
+                        name: tag.Name,
+                        cancellationToken: cancellationToken);
+
+                    return await AnswerTagNameMatchAsync(takenTagNameMatch!);
+                }
+            });
 
         // A rejected name is never paired, and a soft-deleted tag is withheld until #1362's
         // undelete replaces that: either is answered Withheld, the true reason logged and never
