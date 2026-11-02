@@ -228,7 +228,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             Guid keyId,
             IVersion? versionedEndpoint,
             ContentType? contentType,
-            ApprovalStatus approvalStatus = default,
+            ApprovalStatus approvalStatus,
             string? reactionName = null)
         {
             bool isVersioned = EntityTypeVersioning.IsVersioned(entityType);
