@@ -314,6 +314,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     TestContext.Current.CancellationToken),
                 Times.Once);
 
+            // deduplication runs before the write body, so a replay mints no Id
+            // (TagService.TagSuggestions.md §2 rule 2)
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Never);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
