@@ -105,6 +105,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Suggests a tag for a post by the tag's name (<c>DesignFeatures/TagSuggestions.md</c>).
+        /// </summary>
+        ValueTask<AssociationSubmissionResult> SuggestTagAsync(
+            TagSuggestion tagSuggestion,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// The association collection read, and the first place §SEC14.3's composite is actually
         /// evaluated. It composes rules 3 and 4 — an association is visible only while <b>both</b>
         /// of its endpoints are — above the foundation's self-only filter over rules 1, 2 and 5,
