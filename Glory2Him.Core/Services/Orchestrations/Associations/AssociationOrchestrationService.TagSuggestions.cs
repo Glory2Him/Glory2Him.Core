@@ -166,7 +166,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 
                 return true;
             }
-            catch (TagValidationException)
+            catch (TagValidationException tagValidationException)
+                when (tagValidationException.InnerException is NotFoundTagException)
             {
                 return false;
             }
