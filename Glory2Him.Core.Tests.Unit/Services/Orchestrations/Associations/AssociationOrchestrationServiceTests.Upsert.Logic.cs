@@ -1675,6 +1675,96 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // Each host at every status but Rejected, beside a reaction at Draft, and the reaction at
+        // the two statuses that leaves, on a post at Draft: so the host of each type and the
+        // reaction are each answered at Draft, Submitted and Approved, and no case repeats another.
+        public static TheoryData<EntityType, ApprovalStatus, ApprovalStatus>
+            ReactionsWhoseHostAndReactionAreNotRejected()
+        {
+            var reactions = new TheoryData<EntityType, ApprovalStatus, ApprovalStatus>();
+
+            foreach (EntityType hostType in new[] { EntityType.ContentItem, EntityType.BibleReference })
+            {
+                foreach (ApprovalStatus hostApprovalStatus in new[]
+                {
+                    ApprovalStatus.Draft,
+                    ApprovalStatus.Submitted,
+                    ApprovalStatus.Approved,
+                })
+                {
+                    reactions.Add(hostType, hostApprovalStatus, ApprovalStatus.Draft);
+                }
+            }
+
+            reactions.Add(EntityType.ContentItem, ApprovalStatus.Draft, ApprovalStatus.Submitted);
+            reactions.Add(EntityType.ContentItem, ApprovalStatus.Draft, ApprovalStatus.Approved);
+
+            return reactions;
+        }
+
+        [Theory]
+        [MemberData(nameof(ReactionsWhoseHostAndReactionAreNotRejected))]
+        public async Task ShouldUpsertAReactionWhoseHostAndReactionAreNotRejectedAsync(
+            EntityType hostType,
+            ApprovalStatus hostApprovalStatus,
+            ApprovalStatus reactionApprovalStatus)
+        {
+            // given: a reader reacts to a host, the host on A and the reaction on B (§DOM4.10
+            // rule 9), each answered by its service at a status other than Rejected. The reaction
+            // is handed to the foundation's personal upsert as before, as the reader and at
+            // Submitted (AssociationOrchestrationService.RejectedEndpoints.md §1 rule 8).
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+
+            Association upsertRequest =
+                CreateRawUpsertRequestBetween(hostType, EntityType.Reaction);
+
+            Association expectedUpsertedAssociation =
+                SetupMethodPathEndpointReadsAt(
+                    upsertRequest,
+                    entityAApprovalStatus: hostApprovalStatus,
+                    entityBApprovalStatus: reactionApprovalStatus);
+
+            expectedUpsertedAssociation.UserId = readerUserId;
+            expectedUpsertedAssociation.ApprovalStatus = ApprovalStatus.Submitted;
+            Association readersRow = expectedUpsertedAssociation.DeepClone();
+            readersRow.Id = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new PersonalAssociationUpsert
+                        {
+                            Outcome = PersonalAssociationUpsertOutcome.Created,
+                            Association = readersRow,
+                        });
+
+            var expectedResult = new AssociationSuggestionResult
+            {
+                Status = AssociationSuggestionStatus.Created,
+                AssociationId = readersRow.Id,
+            };
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.associationServiceMock.Verify(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedUpsertedAssociation)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A signed-in reader's reaction on an item whose setting allows reactions: the envelope,
         // both endpoint reads and the setting. Hands back the row the foundation is to be handed.
         private Association SetupReadersReaction(Association upsertRequest, string readerUserId)
