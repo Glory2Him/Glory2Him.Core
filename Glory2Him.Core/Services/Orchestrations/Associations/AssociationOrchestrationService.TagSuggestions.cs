@@ -56,6 +56,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     readEnvelope: null,
                     cancellationToken: cancellationToken);
 
+                ValidateUserIsNotBlockedFromEndpoints(
+                    suggestionEnvelope.SecurityContext,
+                    suggestedPair);
+
                 TagNameResult tagNameResult =
                     await this.tagService.FindOrAddTagAsync(
                         new Tag
