@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Tags;
+using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Moq;
 
@@ -323,6 +324,79 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.identifierBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(RefusedContributorSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnAddingTagEventIfUserMayNotContributeAndLogItAsync(
+            SecurityContext refusedSecurityContext,
+            string expectedRefusal)
+        {
+            // given
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+            Tag inputTag = CreateTagFiller(currentDateTime).Create();
+            CancellationToken inputCancellationToken = TestContext.Current.CancellationToken;
+
+            // the gate reads the signed caller the envelope carries, not the ambient one
+            var requestEnvelope = new EventEnvelope<Tag>
+            {
+                SecurityContext = refusedSecurityContext,
+                Content = inputTag,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.TagOnAddingTagSubscriptionName,
+                    inputCancellationToken))
+                        .ReturnsAsync(false);
+
+            var unauthorizedTagException = new UnauthorizedTagException(
+                message: expectedRefusal);
+
+            var expectedTagValidationException = new TagValidationException(
+                message: "Tag validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedTagException);
+
+            // when
+            ValueTask<EventEnvelope<Tag>?> onAddingTask =
+                this.tagService.OnAddingTagAsync(
+                    requestEnvelope,
+                    inputCancellationToken);
+
+            TagValidationException actualTagValidationException =
+                await Assert.ThrowsAsync<TagValidationException>(
+                    onAddingTask.AsTask);
+
+            // then: refused as the direct path refuses that caller, and nothing is written
+            actualTagValidationException.Should().BeEquivalentTo(
+                expectedTagValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.TagOnAddingTagSubscriptionName,
+                    inputCancellationToken),
+                Times.Once);
+
+            // the Id is minted after the contribution gate, so a refused caller mints none
+            // (TagService.TagSuggestions.md §1 rule 2, §2 rule 2)
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagValidationException))),
+                Times.Once);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }

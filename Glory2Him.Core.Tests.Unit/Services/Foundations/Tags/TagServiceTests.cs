@@ -183,6 +183,25 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 Guid.NewGuid()
             };
 
+        // each signed caller the contribution gate refuses, with the refusal it is answered:
+        // the anonymous caller, and a caller holding ReadOnly or Tag-ReadOnly
+        public static TheoryData<SecurityContext, string> RefusedContributorSecurityContexts() =>
+            new TheoryData<SecurityContext, string>
+            {
+                {
+                    new SecurityContext { IsAuthenticated = false },
+                    "The current user is not authenticated."
+                },
+                {
+                    CreateAuthenticatedSecurityContext(Roles.ReadOnly),
+                    "The current user is blocked from contributing tags."
+                },
+                {
+                    CreateAuthenticatedSecurityContext(Roles.TagReadOnly),
+                    "The current user is blocked from contributing tags."
+                }
+            };
+
         public static TheoryData<string[]> NonAdminRoleSets() =>
             new TheoryData<string[]>
             {
