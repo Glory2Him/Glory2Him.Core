@@ -956,6 +956,52 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         }
 
         [Fact]
+        public async Task ShouldNameTheAEndpointWhenBothEndpointsAreRejectedAsync()
+        {
+            // given: a Bible reference on A and a post on B, both answered at Rejected. The
+            // refusal names one endpoint, and where both are rejected it is A
+            // (AssociationOrchestrationService.RejectedEndpoints.md §1 rule 3).
+            this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString());
+
+            Association upsertRequest =
+                CreateRawUpsertRequestBetween(EntityType.BibleReference, EntityType.ContentItem);
+
+            SetupMethodPathEndpointReadsAt(
+                upsertRequest,
+                entityAApprovalStatus: ApprovalStatus.Rejected,
+                entityBApprovalStatus: ApprovalStatus.Rejected);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "The A endpoint is rejected, so it cannot be paired.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(upsertTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldRunTheFacetGateBeforeAnyProbeOrWriteAsync()
         {
             // given: a pair the item's setting refuses. Each read records itself as it is made, so
