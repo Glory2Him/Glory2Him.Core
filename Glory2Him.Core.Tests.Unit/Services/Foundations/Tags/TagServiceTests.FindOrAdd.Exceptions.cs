@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using EFxceptions.Models.Exceptions;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Tags;
@@ -148,6 +149,65 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogCriticalAsync(It.Is(
                     SameExceptionAs(expectedTagDependencyException))),
+                Times.Once);
+
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowDependencyValidationExceptionOnFindOrAddIfTheNameIsTakenAndNotFoundAgainAndLogItAsync()
+        {
+            // given: IX_Tags_Name refuses the insert, and the second read finds no row either,
+            // so the refusal is thrown on as the add throws it (§3 rule 7)
+            Tag someTag = CreateTagFiller(GetRandomDateTimeOffset()).Create();
+            someTag.Name = GetRandomTagName();
+
+            var duplicateKeyWithUniqueIndexException =
+                new DuplicateKeyWithUniqueIndexException(message: GetRandomString());
+
+            var alreadyExistsTagException = new AlreadyExistsTagException(
+                message: "Tag already exists, a uniqueness rule rejected the write.",
+                innerException: duplicateKeyWithUniqueIndexException,
+                data: duplicateKeyWithUniqueIndexException.Data);
+
+            var expectedTagDependencyValidationException =
+                new TagDependencyValidationException(
+                    message: "Tag dependency validation error occurred, fix the errors and try again.",
+                    innerException: alreadyExistsTagException);
+
+            SetupFindOrAddStorageCallToThrow(
+                someTag,
+                failingStorageCall: "insert",
+                duplicateKeyWithUniqueIndexException);
+
+            // when
+            ValueTask<TagNameResult> findOrAddTagTask =
+                this.tagService.FindOrAddTagAsync(
+                    someTag,
+                    TestContext.Current.CancellationToken);
+
+            TagDependencyValidationException actualTagDependencyValidationException =
+                await Assert.ThrowsAsync<TagDependencyValidationException>(
+                    findOrAddTagTask.AsTask);
+
+            // then: read twice, and the insert never tried again
+            actualTagDependencyValidationException.Should().BeEquivalentTo(
+                expectedTagDependencyValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectTagsAsync(
+                    It.IsAny<Func<IQueryable<Tag>, IQueryable<TagNameMatch>>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Exactly(2));
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertTagAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagDependencyValidationException))),
                 Times.Once);
 
             this.eventBrokerMock.VerifyNoOtherCalls();
