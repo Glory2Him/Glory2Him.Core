@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Tags;
 
 namespace Glory2Him.Core.Services.Foundations.Tags
@@ -29,10 +30,42 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                 name: tag.Name,
                 cancellationToken: cancellationToken);
 
+            return await AnswerTagNameMatchAsync(tagNameMatch!);
+        }
+
+        // A rejected name is never paired, and a soft-deleted tag is withheld until #1362's
+        // undelete replaces that: either is answered Withheld, the true reason logged and never
+        // answered, so the caller learns nothing of another reader's row (§3 rule 5; §SEC14.5
+        // rules 6 and 7)
+        private async ValueTask<TagNameResult> AnswerTagNameMatchAsync(TagNameMatch tagNameMatch)
+        {
+            bool isRejected = tagNameMatch.ApprovalStatus == ApprovalStatus.Rejected;
+
+            if (isRejected is false && tagNameMatch.IsDeleted is false)
+            {
+                return new TagNameResult
+                {
+                    Id = tagNameMatch.Id,
+                    Outcome = TagNameOutcome.Found
+                };
+            }
+
+            string withheldReason = (isRejected, tagNameMatch.IsDeleted) switch
+            {
+                (true, true) => "rejected and soft-deleted",
+                (true, false) => "rejected",
+                _ => "soft-deleted"
+            };
+
+            await this.loggingBroker.LogInformationAsync(
+                message: $"Tag name match withheld. Tag {tagNameMatch.Id} is {withheldReason}; " +
+                    "it was withheld from the suggestion, which pairs nothing with it, and the " +
+                    "caller is not told so.");
+
             return new TagNameResult
             {
-                Id = tagNameMatch!.Id,
-                Outcome = TagNameOutcome.Found
+                Id = tagNameMatch.Id,
+                Outcome = TagNameOutcome.Withheld
             };
         }
 
