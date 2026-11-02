@@ -9,12 +9,14 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Tags;
+using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 
 namespace Glory2Him.Core.Services.Orchestrations.Associations
@@ -58,6 +60,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             suggestedPair.EntityBKeyId = tagNameResult.Id;
             suggestedPair.EntityBGroupId = tagNameResult.Id;
 
+            if (tagNameResult.Outcome is not TagNameOutcome.Added)
+            {
+                await ReadTheTagAsTheCallerAsync(tagNameResult.Id, cancellationToken);
+            }
+
             await FindPairOccupantsAsync(
                 association: suggestedPair,
                 readEnvelope: null,
@@ -73,6 +80,19 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             {
                 Status = AssociationSubmissionStatus.Created,
             };
+        }
+
+        private async ValueTask ReadTheTagAsTheCallerAsync(
+            Guid tagId,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                await this.tagService.RetrieveTagByIdAsync(tagId, cancellationToken);
+            }
+            catch (TagValidationException)
+            {
+            }
         }
     }
 }
