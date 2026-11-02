@@ -63,12 +63,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 
         // ── ONE COMPOSITION PER OPERATION, over shared leaves ─────────────────────────
         //
-        // The three below are the orchestration's half of the gate on modify, remove and hard
-        // remove: the part that needs NO row (§SEC14.7 posture A′ rule 4). Each of the three
-        // members is handed an id or an untrusted Association, so nothing composed from the
-        // STORED endpoints is decidable here — that half runs in the foundation, and this layer
-        // issues no second read to duplicate it. Running these leaves first is what stops the
-        // three surfaces being used to probe which association ids exist.
+        // The first three below are the orchestration's half of the gate on modify, remove and
+        // hard remove: the part that needs NO row (§SEC14.7 posture A′ rule 4); the tag
+        // suggestion's, the last, says what it is. Each of those three members is handed an id or
+        // an untrusted Association, so nothing composed from the STORED endpoints is decidable
+        // here — that half runs in the foundation, and this layer issues no second read to
+        // duplicate it. Running these leaves first is what stops the three surfaces being used to
+        // probe which association ids exist.
         //
         // MODIFY AND REMOVE COMPOSE THE SAME TWO LEAVES TODAY AND STILL GET A METHOD EACH, for
         // the reason the add's gate above gets its own: a shared composition cannot give one
@@ -138,9 +139,12 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             }
         }
 
-        // §SEC14.7 posture A′ rule 1's veto, composed from the endpoints this service has just
-        // RESOLVED from storage — never from the caller's copy, which is why the content type may
-        // be trusted here at all. Four scoped names in all, two per end.
+        // §SEC14.7 posture A′ rule 1's veto, composed from what this service has just RESOLVED
+        // from storage — never from the caller's copy, which is why the content type may be
+        // trusted here at all: both endpoints on the upsert, and on the tag suggestion its post,
+        // whose far end is the type Tag, asked before any tag is read and carrying no content
+        // type, which needs none (AssociationOrchestrationService.TagSuggestions.md §1 rule 1,
+        // steps 5, 6 and 9). Four scoped names in all, two per end.
         //
         // THE `OR` IS LOAD-BEARING. Under an AND, a user holding Tag-ReadOnly alongside
         // BibleReference-Reviewers could pair a tag with an entity type they are not banned from
@@ -148,13 +152,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         // One end admits on the grant side; one end bars on the block side.
         //
         // THIS IS THE UPSERT'S AND THE TAG SUGGESTION'S, and asked of an editorial pair only: a
-        // reader's own reaction is outside the veto (posture A′ rule 1). The suggestion asks it
-        // once its post is resolved and before any tag is read, so its tag end is the type alone,
-        // which carries no content type and needs none (AssociationOrchestrationService
-        // .TagSuggestions.md §1 rule 1, step 6). Modify, remove and hard remove are handed an id
-        // or an untrusted row, so there is no resolved endpoint for this layer to compose from and
-        // the veto belongs one layer down (§SEC14.7 posture A′ rule 4). §SEC14.6 rule 2 makes the
-        // duplicate with the foundation's own gate intended rather than redundant.
+        // reader's own reaction is outside the veto (posture A′ rule 1). Modify, remove and hard
+        // remove are handed an id or an untrusted row, so there is no resolved endpoint for this
+        // layer to compose from and the veto belongs one layer down (§SEC14.7 posture A′ rule 4).
+        // §SEC14.6 rule 2 makes the duplicate with the foundation's own gate intended rather than
+        // redundant.
         private static void ValidateUserIsNotBlockedFromEndpoints(
             SecurityContext securityContext,
             Association association)

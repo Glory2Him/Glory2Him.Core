@@ -455,8 +455,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         // where the lookup would throw.
         //
         // The event door asks the same lookup for its own refusal through IsPersonalEndpoint, and
-        // the two share no member: a member both the shared flow and an entry path reach is a
-        // second route to one of the flow's rules, which the write-flow seam refuses.
+        // the two share no member: a member both the shared flow and one of its two doors reach is
+        // a second route to one of the flow's rules, which the write-flow seam refuses.
         private static bool IsPersonalPair(Association association) =>
             new[] { association.EntityAType, association.EntityBType }
                 .Any(entityType =>
