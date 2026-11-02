@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
@@ -27,6 +28,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             TagSuggestion tagSuggestion,
             CancellationToken cancellationToken = default)
         {
+            EventEnvelope<TagSuggestion> suggestionEnvelope =
+                await this.eventEnvelopeBroker.CreateAsync(content: tagSuggestion);
+
             var suggestedPair = new Association
             {
                 EntityAType = EntityType.ContentItem,
@@ -65,10 +69,21 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 await ReadTheTagAsTheCallerAsync(tagNameResult.Id, cancellationToken);
             }
 
-            await FindPairOccupantsAsync(
-                association: suggestedPair,
-                readEnvelope: null,
-                cancellationToken: cancellationToken);
+            (AssociationPairMatch? pairMatch, AssociationPairMatch? overlappingMatch) =
+                await FindPairOccupantsAsync(
+                    association: suggestedPair,
+                    readEnvelope: null,
+                    cancellationToken: cancellationToken);
+
+            AssociationPairMatch? occupant = pairMatch ?? overlappingMatch;
+
+            if (occupant is not null)
+            {
+                return new AssociationSubmissionResult
+                {
+                    Status = ToSubmissionStatus(occupant, suggestionEnvelope.SecurityContext),
+                };
+            }
 
             suggestedPair.ApprovalStatus = ApprovalStatus.Submitted;
 
@@ -80,6 +95,28 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             {
                 Status = AssociationSubmissionStatus.Created,
             };
+        }
+
+        private static AssociationSubmissionStatus ToSubmissionStatus(
+            AssociationPairMatch occupant,
+            SecurityContext securityContext)
+        {
+            bool isTheCallersOwn = string.Equals(
+                occupant.CreatedBy,
+                securityContext.SubjectId,
+                StringComparison.Ordinal);
+
+            if (isTheCallersOwn is false)
+            {
+                return AssociationSubmissionStatus.AlreadySuggested;
+            }
+
+            bool isPending = occupant.IsDeleted is false
+                && occupant.ApprovalStatus is ApprovalStatus.Draft or ApprovalStatus.Submitted;
+
+            return isPending
+                ? AssociationSubmissionStatus.AlreadySuggestedByCaller
+                : AssociationSubmissionStatus.PreviouslySuggestedByCaller;
         }
 
         private async ValueTask ReadTheTagAsTheCallerAsync(
