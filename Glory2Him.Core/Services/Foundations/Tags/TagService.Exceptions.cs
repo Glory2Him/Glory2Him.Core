@@ -345,6 +345,10 @@ namespace Glory2Him.Core.Services.Foundations.Tags
 
                 throw await CreateAndLogTimeoutDependencyExceptionAsync(exception: timeoutTagException);
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (UnauthorizedTagException unauthorizedTagException)
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedTagException);
@@ -376,6 +380,15 @@ namespace Glory2Him.Core.Services.Foundations.Tags
 
                 throw await CreateAndLogDependencyValidationExceptionAsync(
                     alreadyExistsTagException);
+            }
+            catch (Exception exception)
+            {
+                var failedTagServiceException = new FailedTagServiceException(
+                    message: "Failed tag service error occurred, please contact support.",
+                    innerException: exception,
+                    data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(failedTagServiceException);
             }
         }
 
