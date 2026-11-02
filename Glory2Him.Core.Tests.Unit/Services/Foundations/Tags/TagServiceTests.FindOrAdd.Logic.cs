@@ -15,6 +15,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Moq;
 
@@ -73,6 +74,112 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(FoundTagStates))]
+        public async Task ShouldFindTheTagWhateverItsStatusPublicationOrOwnerAsync(
+            string tagState)
+        {
+            // given: one row under the name in a state the condition must not exclude, beside a
+            // row of another name; a term the condition must not have turns its case red
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string inputName = GetRandomTagName();
+            Tag inputTag = CreateRandomTag();
+            inputTag.Name = inputName;
+            Tag namedTag = CreateRandomTag();
+            namedTag.Name = inputName;
+            namedTag.CreatedBy = inputTag.CreatedBy;
+            ApplyFoundTagState(namedTag, tagState, randomDateTimeOffset);
+            Tag otherTag = CreateRandomTag();
+            otherTag.Name = GetRandomTagName();
+            var storageTags = new List<Tag> { otherTag, namedTag };
+            CancellationToken inputCancellationToken = TestContext.Current.CancellationToken;
+
+            var expectedTagNameResult = new TagNameResult
+            {
+                Id = namedTag.Id,
+                Outcome = TagNameOutcome.Found
+            };
+
+            SetupTagNameReadOver(storageTags, inputCancellationToken);
+
+            // when
+            TagNameResult actualTagNameResult =
+                await this.tagService.FindOrAddTagAsync(
+                    inputTag,
+                    inputCancellationToken);
+
+            // then
+            actualTagNameResult.Should().BeEquivalentTo(expectedTagNameResult);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(inputTag),
+                Times.Once);
+
+            VerifyTagNameReadAsked(inputCancellationToken, Times.Once());
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // every state a row the find-or-add finds may be in: the three statuses short of a
+        // verdict against it, an approved row that is unpublished or scheduled, and another
+        // caller's row (§3 rule 4)
+        public static TheoryData<string> FoundTagStates() =>
+            new TheoryData<string>
+            {
+                "Draft",
+                "Submitted",
+                "Approved",
+                "ApprovedUnpublished",
+                "ApprovedScheduled",
+                "AnotherCallers"
+            };
+
+        private static void ApplyFoundTagState(
+            Tag tag,
+            string tagState,
+            DateTimeOffset currentDateTime)
+        {
+            switch (tagState)
+            {
+                case "Draft":
+                    tag.ApprovalStatus = ApprovalStatus.Draft;
+                    break;
+
+                case "Submitted":
+                    tag.ApprovalStatus = ApprovalStatus.Submitted;
+                    break;
+
+                case "Approved":
+                    tag.ApprovalStatus = ApprovalStatus.Approved;
+                    tag.IsPublished = true;
+                    tag.PublishDate = null;
+                    break;
+
+                case "ApprovedUnpublished":
+                    tag.ApprovalStatus = ApprovalStatus.Approved;
+                    tag.IsPublished = false;
+                    tag.PublishDate = null;
+                    break;
+
+                case "ApprovedScheduled":
+                    tag.ApprovalStatus = ApprovalStatus.Approved;
+                    tag.IsPublished = true;
+                    tag.PublishDate = currentDateTime.AddDays(GetRandomNumber());
+                    break;
+
+                case "AnotherCallers":
+                    tag.CreatedBy = Guid.NewGuid().ToString();
+                    tag.UpdatedBy = tag.CreatedBy;
+                    break;
+            }
         }
 
         // a name the add accepts: at most 30 characters (§3 rule 3)
