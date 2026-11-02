@@ -12,6 +12,7 @@
 using System;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Orchestrations.Associations;
@@ -77,6 +78,70 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             // then: refused, and neither the post, nor the setting, nor the tag is read
             actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // The pairing's endpoint veto over a post, a Story, and a tag: either end of the post's
+        // two tiers, and the tag's, which is the tag add's veto as well (§SEC14.7 posture A′ rule
+        // 1; TagSuggestions.md rule 9, step 4).
+        public static TheoryData<string> EndpointBlocksOnASuggestion() =>
+            new TheoryData<string>
+            {
+                Roles.ReadOnlyFor(EntityType.ContentItem),
+                Roles.ReadOnlyFor(EntityType.ContentItem, ContentType.Story),
+                Roles.ReadOnlyFor(EntityType.Tag),
+            };
+
+        [Theory]
+        [MemberData(nameof(EndpointBlocksOnASuggestion))]
+        public async Task ShouldThrowValidationExceptionOnSuggestTagIfUserIsBlockedFromAnEndpointAndLogItAsync(
+            string blockingRole)
+        {
+            // given: a signed-in caller holding a block on one of the pair's endpoints. The post is
+            // read, as the veto is composed from the type its read derives, and the refusal comes
+            // before the setting or the tag is read (§1 rule 1, step 6).
+            this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString(), blockingRole);
+            TagSuggestion tagSuggestion = CreateTagSuggestion();
+            SetupSuggestionForThePost(tagSuggestion);
+            SetupFindOrAddOf(tagSuggestion.Name, TagNameOutcome.Added);
+
+            var unauthorizedAssociationOrchestrationException =
+                new UnauthorizedAssociationOrchestrationException(
+                    message: "The current user is blocked from contributing content item associations.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: unauthorizedAssociationOrchestrationException);
+
+            // when
+            ValueTask<AssociationSubmissionResult> suggestTagTask =
+                this.associationOrchestrationService.SuggestTagAsync(
+                    tagSuggestion,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    suggestTagTask.AsTask);
+
+            // then: the post alone is read, and nothing is written
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.contentItemServiceMock.Verify(service =>
+                service.RetrieveContentItemByIdAsync(
+                    tagSuggestion.ContentItemId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
