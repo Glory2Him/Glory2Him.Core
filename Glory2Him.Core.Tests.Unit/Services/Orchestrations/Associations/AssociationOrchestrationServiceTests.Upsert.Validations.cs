@@ -1001,6 +1001,90 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // A reaction with its host on A and the reaction on B (§DOM4.10 rule 9): a rejected post
+        // host and a rejected Bible reference host, each named A, and a rejected reaction, named B.
+        public static TheoryData<EntityType, ApprovalStatus, ApprovalStatus, string> RejectedReactionEndpoints() =>
+            new TheoryData<EntityType, ApprovalStatus, ApprovalStatus, string>
+            {
+                { EntityType.ContentItem, ApprovalStatus.Rejected, ApprovalStatus.Draft, "A" },
+                { EntityType.BibleReference, ApprovalStatus.Rejected, ApprovalStatus.Draft, "A" },
+                { EntityType.ContentItem, ApprovalStatus.Draft, ApprovalStatus.Rejected, "B" },
+            };
+
+        [Theory]
+        [MemberData(nameof(RejectedReactionEndpoints))]
+        public async Task ShouldThrowValidationExceptionOnUpsertIfAReactionsHostOrReactionIsRejectedAndLogItAsync(
+            EntityType hostType,
+            ApprovalStatus hostApprovalStatus,
+            ApprovalStatus reactionApprovalStatus,
+            string rejectedEndpointName)
+        {
+            // given: a reader reacts where the host or the reaction is answered at Rejected. The
+            // refusal comes before the branch, so whatever the foundation would answer — a new
+            // reaction, a revived, a changed or an unchanged one, or one a moderator took down — it
+            // is never asked. It is set up to answer, so a flow that reached it would be answered
+            // rather than fail (AssociationOrchestrationService.RejectedEndpoints.md §1 rule 5).
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+            Association upsertRequest = CreateRawUpsertRequestBetween(hostType, EntityType.Reaction);
+
+            Association derivedReaction =
+                SetupMethodPathEndpointReadsAt(
+                    upsertRequest,
+                    entityAApprovalStatus: hostApprovalStatus,
+                    entityBApprovalStatus: reactionApprovalStatus);
+
+            derivedReaction.UserId = readerUserId;
+            derivedReaction.ApprovalStatus = ApprovalStatus.Submitted;
+            Association readersRow = derivedReaction.DeepClone();
+            readersRow.Id = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(derivedReaction)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new PersonalAssociationUpsert
+                        {
+                            Outcome = PersonalAssociationUpsertOutcome.Created,
+                            Association = readersRow,
+                        });
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: $"The {rejectedEndpointName} endpoint is rejected, so it cannot be paired.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(upsertTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.UpsertPersonalAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         [Fact]
         public async Task ShouldRunTheFacetGateBeforeAnyProbeOrWriteAsync()
         {
