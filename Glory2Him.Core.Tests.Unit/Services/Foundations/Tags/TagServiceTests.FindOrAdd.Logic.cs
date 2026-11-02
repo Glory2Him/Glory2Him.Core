@@ -15,7 +15,12 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Force.DeepCloner;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
+using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Moq;
 
@@ -187,6 +192,139 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldAddTheTagWhenNoTagHoldsTheNameAsync()
+        {
+            // given: rows of other names only, one of them a single character away from the
+            // name, so a condition looser than equality finds it and adds nothing
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string inputName = GetRandomTagName();
+            Tag inputTag = CreateTagFiller(randomDateTimeOffset).Create();
+            inputTag.Name = inputName;
+            inputTag.ApprovalStatus = ApprovalStatus.Submitted;
+            Tag nearlyNamedTag = CreateRandomTag();
+
+            nearlyNamedTag.Name =
+                inputName.Substring(0, inputName.Length - 1)
+                    + (inputName[^1] == 'a' ? 'b' : 'a');
+
+            Tag otherTag = CreateRandomTag();
+            otherTag.Name = GetRandomTagName();
+            var storageTags = new List<Tag> { nearlyNamedTag, otherTag };
+            Guid mintedId = Guid.NewGuid();
+            Guid firstProcessedEventId = Guid.NewGuid();
+            Guid secondProcessedEventId = Guid.NewGuid();
+            Tag auditAppliedTag = inputTag.DeepClone();
+            auditAppliedTag.Id = mintedId;
+            Tag storageTag = auditAppliedTag.DeepClone();
+            CancellationToken inputCancellationToken = TestContext.Current.CancellationToken;
+
+            var expectedTagNameResult = new TagNameResult
+            {
+                Id = mintedId,
+                Outcome = TagNameOutcome.Added
+            };
+
+            SetupTagNameReadOver(storageTags, inputCancellationToken);
+
+            // the add mints the row's Id, its first call to the identifier broker; the two
+            // that follow are the processed-event records written after the insert
+            this.identifierBrokerMock.SetupSequence(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(mintedId)
+                    .ReturnsAsync(firstProcessedEventId)
+                    .ReturnsAsync(secondProcessedEventId);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.Is<Tag>(tag => tag == inputTag && tag.Id == mintedId),
+                    this.ambientSecurityContext))
+                        .ReturnsAsync(auditAppliedTag);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(auditAppliedTag.CreatedBy);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertTagAsync(auditAppliedTag, inputCancellationToken))
+                    .ReturnsAsync(storageTag);
+
+            // when
+            TagNameResult actualTagNameResult =
+                await this.tagService.FindOrAddTagAsync(
+                    inputTag,
+                    inputCancellationToken);
+
+            // then
+            actualTagNameResult.Should().BeEquivalentTo(expectedTagNameResult);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(inputTag),
+                Times.Once);
+
+            VerifyTagNameReadAsked(inputCancellationToken, Times.Once());
+
+            // one Id for the new row, and one for each of the two processed-event records
+            this.identifierBrokerMock.Verify(broker =>
+                    broker.GetIdentifierAsync(),
+                Times.Exactly(3));
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.ApplyAddAuditValuesAsync(
+                        It.Is<Tag>(tag => tag == inputTag && tag.Id == mintedId),
+                        this.ambientSecurityContext),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                    broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Exactly(3));
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.InsertTagAsync(auditAppliedTag, inputCancellationToken),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishTagAsync(
+                    It.Is<EventEnvelope<Tag>>(envelope =>
+                        envelope.Content == storageTag
+                            && envelope.Content.Id == mintedId),
+                    TagEventOperation.Added),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.Id == firstProcessedEventId
+                            && processedEvent.ReceiverName ==
+                                EventBrokerIdentifiers.TagOnAddingTagSubscriptionName),
+                    inputCancellationToken),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.Id == secondProcessedEventId
+                            && processedEvent.ReceiverName ==
+                                EventBrokerIdentifiers.TagOnAddingTagSubscriptionName),
+                    inputCancellationToken),
+                Times.Once);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
