@@ -173,6 +173,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                         keyId,
                         versionedEndpoint: null,
                         contentType: null,
+                        approvalStatus: reaction.ApprovalStatus,
                         reactionName: reaction.Name);
 
                 case EntityType.BibleReference:
