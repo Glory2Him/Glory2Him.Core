@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -263,6 +264,207 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.tagServiceMock.VerifyNoOtherCalls();
             this.associationServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        private const string ExactPairProbe = "the exact-pair probe";
+        private const string OverlapProbe = "the overlap probe";
+
+        // Every row that can hold or cover a suggestion's pair, by the probe that finds it — the
+        // exact-pair probe, or the overlap probe where that finds no row, which answers a live row
+        // only — and the answer a caller who can see the tag is given for it (§1 rule 2). The
+        // caller's soft-deleted rows are at Draft and Submitted, the statuses their live row
+        // answers AlreadySuggestedByCaller at, so a member that left the deletion unasked would
+        // answer them so too.
+        private static IEnumerable<(
+            string Probe,
+            ApprovalStatus RowStatus,
+            bool IsRowDeleted,
+            bool IsCallersRow,
+            AssociationSubmissionStatus Answer)> RowsHoldingOrCoveringThePair()
+        {
+            foreach (string probe in new[] { ExactPairProbe, OverlapProbe })
+            {
+                yield return (probe, ApprovalStatus.Draft, false, true,
+                    AssociationSubmissionStatus.AlreadySuggestedByCaller);
+
+                yield return (probe, ApprovalStatus.Submitted, false, true,
+                    AssociationSubmissionStatus.AlreadySuggestedByCaller);
+
+                yield return (probe, ApprovalStatus.Approved, false, true,
+                    AssociationSubmissionStatus.PreviouslySuggestedByCaller);
+
+                yield return (probe, ApprovalStatus.Rejected, false, true,
+                    AssociationSubmissionStatus.PreviouslySuggestedByCaller);
+            }
+
+            yield return (ExactPairProbe, ApprovalStatus.Draft, true, true,
+                AssociationSubmissionStatus.PreviouslySuggestedByCaller);
+
+            yield return (ExactPairProbe, ApprovalStatus.Submitted, true, true,
+                AssociationSubmissionStatus.PreviouslySuggestedByCaller);
+
+            foreach (ApprovalStatus rowStatus in new[]
+            {
+                ApprovalStatus.Draft,
+                ApprovalStatus.Submitted,
+                ApprovalStatus.Approved,
+                ApprovalStatus.Rejected,
+            })
+            {
+                yield return (ExactPairProbe, rowStatus, false, false,
+                    AssociationSubmissionStatus.AlreadySuggested);
+
+                yield return (ExactPairProbe, rowStatus, true, false,
+                    AssociationSubmissionStatus.AlreadySuggested);
+
+                yield return (OverlapProbe, rowStatus, false, false,
+                    AssociationSubmissionStatus.AlreadySuggested);
+            }
+        }
+
+        public static TheoryData<string, ApprovalStatus, bool, bool, AssociationSubmissionStatus>
+            RowsHoldingThePairAndTheirAnswers()
+        {
+            var rows = new TheoryData<string, ApprovalStatus, bool, bool, AssociationSubmissionStatus>();
+
+            foreach (var row in RowsHoldingOrCoveringThePair())
+            {
+                rows.Add(row.Probe, row.RowStatus, row.IsRowDeleted, row.IsCallersRow, row.Answer);
+            }
+
+            return rows;
+        }
+
+        [Theory]
+        [MemberData(nameof(RowsHoldingThePairAndTheirAnswers))]
+        public async Task ShouldAnswerByWhoseRowHoldsThePairAsync(
+            string probe,
+            ApprovalStatus rowStatus,
+            bool isRowDeleted,
+            bool isCallersRow,
+            AssociationSubmissionStatus expectedStatus)
+        {
+            // given: a contributor suggests a tag they can see, and a row already holds its pair,
+            // or covers it at one of the post's versions, a publisher having re-scoped it. Nothing
+            // is inserted, and the answer is whose the row is, its CreatedBy compared ordinally
+            // with the envelope's subject, and, for the caller's own, whether it is still pending
+            // (§1 rule 2; TagSuggestions.md rule 7).
+            string callerUserId = CreateCallerUserId();
+            this.ambientSecurityContext = CreateReaderSecurityContext(callerUserId);
+            TagSuggestion tagSuggestion = CreateTagSuggestion();
+            ContentItem suggestedPost = SetupSuggestionForThePost(tagSuggestion);
+
+            Guid foundTagId =
+                SetupFindOrAddOf(tagSuggestion.Name, TagNameOutcome.Found);
+
+            SetupTagReadFor(foundTagId, isTagVisible: true);
+
+            Association expectedProbedPair =
+                CreateSuggestedPairFor(suggestedPost, foundTagId, ApprovalStatus.Draft);
+
+            AssociationPairMatch occupant =
+                CreatePairMatchCreatedBy(
+                    isCallersRow ? callerUserId : CreateAnotherCallersUserIdLike(callerUserId),
+                    rowStatus,
+                    isRowDeleted);
+
+            SetupPairOccupant(expectedProbedPair, probe, occupant);
+
+            var expectedResult = new AssociationSubmissionResult
+            {
+                Status = expectedStatus,
+            };
+
+            // when
+            AssociationSubmissionResult actualResult =
+                await this.associationOrchestrationService.SuggestTagAsync(
+                    tagSuggestion,
+                    TestContext.Current.CancellationToken);
+
+            // then: answered by the row, and nothing written
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.tagServiceMock.Verify(service =>
+                service.FindOrAddTagAsync(
+                    It.Is(SameTagAs(CreateSuggestedTagNamed(tagSuggestion.Name))),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.tagServiceMock.Verify(service =>
+                service.RetrieveTagByIdAsync(
+                    foundTagId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            VerifyPairProbedUpTo(expectedProbedPair, probe);
+
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // A caller's user id, in lower case, so another caller's can differ from it in case alone.
+        private static string CreateCallerUserId() =>
+            $"reader-{Guid.NewGuid()}";
+
+        // Another caller's user id, unlike the caller's in letter case alone, so a comparison that
+        // ignored case would claim their row as the caller's (§1 rule 2: compared ordinally).
+        private static string CreateAnotherCallersUserIdLike(string callerUserId) =>
+            callerUserId.ToUpperInvariant();
+
+        private static AssociationPairMatch CreatePairMatchCreatedBy(
+            string createdBy,
+            ApprovalStatus approvalStatus,
+            bool isDeleted)
+        {
+            AssociationPairMatch pairMatch = CreatePairMatch(approvalStatus, isDeleted);
+            pairMatch.CreatedBy = createdBy;
+
+            return pairMatch;
+        }
+
+        // The row the named probe finds for the pair: the exact-pair probe's, or, where that finds
+        // none, the overlap probe's.
+        private void SetupPairOccupant(
+            Association expectedProbedPair,
+            string probe,
+            AssociationPairMatch occupant)
+        {
+            this.associationServiceMock.Setup(service =>
+                service.FindAssociationByPairAsync(
+                    It.Is(SameAssociationAs(expectedProbedPair)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(probe == ExactPairProbe ? occupant : null);
+
+            if (probe == OverlapProbe)
+            {
+                this.associationServiceMock.Setup(service =>
+                    service.FindOverlappingAssociationAsync(
+                        It.Is(SameAssociationAs(expectedProbedPair)),
+                        (Guid?)null,
+                        TestContext.Current.CancellationToken))
+                            .ReturnsAsync(occupant);
+            }
+        }
+
+        // The exact-pair probe, and the overlap probe where the row is the overlap probe's.
+        private void VerifyPairProbedUpTo(Association expectedProbedPair, string probe)
+        {
+            this.associationServiceMock.Verify(service =>
+                service.FindAssociationByPairAsync(
+                    It.Is(SameAssociationAs(expectedProbedPair)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            if (probe == OverlapProbe)
+            {
+                this.associationServiceMock.Verify(service =>
+                    service.FindOverlappingAssociationAsync(
+                        It.Is(SameAssociationAs(expectedProbedPair)),
+                        (Guid?)null,
+                        TestContext.Current.CancellationToken),
+                    Times.Once);
+            }
         }
 
         // A suggestion as a reader sends one: a post's id and a name a tag may carry.
