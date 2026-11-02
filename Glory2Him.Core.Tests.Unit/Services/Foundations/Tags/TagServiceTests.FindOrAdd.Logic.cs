@@ -128,6 +128,81 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [MemberData(nameof(WithheldTagStates))]
+        public async Task ShouldWithholdARejectedOrSoftDeletedTagAndLogItAsync(
+            ApprovalStatus approvalStatus,
+            bool isDeleted,
+            string withheldReason)
+        {
+            // given: the row under the name is rejected, soft-deleted, or both, beside a row of
+            // another name. The soft-deleted cases also prove the condition has no IsDeleted
+            // term: a row it excluded would be added over, not withheld.
+            string inputName = GetRandomTagName();
+            Tag inputTag = CreateRandomTag();
+            inputTag.Name = inputName;
+            Tag namedTag = CreateRandomTag();
+            namedTag.Name = inputName;
+            namedTag.ApprovalStatus = approvalStatus;
+            namedTag.IsDeleted = isDeleted;
+            Tag otherTag = CreateRandomTag();
+            otherTag.Name = GetRandomTagName();
+            var storageTags = new List<Tag> { otherTag, namedTag };
+            CancellationToken inputCancellationToken = TestContext.Current.CancellationToken;
+
+            var expectedTagNameResult = new TagNameResult
+            {
+                Id = namedTag.Id,
+                Outcome = TagNameOutcome.Withheld
+            };
+
+            string expectedLogMessage =
+                $"Tag name match withheld. Tag {namedTag.Id} is {withheldReason}; it was " +
+                    "withheld from the suggestion, which pairs nothing with it, and the caller " +
+                    "is not told so.";
+
+            SetupTagNameReadOver(storageTags, inputCancellationToken);
+
+            // when
+            TagNameResult actualTagNameResult =
+                await this.tagService.FindOrAddTagAsync(
+                    inputTag,
+                    inputCancellationToken);
+
+            // then
+            actualTagNameResult.Should().BeEquivalentTo(expectedTagNameResult);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(inputTag),
+                Times.Once);
+
+            VerifyTagNameReadAsked(inputCancellationToken, Times.Once());
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogInformationAsync(expectedLogMessage),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // every row the find-or-add withholds, with the reason its log entry names: a rejected
+        // row live or soft-deleted, and a soft-deleted row at each other status (§3 rule 5)
+        public static TheoryData<ApprovalStatus, bool, string> WithheldTagStates() =>
+            new TheoryData<ApprovalStatus, bool, string>
+            {
+                { ApprovalStatus.Rejected, false, "rejected" },
+                { ApprovalStatus.Rejected, true, "rejected and soft-deleted" },
+                { ApprovalStatus.Draft, true, "soft-deleted" },
+                { ApprovalStatus.Submitted, true, "soft-deleted" },
+                { ApprovalStatus.Approved, true, "soft-deleted" }
+            };
+
         // every state a row the find-or-add finds may be in: the three statuses short of a
         // verdict against it, an approved row that is unpublished or scheduled, and another
         // caller's row (§3 rule 4)
