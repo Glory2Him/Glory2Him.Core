@@ -31,10 +31,11 @@ using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
 namespace Glory2Him.Core.Services.Foundations.Tags
 {
     /// <summary>
-    /// Foundation service for tags. Every operation is both callable directly (the
-    /// non-event path: object in → request envelope → shared do-work) and reachable through
+    /// Foundation service for tags. Every write, and the read by id, is both callable directly
+    /// (the non-event path: object in → request envelope → shared do-work) and reachable through
     /// the event substrate (the event path in the <c>.Substrate</c> partial: request envelope
-    /// in → shared do-work). The private <c>DoXAsync</c> methods own auditing, validation,
+    /// in → shared do-work); the collection read and the suggestion's find-or-add, which has no
+    /// event door (<c>TagService.TagSuggestions.md §3</c> rule 1), are direct only. The private <c>DoXAsync</c> methods own auditing, validation,
     /// storage, and publishing the past-tense fact, so the two paths cannot diverge; the
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
     /// causation chain. Per design §14.6 the foundation enforces security itself — the

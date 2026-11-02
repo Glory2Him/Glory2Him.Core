@@ -23,6 +23,7 @@ using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
+using Glory2Him.Core.Models.Foundations.Tags;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -243,6 +244,14 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             }
         }
 
+        public async ValueTask SeedAsync(params Tag[] tags)
+        {
+            foreach (Tag tag in tags)
+            {
+                await this.storageBroker.InsertTagAsync(tag, CancellationToken.None);
+            }
+        }
+
         /// <summary>
         /// Removes the rows a test seeded. Every read here is keyed, so cross-test rows cannot
         /// normally be seen — but the tables are shared, and a leftover row on a reused key would
@@ -374,6 +383,22 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 if (stored is not null)
                 {
                     await this.storageBroker.DeleteLinkAsync(stored, CancellationToken.None);
+                }
+            }
+        }
+
+        // PHYSICAL, on rows a test may have seeded already soft-deleted: the read by name this
+        // fixture hosts is precisely the one that still sees them.
+        public async ValueTask ClearAsync(IEnumerable<Tag> tags)
+        {
+            foreach (Tag tag in tags)
+            {
+                Tag stored = await this.storageBroker.SelectTagByIdAsync(
+                    tag.Id, CancellationToken.None);
+
+                if (stored is not null)
+                {
+                    await this.storageBroker.DeleteTagAsync(stored, CancellationToken.None);
                 }
             }
         }

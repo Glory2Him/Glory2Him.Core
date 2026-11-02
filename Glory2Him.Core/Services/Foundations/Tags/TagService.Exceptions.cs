@@ -26,6 +26,7 @@ namespace Glory2Him.Core.Services.Foundations.Tags
     {
         private delegate ValueTask<Tag> ReturningTagFunction();
         private delegate ValueTask<IQueryable<Tag>> ReturningTagsFunction();
+        private delegate ValueTask<TagNameResult> ReturningTagNameResultFunction();
 
         private delegate ValueTask<EventEnvelope<Tag>?>
             ReturningTagEventEnvelopeFunction();
@@ -311,6 +312,110 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                     data: sqlException.Data);
 
                 throw await CreateAndLogCriticalDependencyExceptionAsync(exception: failedStorageTagException);
+            }
+            catch (Exception exception)
+            {
+                var failedTagServiceException = new FailedTagServiceException(
+                    message: "Failed tag service error occurred, please contact support.",
+                    innerException: exception,
+                    data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(failedTagServiceException);
+            }
+        }
+
+        private async ValueTask<TagNameResult> TryCatch(
+            ReturningTagNameResultFunction returningTagNameResultFunction)
+        {
+            try
+            {
+                return await returningTagNameResultFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutTagException =
+                    new TimeoutTagException(
+                        message: "Failed tag timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(exception: timeoutTagException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (UnauthorizedTagException unauthorizedTagException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedTagException);
+            }
+            catch (NullTagException nullTagException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: nullTagException);
+            }
+            catch (InvalidTagException invalidTagException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: invalidTagException);
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageTagException = new FailedStorageTagException(
+                    message: "Failed tag storage error occurred, contact support.",
+                    innerException: sqlException,
+                    data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(exception: failedStorageTagException);
+            }
+            catch (DuplicateKeyException duplicateKeyException)
+            {
+                var alreadyExistsTagException = new AlreadyExistsTagException(
+                    message: "Tag already exists with the same Id.",
+                    innerException: duplicateKeyException,
+                    data: duplicateKeyException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(alreadyExistsTagException);
+            }
+            catch (DuplicateKeyWithUniqueIndexException duplicateKeyWithUniqueIndexException)
+            {
+                var alreadyExistsTagException = new AlreadyExistsTagException(
+                    message: "Tag already exists, "
+                        + "a uniqueness rule rejected the write.",
+                    innerException: duplicateKeyWithUniqueIndexException,
+                    data: duplicateKeyWithUniqueIndexException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    alreadyExistsTagException);
+            }
+            catch (ForeignKeyConstraintConflictException foreignKeyConstraintConflictException)
+            {
+                var invalidTagReferenceException = new InvalidTagReferenceException(
+                    message: "Invalid tag reference error occurred.",
+                    innerException: foreignKeyConstraintConflictException,
+                    data: foreignKeyConstraintConflictException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(invalidTagReferenceException);
+            }
+            catch (DbUpdateConcurrencyException dbUpdateConcurrencyException)
+            {
+                var lockedTagException = new LockedTagException(
+                    message: "Locked tag record, please try again later.",
+                    innerException: dbUpdateConcurrencyException,
+                    data: dbUpdateConcurrencyException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(lockedTagException);
+            }
+            catch (DbUpdateException dbUpdateException)
+            {
+                var failedStorageTagException = new FailedStorageTagException(
+                    message: "Failed tag storage error occurred, contact support.",
+                    innerException: dbUpdateException,
+                    data: dbUpdateException.Data);
+
+                throw await CreateAndLogDependencyExceptionAsync(failedStorageTagException);
             }
             catch (Exception exception)
             {
