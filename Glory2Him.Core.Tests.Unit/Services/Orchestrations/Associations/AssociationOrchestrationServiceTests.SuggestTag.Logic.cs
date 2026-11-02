@@ -18,6 +18,7 @@ using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
@@ -401,6 +402,154 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.tagServiceMock.VerifyNoOtherCalls();
             this.associationServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        private const string AnotherCallersInsert = "another caller's insert";
+
+        // Every row criterion 4 names, by the probe that finds it, and the pair free at both probes
+        // and then taken by another caller's insert, between the probes and this one.
+        public static TheoryData<string, ApprovalStatus, bool, bool> HoldersOfThePairOfATagTheCallerCannotSee()
+        {
+            var holders = new TheoryData<string, ApprovalStatus, bool, bool>();
+
+            foreach (var row in RowsHoldingOrCoveringThePair())
+            {
+                holders.Add(row.Probe, row.RowStatus, row.IsRowDeleted, row.IsCallersRow);
+            }
+
+            holders.Add(AnotherCallersInsert, ApprovalStatus.Submitted, false, false);
+
+            return holders;
+        }
+
+        [Theory]
+        [MemberData(nameof(HoldersOfThePairOfATagTheCallerCannotSee))]
+        public async Task ShouldAnswerCreatedForATagTheCallerCannotSeeWhateverHoldsThePairAsync(
+            string holder,
+            ApprovalStatus rowStatus,
+            bool isRowDeleted,
+            bool isCallersRow)
+        {
+            // given: a contributor suggests a name another reader's hidden tag holds, so the tag's
+            // own read answers them not found, and the pair is held by a row, whoever's, or is
+            // taken between the probes and the insert. Every suggestion of a tag the caller cannot
+            // see is answered Created, so nothing tells it from a tag they created (TagSuggestions.md
+            // rule 5, "A withheld tag suggested twice", and rule 10, "Two readers pairing one tag at
+            // once"). The not-found and the insert's refusal are steps of the flow: nothing is
+            // thrown or logged for either.
+            string callerUserId = CreateCallerUserId();
+            this.ambientSecurityContext = CreateReaderSecurityContext(callerUserId);
+            TagSuggestion tagSuggestion = CreateTagSuggestion();
+            ContentItem suggestedPost = SetupSuggestionForThePost(tagSuggestion);
+
+            Guid hiddenTagId =
+                SetupFindOrAddOf(tagSuggestion.Name, TagNameOutcome.Found);
+
+            SetupTagReadFor(hiddenTagId, isTagVisible: false);
+
+            Association expectedProbedPair =
+                CreateSuggestedPairFor(suggestedPost, hiddenTagId, ApprovalStatus.Draft);
+
+            Association expectedInsertedPair =
+                CreateSuggestedPairFor(suggestedPost, hiddenTagId, ApprovalStatus.Submitted);
+
+            if (holder == AnotherCallersInsert)
+            {
+                SetupPairFreeAtBothProbes(expectedProbedPair);
+
+                this.associationServiceMock.Setup(service =>
+                    service.AddAssociationAsync(
+                        It.Is(SameAssociationAs(expectedInsertedPair)),
+                        TestContext.Current.CancellationToken))
+                            .ThrowsAsync(CreatePairAlreadyHeldException());
+            }
+            else
+            {
+                AssociationPairMatch occupant =
+                    CreatePairMatchCreatedBy(
+                        isCallersRow ? callerUserId : CreateAnotherCallersUserIdLike(callerUserId),
+                        rowStatus,
+                        isRowDeleted);
+
+                SetupPairOccupant(expectedProbedPair, holder, occupant);
+            }
+
+            var expectedResult = new AssociationSubmissionResult
+            {
+                Status = AssociationSubmissionStatus.Created,
+            };
+
+            // when
+            AssociationSubmissionResult actualResult =
+                await this.associationOrchestrationService.SuggestTagAsync(
+                    tagSuggestion,
+                    TestContext.Current.CancellationToken);
+
+            // then: where a probe found the row, nothing is inserted
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.tagServiceMock.Verify(service =>
+                service.FindOrAddTagAsync(
+                    It.Is(SameTagAs(CreateSuggestedTagNamed(tagSuggestion.Name))),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.tagServiceMock.Verify(service =>
+                service.RetrieveTagByIdAsync(
+                    hiddenTagId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            if (holder == AnotherCallersInsert)
+            {
+                // the probes and the add are handed the one pair, and Moq reads it as it stands
+                // once the call is through
+                VerifyPairProbedUpTo(expectedInsertedPair, OverlapProbe);
+
+                this.associationServiceMock.Verify(service =>
+                    service.AddAssociationAsync(
+                        It.Is(SameAssociationAs(expectedInsertedPair)),
+                        TestContext.Current.CancellationToken),
+                    Times.Once);
+            }
+            else
+            {
+                VerifyPairProbedUpTo(expectedProbedPair, holder);
+            }
+
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        private void SetupPairFreeAtBothProbes(Association expectedProbedPair)
+        {
+            this.associationServiceMock.Setup(service =>
+                service.FindAssociationByPairAsync(
+                    It.Is(SameAssociationAs(expectedProbedPair)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync((AssociationPairMatch)null);
+
+            this.associationServiceMock.Setup(service =>
+                service.FindOverlappingAssociationAsync(
+                    It.Is(SameAssociationAs(expectedProbedPair)),
+                    (Guid?)null,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync((AssociationPairMatch)null);
+        }
+
+        // The add's refusal of a pair the editorial pair index already holds, as the foundation
+        // raises it.
+        private static AssociationDependencyValidationException CreatePairAlreadyHeldException()
+        {
+            var duplicateKeyException = new Exception(GetRandomString());
+
+            return new AssociationDependencyValidationException(
+                message: "Association dependency validation occurred, fix the errors and try again.",
+                innerException: new AlreadyExistsAssociationException(
+                    message: "Association with the same id already exists.",
+                    innerException: duplicateKeyException,
+                    data: duplicateKeyException.Data));
         }
 
         // A caller's user id, in lower case, so another caller's can differ from it in case alone.
