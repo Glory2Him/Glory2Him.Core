@@ -174,6 +174,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 new SecurityContext { IsAuthenticated = false }
             };
 
+        // the Id a publisher's content may name: none, or one of its own; either way the row
+        // takes the Id the service mints (TagService.TagSuggestions.md §2 rule 1)
+        public static TheoryData<Guid> ClaimedTagIds() =>
+            new TheoryData<Guid>
+            {
+                Guid.Empty,
+                Guid.NewGuid()
+            };
+
         public static TheoryData<string[]> NonAdminRoleSets() =>
             new TheoryData<string[]>
             {
