@@ -22,6 +22,7 @@ using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Moq;
+using Xeptions;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 {
@@ -263,6 +264,53 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
         }
 
         [Theory]
+        [MemberData(nameof(FindOrAddInsertRefusals))]
+        public async Task ShouldThrowDependencyValidationExceptionOnFindOrAddIfTheInsertIsRefusedAndLogItAsync(
+            Exception insertRefusal,
+            Xeption expectedInnerException)
+        {
+            // given: a refusal the add answers as a dependency validation failure, none of them
+            // IX_Tags_Name's, so the name is read once and the insert is not tried again
+            // (§3 rules 6, 7 and 11)
+            Tag someTag = CreateTagFiller(GetRandomDateTimeOffset()).Create();
+            someTag.Name = GetRandomTagName();
+
+            var expectedTagDependencyValidationException =
+                new TagDependencyValidationException(
+                    message: "Tag dependency validation error occurred, fix the errors and try again.",
+                    innerException: expectedInnerException);
+
+            SetupFindOrAddStorageCallToThrow(
+                someTag,
+                failingStorageCall: "insert",
+                insertRefusal);
+
+            // when
+            ValueTask<TagNameResult> findOrAddTagTask =
+                this.tagService.FindOrAddTagAsync(
+                    someTag,
+                    TestContext.Current.CancellationToken);
+
+            TagDependencyValidationException actualTagDependencyValidationException =
+                await Assert.ThrowsAsync<TagDependencyValidationException>(
+                    findOrAddTagTask.AsTask);
+
+            // then
+            actualTagDependencyValidationException.Should().BeEquivalentTo(
+                expectedTagDependencyValidationException);
+
+            VerifyFindOrAddStorageCallAsked(failingStorageCall: "insert");
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagDependencyValidationException))),
+                Times.Once);
+
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
         [MemberData(nameof(FindOrAddStorageCalls))]
         public async Task ShouldThrowServiceExceptionOnFindOrAddIfServiceErrorOccursAndLogItAsync(
             string failingStorageCall)
@@ -319,6 +367,45 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 "read",
                 "insert"
             };
+
+        // each refusal of the insert the add answers as a dependency validation failure, with
+        // what the add wraps it in (TagService.Exceptions.cs); none is IX_Tags_Name's refusal,
+        // which arrives as DuplicateKeyWithUniqueIndexException (§3 rule 7)
+        public static TheoryData<Exception, Xeption> FindOrAddInsertRefusals()
+        {
+            string someMessage = GetRandomString();
+            var duplicateKeyException = new DuplicateKeyException(someMessage);
+
+            var foreignKeyConstraintConflictException =
+                new ForeignKeyConstraintConflictException(someMessage);
+
+            var dbUpdateConcurrencyException = new DbUpdateConcurrencyException();
+
+            return new TheoryData<Exception, Xeption>
+            {
+                {
+                    duplicateKeyException,
+                    new AlreadyExistsTagException(
+                        message: "Tag already exists with the same Id.",
+                        innerException: duplicateKeyException,
+                        data: duplicateKeyException.Data)
+                },
+                {
+                    foreignKeyConstraintConflictException,
+                    new InvalidTagReferenceException(
+                        message: "Invalid tag reference error occurred.",
+                        innerException: foreignKeyConstraintConflictException,
+                        data: foreignKeyConstraintConflictException.Data)
+                },
+                {
+                    dbUpdateConcurrencyException,
+                    new LockedTagException(
+                        message: "Locked tag record, please try again later.",
+                        innerException: dbUpdateConcurrencyException,
+                        data: dbUpdateConcurrencyException.Data)
+                }
+            };
+        }
 
         private void SetupFindOrAddStorageCallToThrow(
             Tag someTag,
