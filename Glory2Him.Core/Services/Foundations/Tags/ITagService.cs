@@ -72,7 +72,10 @@ namespace Glory2Him.Core.Services.Foundations.Tags
         ///
         /// <para>Internal, as the identity-carrying read above is: it is for the suggestion's
         /// orchestration, <c>AssociationOrchestrationService.SuggestTagAsync</c>, and not for an
-        /// exposer, so no route that binds this contract can reach it (§EVN13 rule 3).</para>
+        /// exposer, and no route serves it (§3 rule 1). That is a convention, not something the
+        /// compiler enforces: <c>Glory2Him.WebApp</c>, whose controllers bind this contract
+        /// (§EVN13 rule 3), is granted <c>InternalsVisibleTo</c>, so a route there could call
+        /// it.</para>
         /// </summary>
         internal ValueTask<TagNameResult> FindOrAddTagAsync(
             Tag tag,
