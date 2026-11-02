@@ -10,9 +10,15 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using FluentAssertions;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Tags;
+using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
+using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 {
@@ -43,6 +49,128 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(FindOrAddStorageCalls))]
+        public async Task ShouldThrowDependencyExceptionOnFindOrAddIfOperationCanceledExceptionOccursAndLogItAsync(
+            string failingStorageCall)
+        {
+            // given: the read or the insert is cancelled by a token other than the caller's
+            Tag someTag = CreateTagFiller(GetRandomDateTimeOffset()).Create();
+            someTag.Name = GetRandomTagName();
+            var operationCanceledException = new OperationCanceledException();
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutTagException =
+                new TimeoutTagException(
+                    message: "Failed tag timeout error occurred, contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedTagDependencyException = new TagDependencyException(
+                message: "Tag dependency error occurred, contact support.",
+                innerException: timeoutTagException);
+
+            SetupFindOrAddStorageCallToThrow(
+                someTag,
+                failingStorageCall,
+                operationCanceledException);
+
+            // when
+            ValueTask<TagNameResult> findOrAddTagTask =
+                this.tagService.FindOrAddTagAsync(
+                    someTag,
+                    TestContext.Current.CancellationToken);
+
+            TagDependencyException actualTagDependencyException =
+                await Assert.ThrowsAsync<TagDependencyException>(
+                    findOrAddTagTask.AsTask);
+
+            // then
+            actualTagDependencyException.Should().BeEquivalentTo(
+                expectedTagDependencyException);
+
+            VerifyFindOrAddStorageCallAsked(failingStorageCall);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagDependencyException))),
+                Times.Once);
+
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // the two storage calls the find-or-add makes: the read by name, and the insert it
+        // makes where no row holds the name
+        public static TheoryData<string> FindOrAddStorageCalls() =>
+            new TheoryData<string>
+            {
+                "read",
+                "insert"
+            };
+
+        private void SetupFindOrAddStorageCallToThrow(
+            Tag someTag,
+            string failingStorageCall,
+            Exception exception)
+        {
+            if (failingStorageCall == "read")
+            {
+                this.storageBrokerMock.Setup(broker =>
+                    broker.SelectTagsAsync(
+                        It.IsAny<Func<IQueryable<Tag>, IQueryable<TagNameMatch>>>(),
+                        It.IsAny<CancellationToken>()))
+                            .ThrowsAsync(exception);
+
+                return;
+            }
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectTagsAsync(
+                    It.IsAny<Func<IQueryable<Tag>, IQueryable<TagNameMatch>>>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new List<TagNameMatch>());
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(Guid.NewGuid());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(someTag, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(someTag);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(someTag.CreatedBy);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(someTag.CreatedWhen);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertTagAsync(someTag, It.IsAny<CancellationToken>()))
+                    .ThrowsAsync(exception);
+        }
+
+        private void VerifyFindOrAddStorageCallAsked(string failingStorageCall)
+        {
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectTagsAsync(
+                    It.IsAny<Func<IQueryable<Tag>, IQueryable<TagNameMatch>>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            Times insertTimes = failingStorageCall == "insert"
+                ? Times.Once()
+                : Times.Never();
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertTagAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()),
+                insertTimes);
         }
     }
 }
