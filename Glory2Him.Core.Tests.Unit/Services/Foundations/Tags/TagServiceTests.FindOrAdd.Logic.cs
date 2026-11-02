@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using EFxceptions.Models.Exceptions;
 using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Configurations;
@@ -329,6 +330,135 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [MemberData(nameof(TagStatesAnotherCallerAdded))]
+        public async Task ShouldAnswerTheTagAnotherCallerAddedWhenTheNameIsTakenAsync(
+            ApprovalStatus approvalStatus,
+            TagNameOutcome expectedOutcome,
+            string withheldReason)
+        {
+            // given: no row holds the name when it is first read, and by the insert another
+            // caller has added it, so IX_Tags_Name refuses the write; the second read finds
+            // their row
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string inputName = GetRandomTagName();
+            Tag inputTag = CreateTagFiller(randomDateTimeOffset).Create();
+            inputTag.Name = inputName;
+            Tag otherTag = CreateRandomTag();
+            otherTag.Name = GetRandomTagName();
+            Tag anotherCallersTag = CreateRandomTag();
+            anotherCallersTag.Name = inputName;
+            anotherCallersTag.ApprovalStatus = approvalStatus;
+            var firstStorageTags = new List<Tag> { otherTag };
+            var secondStorageTags = new List<Tag> { otherTag, anotherCallersTag };
+            Guid mintedId = Guid.NewGuid();
+            Tag auditAppliedTag = inputTag.DeepClone();
+            auditAppliedTag.Id = mintedId;
+            CancellationToken inputCancellationToken = TestContext.Current.CancellationToken;
+
+            var duplicateKeyWithUniqueIndexException =
+                new DuplicateKeyWithUniqueIndexException(message: GetRandomString());
+
+            var expectedTagNameResult = new TagNameResult
+            {
+                Id = anotherCallersTag.Id,
+                Outcome = expectedOutcome
+            };
+
+            string expectedLogMessage =
+                $"Tag name match withheld. Tag {anotherCallersTag.Id} is {withheldReason}; it " +
+                    "was withheld from the suggestion, which pairs nothing with it, and the " +
+                    "caller is not told so.";
+
+            SetupTagNameReadsOver(
+                new[] { firstStorageTags, secondStorageTags },
+                inputCancellationToken);
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(mintedId);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.Is<Tag>(tag => tag == inputTag && tag.Id == mintedId),
+                    this.ambientSecurityContext))
+                        .ReturnsAsync(auditAppliedTag);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(auditAppliedTag.CreatedBy);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertTagAsync(auditAppliedTag, inputCancellationToken))
+                    .ThrowsAsync(duplicateKeyWithUniqueIndexException);
+
+            // when
+            TagNameResult actualTagNameResult =
+                await this.tagService.FindOrAddTagAsync(
+                    inputTag,
+                    inputCancellationToken);
+
+            // then: the name is read again and answered as the first read would have answered
+            // that row, and the insert is never tried twice
+            actualTagNameResult.Should().BeEquivalentTo(expectedTagNameResult);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(inputTag),
+                Times.Once);
+
+            VerifyTagNameReadAsked(inputCancellationToken, Times.Exactly(2));
+
+            this.identifierBrokerMock.Verify(broker =>
+                    broker.GetIdentifierAsync(),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.ApplyAddAuditValuesAsync(
+                        It.Is<Tag>(tag => tag == inputTag && tag.Id == mintedId),
+                        this.ambientSecurityContext),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                    broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.InsertTagAsync(auditAppliedTag, inputCancellationToken),
+                Times.Once);
+
+            if (expectedOutcome == TagNameOutcome.Withheld)
+            {
+                this.loggingBrokerMock.Verify(broker =>
+                    broker.LogInformationAsync(expectedLogMessage),
+                    Times.Once);
+            }
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // the row another caller added between the read and the write, one the second read
+        // finds and one it withholds (§3 rule 7)
+        public static TheoryData<ApprovalStatus, TagNameOutcome, string> TagStatesAnotherCallerAdded() =>
+            new TheoryData<ApprovalStatus, TagNameOutcome, string>
+            {
+                { ApprovalStatus.Submitted, TagNameOutcome.Found, string.Empty },
+                { ApprovalStatus.Rejected, TagNameOutcome.Withheld, "rejected" }
+            };
+
         // every row the find-or-add withholds, with the reason its log entry names: a rejected
         // row live or soft-deleted, and a soft-deleted row at each other status (§3 rule 5)
         public static TheoryData<ApprovalStatus, bool, string> WithheldTagStates() =>
@@ -411,6 +541,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                             CancellationToken _) =>
                                 (IReadOnlyList<TagNameMatch>)
                                     query(storageTags.AsQueryable()).ToList());
+
+        // one stored set per read, in the order the reads are asked
+        private void SetupTagNameReadsOver(
+            IEnumerable<IEnumerable<Tag>> storageTagsPerRead,
+            CancellationToken cancellationToken)
+        {
+            var storageTagsQueue = new Queue<IEnumerable<Tag>>(storageTagsPerRead);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectTagsAsync(
+                    It.IsAny<Func<IQueryable<Tag>, IQueryable<TagNameMatch>>>(),
+                    cancellationToken))
+                        .ReturnsAsync((
+                            Func<IQueryable<Tag>, IQueryable<TagNameMatch>> query,
+                            CancellationToken _) =>
+                                (IReadOnlyList<TagNameMatch>)
+                                    query(storageTagsQueue.Dequeue().AsQueryable()).ToList());
+        }
 
         private void VerifyTagNameReadAsked(CancellationToken cancellationToken, Times times) =>
             this.storageBrokerMock.Verify(broker =>
