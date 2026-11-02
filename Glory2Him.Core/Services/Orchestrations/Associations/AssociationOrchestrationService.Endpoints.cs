@@ -17,9 +17,12 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.BibleReferences;
+using Glory2Him.Core.Models.Foundations.Comments;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Foundations.Reactions;
+using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Xeptions;
 
@@ -39,17 +42,20 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 Guid groupId,
                 ContentType? contentType,
                 Scope scope,
+                ApprovalStatus approvalStatus,
                 string? reactionName)
             {
                 GroupId = groupId;
                 ContentType = contentType;
                 Scope = scope;
+                ApprovalStatus = approvalStatus;
                 ReactionName = reactionName;
             }
 
             public Guid GroupId { get; }
             public ContentType? ContentType { get; }
             public Scope Scope { get; }
+            public ApprovalStatus ApprovalStatus { get; }
             public string? ReactionName { get; }
         }
 
@@ -131,15 +137,25 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                         : await this.linkService.RetrieveLinkByIdAsync(
                             keyId, readEnvelope, cancellationToken);
 
-                    return DeriveEndpoint(entityType, keyId, link, contentType: null);
+                    return DeriveEndpoint(
+                        entityType,
+                        keyId,
+                        link,
+                        contentType: null,
+                        approvalStatus: link.ApprovalStatus);
 
                 case EntityType.Tag:
-                    _ = readEnvelope is null
+                    Tag tag = readEnvelope is null
                         ? await this.tagService.RetrieveTagByIdAsync(keyId, cancellationToken)
                         : await this.tagService.RetrieveTagByIdAsync(
                             keyId, readEnvelope, cancellationToken);
 
-                    return DeriveEndpoint(entityType, keyId, versionedEndpoint: null, contentType: null);
+                    return DeriveEndpoint(
+                        entityType,
+                        keyId,
+                        versionedEndpoint: null,
+                        contentType: null,
+                        approvalStatus: tag.ApprovalStatus);
 
                 case EntityType.Reaction:
                     Reaction reaction = readEnvelope is null
@@ -155,21 +171,31 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                         reactionName: reaction.Name);
 
                 case EntityType.BibleReference:
-                    _ = readEnvelope is null
+                    BibleReference bibleReference = readEnvelope is null
                         ? await this.bibleReferenceService.RetrieveBibleReferenceByIdAsync(
                             keyId, cancellationToken)
                         : await this.bibleReferenceService.RetrieveBibleReferenceByIdAsync(
                             keyId, readEnvelope, cancellationToken);
 
-                    return DeriveEndpoint(entityType, keyId, versionedEndpoint: null, contentType: null);
+                    return DeriveEndpoint(
+                        entityType,
+                        keyId,
+                        versionedEndpoint: null,
+                        contentType: null,
+                        approvalStatus: bibleReference.ApprovalStatus);
 
                 case EntityType.Comment:
-                    _ = readEnvelope is null
+                    Comment comment = readEnvelope is null
                         ? await this.commentService.RetrieveCommentByIdAsync(keyId, cancellationToken)
                         : await this.commentService.RetrieveCommentByIdAsync(
                             keyId, readEnvelope, cancellationToken);
 
-                    return DeriveEndpoint(entityType, keyId, versionedEndpoint: null, contentType: null);
+                    return DeriveEndpoint(
+                        entityType,
+                        keyId,
+                        versionedEndpoint: null,
+                        contentType: null,
+                        approvalStatus: comment.ApprovalStatus);
 
                 default:
                     // Attachment has no foundation service yet, and an association endpoint
@@ -196,6 +222,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             Guid keyId,
             IVersion? versionedEndpoint,
             ContentType? contentType,
+            ApprovalStatus approvalStatus = default,
             string? reactionName = null)
         {
             bool isVersioned = EntityTypeVersioning.IsVersioned(entityType);
@@ -204,6 +231,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 groupId: isVersioned ? versionedEndpoint!.GroupId : keyId,
                 contentType: contentType,
                 scope: EntityTypeVersioning.DefaultScopeFor(entityType),
+                approvalStatus: approvalStatus,
                 reactionName: reactionName);
         }
 

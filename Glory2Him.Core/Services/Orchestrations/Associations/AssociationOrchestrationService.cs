@@ -359,6 +359,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 ValidateUserIsNotBlockedFromEndpoints(inboundEnvelope.SecurityContext, association);
             }
 
+            // A rejected endpoint is refused on either arm, so this comes after the veto, which a
+            // blocked caller meets first, and before the branch the caller of this flow takes
+            // (AssociationOrchestrationService.RejectedEndpoints.md §1 rules 5 and 7).
+            ValidateNeitherEndpointIsRejected(resolvedEntityA, resolvedEntityB);
+
             // UserId routes the row to one of the two unique indexes and selects its approval tier
             // (§DOM4.10 rule 3), so a value the caller chose would file the row under a constraint
             // that never sees it — and on an editorial pair would evade the canonical-pair probe,
