@@ -214,6 +214,55 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [MemberData(nameof(FindOrAddStorageCalls))]
+        public async Task ShouldThrowServiceExceptionOnFindOrAddIfServiceErrorOccursAndLogItAsync(
+            string failingStorageCall)
+        {
+            // given
+            Tag someTag = CreateTagFiller(GetRandomDateTimeOffset()).Create();
+            someTag.Name = GetRandomTagName();
+            var serviceException = new Exception(GetRandomString());
+
+            var failedTagServiceException = new FailedTagServiceException(
+                message: "Failed tag service error occurred, please contact support.",
+                innerException: serviceException,
+                data: serviceException.Data);
+
+            var expectedTagServiceException = new TagServiceException(
+                message: "Tag service error occurred, contact support.",
+                innerException: failedTagServiceException);
+
+            SetupFindOrAddStorageCallToThrow(
+                someTag,
+                failingStorageCall,
+                serviceException);
+
+            // when
+            ValueTask<TagNameResult> findOrAddTagTask =
+                this.tagService.FindOrAddTagAsync(
+                    someTag,
+                    TestContext.Current.CancellationToken);
+
+            TagServiceException actualTagServiceException =
+                await Assert.ThrowsAsync<TagServiceException>(
+                    findOrAddTagTask.AsTask);
+
+            // then
+            actualTagServiceException.Should().BeEquivalentTo(
+                expectedTagServiceException);
+
+            VerifyFindOrAddStorageCallAsked(failingStorageCall);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagServiceException))),
+                Times.Once);
+
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // the two storage calls the find-or-add makes: the read by name, and the insert it
         // makes where no row holds the name
         public static TheoryData<string> FindOrAddStorageCalls() =>
