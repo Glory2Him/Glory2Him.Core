@@ -70,6 +70,12 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 
                 ValidateEndpointIsNotRejected(resolvedPost, endpointName: "A");
 
+                await ValidateSettingsAllowTheFacetAsync(
+                    suggestedPair,
+                    resolvedEntityA: resolvedPost,
+                    resolvedEntityB: default,
+                    cancellationToken);
+
                 TagNameResult tagNameResult =
                     await this.tagService.FindOrAddTagAsync(
                         new Tag
