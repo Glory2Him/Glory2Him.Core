@@ -77,7 +77,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 
             AssociationPairMatch? occupant = pairMatch ?? overlappingMatch;
 
-            if (occupant is null)
+            if (occupant is null && tagNameResult.Outcome is not TagNameOutcome.Withheld)
             {
                 await AddSuggestedPairAsync(suggestedPair, isTagVisible, cancellationToken);
             }
