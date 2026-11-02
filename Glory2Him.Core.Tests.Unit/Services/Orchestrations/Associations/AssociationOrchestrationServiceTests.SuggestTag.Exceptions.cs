@@ -15,7 +15,9 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
+using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Glory2Him.Core.Models.Foundations.Tags;
+using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Moq;
@@ -258,6 +260,126 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyException))),
                 Times.Once);
 
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        private const string TheFindOrAdd = "the find-or-add";
+        private const string TheTagsRead = "the tag's read";
+        private const string ThePostsRead = "the post's read";
+
+        // Every exception of the find-or-add's, the tag's read's and the post's read's families
+        // but the two not-founds the flow answers — the post's, a refusal, and the tag's, an
+        // answer — each a fault beneath the orchestration (§1 rule 4; TagSuggestions.md rule 11).
+        // The find-or-add's dependency validation is driven again with the name taken and not
+        // found on its second read.
+        public static TheoryData<string, Xeption> TagAndContentItemErrorsOnASuggestion()
+        {
+            var errors = new TheoryData<string, Xeption>();
+
+            foreach (string tagCall in new[] { TheFindOrAdd, TheTagsRead })
+            {
+                errors.Add(tagCall, new TagValidationException(
+                    message: GetRandomString(),
+                    innerException: new InvalidTagException(GetRandomString())));
+
+                errors.Add(tagCall, new TagDependencyValidationException(
+                    message: GetRandomString(),
+                    innerException: new Xeption(GetRandomString())));
+
+                errors.Add(tagCall, new TagDependencyException(
+                    message: GetRandomString(),
+                    innerException: new Xeption(GetRandomString())));
+
+                errors.Add(tagCall, new TagServiceException(
+                    message: GetRandomString(),
+                    innerException: new Xeption(GetRandomString())));
+            }
+
+            errors.Add(TheFindOrAdd, new TagDependencyValidationException(
+                message: GetRandomString(),
+                innerException: new AlreadyExistsTagException(
+                    message: GetRandomString(),
+                    innerException: new Exception(),
+                    data: new Exception().Data)));
+
+            errors.Add(ThePostsRead, new ContentItemDependencyValidationException(
+                message: GetRandomString(),
+                innerException: new Xeption(GetRandomString())));
+
+            errors.Add(ThePostsRead, new ContentItemDependencyException(
+                message: GetRandomString(),
+                innerException: new Xeption(GetRandomString())));
+
+            errors.Add(ThePostsRead, new ContentItemServiceException(
+                message: GetRandomString(),
+                innerException: new Xeption(GetRandomString())));
+
+            return errors;
+        }
+
+        [Theory]
+        [MemberData(nameof(TagAndContentItemErrorsOnASuggestion))]
+        public async Task ShouldThrowDependencyExceptionOnSuggestTagIfATagOrContentItemErrorOccursAndLogItAsync(
+            string failingCall,
+            Xeption foundationException)
+        {
+            // given: the find-or-add, the tag's read or the post's read throws, the calls before
+            // it answering as the happy path has them
+            TagSuggestion tagSuggestion = SetupSuggestionOfAFoundTag(isTagVisible: true);
+
+            switch (failingCall)
+            {
+                case TheFindOrAdd:
+                    this.tagServiceMock.Setup(service =>
+                        service.FindOrAddTagAsync(
+                            It.IsAny<Tag>(),
+                            It.IsAny<CancellationToken>()))
+                                .ThrowsAsync(foundationException);
+
+                    break;
+
+                case TheTagsRead:
+                    this.tagServiceMock.Setup(service =>
+                        service.RetrieveTagByIdAsync(
+                            It.IsAny<Guid>(),
+                            It.IsAny<CancellationToken>()))
+                                .ThrowsAsync(foundationException);
+
+                    break;
+
+                default:
+                    this.contentItemServiceMock.Setup(service =>
+                        service.RetrieveContentItemByIdAsync(
+                            tagSuggestion.ContentItemId,
+                            It.IsAny<CancellationToken>()))
+                                .ThrowsAsync(foundationException);
+
+                    break;
+            }
+
+            var expectedDependencyException =
+                new AssociationOrchestrationDependencyException(
+                    message: "Content item association orchestration dependency error occurred, contact support.",
+                    innerException: (foundationException.InnerException as Xeption)!);
+
+            // when
+            ValueTask<AssociationSubmissionResult> suggestTagTask =
+                this.associationOrchestrationService.SuggestTagAsync(
+                    tagSuggestion,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationDependencyException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationDependencyException>(
+                    suggestTagTask.AsTask);
+
+            // then: nothing is written
+            actualException.Should().BeEquivalentTo(expectedDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyException))),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
