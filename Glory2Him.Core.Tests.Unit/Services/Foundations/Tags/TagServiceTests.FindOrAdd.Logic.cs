@@ -486,6 +486,55 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             VerifyTagNameReadAsked(inputCancellationToken, Times.Once());
         }
 
+        [Fact]
+        public async Task ShouldFindTheTagWhoseNameIsAtTheMaximumLengthAsync()
+        {
+            // given: a name of exactly 30 characters, the most a name may have, so a cap
+            // tighter than 30 refuses it before it is read (§3 rule 3)
+            string inputName = GetRandomStringWithLengthOf(length: 30);
+            Tag namedTag = CreateRandomTag();
+            namedTag.Name = inputName;
+            namedTag.ApprovalStatus = ApprovalStatus.Submitted;
+            namedTag.IsDeleted = false;
+            Tag otherTag = CreateRandomTag();
+            otherTag.Name = GetRandomTagName();
+            var storageTags = new List<Tag> { otherTag, namedTag };
+            Tag inputTag = CreateRandomTag();
+            inputTag.Name = inputName;
+            CancellationToken inputCancellationToken = TestContext.Current.CancellationToken;
+
+            var expectedTagNameResult = new TagNameResult
+            {
+                Id = namedTag.Id,
+                Outcome = TagNameOutcome.Found
+            };
+
+            SetupTagNameReadOver(storageTags, inputCancellationToken);
+
+            // when
+            TagNameResult actualTagNameResult =
+                await this.tagService.FindOrAddTagAsync(
+                    inputTag,
+                    inputCancellationToken);
+
+            // then
+            actualTagNameResult.Should().BeEquivalentTo(expectedTagNameResult);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(inputTag),
+                Times.Once);
+
+            VerifyTagNameReadAsked(inputCancellationToken, Times.Once());
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // the row another caller added between the read and the write, one the second read
         // finds and one it withholds (§3 rule 7)
         public static TheoryData<ApprovalStatus, TagNameOutcome, string> TagStatesAnotherCallerAdded() =>
