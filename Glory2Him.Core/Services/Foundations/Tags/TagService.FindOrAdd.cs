@@ -9,7 +9,8 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.Tags;
@@ -18,9 +19,40 @@ namespace Glory2Him.Core.Services.Foundations.Tags
 {
     internal partial class TagService
     {
-        public ValueTask<TagNameResult> FindOrAddTagAsync(
+        public async ValueTask<TagNameResult> FindOrAddTagAsync(
             Tag tag,
-            CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            CancellationToken cancellationToken = default)
+        {
+            await this.eventEnvelopeBroker.CreateAsync(content: tag);
+
+            TagNameMatch? tagNameMatch = await SelectTagNameMatchAsync(
+                name: tag.Name,
+                cancellationToken: cancellationToken);
+
+            return new TagNameResult
+            {
+                Id = tagNameMatch!.Id,
+                Outcome = TagNameOutcome.Found
+            };
+        }
+
+        private async ValueTask<TagNameMatch?> SelectTagNameMatchAsync(
+            string name,
+            CancellationToken cancellationToken)
+        {
+            IReadOnlyList<TagNameMatch> tagNameMatches =
+                await this.storageBroker.SelectTagsAsync(
+                    query: tags => tags
+                        .Where(tag => tag.Name == name)
+                        .Select(tag => new TagNameMatch
+                        {
+                            Id = tag.Id,
+                            ApprovalStatus = tag.ApprovalStatus,
+                            IsDeleted = tag.IsDeleted
+                        }),
+                    cancellationToken: cancellationToken);
+
+            return tagNameMatches.FirstOrDefault();
+        }
     }
 }
