@@ -9,18 +9,70 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Configurations;
+using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 
 namespace Glory2Him.Core.Services.Orchestrations.Associations
 {
     internal partial class AssociationOrchestrationService
     {
-        public ValueTask<AssociationSubmissionResult> SuggestTagAsync(
+        public async ValueTask<AssociationSubmissionResult> SuggestTagAsync(
             TagSuggestion tagSuggestion,
-            CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            CancellationToken cancellationToken = default)
+        {
+            var suggestedPair = new Association
+            {
+                EntityAType = EntityType.ContentItem,
+                EntityAKeyId = tagSuggestion.ContentItemId,
+                EntityBType = EntityType.Tag,
+                EntityBScope = EntityTypeVersioning.DefaultScopeFor(EntityType.Tag),
+            };
+
+            await ResolveEndpointAsync(
+                suggestedPair.EntityAType,
+                suggestedPair.EntityAKeyId,
+                onResolved: resolved =>
+                {
+                    suggestedPair.EntityAGroupId = resolved.GroupId;
+                    suggestedPair.EntityAContentType = resolved.ContentType;
+                    suggestedPair.EntityAScope = resolved.Scope;
+                },
+                endpointName: "A",
+                readEnvelope: null,
+                cancellationToken: cancellationToken);
+
+            TagNameResult tagNameResult =
+                await this.tagService.FindOrAddTagAsync(
+                    new Tag
+                    {
+                        Name = tagSuggestion.Name,
+                        ApprovalStatus = ApprovalStatus.Submitted,
+                    },
+                    cancellationToken);
+
+            suggestedPair.EntityBKeyId = tagNameResult.Id;
+            suggestedPair.EntityBGroupId = tagNameResult.Id;
+
+            await FindPairOccupantsAsync(
+                association: suggestedPair,
+                readEnvelope: null,
+                cancellationToken: cancellationToken);
+
+            suggestedPair.ApprovalStatus = ApprovalStatus.Submitted;
+
+            await this.associationService.AddAssociationAsync(
+                suggestedPair,
+                cancellationToken);
+
+            return new AssociationSubmissionResult
+            {
+                Status = AssociationSubmissionStatus.Created,
+            };
+        }
     }
 }
