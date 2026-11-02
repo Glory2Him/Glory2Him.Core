@@ -35,11 +35,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         // to it directly, so it never assumes an upstream layer already gated the caller.
         //
         // The UPSERT's composition: the two row-free leaves, and then — once both endpoints have
-        // been resolved from storage — the endpoint half of the veto, which this member is the
-        // one write to decide for itself (§SEC14.7 posture A′ rule 4, "the add is the exception
-        // that proves the rule"). A personal pair asks authentication alone: a reader's own
-        // reaction is not a contribution, so it asks none of the read-only roles, the global
-        // block here or the endpoint veto after resolution (posture A′ rule 1).
+        // been resolved from storage — the endpoint half of the veto, which this member decides
+        // for itself, as the tag suggestion does for its own pair (§SEC14.7 posture A′ rule 4,
+        // "the add is the exception that proves the rule"). A personal pair asks authentication
+        // alone: a reader's own reaction is not a contribution, so it asks none of the read-only
+        // roles, the global block here or the endpoint veto after resolution (posture A′ rule 1).
         private static void ValidateUserIsAllowedToContribute(
             SecurityContext securityContext,
             bool isPersonal)
@@ -147,8 +147,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         // and land it on a public scripture page — exactly what Tag-ReadOnly exists to prevent.
         // One end admits on the grant side; one end bars on the block side.
         //
-        // THIS IS THE UPSERT'S ALONE, and asked of an editorial pair only: a reader's own reaction
-        // is outside the veto (posture A′ rule 1). Modify, remove and hard remove are handed an id
+        // THIS IS THE UPSERT'S AND THE TAG SUGGESTION'S, and asked of an editorial pair only: a
+        // reader's own reaction is outside the veto (posture A′ rule 1). The suggestion asks it
+        // once its post is resolved and before any tag is read, so its tag end is the type alone,
+        // which carries no content type and needs none (AssociationOrchestrationService
+        // .TagSuggestions.md §1 rule 1, step 6). Modify, remove and hard remove are handed an id
         // or an untrusted row, so there is no resolved endpoint for this layer to compose from and
         // the veto belongs one layer down (§SEC14.7 posture A′ rule 4). §SEC14.6 rule 2 makes the
         // duplicate with the foundation's own gate intended rather than redundant.
@@ -326,6 +329,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             ValidateEndpointIsNotRejected(resolvedEntityB, endpointName: "B");
         }
 
+        // The refusal itself, written ONCE and shared by the write flow, which asks it of A and of
+        // B above, and by the tag suggestion, which asks it of its post on A
+        // (AssociationOrchestrationService.TagSuggestions.md §1 rule 1, step 7), so the two answer
+        // a rejected post with the one refusal.
         private static void ValidateEndpointIsNotRejected(
             ResolvedEndpoint resolvedEndpoint,
             string endpointName)

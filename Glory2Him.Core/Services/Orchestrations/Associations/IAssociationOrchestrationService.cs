@@ -32,8 +32,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     public partial interface IAssociationOrchestrationService
     {
         /// <summary>
-        /// Writes every association a caller makes — an editorial pairing such as a suggested
-        /// tag, and a reader's reaction — through one flow, and replaces the add (§ARC16.8.1). The
+        /// Writes every association a caller makes by naming its two endpoints — an editorial
+        /// pairing such as a suggested tag, and a reader's reaction — through one flow, and
+        /// replaces the add (§ARC16.8.1). A tag suggested by its name is
+        /// <see cref="SuggestTagAsync"/>'s, which asks this flow's endpoint veto, its refusal of
+        /// a rejected endpoint, its facet gate and its occupancy check of a pair of its own. The
         /// caller supplies only the raw endpoints (<c>EntityAType</c>/<c>EntityAKeyId</c>,
         /// <c>EntityBType</c>/<c>EntityBKeyId</c>), and the flow runs on a working copy of those
         /// four, so any other field the request carries is dropped rather than refused and the
@@ -106,6 +109,33 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 
         /// <summary>
         /// Suggests a tag for a post by the tag's name (<c>DesignFeatures/TagSuggestions.md</c>).
+        /// The name is trimmed at both ends and nothing else of it changes. The tag foundation
+        /// finds the one tag the name names, whatever its status or owner, or, where none does,
+        /// adds one at <c>Submitted</c>; and the post is paired with that tag at
+        /// <c>Submitted</c>, unless a pairing already holds the pair or covers it at one of the
+        /// post's versions. Nothing is written to a tag it finds.
+        ///
+        /// <para>A tag the caller cannot see — another reader's draft or submitted tag, or an
+        /// approved one not yet published — is paired where its pair is free, and is answered
+        /// <c>Created</c> whatever holds the pair, another reader's pairing taken between the
+        /// check and the insert included, so nothing tells it from a tag the caller created. A
+        /// rejected tag, or a soft-deleted one, is withheld: no tag is added, no pairing is
+        /// inserted, and it is answered as a found tag would be, so a caller who cannot see it
+        /// is answered <c>Created</c> too. For a tag the caller can see, a held pair answers
+        /// whose the pairing is: <c>AlreadySuggestedByCaller</c> for the caller's own pending
+        /// one, <c>PreviouslySuggestedByCaller</c> for their own that is no longer pending, and
+        /// <c>AlreadySuggested</c> for another reader's.</para>
+        ///
+        /// <para>It refuses, each before anything past it is read: an anonymous caller, or one
+        /// holding the global <c>ReadOnly</c>; a suggestion with no post id, or a name that is
+        /// empty, or longer than thirty characters, once trimmed; a post that does not exist or
+        /// that the caller may not see, as not found; a caller blocked from the post's type or
+        /// from tags; a rejected post; and a post whose setting does not allow tags, or resolves
+        /// none.</para>
+        ///
+        /// <para>The result carries the status alone, and no id of the tag or of the pairing:
+        /// an id the caller holds can be read back, and a read answers not found for a tag the
+        /// caller cannot see.</para>
         /// </summary>
         ValueTask<AssociationSubmissionResult> SuggestTagAsync(
             TagSuggestion tagSuggestion,
