@@ -845,6 +845,65 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // Each far end, in canonical order (§DOM4.4), and the side the request carries it on.
+        public static TheoryData<EntityType, string> RejectedFarEnds() =>
+            new TheoryData<EntityType, string>
+            {
+                { EntityType.Tag, "B" },
+                { EntityType.Link, "B" },
+                { EntityType.Comment, "A" },
+                { EntityType.BibleReference, "A" },
+            };
+
+        [Theory]
+        [MemberData(nameof(RejectedFarEnds))]
+        public async Task ShouldThrowValidationExceptionOnUpsertIfAnEndpointIsRejectedAndLogItAsync(
+            EntityType farEndType,
+            string rejectedEndpointName)
+        {
+            // given: a contributor pairs a post with a far end its service answers them at
+            // Rejected. Which callers that read answers — the row's owner and the review roles —
+            // is the endpoint's service's, which is mocked here, so one case stands for each of
+            // them (AssociationOrchestrationService.RejectedEndpoints.md §1 rules 1 to 3).
+            this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString());
+            Association upsertRequest = CreateRawEditorialPairInCanonicalOrderWith(farEndType);
+            bool isThePostOnA = upsertRequest.EntityAType == EntityType.ContentItem;
+
+            SetupMethodPathEndpointReadsAt(
+                upsertRequest,
+                entityAApprovalStatus: isThePostOnA ? ApprovalStatus.Draft : ApprovalStatus.Rejected,
+                entityBApprovalStatus: isThePostOnA ? ApprovalStatus.Rejected : ApprovalStatus.Draft);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: $"The {rejectedEndpointName} endpoint is rejected, so it cannot be paired.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(upsertTask.AsTask);
+
+            // then: refused, and nothing written
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         [Fact]
         public async Task ShouldRunTheFacetGateBeforeAnyProbeOrWriteAsync()
         {
