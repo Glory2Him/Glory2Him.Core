@@ -376,7 +376,7 @@ namespace Glory2Him.Core.Services.Foundations.Tags
 
         // the name the find-or-add reads by, as handed: neither trimmed nor stripped, since what
         // names a tag is the suggestion's to settle. The tag's other fields are the add's to
-        // judge, on the add path alone (§3 rule 3).
+        // judge, on the add path alone (TagService.TagSuggestions.md §3 rule 3).
         private static void ValidateOnFindOrAddTag(Tag tag) =>
             Validate(
                 message: "Tag is invalid, fix the errors and try again.",

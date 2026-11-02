@@ -20,6 +20,8 @@ using Glory2Him.Core.Models.Foundations.Tags;
 
 namespace Glory2Him.Core.Services.Foundations.Tags
 {
+    // The suggestion's find-or-add (Backend/Foundations/TagService.TagSuggestions.md §3). Every
+    // "§3 rule n" below is that section's.
     internal partial class TagService
     {
         public ValueTask<TagNameResult> FindOrAddTagAsync(
