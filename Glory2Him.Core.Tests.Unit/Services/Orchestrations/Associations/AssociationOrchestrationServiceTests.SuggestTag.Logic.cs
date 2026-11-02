@@ -522,6 +522,114 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        private const string NoRow = "no row";
+        private const string TheCallersPendingRow = "the caller's own live row at Submitted";
+        private const string TheCallersApprovedRow = "the caller's own live row at Approved";
+        private const string AnotherCallersRow = "another caller's live row at Submitted";
+
+        // A withheld tag the caller cannot see, and one they can — their own rejected tag, or one
+        // a review role reads — each with its pair free and held by three rows, and the answer a
+        // found tag would get in each case (§1 rule 2).
+        public static TheoryData<bool, string, AssociationSubmissionStatus> WithheldTagsAndTheirAnswers() =>
+            new TheoryData<bool, string, AssociationSubmissionStatus>
+            {
+                { false, NoRow, AssociationSubmissionStatus.Created },
+                { false, TheCallersPendingRow, AssociationSubmissionStatus.Created },
+                { false, TheCallersApprovedRow, AssociationSubmissionStatus.Created },
+                { false, AnotherCallersRow, AssociationSubmissionStatus.Created },
+                { true, NoRow, AssociationSubmissionStatus.Created },
+                { true, TheCallersPendingRow, AssociationSubmissionStatus.AlreadySuggestedByCaller },
+                { true, TheCallersApprovedRow, AssociationSubmissionStatus.PreviouslySuggestedByCaller },
+                { true, AnotherCallersRow, AssociationSubmissionStatus.AlreadySuggested },
+            };
+
+        [Theory]
+        [MemberData(nameof(WithheldTagsAndTheirAnswers))]
+        public async Task ShouldPairNothingWithAWithheldTagAndAnswerAsAFoundTagIsAnsweredAsync(
+            bool isTagVisible,
+            string pairHolder,
+            AssociationSubmissionStatus expectedStatus)
+        {
+            // given: the find-or-add withholds the tag that holds the name, a rejected or a
+            // soft-deleted one, and has logged why. No pairing is inserted for it, and it is read
+            // and probed as a found tag is, so its answer tells it from no other tag: Created where
+            // the caller cannot see it, and, where they can, what the probes find (§1 rule 1, steps
+            // 9, 11, 12 and 13; TagSuggestions.md rule 4, "A rejected name", "A withheld tag's
+            // code" and "A withheld tag suggested twice").
+            string callerUserId = CreateCallerUserId();
+            this.ambientSecurityContext = CreateReaderSecurityContext(callerUserId);
+            TagSuggestion tagSuggestion = CreateTagSuggestion();
+            ContentItem suggestedPost = SetupSuggestionForThePost(tagSuggestion);
+
+            Guid withheldTagId =
+                SetupFindOrAddOf(tagSuggestion.Name, TagNameOutcome.Withheld);
+
+            SetupTagReadFor(withheldTagId, isTagVisible);
+
+            Association expectedProbedPair =
+                CreateSuggestedPairFor(suggestedPost, withheldTagId, ApprovalStatus.Draft);
+
+            AssociationPairMatch occupant = pairHolder switch
+            {
+                TheCallersPendingRow =>
+                    CreatePairMatchCreatedBy(callerUserId, ApprovalStatus.Submitted, isDeleted: false),
+
+                TheCallersApprovedRow =>
+                    CreatePairMatchCreatedBy(callerUserId, ApprovalStatus.Approved, isDeleted: false),
+
+                AnotherCallersRow =>
+                    CreatePairMatchCreatedBy(
+                        CreateAnotherCallersUserIdLike(callerUserId),
+                        ApprovalStatus.Submitted,
+                        isDeleted: false),
+
+                _ => null,
+            };
+
+            if (occupant is null)
+            {
+                SetupPairFreeAtBothProbes(expectedProbedPair);
+            }
+            else
+            {
+                SetupPairOccupant(expectedProbedPair, ExactPairProbe, occupant);
+            }
+
+            var expectedResult = new AssociationSubmissionResult
+            {
+                Status = expectedStatus,
+            };
+
+            // when
+            AssociationSubmissionResult actualResult =
+                await this.associationOrchestrationService.SuggestTagAsync(
+                    tagSuggestion,
+                    TestContext.Current.CancellationToken);
+
+            // then: nothing is inserted, thrown or logged
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.tagServiceMock.Verify(service =>
+                service.FindOrAddTagAsync(
+                    It.Is(SameTagAs(CreateSuggestedTagNamed(tagSuggestion.Name))),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.tagServiceMock.Verify(service =>
+                service.RetrieveTagByIdAsync(
+                    withheldTagId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            VerifyPairProbedUpTo(
+                expectedProbedPair,
+                occupant is null ? OverlapProbe : ExactPairProbe);
+
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         private void SetupPairFreeAtBothProbes(Association expectedProbedPair)
         {
             this.associationServiceMock.Setup(service =>
