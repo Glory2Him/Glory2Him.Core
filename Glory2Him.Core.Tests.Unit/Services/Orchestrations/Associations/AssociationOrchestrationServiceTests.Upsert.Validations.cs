@@ -1147,5 +1147,68 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             readsInOrder.Should().Equal("the A endpoint", "the B endpoint", "the item's setting");
             this.associationServiceMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldRefuseARejectedEndpointBeforeTheFacetGateAnyProbeOrWriteAsync()
+        {
+            // given: a contributor pairs a post with a rejected tag, on a pair an approved row
+            // already holds. The refusal comes before the facet gate and the editorial arm, so
+            // neither the item's setting, nor either probe, nor the add is asked, and the pair is
+            // refused rather than answered AlreadyApproved
+            // (AssociationOrchestrationService.RejectedEndpoints.md §1 rule 4).
+            this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString());
+            Association upsertRequest = CreateRawUpsertRequestBetween(EntityType.ContentItem, EntityType.Tag);
+
+            Association derivedPair =
+                SetupMethodPathEndpointReadsAt(
+                    upsertRequest,
+                    entityAApprovalStatus: ApprovalStatus.Draft,
+                    entityBApprovalStatus: ApprovalStatus.Rejected);
+
+            derivedPair.UserId = null;
+
+            this.associationServiceMock.Setup(service =>
+                service.FindAssociationByPairAsync(
+                    It.Is(SameAssociationAs(derivedPair)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(CreatePairMatch(ApprovalStatus.Approved, isDeleted: false));
+
+            // when
+            ValueTask<AssociationSuggestionResult> upsertTask =
+                this.associationOrchestrationService.UpsertAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(upsertTask.AsTask);
+
+            // then
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.IsAny<IReadOnlyList<ContentItemSettingKey>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindAssociationByPairAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindOverlappingAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.associationServiceMock.Verify(service =>
+                service.AddAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+        }
     }
 }
