@@ -335,6 +335,10 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedTagException);
             }
+            catch (NullTagException nullTagException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: nullTagException);
+            }
         }
 
         private async ValueTask<TagValidationException> CreateAndLogValidationExceptionAsync(Xeption exception)
