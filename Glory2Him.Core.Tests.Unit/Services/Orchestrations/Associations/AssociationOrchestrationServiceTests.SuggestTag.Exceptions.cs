@@ -196,6 +196,71 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // Each failure of the association foundation on either probe and on the insert, for a tag
+        // the caller can see and for one they cannot, none of which is answered Created (§1 rule 4).
+        public static TheoryData<string, Xeption, bool> AssociationFailuresOnASuggestion()
+        {
+            var failures = new TheoryData<string, Xeption, bool>();
+
+            foreach (bool isTagVisible in new[] { true, false })
+            {
+                foreach (string call in new[] { ExactPairProbe, OverlapProbe, TheInsert })
+                {
+                    failures.Add(
+                        call,
+                        new AssociationDependencyException(
+                            message: GetRandomString(),
+                            innerException: new Xeption(GetRandomString())),
+                        isTagVisible);
+
+                    failures.Add(
+                        call,
+                        new AssociationServiceException(
+                            message: GetRandomString(),
+                            innerException: new Xeption(GetRandomString())),
+                        isTagVisible);
+                }
+            }
+
+            return failures;
+        }
+
+        [Theory]
+        [MemberData(nameof(AssociationFailuresOnASuggestion))]
+        public async Task ShouldThrowDependencyExceptionOnSuggestTagIfAssociationDependencyErrorOccursAndLogItAsync(
+            string failingCall,
+            Xeption foundationException,
+            bool isTagVisible)
+        {
+            // given
+            TagSuggestion tagSuggestion = SetupSuggestionOfAFoundTag(isTagVisible);
+            SetupAssociationCallToThrow(failingCall, foundationException);
+
+            var expectedDependencyException =
+                new AssociationOrchestrationDependencyException(
+                    message: "Content item association orchestration dependency error occurred, contact support.",
+                    innerException: (foundationException.InnerException as Xeption)!);
+
+            // when
+            ValueTask<AssociationSubmissionResult> suggestTagTask =
+                this.associationOrchestrationService.SuggestTagAsync(
+                    tagSuggestion,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationDependencyException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationDependencyException>(
+                    suggestTagTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyException))),
+                Times.Once);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         private static AssociationValidationException CreateAssociationValidationException(
             Xeption innerException) =>
             new AssociationValidationException(
