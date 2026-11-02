@@ -57,6 +57,27 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             EventEnvelope<TSource> inboundEnvelope,
             CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// The suggestion's find-or-add (<c>Backend/Foundations/TagService.TagSuggestions.md
+        /// §3</c>). Finds the one row the handed tag's name is held by, whatever its approval
+        /// status, its publication, its owner or its deletion: a row that is neither rejected
+        /// nor soft-deleted is <see cref="TagNameOutcome.Found"/>, and a rejected or
+        /// soft-deleted one is <see cref="TagNameOutcome.Withheld"/>, with the reason logged and
+        /// never answered. Where no row holds the name, the handed tag is added as
+        /// <see cref="AddTagAsync"/> adds one, and is <see cref="TagNameOutcome.Added"/>.
+        ///
+        /// <para>It answers an id and an outcome alone, never the row, because the read behind
+        /// it sees rows the caller may not (§SEC14.5 rules 1 and 3). It asks the tag's
+        /// contribution gate before anything is read.</para>
+        ///
+        /// <para>Internal, as the identity-carrying read above is: it is for the suggestion's
+        /// orchestration, <c>AssociationOrchestrationService.SuggestTagAsync</c>, and not for an
+        /// exposer, so no route that binds this contract can reach it (§EVN13 rule 3).</para>
+        /// </summary>
+        internal ValueTask<TagNameResult> FindOrAddTagAsync(
+            Tag tag,
+            CancellationToken cancellationToken = default);
+
         ValueTask<Tag> ModifyTagAsync(
             Tag tag,
             CancellationToken cancellationToken = default);
