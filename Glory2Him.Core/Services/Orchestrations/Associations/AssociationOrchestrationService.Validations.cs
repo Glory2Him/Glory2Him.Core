@@ -105,6 +105,17 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             }
         }
 
+        // THE TAG SUGGESTION's composition (AssociationOrchestrationService.TagSuggestions.md §1
+        // rule 1, step 2): the two row-free leaves the upsert's composition asks of an editorial
+        // pair, asked before anything is read. Its own method rather than the upsert's, which
+        // decides by the pair's personality whether to ask the global block, so a rule either
+        // operation's gate gains later lands on that operation alone.
+        private static void ValidateUserMaySuggestTag(SecurityContext securityContext)
+        {
+            ValidateUserIsAuthenticated(securityContext);
+            ValidateUserIsNotGloballyBlocked(securityContext);
+        }
+
         private static void ValidateUserIsAuthenticated(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)

@@ -25,70 +25,73 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 {
     internal partial class AssociationOrchestrationService
     {
-        public async ValueTask<AssociationSubmissionResult> SuggestTagAsync(
+        public ValueTask<AssociationSubmissionResult> SuggestTagAsync(
             TagSuggestion tagSuggestion,
-            CancellationToken cancellationToken = default)
-        {
-            EventEnvelope<TagSuggestion> suggestionEnvelope =
-                await this.eventEnvelopeBroker.CreateAsync(content: tagSuggestion);
-
-            var suggestedPair = new Association
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
             {
-                EntityAType = EntityType.ContentItem,
-                EntityAKeyId = tagSuggestion.ContentItemId,
-                EntityBType = EntityType.Tag,
-                EntityBScope = EntityTypeVersioning.DefaultScopeFor(EntityType.Tag),
-            };
+                EventEnvelope<TagSuggestion> suggestionEnvelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: tagSuggestion);
 
-            await ResolveEndpointAsync(
-                suggestedPair.EntityAType,
-                suggestedPair.EntityAKeyId,
-                onResolved: resolved =>
+                ValidateUserMaySuggestTag(suggestionEnvelope.SecurityContext);
+
+                var suggestedPair = new Association
                 {
-                    suggestedPair.EntityAGroupId = resolved.GroupId;
-                    suggestedPair.EntityAContentType = resolved.ContentType;
-                    suggestedPair.EntityAScope = resolved.Scope;
-                },
-                endpointName: "A",
-                readEnvelope: null,
-                cancellationToken: cancellationToken);
+                    EntityAType = EntityType.ContentItem,
+                    EntityAKeyId = tagSuggestion.ContentItemId,
+                    EntityBType = EntityType.Tag,
+                    EntityBScope = EntityTypeVersioning.DefaultScopeFor(EntityType.Tag),
+                };
 
-            TagNameResult tagNameResult =
-                await this.tagService.FindOrAddTagAsync(
-                    new Tag
+                await ResolveEndpointAsync(
+                    suggestedPair.EntityAType,
+                    suggestedPair.EntityAKeyId,
+                    onResolved: resolved =>
                     {
-                        Name = tagSuggestion.Name.Trim(),
-                        ApprovalStatus = ApprovalStatus.Submitted,
+                        suggestedPair.EntityAGroupId = resolved.GroupId;
+                        suggestedPair.EntityAContentType = resolved.ContentType;
+                        suggestedPair.EntityAScope = resolved.Scope;
                     },
-                    cancellationToken);
-
-            suggestedPair.EntityBKeyId = tagNameResult.Id;
-            suggestedPair.EntityBGroupId = tagNameResult.Id;
-
-            bool isTagVisible =
-                tagNameResult.Outcome is TagNameOutcome.Added
-                || await IsTagVisibleToTheCallerAsync(tagNameResult.Id, cancellationToken);
-
-            (AssociationPairMatch? pairMatch, AssociationPairMatch? overlappingMatch) =
-                await FindPairOccupantsAsync(
-                    association: suggestedPair,
+                    endpointName: "A",
                     readEnvelope: null,
                     cancellationToken: cancellationToken);
 
-            AssociationPairMatch? occupant = pairMatch ?? overlappingMatch;
+                TagNameResult tagNameResult =
+                    await this.tagService.FindOrAddTagAsync(
+                        new Tag
+                        {
+                            Name = tagSuggestion.Name.Trim(),
+                            ApprovalStatus = ApprovalStatus.Submitted,
+                        },
+                        cancellationToken);
 
-            if (occupant is null && tagNameResult.Outcome is not TagNameOutcome.Withheld)
-            {
-                await AddSuggestedPairAsync(suggestedPair, isTagVisible, cancellationToken);
-            }
+                suggestedPair.EntityBKeyId = tagNameResult.Id;
+                suggestedPair.EntityBGroupId = tagNameResult.Id;
 
-            return new AssociationSubmissionResult
-            {
-                Status = occupant is not null && isTagVisible
-                    ? ToSubmissionStatus(occupant, suggestionEnvelope.SecurityContext)
-                    : AssociationSubmissionStatus.Created,
-            };
-        }
+                bool isTagVisible =
+                    tagNameResult.Outcome is TagNameOutcome.Added
+                    || await IsTagVisibleToTheCallerAsync(tagNameResult.Id, cancellationToken);
+
+                (AssociationPairMatch? pairMatch, AssociationPairMatch? overlappingMatch) =
+                    await FindPairOccupantsAsync(
+                        association: suggestedPair,
+                        readEnvelope: null,
+                        cancellationToken: cancellationToken);
+
+                AssociationPairMatch? occupant = pairMatch ?? overlappingMatch;
+
+                if (occupant is null && tagNameResult.Outcome is not TagNameOutcome.Withheld)
+                {
+                    await AddSuggestedPairAsync(suggestedPair, isTagVisible, cancellationToken);
+                }
+
+                return new AssociationSubmissionResult
+                {
+                    Status = occupant is not null && isTagVisible
+                        ? ToSubmissionStatus(occupant, suggestionEnvelope.SecurityContext)
+                        : AssociationSubmissionStatus.Created,
+                };
+            });
 
         private async ValueTask AddSuggestedPairAsync(
             Association suggestedPair,
