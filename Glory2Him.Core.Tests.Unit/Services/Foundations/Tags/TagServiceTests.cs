@@ -174,6 +174,34 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 new SecurityContext { IsAuthenticated = false }
             };
 
+        // the Id a publisher's content may name: none, or one of its own; either way the row
+        // takes the Id the service mints (TagService.TagSuggestions.md §2 rule 1)
+        public static TheoryData<Guid> ClaimedTagIds() =>
+            new TheoryData<Guid>
+            {
+                Guid.Empty,
+                Guid.NewGuid()
+            };
+
+        // each signed caller the contribution gate refuses, with the refusal it is answered:
+        // the anonymous caller, and a caller holding ReadOnly or Tag-ReadOnly
+        public static TheoryData<SecurityContext, string> RefusedContributorSecurityContexts() =>
+            new TheoryData<SecurityContext, string>
+            {
+                {
+                    new SecurityContext { IsAuthenticated = false },
+                    "The current user is not authenticated."
+                },
+                {
+                    CreateAuthenticatedSecurityContext(Roles.ReadOnly),
+                    "The current user is blocked from contributing tags."
+                },
+                {
+                    CreateAuthenticatedSecurityContext(Roles.TagReadOnly),
+                    "The current user is blocked from contributing tags."
+                }
+            };
+
         public static TheoryData<string[]> NonAdminRoleSets() =>
             new TheoryData<string[]>
             {

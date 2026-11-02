@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Tags;
+using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Moq;
 
@@ -124,6 +125,162 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [MemberData(nameof(ClaimedTagIds))]
+        public async Task ShouldAddTagUnderAMintedIdOnAddingTagEventAsync(Guid claimedId)
+        {
+            // given
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+            string contributorUserId = Guid.NewGuid().ToString();
+            Tag inputTag = CreateTagFiller(currentDateTime, contributorUserId).Create();
+
+            // the publisher's claim is neither compared nor refused: the row takes the Id the
+            // service mints (TagService.TagSuggestions.md §2 rule 1)
+            inputTag.Id = claimedId;
+            Guid mintedId = Guid.NewGuid();
+            mintedId.Should().NotBe(claimedId);
+            Guid firstProcessedEventId = Guid.NewGuid();
+            Guid secondProcessedEventId = Guid.NewGuid();
+
+            Tag expectedInsertedTag = inputTag.DeepClone();
+            expectedInsertedTag.Id = mintedId;
+            Tag storedTag = expectedInsertedTag.DeepClone();
+            Tag insertedTag = null;
+            CancellationToken inputCancellationToken = TestContext.Current.CancellationToken;
+            SecurityContext contributorSecurityContext = CreateAuthenticatedSecurityContext();
+
+            var requestEnvelope = new EventEnvelope<Tag>
+            {
+                SecurityContext = contributorSecurityContext,
+                Content = inputTag,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            string expectedEventName =
+                $"{nameof(Tag)}{TagEventOperation.Adding}";
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.TagOnAddingTagSubscriptionName,
+                    inputCancellationToken))
+                        .ReturnsAsync(false);
+
+            // the mint is the identifier broker's first call in the add; the two that follow
+            // are the processed-event records written after the insert
+            this.identifierBrokerMock.SetupSequence(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(mintedId)
+                    .ReturnsAsync(firstProcessedEventId)
+                    .ReturnsAsync(secondProcessedEventId);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(inputTag, contributorSecurityContext))
+                    .ReturnsAsync((Tag entity, SecurityContext _) => entity);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(contributorSecurityContext))
+                    .ReturnsAsync(contributorUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTime);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertTagAsync(
+                    It.Is<Tag>(tag => tag.Id == mintedId),
+                    inputCancellationToken))
+                        .Callback<Tag, CancellationToken>((entity, _) =>
+                            insertedTag = entity.DeepClone())
+                        .ReturnsAsync(storedTag);
+
+            // when
+            EventEnvelope<Tag>? actualReplyEnvelope =
+                await this.tagService.OnAddingTagAsync(
+                    requestEnvelope,
+                    inputCancellationToken);
+
+            // then: the row is inserted under the minted Id, never the claimed one, and the
+            // Tag-Added fact and the reply carry the minted Id
+            insertedTag.Should().BeEquivalentTo(expectedInsertedTag);
+            insertedTag.Id.Should().Be(mintedId);
+            actualReplyEnvelope.Should().NotBeNull();
+            actualReplyEnvelope!.Content.Should().BeSameAs(storedTag);
+            actualReplyEnvelope.Content.Id.Should().Be(mintedId);
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    requestEnvelope,
+                    expectedEventName,
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.TagOnAddingTagSubscriptionName,
+                    inputCancellationToken),
+                Times.Once);
+
+            // one Id for the new row, and one for each of the two processed-event records
+            this.identifierBrokerMock.Verify(broker =>
+                    broker.GetIdentifierAsync(),
+                Times.Exactly(3));
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.ApplyAddAuditValuesAsync(inputTag, contributorSecurityContext),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.GetUserIdAsync(contributorSecurityContext),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                    broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Exactly(3));
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.InsertTagAsync(
+                        It.Is<Tag>(tag => tag.Id == mintedId),
+                        inputCancellationToken),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishTagAsync(
+                    It.Is<EventEnvelope<Tag>>(envelope =>
+                        envelope.Content == storedTag
+                            && envelope.Content.Id == mintedId),
+                    TagEventOperation.Added),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.Id == firstProcessedEventId
+                            && processedEvent.EventId == requestEnvelope.Metadata.EventId
+                            && processedEvent.ReceiverName ==
+                                EventBrokerIdentifiers.TagOnAddingTagSubscriptionName),
+                    inputCancellationToken),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.Id == secondProcessedEventId
+                            && processedEvent.ReceiverName ==
+                                EventBrokerIdentifiers.TagOnAddingTagSubscriptionName),
+                    inputCancellationToken),
+                Times.Once);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         [Fact]
         public async Task ShouldSkipAddAndReplyNullWhenAddingTagEventAlreadyProcessedAsync()
         {
@@ -158,8 +315,88 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     TestContext.Current.CancellationToken),
                 Times.Once);
 
+            // deduplication runs before the write body, so a replay mints no Id
+            // (TagService.TagSuggestions.md §2 rule 2)
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Never);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(RefusedContributorSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnAddingTagEventIfUserMayNotContributeAndLogItAsync(
+            SecurityContext refusedSecurityContext,
+            string expectedRefusal)
+        {
+            // given
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+            Tag inputTag = CreateTagFiller(currentDateTime).Create();
+            CancellationToken inputCancellationToken = TestContext.Current.CancellationToken;
+
+            // the gate reads the signed caller the envelope carries, not the ambient one
+            var requestEnvelope = new EventEnvelope<Tag>
+            {
+                SecurityContext = refusedSecurityContext,
+                Content = inputTag,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.TagOnAddingTagSubscriptionName,
+                    inputCancellationToken))
+                        .ReturnsAsync(false);
+
+            var unauthorizedTagException = new UnauthorizedTagException(
+                message: expectedRefusal);
+
+            var expectedTagValidationException = new TagValidationException(
+                message: "Tag validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedTagException);
+
+            // when
+            ValueTask<EventEnvelope<Tag>?> onAddingTask =
+                this.tagService.OnAddingTagAsync(
+                    requestEnvelope,
+                    inputCancellationToken);
+
+            TagValidationException actualTagValidationException =
+                await Assert.ThrowsAsync<TagValidationException>(
+                    onAddingTask.AsTask);
+
+            // then: refused as the direct path refuses that caller, and nothing is written
+            actualTagValidationException.Should().BeEquivalentTo(
+                expectedTagValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.TagOnAddingTagSubscriptionName,
+                    inputCancellationToken),
+                Times.Once);
+
+            // the Id is minted after the contribution gate, so a refused caller mints none
+            // (TagService.TagSuggestions.md §1 rule 2, §2 rule 2)
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagValidationException))),
+                Times.Once);
+
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
