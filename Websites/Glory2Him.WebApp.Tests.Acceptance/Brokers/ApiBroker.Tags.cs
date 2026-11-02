@@ -11,6 +11,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
+using System.Net.Http.Json;
 using System.Threading.Tasks;
 using Glory2Him.WebApp.Tests.Acceptance.Models.Tags;
 
@@ -22,6 +24,11 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
 
         public async ValueTask<Tag> PostTagAsync(Tag tag) =>
             await this.apiFactoryClient.PostContentAsync(tagsRelativeUrl, tag);
+
+        // The raw response, because the status code is the assertion: a typed post hands back
+        // the body on any success and throws on any failure, so it cannot tell 201 from 200.
+        public async ValueTask<HttpResponseMessage> PostTagForResponseAsync(Tag tag) =>
+            await this.httpClient.PostAsJsonAsync(tagsRelativeUrl, tag);
 
         public async ValueTask<List<Tag>> GetAllTagsAsync() =>
             await this.apiFactoryClient.GetContentAsync<List<Tag>>($"{tagsRelativeUrl}/");

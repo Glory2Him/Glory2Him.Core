@@ -90,10 +90,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     message: "Tag is invalid, fix the errors and try again.");
 
             invalidTagException.AddData(
-                key: nameof(Tag.Id),
-                values: "Id is required");
-
-            invalidTagException.AddData(
                 key: nameof(Tag.Name),
                 values: "Text is required");
 
@@ -123,6 +119,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 new TagValidationException(
                     message: "Tag validation error occurred, fix the errors and try again.",
                     innerException: invalidTagException);
+
+            // the broker answers an empty Id, so the Id entry would come back if the add still
+            // asked its empty-Id rule of the Id it minted (§1 rules 2 and 3)
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(Guid.Empty);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(invalidTag, It.IsAny<SecurityContext>()))
@@ -162,11 +164,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Once);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedTagValidationException))),
                 Times.Once);
 
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
@@ -204,6 +211,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     message: "Tag validation error occurred, fix the errors and try again.",
                     innerException: invalidTagException);
 
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(Guid.NewGuid());
+
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(invalidTag, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(invalidTag);
@@ -242,11 +253,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Once);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedTagValidationException))),
                 Times.Once);
 
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
@@ -277,6 +293,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     message: "Tag validation error occurred, fix the errors and try again.",
                     innerException: invalidTagException);
 
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(Guid.NewGuid());
+
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(invalidTag, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(invalidTag);
@@ -315,11 +335,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Once);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedTagValidationException))),
                 Times.Once);
 
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
@@ -352,6 +377,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     message: "Tag validation error occurred, fix the errors and try again.",
                     innerException: invalidTagException);
 
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(Guid.NewGuid());
+
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(invalidTag, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(invalidTag);
@@ -390,11 +419,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Once);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedTagValidationException))),
                 Times.Once);
 
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
@@ -425,6 +459,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     message: "Tag validation error occurred, fix the errors and try again.",
                     innerException: invalidTagException);
 
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(Guid.NewGuid());
+
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(invalidTag, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(invalidTag);
@@ -463,11 +501,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Once);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedTagValidationException))),
                 Times.Once);
 
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
@@ -503,6 +546,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 new TagValidationException(
                     message: "Tag validation error occurred, fix the errors and try again.",
                     innerException: invalidTagException);
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(Guid.NewGuid());
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(invalidTag, It.IsAny<SecurityContext>()))
@@ -542,11 +589,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Once);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedTagValidationException))),
                 Times.Once);
 
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
@@ -584,11 +636,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             actualTagValidationException.Should().BeEquivalentTo(
                 expectedTagValidationException);
 
+            // the Id is minted after the contribution gate, so a refused caller mints none
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Never);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedTagValidationException))),
                 Times.Once);
 
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
@@ -627,11 +685,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             actualTagValidationException.Should().BeEquivalentTo(
                 expectedTagValidationException);
 
+            // the Id is minted after the contribution gate, so a refused caller mints none
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Never);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedTagValidationException))),
                 Times.Once);
 
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
@@ -662,6 +726,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     message: "Tag validation error occurred, fix the errors and try again.",
                     innerException: invalidTagException);
 
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(Guid.NewGuid());
+
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(invalidTag, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(invalidTag);
@@ -700,11 +768,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Once);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedTagValidationException))),
                 Times.Once);
 
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
@@ -735,6 +808,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     message: "Tag validation error occurred, fix the errors and try again.",
                     innerException: invalidTagException);
 
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(Guid.NewGuid());
+
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(invalidTag, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(invalidTag);
@@ -773,11 +850,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Once);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedTagValidationException))),
                 Times.Once);
 
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
@@ -808,6 +890,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     message: "Tag validation error occurred, fix the errors and try again.",
                     innerException: invalidTagException);
 
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(Guid.NewGuid());
+
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(invalidTag, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(invalidTag);
@@ -846,11 +932,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Once);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedTagValidationException))),
                 Times.Once);
 
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();

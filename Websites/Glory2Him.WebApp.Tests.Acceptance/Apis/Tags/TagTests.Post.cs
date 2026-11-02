@@ -9,8 +9,14 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Json;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.WebApp.Tests.Acceptance.Models.Tags;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
@@ -24,17 +30,21 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
             Tag randomTag = CreateRandomTag();
             Tag inputTag = randomTag;
             Tag expectedTag = inputTag;
+            Tag postedTag = null;
 
             try
             {
                 // when
-                await this.apiBroker.PostTagAsync(inputTag);
+                postedTag = await this.apiBroker.PostTagAsync(inputTag);
 
+                // the row is read back under the Id the post answered, never the one it was
+                // sent: the tag's Id is the service's to mint (§1 rule 5)
                 Tag actualTag =
-                    await this.apiBroker.GetTagByIdAsync(inputTag.Id);
+                    await this.apiBroker.GetTagByIdAsync(postedTag.Id);
 
                 // then
                 actualTag.Should().BeEquivalentTo(expectedTag, options => options
+                    .Excluding(property => property.Id)
                     .Excluding(property => property.CreatedBy)
                     .Excluding(property => property.CreatedWhen)
                     .Excluding(property => property.UpdatedBy)
@@ -42,7 +52,66 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
             }
             finally
             {
-                await this.apiBroker.RemoveCoreTagByIdAsync(inputTag.Id);
+                if (postedTag is not null)
+                {
+                    await RemovePostedTagApprovalAsync(postedTag.Id);
+                    await this.apiBroker.RemoveCoreTagByIdAsync(postedTag.Id);
+                }
+            }
+        }
+
+        [Fact]
+        public async Task ShouldPostTagUnderAMintedIdAsync()
+        {
+            // given
+            this.apiBroker.ActAsContributor();
+            Tag randomTag = CreateRandomTag();
+            Tag inputTag = randomTag;
+            Guid postedId = inputTag.Id;
+            Tag answeredTag = null;
+
+            try
+            {
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.PostTagForResponseAsync(inputTag);
+
+                answeredTag = await actualResponse.Content.ReadFromJsonAsync<Tag>(
+                    TestContext.Current.CancellationToken);
+
+                Tag actualTag =
+                    await this.apiBroker.GetTagByIdAsync(answeredTag.Id);
+
+                // then: the route answers the Id the service minted, never the one it was sent
+                // (TagService.TagSuggestions.md §1 rule 5), and the tag is read back under it
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+                answeredTag.Id.Should().NotBeEmpty();
+                answeredTag.Id.Should().NotBe(postedId);
+                actualTag.Id.Should().Be(answeredTag.Id);
+                actualTag.Name.Should().Be(inputTag.Name);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+
+                if (answeredTag is not null)
+                {
+                    await RemovePostedTagApprovalAsync(answeredTag.Id);
+                    await this.apiBroker.RemoveCoreTagByIdAsync(answeredTag.Id);
+                }
+            }
+        }
+
+        // Every post opens an approval round on the tag it wrote, and the round carries no key
+        // to the tag, so removing the tag leaves it behind: it goes by the answered Id.
+        private async ValueTask RemovePostedTagApprovalAsync(Guid tagId)
+        {
+            Approval approval =
+                await this.apiBroker.GetCoreApprovalByEntityAsync(EntityType.Tag, tagId);
+
+            if (approval is not null)
+            {
+                await this.apiBroker.RemoveApprovalAsync(approval);
             }
         }
     }
