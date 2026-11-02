@@ -450,6 +450,42 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldShapeTheNameReadToOneRowAsync()
+        {
+            // given: two rows under the name, which IX_Tags_Name makes impossible in SQL and
+            // the in-memory set allows, so the shaping of the query is what answers one
+            string inputName = GetRandomTagName();
+            Tag inputTag = CreateRandomTag();
+            inputTag.Name = inputName;
+            Tag firstNamedTag = CreateRandomTag();
+            firstNamedTag.Name = inputName;
+            Tag secondNamedTag = CreateRandomTag();
+            secondNamedTag.Name = inputName;
+            var storageTags = new List<Tag> { firstNamedTag, secondNamedTag };
+            IReadOnlyList<TagNameMatch> actualTagNameMatches = null;
+            CancellationToken inputCancellationToken = TestContext.Current.CancellationToken;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectTagsAsync(
+                    It.IsAny<Func<IQueryable<Tag>, IQueryable<TagNameMatch>>>(),
+                    inputCancellationToken))
+                        .ReturnsAsync((
+                            Func<IQueryable<Tag>, IQueryable<TagNameMatch>> query,
+                            CancellationToken _) =>
+                                actualTagNameMatches =
+                                    query(storageTags.AsQueryable()).ToList());
+
+            // when
+            await this.tagService.FindOrAddTagAsync(
+                inputTag,
+                inputCancellationToken);
+
+            // then
+            actualTagNameMatches.Should().ContainSingle();
+            VerifyTagNameReadAsked(inputCancellationToken, Times.Once());
+        }
+
         // the row another caller added between the read and the write, one the second read
         // finds and one it withholds (§3 rule 7)
         public static TheoryData<ApprovalStatus, TagNameOutcome, string> TagStatesAnotherCallerAdded() =>
