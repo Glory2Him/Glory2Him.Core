@@ -19,6 +19,7 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.Tags;
+using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 using KellermanSoftware.CompareNetObjects;
 using Moq;
@@ -73,6 +74,87 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.tagServiceMock.Verify(service =>
                 service.FindOrAddTagAsync(
                     It.Is(SameTagAs(CreateSuggestedTagNamed(tagSuggestion.Name))),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindAssociationByPairAsync(
+                    It.Is(SameAssociationAs(expectedInsertedPair)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindOverlappingAssociationAsync(
+                    It.Is(SameAssociationAs(expectedInsertedPair)),
+                    (Guid?)null,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.AddAssociationAsync(
+                    It.Is(SameAssociationAs(expectedInsertedPair)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task ShouldPairTheTagTheFindOrAddFoundAsync(bool isTagVisible)
+        {
+            // given: the find-or-add finds a tag that holds the name, one the caller can see or
+            // one the tag's own read answers them not found, and neither probe finds a row for its
+            // pair. Whether the caller can see the tag decides the answer, and never the insert, so
+            // the pair is inserted either way (TagSuggestions.md rules 4 and 5; §1 rule 1, steps 9,
+            // 11 and 13).
+            this.ambientSecurityContext = CreateReaderSecurityContext(GetRandomString());
+            TagSuggestion tagSuggestion = CreateTagSuggestion();
+            ContentItem suggestedPost = SetupSuggestionForThePost(tagSuggestion);
+
+            Guid foundTagId =
+                SetupFindOrAddOf(tagSuggestion.Name, TagNameOutcome.Found);
+
+            SetupTagReadFor(foundTagId, isTagVisible);
+
+            Association expectedInsertedPair =
+                CreateSuggestedPairFor(suggestedPost, foundTagId, ApprovalStatus.Submitted);
+
+            Association insertedPair = expectedInsertedPair.DeepClone();
+            insertedPair.Id = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.AddAssociationAsync(
+                    It.Is(SameAssociationAs(expectedInsertedPair)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(insertedPair);
+
+            var expectedResult = new AssociationSubmissionResult
+            {
+                Status = AssociationSubmissionStatus.Created,
+            };
+
+            // when
+            AssociationSubmissionResult actualResult =
+                await this.associationOrchestrationService.SuggestTagAsync(
+                    tagSuggestion,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.tagServiceMock.Verify(service =>
+                service.FindOrAddTagAsync(
+                    It.Is(SameTagAs(CreateSuggestedTagNamed(tagSuggestion.Name))),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.tagServiceMock.Verify(service =>
+                service.RetrieveTagByIdAsync(
+                    foundTagId,
                     TestContext.Current.CancellationToken),
                 Times.Once);
 
@@ -172,6 +254,31 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             return tagNameResult.Id;
         }
+
+        // Whether the caller can see the tag, as the tag's own read answers it under the caller:
+        // the tag, or not found, which that read answers for a row the caller may not see and for
+        // every soft-deleted one (§SEC14.7 posture A rule 4; §SEC14.5 rules 1 and 3).
+        private void SetupTagReadFor(Guid tagId, bool isTagVisible)
+        {
+            if (isTagVisible)
+            {
+                this.tagServiceMock.Setup(service =>
+                    service.RetrieveTagByIdAsync(tagId, TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new Tag { Id = tagId });
+
+                return;
+            }
+
+            this.tagServiceMock.Setup(service =>
+                service.RetrieveTagByIdAsync(tagId, TestContext.Current.CancellationToken))
+                    .ThrowsAsync(CreateTagNotFoundException(tagId));
+        }
+
+        private static TagValidationException CreateTagNotFoundException(Guid tagId) =>
+            new TagValidationException(
+                message: "Tag validation error occurred, fix the errors and try again.",
+                innerException: new NotFoundTagException(
+                    message: $"Couldn't find tag with id: {tagId}."));
 
         // The new tag the find-or-add is handed: the name, at Submitted, and nothing else
         // (TagSuggestions.md rule 14).
