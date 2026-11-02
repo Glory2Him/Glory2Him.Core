@@ -72,7 +72,13 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                         name: tag.Name,
                         cancellationToken: cancellationToken);
 
-                    return await AnswerTagNameMatchAsync(takenTagNameMatch!);
+                    // no row found again: the refusal is thrown on as the add throws it
+                    if (takenTagNameMatch is null)
+                    {
+                        throw;
+                    }
+
+                    return await AnswerTagNameMatchAsync(takenTagNameMatch);
                 }
             });
 

@@ -366,6 +366,17 @@ namespace Glory2Him.Core.Services.Foundations.Tags
 
                 throw await CreateAndLogCriticalDependencyExceptionAsync(exception: failedStorageTagException);
             }
+            catch (DuplicateKeyWithUniqueIndexException duplicateKeyWithUniqueIndexException)
+            {
+                var alreadyExistsTagException = new AlreadyExistsTagException(
+                    message: "Tag already exists, "
+                        + "a uniqueness rule rejected the write.",
+                    innerException: duplicateKeyWithUniqueIndexException,
+                    data: duplicateKeyWithUniqueIndexException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    alreadyExistsTagException);
+            }
         }
 
         private async ValueTask<TagValidationException> CreateAndLogValidationExceptionAsync(Xeption exception)
