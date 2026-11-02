@@ -16,6 +16,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Associations;
@@ -64,10 +65,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             suggestedPair.EntityBKeyId = tagNameResult.Id;
             suggestedPair.EntityBGroupId = tagNameResult.Id;
 
-            if (tagNameResult.Outcome is not TagNameOutcome.Added)
-            {
-                await ReadTheTagAsTheCallerAsync(tagNameResult.Id, cancellationToken);
-            }
+            bool isTagVisible =
+                tagNameResult.Outcome is TagNameOutcome.Added
+                || await IsTagVisibleToTheCallerAsync(tagNameResult.Id, cancellationToken);
 
             (AssociationPairMatch? pairMatch, AssociationPairMatch? overlappingMatch) =
                 await FindPairOccupantsAsync(
@@ -77,24 +77,36 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 
             AssociationPairMatch? occupant = pairMatch ?? overlappingMatch;
 
-            if (occupant is not null)
+            if (occupant is null)
             {
-                return new AssociationSubmissionResult
-                {
-                    Status = ToSubmissionStatus(occupant, suggestionEnvelope.SecurityContext),
-                };
+                await AddSuggestedPairAsync(suggestedPair, isTagVisible, cancellationToken);
             }
-
-            suggestedPair.ApprovalStatus = ApprovalStatus.Submitted;
-
-            await this.associationService.AddAssociationAsync(
-                suggestedPair,
-                cancellationToken);
 
             return new AssociationSubmissionResult
             {
-                Status = AssociationSubmissionStatus.Created,
+                Status = occupant is not null && isTagVisible
+                    ? ToSubmissionStatus(occupant, suggestionEnvelope.SecurityContext)
+                    : AssociationSubmissionStatus.Created,
             };
+        }
+
+        private async ValueTask AddSuggestedPairAsync(
+            Association suggestedPair,
+            bool isTagVisible,
+            CancellationToken cancellationToken)
+        {
+            suggestedPair.ApprovalStatus = ApprovalStatus.Submitted;
+
+            try
+            {
+                await this.associationService.AddAssociationAsync(
+                    suggestedPair,
+                    cancellationToken);
+            }
+            catch (AssociationDependencyValidationException)
+                when (isTagVisible is false)
+            {
+            }
         }
 
         private static AssociationSubmissionStatus ToSubmissionStatus(
@@ -119,16 +131,19 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 : AssociationSubmissionStatus.PreviouslySuggestedByCaller;
         }
 
-        private async ValueTask ReadTheTagAsTheCallerAsync(
+        private async ValueTask<bool> IsTagVisibleToTheCallerAsync(
             Guid tagId,
             CancellationToken cancellationToken)
         {
             try
             {
                 await this.tagService.RetrieveTagByIdAsync(tagId, cancellationToken);
+
+                return true;
             }
             catch (TagValidationException)
             {
+                return false;
             }
         }
     }
