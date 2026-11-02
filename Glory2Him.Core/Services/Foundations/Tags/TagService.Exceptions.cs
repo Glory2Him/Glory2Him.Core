@@ -357,6 +357,15 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: invalidTagException);
             }
+            catch (SqlException sqlException)
+            {
+                var failedStorageTagException = new FailedStorageTagException(
+                    message: "Failed tag storage error occurred, contact support.",
+                    innerException: sqlException,
+                    data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(exception: failedStorageTagException);
+            }
         }
 
         private async ValueTask<TagValidationException> CreateAndLogValidationExceptionAsync(Xeption exception)
