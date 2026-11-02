@@ -380,7 +380,10 @@ namespace Glory2Him.Core.Services.Foundations.Tags
         private static void ValidateOnFindOrAddTag(Tag tag) =>
             Validate(
                 message: "Tag is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(tag.Name), Parameter: nameof(Tag.Name)));
+                (Rule: IsInvalid(tag.Name), Parameter: nameof(Tag.Name)),
+
+                (Rule: IsGreaterThan(tag.Name, 30),
+                    Parameter: nameof(Tag.Name)));
 
         private static void ValidateOnRetrieveTagById(Guid tagId) =>
             Validate(
