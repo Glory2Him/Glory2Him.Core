@@ -129,7 +129,12 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                         : await this.contentItemService.RetrieveContentItemByIdAsync(
                             keyId, readEnvelope, cancellationToken);
 
-                    return DeriveEndpoint(entityType, keyId, contentItem, contentItem.ContentType);
+                    return DeriveEndpoint(
+                        entityType,
+                        keyId,
+                        contentItem,
+                        contentItem.ContentType,
+                        approvalStatus: contentItem.ApprovalStatus);
 
                 case EntityType.Link:
                     Link link = readEnvelope is null
