@@ -126,5 +126,20 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             // then
             validateQueryAction.Should().Throw<ODataException>();
         }
+
+        [Fact]
+        public void ShouldRefuseAnOrderByThatIsArithmetic()
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+            string query = "$orderby=1 div version";
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().Throw<ODataException>();
+        }
     }
 }
