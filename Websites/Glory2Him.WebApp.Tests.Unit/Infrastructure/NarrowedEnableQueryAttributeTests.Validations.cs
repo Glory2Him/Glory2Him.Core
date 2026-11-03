@@ -309,5 +309,23 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             // then
             validateQueryAction.Should().Throw<ODataException>();
         }
+
+        [Theory]
+        [InlineData("$filter=children/any(x: x/note eq 'v')")]
+        [InlineData("filter=children/any(x: x/note eq 'v')")]
+        [InlineData("$filter=children/all(x: x/note ne 'v')")]
+        [InlineData("filter=children/all(x: x/note ne 'v')")]
+        public void ShouldRefuseAFilterWithALambdaOverACollectionValuedNavigation(string query)
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().Throw<ODataException>();
+        }
     }
 }
