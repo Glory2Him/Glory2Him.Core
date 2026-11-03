@@ -172,11 +172,19 @@ namespace Glory2Him.WebApp.Controllers.Associations
         public async ValueTask<ActionResult<IQueryable<Association>>> Get(
             CancellationToken cancellationToken)
         {
-            IQueryable<Association> associations =
-                await this.associationOrchestrationService.RetrieveAllAssociationsAsync(
-                    cancellationToken);
+            try
+            {
+                IQueryable<Association> associations =
+                    await this.associationOrchestrationService.RetrieveAllAssociationsAsync(
+                        cancellationToken);
 
-            return Ok(associations);
+                return Ok(associations);
+            }
+            catch (AssociationOrchestrationDependencyException
+                associationOrchestrationDependencyException)
+            {
+                return FailedDependency(associationOrchestrationDependencyException.InnerException);
+            }
         }
 
         [HttpGet("{associationId}")]
