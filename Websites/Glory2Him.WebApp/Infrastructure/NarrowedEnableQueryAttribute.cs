@@ -61,6 +61,13 @@ namespace Glory2Him.WebApp.Infrastructure
                 var ownEntityType = (IEdmStructuredType)queryOptions.Context.ElementType;
                 AdmitFilterTerm(queryOptions.Filter.FilterClause.Expression, ownEntityType);
             }
+
+            if (queryOptions.OrderBy is not null)
+            {
+                throw new ODataException(
+                    $"The $orderby holds a key this read does not accept: a "
+                        + $"'{queryOptions.OrderBy.OrderByClause.Expression.Kind}' node.");
+            }
         }
 
         private static void RefuseOptionsOutsideTheSix(ODataRawQueryOptions rawValues)
