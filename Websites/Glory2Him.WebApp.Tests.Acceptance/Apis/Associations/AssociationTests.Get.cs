@@ -15,6 +15,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Securities;
 using CoreAssociation = Glory2Him.Core.Models.Foundations.Associations.Association;
 using CoreContentItem = Glory2Him.Core.Models.Foundations.ContentItems.ContentItem;
 using CoreTag = Glory2Him.Core.Models.Foundations.Tags.Tag;
@@ -106,6 +107,49 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                     CreateContentItemAssociationsQuery(expectedAssociation);
 
                 this.apiBroker.ActAs(readerId);
+
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.GetAssociationsAsync(contentItemAssociationsQuery);
+
+                // then
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                List<CoreAssociation> actualAssociations =
+                    await ReadAssociationsAsync(actualResponse);
+
+                CoreAssociation actualAssociation =
+                    actualAssociations.Should().ContainSingle().Subject;
+
+                actualAssociation.Should().BeEquivalentTo(expectedAssociation);
+                actualAssociation.UserId.Should().Be(readerId);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(reactedContentItem.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(reactedContentItem.Id);
+            }
+        }
+
+        [Fact]
+        public async Task ShouldServeAReadersReactionToTheReviewTierAsync()
+        {
+            // given
+            CoreContentItem reactedContentItem = await InsertPublishedContentItemAsync();
+
+            try
+            {
+                (string readerId, Guid reactionId) =
+                    await GiveAmenAsANewReaderAsync(reactedContentItem.Id);
+
+                CoreAssociation expectedAssociation =
+                    await this.apiBroker.GetCoreAssociationByIdAsync(reactionId);
+
+                string contentItemAssociationsQuery =
+                    CreateContentItemAssociationsQuery(expectedAssociation);
+
+                this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators);
 
                 // when
                 HttpResponseMessage actualResponse =
