@@ -576,5 +576,29 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             // then
             resolvedODataCoreVersion.Should().Be(pinnedODataCoreVersion);
         }
+
+        // Shapes made only of admitted kinds that break the condition the table puts on one of
+        // them: a needle that is not a string literal, a case function's argument or a pattern
+        // function's first argument that is not a string column, and $it outside a property's
+        // source. A bare attribute accepts each, so each pins its condition.
+        [Theory]
+        [InlineData("contains(name,null)")]
+        [InlineData("tolower(toupper(name)) eq 'v'")]
+        [InlineData("tolower('X') eq 'x'")]
+        [InlineData("contains('abc','b')")]
+        [InlineData("$it eq null")]
+        public void ShouldRefuseAnAdmittedKindThatBreaksItsCondition(string filter)
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+            string query = "$filter=" + filter;
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().Throw<ODataException>();
+        }
     }
 }
