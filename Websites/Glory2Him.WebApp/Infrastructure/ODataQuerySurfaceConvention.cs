@@ -34,11 +34,45 @@ namespace Glory2Him.WebApp.Infrastructure
         {
             for (int index = 0; index < filters.Count; index++)
             {
-                if (filters[index] is EnableQueryAttribute)
+                if (filters[index] is EnableQueryAttribute enableQueryAttribute)
                 {
-                    filters[index] = new NarrowedEnableQueryAttribute();
+                    filters[index] = CreateNarrowedEnableQueryAttribute(enableQueryAttribute);
                 }
             }
+        }
+
+        private static NarrowedEnableQueryAttribute CreateNarrowedEnableQueryAttribute(
+            EnableQueryAttribute enableQueryAttribute)
+        {
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute
+            {
+                AllowedArithmeticOperators = enableQueryAttribute.AllowedArithmeticOperators,
+                AllowedFunctions = enableQueryAttribute.AllowedFunctions,
+                AllowedLogicalOperators = enableQueryAttribute.AllowedLogicalOperators,
+                AllowedOrderByProperties = enableQueryAttribute.AllowedOrderByProperties,
+                AllowedQueryOptions = enableQueryAttribute.AllowedQueryOptions,
+                EnableConstantParameterization = enableQueryAttribute.EnableConstantParameterization,
+                EnableCorrelatedSubqueryBuffering = enableQueryAttribute.EnableCorrelatedSubqueryBuffering,
+                EnsureStableOrdering = enableQueryAttribute.EnsureStableOrdering,
+                HandleNullPropagation = enableQueryAttribute.HandleNullPropagation,
+                HandleReferenceNavigationPropertyExpandFilter =
+                    enableQueryAttribute.HandleReferenceNavigationPropertyExpandFilter,
+                MaxAnyAllExpressionDepth = enableQueryAttribute.MaxAnyAllExpressionDepth,
+                MaxExpansionDepth = enableQueryAttribute.MaxExpansionDepth,
+                MaxFunctionCallDepth = enableQueryAttribute.MaxFunctionCallDepth,
+                MaxNodeCount = enableQueryAttribute.MaxNodeCount,
+                MaxOrderByNodeCount = enableQueryAttribute.MaxOrderByNodeCount,
+                MaxSkip = enableQueryAttribute.MaxSkip,
+                MaxTop = enableQueryAttribute.MaxTop,
+                Order = enableQueryAttribute.Order
+            };
+
+            if (enableQueryAttribute.PageSize != 0)
+            {
+                narrowedEnableQueryAttribute.PageSize = enableQueryAttribute.PageSize;
+            }
+
+            return narrowedEnableQueryAttribute;
         }
     }
 }
