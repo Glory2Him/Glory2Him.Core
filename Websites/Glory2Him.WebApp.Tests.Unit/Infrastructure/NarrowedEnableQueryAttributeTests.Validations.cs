@@ -289,5 +289,25 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             // then
             validateQueryAction.Should().Throw<ODataException>();
         }
+
+        // EF Core translates a column needle to a CHARINDEX that raises on a stored value over
+        // 4000 characters; a literal needle raises on none.
+        [Theory]
+        [InlineData("$filter=contains(name,other)")]
+        [InlineData("$filter=startswith(name,other)")]
+        [InlineData("$filter=endswith(name,other)")]
+        [InlineData("$filter=contains(name,tolower(other))")]
+        public void ShouldRefuseAPatternFunctionWhoseNeedleIsNotALiteral(string query)
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().Throw<ODataException>();
+        }
     }
 }
