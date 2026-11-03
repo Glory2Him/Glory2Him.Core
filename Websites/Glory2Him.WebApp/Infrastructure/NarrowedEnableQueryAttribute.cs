@@ -62,10 +62,12 @@ namespace Glory2Him.WebApp.Infrastructure
                 AdmitFilterTerm(queryOptions.Filter.FilterClause.Expression, ownEntityType);
             }
 
-            if (queryOptions.OrderBy is not null)
+            for (OrderByClause? orderByClause = queryOptions.OrderBy?.OrderByClause;
+                orderByClause is not null;
+                orderByClause = orderByClause.ThenBy)
             {
                 var ownEntityType = (IEdmStructuredType)queryOptions.Context.ElementType;
-                AdmitOrderByKey(queryOptions.OrderBy.OrderByClause.Expression, ownEntityType);
+                AdmitOrderByKey(orderByClause.Expression, ownEntityType);
             }
         }
 
