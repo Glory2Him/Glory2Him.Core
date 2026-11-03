@@ -62,10 +62,18 @@ namespace Glory2Him.WebApp.Infrastructure
                 MaxFunctionCallDepth = enableQueryAttribute.MaxFunctionCallDepth,
                 MaxNodeCount = enableQueryAttribute.MaxNodeCount,
                 MaxOrderByNodeCount = enableQueryAttribute.MaxOrderByNodeCount,
-                MaxSkip = enableQueryAttribute.MaxSkip,
-                MaxTop = enableQueryAttribute.MaxTop,
                 Order = enableQueryAttribute.Order
             };
+
+            if (enableQueryAttribute.MaxSkip != 0)
+            {
+                narrowedEnableQueryAttribute.MaxSkip = enableQueryAttribute.MaxSkip;
+            }
+
+            if (enableQueryAttribute.MaxTop != 0)
+            {
+                narrowedEnableQueryAttribute.MaxTop = enableQueryAttribute.MaxTop;
+            }
 
             if (enableQueryAttribute.PageSize != 0)
             {
