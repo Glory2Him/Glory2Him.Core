@@ -29,11 +29,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
         {
             // given
             CoreContentItem publishedContentItem = await InsertPublishedContentItemAsync();
-            CoreContentItem otherPublishedContentItem = await InsertPublishedContentItemAsync();
+            CoreContentItem otherPublishedContentItem = null;
             CoreTag publishedTag = null;
 
             try
             {
+                otherPublishedContentItem = await InsertPublishedContentItemAsync();
+
                 publishedTag = await this.apiBroker.InsertPublishedTagAsync(
                     authorUserId: "acceptance-association-reads");
 
@@ -76,8 +78,11 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 this.apiBroker.ActAsSeededAdministrator();
                 await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(publishedContentItem.Id);
 
-                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(
-                    otherPublishedContentItem.Id);
+                if (otherPublishedContentItem is not null)
+                {
+                    await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(
+                        otherPublishedContentItem.Id);
+                }
 
                 if (publishedTag is not null)
                 {
@@ -85,7 +90,11 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 }
 
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedContentItem.Id);
-                await this.apiBroker.RemoveCoreContentItemByIdAsync(otherPublishedContentItem.Id);
+
+                if (otherPublishedContentItem is not null)
+                {
+                    await this.apiBroker.RemoveCoreContentItemByIdAsync(otherPublishedContentItem.Id);
+                }
             }
         }
 
