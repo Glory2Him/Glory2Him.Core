@@ -21,6 +21,7 @@ using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Glory2Him.Core.Services.Orchestrations.Associations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OData.Query;
 using RESTFulSense.Controllers;
 
 namespace Glory2Him.WebApp.Controllers.Associations
@@ -165,6 +166,9 @@ namespace Glory2Him.WebApp.Controllers.Associations
             }
         }
 
+        [HttpGet]
+        [EnableQuery]
+        [AllowAnonymous]
         public async ValueTask<ActionResult<IQueryable<Association>>> Get(
             CancellationToken cancellationToken)
         {
