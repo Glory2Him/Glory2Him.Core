@@ -39,5 +39,21 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             // then
             validateQueryAction.Should().Throw<ODataException>();
         }
+
+        // The search the React app sends today must stay accepted, conversions and all.
+        [Fact]
+        public void ShouldAcceptTheSearchFilterShapeTheReactAppSends()
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+            string query = "$filter=" + ReactSearchShapedFilter;
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().NotThrow();
+        }
     }
 }
