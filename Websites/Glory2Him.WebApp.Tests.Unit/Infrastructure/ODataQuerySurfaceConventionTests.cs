@@ -127,6 +127,33 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             settingsHoldingTheirDefault.Should().BeEmpty();
         }
 
+        // The host registers both conventions, and the page size must reach the replacement
+        // whichever runs first. 25 is not the page size convention's fallback, so a replacement
+        // that took a size from anywhere else would read differently.
+        [Fact]
+        public void ShouldHoldTheHostsPageSizeWhenAppliedAfterThePageSizeConvention()
+        {
+            // given
+            var enableQueryAttribute = new EnableQueryAttribute();
+
+            ApplicationModel applicationModel =
+                CreateApplicationModelWithActionFilter(enableQueryAttribute);
+
+            var oDataPageSizeConvention = new ODataPageSizeConvention(pageSize: HostPageSize);
+            var oDataQuerySurfaceConvention = new ODataQuerySurfaceConvention();
+
+            // when
+            oDataPageSizeConvention.Apply(applicationModel);
+            oDataQuerySurfaceConvention.Apply(applicationModel);
+
+            // then
+            GetActionFilters(applicationModel).OfType<NarrowedEnableQueryAttribute>()
+                .Should().ContainSingle()
+                    .Which.PageSize.Should().Be(HostPageSize);
+        }
+
+        private const int HostPageSize = 25;
+
         private static readonly Dictionary<string, object> nonDefaultSettings = new()
         {
             [nameof(EnableQueryAttribute.AllowedArithmeticOperators)] = AllowedArithmeticOperators.Add,
