@@ -126,5 +126,25 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             // then
             validateQueryAction.Should().NotThrow();
         }
+
+        // The four options the walk does not read keep OData's own rules and the attribute's
+        // own settings, so each still answers as before.
+        [Theory]
+        [InlineData("$select=name,version")]
+        [InlineData("$top=5")]
+        [InlineData("$skip=1")]
+        [InlineData("$count=true")]
+        public void ShouldAcceptEachOtherOptionOfTheSix(string query)
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().NotThrow();
+        }
     }
 }
