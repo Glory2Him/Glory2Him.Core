@@ -36,5 +36,23 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             // then
             validateQueryAction.Should().Throw<ODataException>();
         }
+
+        // $compute puts a navigated column in the body, and its validator checks nothing.
+        [Theory]
+        [InlineData("$compute=version as c")]
+        [InlineData("compute=version as c")]
+        [InlineData("$Compute=version as c")]
+        public void ShouldRefuseAComputeInEverySpelling(string query)
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().Throw<ODataException>();
+        }
     }
 }
