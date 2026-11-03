@@ -174,5 +174,68 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(reactedContentItem.Id);
             }
         }
+
+        /// <summary>
+        /// The post also carries a public editorial tag, which the anonymous caller is answered,
+        /// so an answer without the reaction is the posture withholding it rather than a query
+        /// that found nothing.
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotServeAReadersReactionToAnAnonymousCallerAsync()
+        {
+            // given
+            CoreContentItem reactedContentItem = await InsertPublishedContentItemAsync();
+            CoreTag publishedTag = null;
+
+            try
+            {
+                publishedTag = await this.apiBroker.InsertPublishedTagAsync(
+                    authorUserId: "acceptance-association-reads");
+
+                CoreAssociation editorialAssociation =
+                    await this.apiBroker.InsertPublishedEditorialTagAssociationAsync(
+                        reactedContentItem,
+                        publishedTag,
+                        authorUserId: "acceptance-association-reads");
+
+                (_, Guid reactionId) = await GiveAmenAsANewReaderAsync(reactedContentItem.Id);
+
+                CoreAssociation storedReaction =
+                    await this.apiBroker.GetCoreAssociationByIdAsync(reactionId);
+
+                string contentItemAssociationsQuery =
+                    CreateContentItemAssociationsQuery(storedReaction);
+
+                this.apiBroker.ActAsAnonymous();
+
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.GetAssociationsAsync(contentItemAssociationsQuery);
+
+                // then
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                List<CoreAssociation> actualAssociations =
+                    await ReadAssociationsAsync(actualResponse);
+
+                actualAssociations.Should().ContainSingle(association =>
+                    association.Id == editorialAssociation.Id);
+
+                actualAssociations.Should().NotContain(association =>
+                    association.Id == reactionId);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(reactedContentItem.Id);
+
+                if (publishedTag is not null)
+                {
+                    await this.apiBroker.RemoveCoreTagByIdAsync(publishedTag.Id);
+                }
+
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(reactedContentItem.Id);
+            }
+        }
     }
 }
