@@ -64,9 +64,8 @@ namespace Glory2Him.WebApp.Infrastructure
 
             if (queryOptions.OrderBy is not null)
             {
-                throw new ODataException(
-                    $"The $orderby holds a key this read does not accept: a "
-                        + $"'{queryOptions.OrderBy.OrderByClause.Expression.Kind}' node.");
+                var ownEntityType = (IEdmStructuredType)queryOptions.Context.ElementType;
+                AdmitOrderByKey(queryOptions.OrderBy.OrderByClause.Expression, ownEntityType);
             }
         }
 
@@ -120,6 +119,18 @@ namespace Glory2Him.WebApp.Infrastructure
                     throw new ODataException(
                         $"The $filter holds a term this read does not accept: a '{filterTerm.Kind}' node.");
             }
+        }
+
+        private static void AdmitOrderByKey(QueryNode orderByKey, IEdmStructuredType ownEntityType)
+        {
+            if (orderByKey is SingleValuePropertyAccessNode propertyAccessNode
+                && IsOwnProperty(propertyAccessNode, ownEntityType))
+            {
+                return;
+            }
+
+            throw new ODataException(
+                $"The $orderby holds a key this read does not accept: a '{orderByKey.Kind}' node.");
         }
 
         private static bool IsAdmittedFunctionCall(
