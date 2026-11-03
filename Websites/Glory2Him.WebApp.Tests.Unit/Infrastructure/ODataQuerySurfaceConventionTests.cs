@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -195,6 +196,33 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             GetActionFilters(applicationModel).OfType<NarrowedEnableQueryAttribute>()
                 .Should().ContainSingle()
                     .Which.PageSize.Should().Be(HostPageSize);
+        }
+
+        // MaxTop and MaxSkip read an unset limit back as 0, and a 0 set through their setters
+        // refuses every positive $top and $skip. The settings test cannot tell the two apart, so
+        // this one does: the replacement validates in the host's query configuration.
+        [Fact]
+        public void ShouldKeepAnUnsetTopAndSkipLimitUnset()
+        {
+            // given
+            var enableQueryAttribute = new EnableQueryAttribute();
+
+            ApplicationModel applicationModel =
+                CreateApplicationModelWithActionFilter(enableQueryAttribute);
+
+            var oDataQuerySurfaceConvention = new ODataQuerySurfaceConvention();
+
+            // when
+            oDataQuerySurfaceConvention.Apply(applicationModel);
+
+            EnableQueryAttribute replacement =
+                GetActionFilters(applicationModel).OfType<EnableQueryAttribute>().Single();
+
+            Action validateQueryAction = () =>
+                HostQueryValidation.ValidateQuery(replacement, "$top=5&$skip=1");
+
+            // then
+            validateQueryAction.Should().NotThrow();
         }
 
         private const int HostPageSize = 25;
