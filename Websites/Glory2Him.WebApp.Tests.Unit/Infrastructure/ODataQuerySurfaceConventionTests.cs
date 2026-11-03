@@ -64,6 +64,93 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
                     .Which.Should().BeOfType<NarrowedEnableQueryAttribute>();
         }
 
+        // The replacement narrows and never widens: whatever the replaced attribute allowed or
+        // refused through its own settings, the replacement allows or refuses the same.
+        [Fact]
+        public void ShouldCarryEverySettingOfTheReplacedEnableQuery()
+        {
+            // given
+            var enableQueryAttribute = new EnableQueryAttribute();
+
+            foreach (KeyValuePair<string, object> setting in nonDefaultSettings)
+            {
+                typeof(EnableQueryAttribute).GetProperty(setting.Key)
+                    .SetValue(enableQueryAttribute, setting.Value);
+            }
+
+            ApplicationModel applicationModel =
+                CreateApplicationModelWithActionFilter(enableQueryAttribute);
+
+            var oDataQuerySurfaceConvention = new ODataQuerySurfaceConvention();
+
+            // when
+            oDataQuerySurfaceConvention.Apply(applicationModel);
+
+            // then
+            EnableQueryAttribute replacement =
+                GetActionFilters(applicationModel).OfType<EnableQueryAttribute>().Single();
+
+            Dictionary<string, object> carriedSettings = nonDefaultSettings.Keys.ToDictionary(
+                settingName => settingName,
+                settingName => typeof(EnableQueryAttribute).GetProperty(settingName)
+                    .GetValue(replacement));
+
+            carriedSettings.Should().BeEquivalentTo(nonDefaultSettings);
+        }
+
+        // Every public settable setting has a value above, and it is not the default, so a
+        // setting the convention dropped would read back differently. A setting a later OData
+        // version adds fails here until it is given one.
+        [Fact]
+        public void ShouldHoldANonDefaultValueForEverySettableSetting()
+        {
+            // given
+            var bareEnableQueryAttribute = new EnableQueryAttribute();
+
+            // when
+            string[] settableSettingNames = typeof(EnableQueryAttribute)
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                    .Where(property => property.SetMethod?.IsPublic is true)
+                        .Select(property => property.Name)
+                            .ToArray();
+
+            string[] settingsHoldingTheirDefault = nonDefaultSettings
+                .Where(setting => Equals(
+                    typeof(EnableQueryAttribute).GetProperty(setting.Key)
+                        .GetValue(bareEnableQueryAttribute),
+                    setting.Value))
+                .Select(setting => setting.Key)
+                .ToArray();
+
+            // then
+            nonDefaultSettings.Keys.Should().BeEquivalentTo(settableSettingNames);
+            settingsHoldingTheirDefault.Should().BeEmpty();
+        }
+
+        private static readonly Dictionary<string, object> nonDefaultSettings = new()
+        {
+            [nameof(EnableQueryAttribute.AllowedArithmeticOperators)] = AllowedArithmeticOperators.Add,
+            [nameof(EnableQueryAttribute.AllowedFunctions)] = AllowedFunctions.Contains,
+            [nameof(EnableQueryAttribute.AllowedLogicalOperators)] = AllowedLogicalOperators.Equal,
+            [nameof(EnableQueryAttribute.AllowedOrderByProperties)] = "name,version",
+            [nameof(EnableQueryAttribute.AllowedQueryOptions)] =
+                AllowedQueryOptions.Filter | AllowedQueryOptions.Top,
+            [nameof(EnableQueryAttribute.EnableConstantParameterization)] = false,
+            [nameof(EnableQueryAttribute.EnableCorrelatedSubqueryBuffering)] = true,
+            [nameof(EnableQueryAttribute.EnsureStableOrdering)] = false,
+            [nameof(EnableQueryAttribute.HandleNullPropagation)] = HandleNullPropagationOption.False,
+            [nameof(EnableQueryAttribute.HandleReferenceNavigationPropertyExpandFilter)] = true,
+            [nameof(EnableQueryAttribute.MaxAnyAllExpressionDepth)] = 3,
+            [nameof(EnableQueryAttribute.MaxExpansionDepth)] = 4,
+            [nameof(EnableQueryAttribute.MaxFunctionCallDepth)] = 9,
+            [nameof(EnableQueryAttribute.MaxNodeCount)] = 42,
+            [nameof(EnableQueryAttribute.MaxOrderByNodeCount)] = 6,
+            [nameof(EnableQueryAttribute.MaxSkip)] = 11,
+            [nameof(EnableQueryAttribute.MaxTop)] = 12,
+            [nameof(EnableQueryAttribute.Order)] = 13,
+            [nameof(EnableQueryAttribute.PageSize)] = 14
+        };
+
         private static IList<IFilterMetadata> GetActionFilters(ApplicationModel applicationModel) =>
             applicationModel.Controllers[0].Actions[0].Filters;
 
