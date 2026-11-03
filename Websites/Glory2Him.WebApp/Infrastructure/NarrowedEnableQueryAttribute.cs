@@ -17,6 +17,35 @@ using Microsoft.OData.UriParser;
 
 namespace Glory2Him.WebApp.Infrastructure
 {
+    /// <summary>
+    /// An <see cref="EnableQueryAttribute"/> that accepts only the query a caller cannot use to
+    /// learn about rows it may not see (GHSA-3m43-v266-m6qf).
+    ///
+    /// <para><b>Why the posture beneath the attribute is not enough.</b> A read's visibility
+    /// filter is composed into the same SQL as the caller's options, and SQL Server does not
+    /// promise to evaluate the filter's terms first. A caller term that can raise on a stored
+    /// value can therefore raise on a row the caller may not see, and the answer then differs
+    /// from the one it would get if that row did not exist. A term that reaches through a
+    /// navigation tests rows the posture never filters at all.</para>
+    ///
+    /// <para><b>What it accepts.</b> <c>$filter</c>, <c>$orderby</c>, <c>$select</c>,
+    /// <c>$top</c>, <c>$skip</c> and <c>$count</c>, and no other option, whatever the
+    /// attribute's own <see cref="EnableQueryAttribute.AllowedQueryOptions"/> allow. The rule
+    /// reads the options OData parsed, never the query string's keys, because OData maps every
+    /// spelling of an option, with or without its <c>$</c> and in any letter case, to the same
+    /// parsed option. <c>$filter</c> and <c>$orderby</c> are then walked, node by node, against
+    /// an allowlist of terms that cannot raise on any stored value in reach and that reach only
+    /// the read's own entity. A node the allowlist does not name is refused wherever it sits;
+    /// nothing is accepted because no rule names it.</para>
+    ///
+    /// <para><b>How it refuses.</b> Every refusal is an <see cref="ODataException"/>, which the
+    /// attribute answers with <c>400</c> while it validates, before the caller's options reach
+    /// the query. That answer is the same whatever the table holds and whoever asks, and its
+    /// message names only what the caller sent.</para>
+    ///
+    /// <para><b>It narrows and never widens.</b> The base validation runs first, so every
+    /// setting the attribute carries still refuses what it refused before.</para>
+    /// </summary>
     public sealed class NarrowedEnableQueryAttribute : EnableQueryAttribute
     {
         private static readonly string[] sixAcceptedOptionNames =
@@ -58,18 +87,25 @@ namespace Glory2Him.WebApp.Infrastructure
 
             if (queryOptions.Filter is not null)
             {
-                var ownEntityType = (IEdmStructuredType)queryOptions.Context.ElementType;
-                AdmitFilterTerm(queryOptions.Filter.FilterClause.Expression, ownEntityType);
+                AdmitFilterTerm(
+                    filterTerm: queryOptions.Filter.FilterClause.Expression,
+                    ownEntityType: GetOwnEntityType(queryOptions));
             }
 
+            // OData parses the first key into the clause's Expression and each later key into
+            // its ThenBy, so the whole chain is walked, not the first key alone.
             for (OrderByClause? orderByClause = queryOptions.OrderBy?.OrderByClause;
                 orderByClause is not null;
                 orderByClause = orderByClause.ThenBy)
             {
-                var ownEntityType = (IEdmStructuredType)queryOptions.Context.ElementType;
-                AdmitOrderByKey(orderByClause.Expression, ownEntityType);
+                AdmitOrderByKey(
+                    orderByKey: orderByClause.Expression,
+                    ownEntityType: GetOwnEntityType(queryOptions));
             }
         }
+
+        private static IEdmStructuredType GetOwnEntityType(ODataQueryOptions queryOptions) =>
+            (IEdmStructuredType)queryOptions.Context.ElementType;
 
         private static void RefuseOptionsOutsideTheSix(ODataRawQueryOptions rawValues)
         {
@@ -83,6 +119,9 @@ namespace Glory2Him.WebApp.Infrastructure
             }
         }
 
+        // The admitted node kinds, each with its condition, walking every child the kind names.
+        // A conversion is one OData inserts to bring two sides to a common type or lift a value to
+        // its nullable form, so it widens and never narrows; cast() is a function call, not one.
         private static void AdmitFilterTerm(QueryNode filterTerm, IEdmStructuredType ownEntityType)
         {
             switch (filterTerm)
@@ -123,6 +162,7 @@ namespace Glory2Him.WebApp.Infrastructure
             }
         }
 
+        // Each key is exactly one of the entity's own properties, ascending or descending.
         private static void AdmitOrderByKey(QueryNode orderByKey, IEdmStructuredType ownEntityType)
         {
             if (orderByKey is SingleValuePropertyAccessNode propertyAccessNode
@@ -195,6 +235,8 @@ namespace Glory2Him.WebApp.Infrastructure
         private static bool IsStringLiteral(QueryNode parameter) =>
             parameter is ConstantNode constantNode && constantNode.TypeReference?.IsString() is true;
 
+        // A structural property declared on the read's own entity, reached from $it. Lambdas are
+        // refused, so no other range variable exists to be a source.
         private static bool IsOwnProperty(
             SingleValuePropertyAccessNode propertyAccessNode,
             IEdmStructuredType ownEntityType)
