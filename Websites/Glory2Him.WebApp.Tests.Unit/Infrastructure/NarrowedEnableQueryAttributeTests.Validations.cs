@@ -54,5 +54,22 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             // then
             validateQueryAction.Should().Throw<ODataException>();
         }
+
+        // $search is accepted and ignored today, so nothing a caller sends through it is needed.
+        [Theory]
+        [InlineData("$search=x")]
+        [InlineData("search=x")]
+        public void ShouldRefuseASearchInEverySpelling(string query)
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().Throw<ODataException>();
+        }
     }
 }
