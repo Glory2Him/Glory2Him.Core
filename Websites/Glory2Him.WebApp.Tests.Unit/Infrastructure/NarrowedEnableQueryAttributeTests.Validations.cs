@@ -12,6 +12,7 @@
 using System;
 using FluentAssertions;
 using Glory2Him.WebApp.Infrastructure;
+using Microsoft.AspNetCore.OData.Query;
 using Microsoft.OData;
 
 namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
@@ -80,6 +81,28 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
         {
             // given
             var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().Throw<ODataException>();
+        }
+
+        // The six are named by the rule itself, not by the attribute's AllowedQueryOptions,
+        // whose default already includes $apply, $compute and $search. So an attribute that
+        // allows every option still has every option outside the six refused.
+        [Fact]
+        public void ShouldRefuseAnOptionOutsideTheSixThatTheAttributeAllows()
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute
+            {
+                AllowedQueryOptions = AllowedQueryOptions.All
+            };
+
+            string query = "$deltatoken=abc";
 
             // when
             Action validateQueryAction = () =>
