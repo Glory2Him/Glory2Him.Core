@@ -31,7 +31,7 @@ namespace Glory2Him.WebApp.Controllers.Associations
     /// <see cref="IAssociationOrchestrationService"/> alone (§EVN13 rule 3), holds no logic, and
     /// maps the orchestration's exception families onto status codes. Its routes are added by the
     /// work that needs them rather than all at once: today it serves the upsert, the pair-keyed
-    /// withdrawal, the reaction summary read and the read by id.
+    /// withdrawal, the reaction summary read, the collection read and the read by id.
     ///
     /// <para><b>The upsert answers <c>201</c> only when a row was created, and <c>200</c>
     /// otherwise</b>, with the result rather than the row as the body. Both depart from
@@ -51,6 +51,14 @@ namespace Glory2Him.WebApp.Controllers.Associations
     /// counts are the same whoever asks, so a signed-out reader is served rather than refused;
     /// and with no <c>[EnableQuery]</c>, no <c>$</c>-prefixed option can reshape the answer
     /// (§ARC16.8, <i>The route</i>).</para>
+    ///
+    /// <para><b>The collection read is open to every caller and hands up the orchestration's
+    /// queryable unenumerated</b>, so <c>[EnableQuery]</c> composes over it and its options run
+    /// in SQL with everything beneath it. Which rows a caller is answered is decided beneath it,
+    /// so a <c>$filter</c> finds nothing the caller may not see, one on <c>userId</c> included
+    /// (§SEC14.7 posture A′ rule 7). It names no page size of its own: the host's reaches it
+    /// through <c>ODataPageSizeConvention</c>. It maps the dependency and service families alone,
+    /// because it takes no input and nothing beneath it refuses a caller.</para>
     ///
     /// <para><b>The read by id is open to every caller and answers every miss <c>404</c> with one
     /// body.</b> Which rows a caller is answered is decided beneath it. No row, a row taken down,
