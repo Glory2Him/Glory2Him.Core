@@ -165,9 +165,15 @@ namespace Glory2Him.WebApp.Controllers.Associations
             }
         }
 
-        public ValueTask<ActionResult<IQueryable<Association>>> Get(
-            CancellationToken cancellationToken) =>
-            throw new NotImplementedException();
+        public async ValueTask<ActionResult<IQueryable<Association>>> Get(
+            CancellationToken cancellationToken)
+        {
+            IQueryable<Association> associations =
+                await this.associationOrchestrationService.RetrieveAllAssociationsAsync(
+                    cancellationToken);
+
+            return Ok(associations);
+        }
 
         [HttpGet("{associationId}")]
         [AllowAnonymous]
