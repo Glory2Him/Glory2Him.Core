@@ -21,6 +21,8 @@ namespace Glory2Him.WebApp.Infrastructure
         {
             foreach (ControllerModel controller in application.Controllers)
             {
+                NarrowEnableQueryAttributes(controller.Filters);
+
                 foreach (ActionModel action in controller.Actions)
                 {
                     NarrowEnableQueryAttributes(action.Filters);
