@@ -16,6 +16,7 @@ using System.Reflection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.OData.UriParser;
+using static Glory2Him.WebApp.Tests.Unit.Infrastructure.HostQueryValidation;
 
 namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
 {
