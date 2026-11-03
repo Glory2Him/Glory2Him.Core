@@ -237,5 +237,58 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(reactedContentItem.Id);
             }
         }
+
+        /// <summary>
+        /// §SEC14.7 posture A′ rule 7, <i>Why</i>: under <c>[EnableQuery]</c> a <c>$filter</c> on
+        /// <c>userId</c> would otherwise list one reader's reactions. The review tier asks the
+        /// same query first and is answered the reaction, so the empty answer is the posture
+        /// withholding it rather than a filter that matches no row.
+        /// </summary>
+        [Fact]
+        public async Task ShouldFindNoOtherReadersReactionByFilteringOnUserIdAsync()
+        {
+            // given
+            CoreContentItem reactedContentItem = await InsertPublishedContentItemAsync();
+
+            try
+            {
+                (string firstReaderId, Guid reactionId) =
+                    await GiveAmenAsANewReaderAsync(reactedContentItem.Id);
+
+                string userIdQuery =
+                    $"$filter={Uri.EscapeDataString($"userId eq '{firstReaderId}'")}";
+
+                this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators);
+
+                HttpResponseMessage reviewTierResponse =
+                    await this.apiBroker.GetAssociationsAsync(userIdQuery);
+
+                List<CoreAssociation> reviewTierAssociations =
+                    await ReadAssociationsAsync(reviewTierResponse);
+
+                this.apiBroker.ActAsContributor();
+
+                // when
+                HttpResponseMessage actualResponse =
+                    await this.apiBroker.GetAssociationsAsync(userIdQuery);
+
+                // then
+                reviewTierAssociations.Should().ContainSingle(association =>
+                    association.Id == reactionId);
+
+                actualResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                List<CoreAssociation> actualAssociations =
+                    await ReadAssociationsAsync(actualResponse);
+
+                actualAssociations.Should().BeEmpty();
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreAssociationsOnContentItemAsync(reactedContentItem.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(reactedContentItem.Id);
+            }
+        }
     }
 }
