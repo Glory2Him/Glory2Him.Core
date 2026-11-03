@@ -520,5 +520,61 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             operatorsWithoutAFilterRow.Should().BeEmpty();
             operatorsWithoutAnOrderByRow.Should().BeEmpty();
         }
+
+        // Every function the parser binds as a SingleValueFunctionCall, other than the five, in
+        // every $filter position and as the first and second $orderby key in both spellings.
+        [Theory]
+        [MemberData(nameof(KeptFunctionRows))]
+        public void ShouldRefuseEveryFunctionOutsideTheFive(string row, string query)
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().Throw<ODataException>(because: row);
+        }
+
+        // Every pinned name outside the five is called in a kept $filter row and a kept $orderby
+        // row, or listed as one that cannot bind on the test model, with its reason.
+        [Fact]
+        public void ShouldPlaceEveryPinnedFunctionNameOutsideTheFive()
+        {
+            // given
+            string[] namesOutsideTheFive = pinnedFunctionNames.Except(fiveAdmittedFunctionNames).ToArray();
+            string[] listedNames = functionNamesThatCannotBind.Select(entry => entry.Name).ToArray();
+
+            // when
+            string[] namesWithoutAFilterRow = namesOutsideTheFive
+                .Where(name => keptFunctionFilterRows.Value.Any(row => CallsFunction(row, name)) is false)
+                    .Except(listedNames)
+                        .ToArray();
+
+            string[] namesWithoutAnOrderByRow = namesOutsideTheFive
+                .Where(name => keptFunctionOrderByRows.Value.Any(row => CallsFunction(row, name)) is false)
+                    .Except(listedNames)
+                        .ToArray();
+
+            // then
+            namesWithoutAFilterRow.Should().BeEmpty();
+            namesWithoutAnOrderByRow.Should().BeEmpty();
+        }
+
+        // The pinned names are 8.4.0's, the version Microsoft.AspNetCore.OData 9.5.0 resolves.
+        [Fact]
+        public void ShouldResolveTheODataCoreVersionTheFunctionNamesArePinnedTo()
+        {
+            // given
+            var pinnedODataCoreVersion = new Version(8, 4, 0, 0);
+
+            // when
+            Version resolvedODataCoreVersion = typeof(ODataUriParser).Assembly.GetName().Version;
+
+            // then
+            resolvedODataCoreVersion.Should().Be(pinnedODataCoreVersion);
+        }
     }
 }
