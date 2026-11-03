@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System.Reflection;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.OData;
 
@@ -16,6 +17,22 @@ namespace Glory2Him.WebApp.Infrastructure
 {
     public sealed class NarrowedEnableQueryAttribute : EnableQueryAttribute
     {
+        private static readonly string[] sixAcceptedOptionNames =
+        {
+            nameof(ODataRawQueryOptions.Filter),
+            nameof(ODataRawQueryOptions.OrderBy),
+            nameof(ODataRawQueryOptions.Select),
+            nameof(ODataRawQueryOptions.Top),
+            nameof(ODataRawQueryOptions.Skip),
+            nameof(ODataRawQueryOptions.Count)
+        };
+
+        private static readonly PropertyInfo[] optionsOutsideTheSix =
+            typeof(ODataRawQueryOptions)
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                    .Where(option => sixAcceptedOptionNames.Contains(option.Name) is false)
+                        .ToArray();
+
         public override void ValidateQuery(HttpRequest request, ODataQueryOptions queryOptions)
         {
             base.ValidateQuery(request, queryOptions);
@@ -24,17 +41,13 @@ namespace Glory2Him.WebApp.Infrastructure
 
         private static void RefuseOptionsOutsideTheSix(ODataRawQueryOptions rawValues)
         {
-            RefuseOptionWhenSent(optionName: "$apply", rawValue: rawValues.Apply);
-            RefuseOptionWhenSent(optionName: "$compute", rawValue: rawValues.Compute);
-            RefuseOptionWhenSent(optionName: "$search", rawValue: rawValues.Search);
-            RefuseOptionWhenSent(optionName: "$format", rawValue: rawValues.Format);
-        }
-
-        private static void RefuseOptionWhenSent(string optionName, string? rawValue)
-        {
-            if (rawValue is not null)
+            foreach (PropertyInfo option in optionsOutsideTheSix)
             {
-                throw new ODataException($"The query option '{optionName}' is not accepted by this read.");
+                if (option.GetValue(rawValues) is not null)
+                {
+                    throw new ODataException(
+                        $"The query option '${option.Name.ToLowerInvariant()}' is not accepted by this read.");
+                }
             }
         }
     }
