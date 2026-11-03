@@ -185,6 +185,11 @@ namespace Glory2Him.WebApp.Controllers.Associations
             {
                 return FailedDependency(associationOrchestrationDependencyException.InnerException);
             }
+            catch (AssociationOrchestrationServiceException
+                associationOrchestrationServiceException)
+            {
+                return InternalServerError(associationOrchestrationServiceException);
+            }
         }
 
         [HttpGet("{associationId}")]
