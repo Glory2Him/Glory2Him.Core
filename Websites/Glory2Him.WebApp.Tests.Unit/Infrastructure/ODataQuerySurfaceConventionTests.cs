@@ -127,6 +127,29 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             settingsHoldingTheirDefault.Should().BeEmpty();
         }
 
+        // An action that is not queryable keeps exactly the filters it had, in their order.
+        [Fact]
+        public void ShouldLeaveTheFiltersOfAnActionWithNoEnableQueryUnchanged()
+        {
+            // given
+            var producesAttribute = new ProducesAttribute("application/json");
+
+            ApplicationModel applicationModel =
+                CreateApplicationModelWithActionFilter(producesAttribute);
+
+            var responseCacheAttribute = new ResponseCacheAttribute { NoStore = true };
+            GetActionFilters(applicationModel).Add(responseCacheAttribute);
+
+            IFilterMetadata[] expectedFilters = { producesAttribute, responseCacheAttribute };
+            var oDataQuerySurfaceConvention = new ODataQuerySurfaceConvention();
+
+            // when
+            oDataQuerySurfaceConvention.Apply(applicationModel);
+
+            // then
+            GetActionFilters(applicationModel).Should().Equal(expectedFilters);
+        }
+
         // The host registers both conventions, and the page size must reach the replacement
         // whichever runs first. 25 is not the page size convention's fallback, so a replacement
         // that took a size from anywhere else would read differently.
