@@ -18,6 +18,8 @@ namespace Glory2Him.WebApp.Infrastructure
     {
         public override void ValidateQuery(HttpRequest request, ODataQueryOptions queryOptions)
         {
+            base.ValidateQuery(request, queryOptions);
+
             if (queryOptions.RawValues.Apply is not null)
             {
                 throw new ODataException("The query option '$apply' is not accepted by this read.");
