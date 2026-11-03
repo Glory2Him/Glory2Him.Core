@@ -10,6 +10,8 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
+using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.OData.Query;
 
 namespace Glory2Him.WebApp.Infrastructure
 {
@@ -17,6 +19,24 @@ namespace Glory2Him.WebApp.Infrastructure
     {
         public void Apply(ApplicationModel application)
         {
+            foreach (ControllerModel controller in application.Controllers)
+            {
+                foreach (ActionModel action in controller.Actions)
+                {
+                    NarrowEnableQueryAttributes(action.Filters);
+                }
+            }
+        }
+
+        private static void NarrowEnableQueryAttributes(IList<IFilterMetadata> filters)
+        {
+            for (int index = 0; index < filters.Count; index++)
+            {
+                if (filters[index] is EnableQueryAttribute)
+                {
+                    filters[index] = new NarrowedEnableQueryAttribute();
+                }
+            }
         }
     }
 }
