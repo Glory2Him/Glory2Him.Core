@@ -43,8 +43,38 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
                     .Which.Should().BeOfType<NarrowedEnableQueryAttribute>();
         }
 
+        // [EnableQuery] is legal on the controller too, where it covers every action at once.
+        [Fact]
+        public void ShouldNarrowAControllersBareEnableQuery()
+        {
+            // given
+            var enableQueryAttribute = new EnableQueryAttribute();
+
+            ApplicationModel applicationModel =
+                CreateApplicationModelWithControllerFilter(enableQueryAttribute);
+
+            var oDataQuerySurfaceConvention = new ODataQuerySurfaceConvention();
+
+            // when
+            oDataQuerySurfaceConvention.Apply(applicationModel);
+
+            // then
+            applicationModel.Controllers[0].Filters.OfType<EnableQueryAttribute>()
+                .Should().ContainSingle()
+                    .Which.Should().BeOfType<NarrowedEnableQueryAttribute>();
+        }
+
         private static IList<IFilterMetadata> GetActionFilters(ApplicationModel applicationModel) =>
             applicationModel.Controllers[0].Actions[0].Filters;
+
+        private static ApplicationModel CreateApplicationModelWithControllerFilter(
+            IFilterMetadata filter)
+        {
+            ApplicationModel applicationModel = CreateApplicationModel();
+            applicationModel.Controllers[0].Filters.Add(filter);
+
+            return applicationModel;
+        }
 
         private static ApplicationModel CreateApplicationModelWithActionFilter(
             IFilterMetadata filter)
