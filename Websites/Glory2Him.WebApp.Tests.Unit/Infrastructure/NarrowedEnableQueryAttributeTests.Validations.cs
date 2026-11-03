@@ -141,5 +141,29 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             // then
             validateQueryAction.Should().Throw<ODataException>();
         }
+
+        // OData parses the first key into OrderByClause.Expression and each later key into
+        // ThenBy, so a key after an accepted one is refused as the first would be.
+        [Theory]
+        [InlineData("$orderby=name,1 div version")]
+        [InlineData("orderby=name,1 div version")]
+        [InlineData("$orderby=name,tolower(name)")]
+        [InlineData("orderby=name,tolower(name)")]
+        [InlineData("$orderby=name,parent/title")]
+        [InlineData("orderby=name,parent/title")]
+        [InlineData("$orderby=name,children/$count")]
+        [InlineData("orderby=name,children/$count")]
+        public void ShouldRefuseAnOrderByWhoseSecondKeyIsRefused(string query)
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().Throw<ODataException>();
+        }
     }
 }
