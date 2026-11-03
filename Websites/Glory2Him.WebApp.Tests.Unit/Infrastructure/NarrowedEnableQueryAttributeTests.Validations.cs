@@ -270,5 +270,24 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             // then
             validateQueryAction.Should().Throw<ODataException>();
         }
+
+        // The walk reads the parsed clause, so a refused term is refused whichever spelling
+        // carries it.
+        [Theory]
+        [InlineData("filter=version mul 2 eq 4")]
+        [InlineData("$FILTER=version mul 2 eq 4")]
+        [InlineData("orderby=1 div version")]
+        public void ShouldRefuseARefusedTermInEverySpellingOfItsOption(string query)
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().Throw<ODataException>();
+        }
     }
 }
