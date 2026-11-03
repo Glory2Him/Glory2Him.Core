@@ -55,5 +55,61 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             // then
             validateQueryAction.Should().NotThrow();
         }
+
+        // One row per term the allowlist names. Each passes under a bare attribute too: what
+        // they pin is that the walk is no narrower than the allowlist.
+        [Theory]
+        [InlineData("version eq 1")]
+        [InlineData("version ne 1")]
+        [InlineData("version gt 1")]
+        [InlineData("version ge 1")]
+        [InlineData("version lt 1")]
+        [InlineData("version le 1")]
+        [InlineData("kinds has 'Alpha'")]
+        [InlineData("name in ('a','b')")]
+        [InlineData("version eq 1 and version ne 2")]
+        [InlineData("version eq 1 or version eq 2")]
+        [InlineData("not (version eq 1)")]
+        [InlineData("groupId eq null")]
+        [InlineData("groupId ne null")]
+        [InlineData("kinds eq 'Beta'")]
+        [InlineData("contains(name,'x')")]
+        [InlineData("startswith(name,'x')")]
+        [InlineData("endswith(name,'x')")]
+        [InlineData("contains(tolower(name),'x')")]
+        [InlineData("startswith(tolower(name),'x')")]
+        [InlineData("endswith(tolower(name),'x')")]
+        [InlineData("contains(toupper(name),'X')")]
+        [InlineData("startswith(toupper(name),'X')")]
+        [InlineData("endswith(toupper(name),'X')")]
+        [InlineData("tolower(name) eq 'x'")]
+        [InlineData("toupper(name) eq 'X'")]
+        [InlineData("contains(fixed,'x')")]
+        [InlineData("startswith(fixed,'x')")]
+        [InlineData("endswith(fixed,'x')")]
+        [InlineData("contains(tolower(fixed),'x')")]
+        [InlineData("startswith(tolower(fixed),'x')")]
+        [InlineData("endswith(tolower(fixed),'x')")]
+        [InlineData("contains(toupper(fixed),'X')")]
+        [InlineData("startswith(toupper(fixed),'X')")]
+        [InlineData("endswith(toupper(fixed),'X')")]
+        [InlineData("tolower(fixed) eq 'x'")]
+        [InlineData("toupper(fixed) eq 'X'")]
+        [InlineData("version eq 5000000000")]
+        [InlineData("version eq 1.5")]
+        [InlineData("score eq 1.5")]
+        public void ShouldAcceptAFilterHoldingOneAllowlistedTerm(string filter)
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+            string query = "$filter=" + filter;
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().NotThrow();
+        }
     }
 }
