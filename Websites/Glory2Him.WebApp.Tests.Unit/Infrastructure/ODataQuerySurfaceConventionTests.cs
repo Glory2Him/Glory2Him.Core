@@ -152,6 +152,28 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
                     .Which.PageSize.Should().Be(HostPageSize);
         }
 
+        [Fact]
+        public void ShouldHoldTheHostsPageSizeWhenAppliedBeforeThePageSizeConvention()
+        {
+            // given
+            var enableQueryAttribute = new EnableQueryAttribute();
+
+            ApplicationModel applicationModel =
+                CreateApplicationModelWithActionFilter(enableQueryAttribute);
+
+            var oDataQuerySurfaceConvention = new ODataQuerySurfaceConvention();
+            var oDataPageSizeConvention = new ODataPageSizeConvention(pageSize: HostPageSize);
+
+            // when
+            oDataQuerySurfaceConvention.Apply(applicationModel);
+            oDataPageSizeConvention.Apply(applicationModel);
+
+            // then
+            GetActionFilters(applicationModel).OfType<NarrowedEnableQueryAttribute>()
+                .Should().ContainSingle()
+                    .Which.PageSize.Should().Be(HostPageSize);
+        }
+
         private const int HostPageSize = 25;
 
         private static readonly Dictionary<string, object> nonDefaultSettings = new()
