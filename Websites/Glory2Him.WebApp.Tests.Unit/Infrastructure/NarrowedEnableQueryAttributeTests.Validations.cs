@@ -71,5 +71,22 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             // then
             validateQueryAction.Should().Throw<ODataException>();
         }
+
+        // $format is accepted today, and no read needs a caller to choose its format.
+        [Theory]
+        [InlineData("$format=json")]
+        [InlineData("format=json")]
+        public void ShouldRefuseAFormatInEverySpelling(string query)
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().Throw<ODataException>();
+        }
     }
 }
