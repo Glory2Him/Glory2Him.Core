@@ -10,10 +10,12 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using FluentAssertions;
 using Glory2Him.WebApp.Infrastructure;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.OData;
+using Microsoft.OData.UriParser;
 
 namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
 {
@@ -384,6 +386,50 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
 
             // then
             validateQueryAction.Should().Throw<ODataException>();
+        }
+
+        // Every node kind outside the table, in every $filter position a bare attribute
+        // accepts it in. The rows are generated, so a walk that refuses only what a named
+        // example names fails here.
+        [Theory]
+        [MemberData(nameof(KeptNodeKindFilterRows))]
+        public void ShouldRefuseEveryNodeKindOutsideTheTableInEveryFilterPosition(string row, string query)
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().Throw<ODataException>(because: row);
+        }
+
+        // Every QueryNodeKind is admitted, held by a kept $filter row, or listed with its reason.
+        [Fact]
+        public void ShouldPlaceEveryNodeKindOutsideTheTableForTheFilterPositions()
+        {
+            // given
+            QueryNodeKind[] kindsOutsideTheTable =
+                Enum.GetValues<QueryNodeKind>().Except(admittedNodeKinds).ToArray();
+
+            // when
+            QueryNodeKind[] unplacedKinds = kindsOutsideTheTable
+                .Where(kind => keptNodeKindFilterRows.Value.Any(row => HoldsKind(row, kind)) is false)
+                    .Where(kind => nodeKindsWithoutARow.Any(entry => entry.Kind == kind) is false)
+                        .ToArray();
+
+            string[] listedSeedRowsABareAttributeAccepts = nodeKindsWithoutARow
+                .Where(entry => entry.Seed is not null)
+                    .SelectMany(entry => GenerateFilterRows(entry.Seed))
+                        .Where(row => TryValidateUnderABareAttribute(row.Query, out _))
+                            .Select(row => row.Query)
+                                .ToArray();
+
+            // then
+            unplacedKinds.Should().BeEmpty();
+            listedSeedRowsABareAttributeAccepts.Should().BeEmpty();
         }
     }
 }

@@ -42,6 +42,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
         private const string QueryModelNamespace = "Glory2Him.WebApp.Tests.Unit.Infrastructure.QueryModels";
         private const string ItemTypeName = QueryModelNamespace + "." + nameof(QueryItem);
         private const string ParentTypeName = QueryModelNamespace + "." + nameof(QueryItemParent);
+        private const string ChildTypeName = QueryModelNamespace + "." + nameof(QueryItemChild);
 
         private static readonly IServiceProvider hostQueryServices = CreateHostQueryServices();
         private static readonly ControllerActionDescriptor queryableReadDescriptor = new();
