@@ -477,5 +477,48 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             unplacedKinds.Should().BeEmpty();
             listedSeedRowsABareAttributeAccepts.Should().BeEmpty();
         }
+
+        // Every binary and unary operator outside the table, in every $filter position and as
+        // the first and second $orderby key in both spellings.
+        [Theory]
+        [MemberData(nameof(KeptOperatorRows))]
+        public void ShouldRefuseEveryOperatorOutsideTheTable(string row, string query)
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().Throw<ODataException>(because: row);
+        }
+
+        // Every BinaryOperatorKind and UnaryOperatorKind is admitted, or held by a kept $filter
+        // row and a kept $orderby row.
+        [Fact]
+        public void ShouldPlaceEveryOperatorOutsideTheTable()
+        {
+            // given
+            Enum[] operatorsOutsideTheTable = Enum.GetValues<BinaryOperatorKind>()
+                .Except(admittedBinaryOperators)
+                    .Cast<Enum>()
+                        .Concat(Enum.GetValues<UnaryOperatorKind>().Except(admittedUnaryOperators).Cast<Enum>())
+                            .ToArray();
+
+            // when
+            Enum[] operatorsWithoutAFilterRow = operatorsOutsideTheTable
+                .Where(operatorKind => keptOperatorFilterRows.Value.Any(row => HoldsOperator(row, operatorKind)) is false)
+                    .ToArray();
+
+            Enum[] operatorsWithoutAnOrderByRow = operatorsOutsideTheTable
+                .Where(operatorKind => keptOperatorOrderByRows.Value.Any(row => HoldsOperator(row, operatorKind)) is false)
+                    .ToArray();
+
+            // then
+            operatorsWithoutAFilterRow.Should().BeEmpty();
+            operatorsWithoutAnOrderByRow.Should().BeEmpty();
+        }
     }
 }
