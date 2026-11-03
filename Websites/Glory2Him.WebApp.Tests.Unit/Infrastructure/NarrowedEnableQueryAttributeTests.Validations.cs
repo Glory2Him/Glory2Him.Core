@@ -431,5 +431,51 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             unplacedKinds.Should().BeEmpty();
             listedSeedRowsABareAttributeAccepts.Should().BeEmpty();
         }
+
+        // Every node kind except an own property and its $it source, as the first key and as
+        // the second, in both spellings: a node at the key's root, or beneath one the $filter
+        // table admits, as the seeds for the admitted kinds put it.
+        [Theory]
+        [MemberData(nameof(KeptNodeKindOrderByRows))]
+        public void ShouldRefuseEveryNodeKindButAnOwnPropertyAsAnOrderByKey(string row, string query)
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().Throw<ODataException>(because: row);
+        }
+
+        // Every QueryNodeKind but the own property and its source is held by a kept $orderby
+        // row, or listed with its reason.
+        [Fact]
+        public void ShouldPlaceEveryNodeKindButAnOwnPropertyForTheOrderByKeys()
+        {
+            // given
+            QueryNodeKind[] kindsRefusedAsAKey = Enum.GetValues<QueryNodeKind>()
+                .Except(new[] { QueryNodeKind.SingleValuePropertyAccess, QueryNodeKind.ResourceRangeVariableReference })
+                    .ToArray();
+
+            // when
+            QueryNodeKind[] unplacedKinds = kindsRefusedAsAKey
+                .Where(kind => keptNodeKindOrderByRows.Value.Any(row => HoldsKind(row, kind)) is false)
+                    .Where(kind => nodeKindsWithoutARow.Any(entry => entry.Kind == kind) is false)
+                        .ToArray();
+
+            string[] listedSeedRowsABareAttributeAccepts = nodeKindsWithoutARow
+                .Where(entry => entry.Seed is not null)
+                    .SelectMany(entry => GenerateOrderByRows(entry.Seed))
+                        .Where(row => TryValidateUnderABareAttribute(row.Query, out _))
+                            .Select(row => row.Query)
+                                .ToArray();
+
+            // then
+            unplacedKinds.Should().BeEmpty();
+            listedSeedRowsABareAttributeAccepts.Should().BeEmpty();
+        }
     }
 }
