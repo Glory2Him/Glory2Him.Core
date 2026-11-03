@@ -10,10 +10,18 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using Microsoft.AspNetCore.OData.Query;
+using Microsoft.OData;
 
 namespace Glory2Him.WebApp.Infrastructure
 {
     public sealed class NarrowedEnableQueryAttribute : EnableQueryAttribute
     {
+        public override void ValidateQuery(HttpRequest request, ODataQueryOptions queryOptions)
+        {
+            if (queryOptions.RawValues.Apply is not null)
+            {
+                throw new ODataException("The query option '$apply' is not accepted by this read.");
+            }
+        }
     }
 }
