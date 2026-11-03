@@ -111,5 +111,20 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             // then
             validateQueryAction.Should().NotThrow();
         }
+
+        [Fact]
+        public void ShouldAcceptAnOrderByNamingTheEntitysOwnProperties()
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+            string query = "$orderby=name,version desc";
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().NotThrow();
+        }
     }
 }
