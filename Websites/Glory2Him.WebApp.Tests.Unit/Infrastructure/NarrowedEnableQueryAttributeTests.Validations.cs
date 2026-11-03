@@ -1,0 +1,40 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
+using FluentAssertions;
+using Glory2Him.WebApp.Infrastructure;
+using Microsoft.OData;
+
+namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
+{
+    public partial class NarrowedEnableQueryAttributeTests
+    {
+        // $apply carries the same terms as $filter, has no validator of its own and is applied
+        // first. OData maps every spelling to the same parsed option.
+        [Theory]
+        [InlineData("$apply=filter(version eq 1)")]
+        [InlineData("apply=filter(version eq 1)")]
+        [InlineData("$APPLY=filter(version eq 1)")]
+        public void ShouldRefuseAnApplyInEverySpelling(string query)
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().Throw<ODataException>();
+        }
+    }
+}
