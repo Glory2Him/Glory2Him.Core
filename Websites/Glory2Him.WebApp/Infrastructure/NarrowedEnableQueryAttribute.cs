@@ -12,6 +12,7 @@
 using System.Reflection;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.OData;
+using Microsoft.OData.UriParser;
 
 namespace Glory2Him.WebApp.Infrastructure
 {
@@ -37,6 +38,11 @@ namespace Glory2Him.WebApp.Infrastructure
         {
             base.ValidateQuery(request, queryOptions);
             RefuseOptionsOutsideTheSix(queryOptions.RawValues);
+
+            if (queryOptions.Filter is not null)
+            {
+                AdmitFilterTerm(queryOptions.Filter.FilterClause.Expression);
+            }
         }
 
         private static void RefuseOptionsOutsideTheSix(ODataRawQueryOptions rawValues)
@@ -50,5 +56,9 @@ namespace Glory2Him.WebApp.Infrastructure
                 }
             }
         }
+
+        private static void AdmitFilterTerm(QueryNode filterTerm) =>
+            throw new ODataException(
+                $"The $filter holds a term this read does not accept: a '{filterTerm.Kind}' node.");
     }
 }
