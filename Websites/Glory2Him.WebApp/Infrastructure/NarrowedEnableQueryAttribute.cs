@@ -27,6 +27,7 @@ namespace Glory2Him.WebApp.Infrastructure
             RefuseOptionWhenSent(optionName: "$apply", rawValue: rawValues.Apply);
             RefuseOptionWhenSent(optionName: "$compute", rawValue: rawValues.Compute);
             RefuseOptionWhenSent(optionName: "$search", rawValue: rawValues.Search);
+            RefuseOptionWhenSent(optionName: "$format", rawValue: rawValues.Format);
         }
 
         private static void RefuseOptionWhenSent(string optionName, string? rawValue)
