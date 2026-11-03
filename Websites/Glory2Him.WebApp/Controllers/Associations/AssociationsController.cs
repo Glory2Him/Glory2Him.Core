@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.Associations;
@@ -163,6 +164,10 @@ namespace Glory2Him.WebApp.Controllers.Associations
                 return InternalServerError(associationOrchestrationServiceException);
             }
         }
+
+        public ValueTask<ActionResult<IQueryable<Association>>> Get(
+            CancellationToken cancellationToken) =>
+            throw new NotImplementedException();
 
         [HttpGet("{associationId}")]
         [AllowAnonymous]
