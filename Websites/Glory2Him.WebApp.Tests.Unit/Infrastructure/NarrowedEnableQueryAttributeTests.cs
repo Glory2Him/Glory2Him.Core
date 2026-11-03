@@ -30,6 +30,13 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
     /// </summary>
     public partial class NarrowedEnableQueryAttributeTests
     {
+        // The React search's shape: two case-folded pattern terms, one over the non-nullable
+        // string, beside an enum member and a null Guid. OData wraps it in a conversion over a
+        // boolean subexpression, and the non-nullable column in one inside the function.
+        private const string ReactSearchShapedFilter =
+            "(contains(tolower(fixed),'x') or contains(tolower(name),'y')) "
+                + "and kinds eq 'Beta' and groupId eq null";
+
         private static readonly IServiceProvider hostQueryServices = CreateHostQueryServices();
         private static readonly ControllerActionDescriptor queryableReadDescriptor = new();
 
