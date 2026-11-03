@@ -355,5 +355,35 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             // then
             validateQueryAction.Should().Throw<ODataException>();
         }
+
+        // Later keys a walk of the first key alone would never see: lambdas, a type-cast segment
+        // and cast() through the navigation, negation, in and not.
+        [Theory]
+        [InlineData("$orderby=name,children/any(x: x/note eq 'v')")]
+        [InlineData("orderby=name,children/any(x: x/note eq 'v')")]
+        [InlineData("$orderby=name,children/all(x: x/note ne 'v')")]
+        [InlineData("orderby=name,children/all(x: x/note ne 'v')")]
+        [InlineData("$orderby=name,parent/" + ParentTypeName + "/title")]
+        [InlineData("orderby=name,parent/" + ParentTypeName + "/title")]
+        [InlineData("$orderby=name,cast(parent," + ParentTypeName + ")/title")]
+        [InlineData("orderby=name,cast(parent," + ParentTypeName + ")/title")]
+        [InlineData("$orderby=name,-version")]
+        [InlineData("orderby=name,-version")]
+        [InlineData("$orderby=name,version in (1)")]
+        [InlineData("orderby=name,version in (1)")]
+        [InlineData("$orderby=name,not (version eq 1)")]
+        [InlineData("orderby=name,not (version eq 1)")]
+        public void ShouldRefuseEachLaterOrderByKeyExample(string query)
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().Throw<ODataException>();
+        }
     }
 }
