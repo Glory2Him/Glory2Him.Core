@@ -37,6 +37,12 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             "(contains(tolower(fixed),'x') or contains(tolower(name),'y')) "
                 + "and kinds eq 'Beta' and groupId eq null";
 
+        // A type-cast segment names a type by its full name. A row naming a type the model does
+        // not hold is refused by the parser, so each such row is checked red under a mutant.
+        private const string QueryModelNamespace = "Glory2Him.WebApp.Tests.Unit.Infrastructure.QueryModels";
+        private const string ItemTypeName = QueryModelNamespace + "." + nameof(QueryItem);
+        private const string ParentTypeName = QueryModelNamespace + "." + nameof(QueryItemParent);
+
         private static readonly IServiceProvider hostQueryServices = CreateHostQueryServices();
         private static readonly ControllerActionDescriptor queryableReadDescriptor = new();
 

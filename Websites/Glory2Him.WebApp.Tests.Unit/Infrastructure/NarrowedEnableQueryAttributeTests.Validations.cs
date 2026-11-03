@@ -327,5 +327,33 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             // then
             validateQueryAction.Should().Throw<ODataException>();
         }
+
+        // Nested rows: a refused term beneath in, beneath an inserted conversion, beneath and,
+        // beneath not, and a navigated column inside a function, through a type-cast segment and
+        // through cast(). Each fails under a walk that does not recurse into that child.
+        [Theory]
+        [InlineData("(version mul 2) in (4)")]
+        [InlineData("version mul 2 eq 5000000000")]
+        [InlineData("(version mul 2 eq 4) and groupId eq null")]
+        [InlineData("not (version mul 2 eq 4)")]
+        [InlineData("contains(parent/title,'v')")]
+        [InlineData("startswith(parent/title,'v')")]
+        [InlineData("tolower(parent/title) eq 'v'")]
+        [InlineData("parent/" + ParentTypeName + "/title eq 'v'")]
+        [InlineData("contains(tolower(parent/code),'v')")]
+        [InlineData("cast(parent," + ParentTypeName + ")/title eq 'v'")]
+        public void ShouldRefuseEachNestedFilterExample(string filter)
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+            string query = "$filter=" + filter;
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().Throw<ODataException>();
+        }
     }
 }
