@@ -39,8 +39,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     /// association's endpoints against their foundation services, runs the facet gate on the
     /// write (§ARC16.2.1), runs an editorial pair's retrieve-or-add over the unfiltered
     /// canonical-pair probe or hands a reader's reaction to the foundation's personal upsert,
-    /// withdraws a reader's reaction by its pair, and returns a status projection that never leaks
-    /// the row body.
+    /// withdraws a reader's reaction by its pair, suggests a tag for a post by the tag's name —
+    /// the tag foundation finding or adding the tag, and the pair meeting the same endpoint veto,
+    /// refusal of a rejected endpoint, facet gate and occupancy check as the upsert's — and
+    /// returns a status projection that never leaks the row body.
     ///
     /// <para><b>It is also the layer an exposer binds to for the whole CRUD surface</b>, because
     /// §SEC14.3's composite spans both endpoints and so cannot live in the foundation's own-table
@@ -50,9 +52,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     /// <c>ReadOnly</c> block, and <c>Administrators</c> on hard removal — and then forward; every
     /// rule that needs the stored endpoints belongs to the foundation, and no second read
     /// duplicates it. The upsert and the pair-keyed withdrawal resolve both endpoints as their
-    /// own first act, and the upsert is the one that decides the endpoint veto for itself, on an
-    /// editorial pair — a reader's own reaction is outside it, and it is the only pair the
-    /// withdrawal takes.</para>
+    /// own first act, and the tag suggestion resolves its post as its own; the upsert and the
+    /// suggestion are the writes that decide the endpoint veto for themselves, on an editorial
+    /// pair — a reader's own reaction is outside it, and it is the only pair the withdrawal
+    /// takes.</para>
     ///
     /// <para>Whether the foundation in fact composes each of those from the stored row is its
     /// own business and is not uniform today: on <c>ModifyAssociationAsync</c> the four
@@ -269,7 +272,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         // THE OCCUPANCY CHECK, the second half of the add's write flow and shared by both entry
         // paths in the same way (#631 criterion 4b). The paths differ only in how they ANSWER an
         // occupant — the method path with a status, the event path with a refusal — so only the
-        // answer is theirs.
+        // answer is theirs. The tag suggestion shares it too, with no read envelope, as the
+        // method path asks it, and answers an occupant by whose it is
+        // (AssociationOrchestrationService.TagSuggestions.md §1 rule 1, step 12).
         //
         // First the unfiltered canonical-pair lookup, which sees a pending or rejected row owned
         // by another user, and a soft-deleted one, both of which the caller's read posture hides.
@@ -320,7 +325,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         // way to its branch, and the Association-Adding handler on the way to the foundation's
         // own handler (#631). A rule added here is on both doors by construction and cannot be
         // added to one alone, which is what makes "a gate the event path walks past"
-        // structurally impossible rather than merely absent today.
+        // structurally impossible rather than merely absent today. The tag suggestion is neither
+        // door and does not run this flow: it asks the members its rules are in, and
+        // WriteFlowRefusals drives each of the flow's refusals through it too, so a rule added here
+        // is driven on the suggestion or excepted from it in the open.
         //
         // The two paths differ only in WHOSE reads resolve the endpoints: the method path passes
         // no read envelope and its endpoint services read as the ambient caller; the event path
@@ -447,8 +455,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         // where the lookup would throw.
         //
         // The event door asks the same lookup for its own refusal through IsPersonalEndpoint, and
-        // the two share no member: a member both the shared flow and an entry path reach is a
-        // second route to one of the flow's rules, which the write-flow seam refuses.
+        // the two share no member: a member both the shared flow and one of its two doors reach is
+        // a second route to one of the flow's rules, which the write-flow seam refuses.
         private static bool IsPersonalPair(Association association) =>
             new[] { association.EntityAType, association.EntityBType }
                 .Any(entityType =>

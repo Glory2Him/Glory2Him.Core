@@ -97,13 +97,18 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             }
 
             // Any OTHER downstream foundation exception — an endpoint service's dependency or
-            // service failure (its validation failures are already turned into a not-found at the
-            // resolution site), and any failure of the reaction summary's reads of the content
-            // item and reaction foundations, their validation failures included: that read
-            // validated the ids it hands them, so a refusal is a fault beneath it
-            // (AssociationOrchestrationService.md §4 rule 9). Categorized as a dependency issue,
-            // and NEVER re-surfaced as its own entity type (§1.1.3 — no foundation exception
-            // leaks to a higher layer).
+            // service failure (a validation failure of an endpoint's read is turned into a
+            // not-found at the resolution site); any failure of the reaction summary's reads of
+            // the content item and reaction foundations, their validation failures included: that
+            // read validated the ids it hands them, so a refusal is a fault beneath it
+            // (AssociationOrchestrationService.md §4 rule 9); and any failure of the tag
+            // suggestion's tag foundation calls, their validation failures included — the
+            // find-or-add's, and the tag's read's but for the not-found the suggestion answers —
+            // since the suggestion asks first every refusal the tag foundation could make, so a
+            // refusal there too is a fault beneath it (AssociationOrchestrationService
+            // .TagSuggestions.md §1 rule 4; TagSuggestions.md rule 11). Categorized as a
+            // dependency issue, and NEVER re-surfaced as its own entity type (§1.1.3 — no
+            // foundation exception leaks to a higher layer).
             catch (Xeption downstreamException)
             {
                 throw await CreateAndLogDependencyExceptionAsync(

@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Orchestrations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Glory2Him.Core.Models.Securities;
 
@@ -27,15 +28,18 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     {
         private const int MaxContentItemReactionSummaryIds = 25;
 
+        // the cap Tag.Name has (TagService.Validations.cs), asked before anything is read
+        private const int MaxTagNameLength = 30;
+
         // The orchestration enforces the contribution gate itself (§SEC14.6): an exposer may bind
         // to it directly, so it never assumes an upstream layer already gated the caller.
         //
         // The UPSERT's composition: the two row-free leaves, and then — once both endpoints have
-        // been resolved from storage — the endpoint half of the veto, which this member is the
-        // one write to decide for itself (§SEC14.7 posture A′ rule 4, "the add is the exception
-        // that proves the rule"). A personal pair asks authentication alone: a reader's own
-        // reaction is not a contribution, so it asks none of the read-only roles, the global
-        // block here or the endpoint veto after resolution (posture A′ rule 1).
+        // been resolved from storage — the endpoint half of the veto, which this member decides
+        // for itself, as the tag suggestion does for its own pair (§SEC14.7 posture A′ rule 4,
+        // "the add is the exception that proves the rule"). A personal pair asks authentication
+        // alone: a reader's own reaction is not a contribution, so it asks none of the read-only
+        // roles, the global block here or the endpoint veto after resolution (posture A′ rule 1).
         private static void ValidateUserIsAllowedToContribute(
             SecurityContext securityContext,
             bool isPersonal)
@@ -59,12 +63,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 
         // ── ONE COMPOSITION PER OPERATION, over shared leaves ─────────────────────────
         //
-        // The three below are the orchestration's half of the gate on modify, remove and hard
-        // remove: the part that needs NO row (§SEC14.7 posture A′ rule 4). Each of the three
-        // members is handed an id or an untrusted Association, so nothing composed from the
-        // STORED endpoints is decidable here — that half runs in the foundation, and this layer
-        // issues no second read to duplicate it. Running these leaves first is what stops the
-        // three surfaces being used to probe which association ids exist.
+        // The first three below are the orchestration's half of the gate on modify, remove and
+        // hard remove: the part that needs NO row (§SEC14.7 posture A′ rule 4); the tag
+        // suggestion's, the last, says what it is. Each of those three members is handed an id or
+        // an untrusted Association, so nothing composed from the STORED endpoints is decidable
+        // here — that half runs in the foundation, and this layer issues no second read to
+        // duplicate it. Running these leaves first is what stops the three surfaces being used to
+        // probe which association ids exist.
         //
         // MODIFY AND REMOVE COMPOSE THE SAME TWO LEAVES TODAY AND STILL GET A METHOD EACH, for
         // the reason the add's gate above gets its own: a shared composition cannot give one
@@ -105,6 +110,17 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             }
         }
 
+        // THE TAG SUGGESTION's composition (AssociationOrchestrationService.TagSuggestions.md §1
+        // rule 1, step 2): the two row-free leaves the upsert's composition asks of an editorial
+        // pair, asked before anything is read. Its own method rather than the upsert's, which
+        // decides by the pair's personality whether to ask the global block, so a rule either
+        // operation's gate gains later lands on that operation alone.
+        private static void ValidateUserMaySuggestTag(SecurityContext securityContext)
+        {
+            ValidateUserIsAuthenticated(securityContext);
+            ValidateUserIsNotGloballyBlocked(securityContext);
+        }
+
         private static void ValidateUserIsAuthenticated(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
@@ -123,20 +139,24 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             }
         }
 
-        // §SEC14.7 posture A′ rule 1's veto, composed from the endpoints this service has just
-        // RESOLVED from storage — never from the caller's copy, which is why the content type may
-        // be trusted here at all. Four scoped names in all, two per end.
+        // §SEC14.7 posture A′ rule 1's veto, composed from what this service has just RESOLVED
+        // from storage — never from the caller's copy, which is why the content type may be
+        // trusted here at all: both endpoints on the upsert, and on the tag suggestion its post,
+        // whose far end is the type Tag, asked before any tag is read and carrying no content
+        // type, which needs none (AssociationOrchestrationService.TagSuggestions.md §1 rule 1,
+        // steps 5, 6 and 9). Four scoped names in all, two per end.
         //
         // THE `OR` IS LOAD-BEARING. Under an AND, a user holding Tag-ReadOnly alongside
         // BibleReference-Reviewers could pair a tag with an entity type they are not banned from
         // and land it on a public scripture page — exactly what Tag-ReadOnly exists to prevent.
         // One end admits on the grant side; one end bars on the block side.
         //
-        // THIS IS THE UPSERT'S ALONE, and asked of an editorial pair only: a reader's own reaction
-        // is outside the veto (posture A′ rule 1). Modify, remove and hard remove are handed an id
-        // or an untrusted row, so there is no resolved endpoint for this layer to compose from and
-        // the veto belongs one layer down (§SEC14.7 posture A′ rule 4). §SEC14.6 rule 2 makes the
-        // duplicate with the foundation's own gate intended rather than redundant.
+        // THIS IS THE UPSERT'S AND THE TAG SUGGESTION'S, and asked of an editorial pair only: a
+        // reader's own reaction is outside the veto (posture A′ rule 1). Modify, remove and hard
+        // remove are handed an id or an untrusted row, so there is no resolved endpoint for this
+        // layer to compose from and the veto belongs one layer down (§SEC14.7 posture A′ rule 4).
+        // §SEC14.6 rule 2 makes the duplicate with the foundation's own gate intended rather than
+        // redundant.
         private static void ValidateUserIsNotBlockedFromEndpoints(
             SecurityContext securityContext,
             Association association)
@@ -215,6 +235,15 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             {
                 throw new NullAssociationOrchestrationException(
                     message: "Content item association is null.");
+            }
+        }
+
+        private static void ValidateTagSuggestionIsNotNull(TagSuggestion tagSuggestion)
+        {
+            if (tagSuggestion is null)
+            {
+                throw new NullAssociationOrchestrationException(
+                    message: "Tag suggestion is null.");
             }
         }
 
@@ -302,6 +331,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             ValidateEndpointIsNotRejected(resolvedEntityB, endpointName: "B");
         }
 
+        // The refusal itself, written ONCE and shared by the write flow, which asks it of A and of
+        // B above, and by the tag suggestion, which asks it of its post on A
+        // (AssociationOrchestrationService.TagSuggestions.md §1 rule 1, step 7), so the two answer
+        // a rejected post with the one refusal.
         private static void ValidateEndpointIsNotRejected(
             ResolvedEndpoint resolvedEndpoint,
             string endpointName)
@@ -380,6 +413,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             Enum.IsDefined(entityType)
             && EntityTypePersonalisation.IsPersonal(entityType);
 
+        // THE TAG SUGGESTION's fields (AssociationOrchestrationService.TagSuggestions.md §1 rule 1,
+        // step 3; TagSuggestions.md rule 2), asked of the name once it is trimmed, so a name of
+        // white space alone is empty and the white space around a name counts against no cap.
+        private static void ValidateOnSuggestTag(TagSuggestion tagSuggestion, string? tagName) =>
+            Validate(
+                message: "Tag suggestion is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(tagSuggestion.ContentItemId), Parameter: nameof(TagSuggestion.ContentItemId)),
+                (Rule: IsInvalid(tagName), Parameter: nameof(TagSuggestion.Name)),
+                (Rule: IsGreaterThan(tagName, MaxTagNameLength), Parameter: nameof(TagSuggestion.Name)));
+
         // The id-keyed surfaces' own validation. Kept separate from ValidateOnAddAssociation
         // rather than folded into a shared validator: they compose different rules today and
         // sharing the composition would mean a rule added for one silently binds the other.
@@ -430,6 +473,18 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         {
             Condition = id == Guid.Empty,
             Message = "Id is required"
+        };
+
+        private static dynamic IsInvalid(string? text) => new
+        {
+            Condition = string.IsNullOrWhiteSpace(text),
+            Message = "Text is required"
+        };
+
+        private static dynamic IsGreaterThan(string? text, int maxLength) => new
+        {
+            Condition = (text ?? string.Empty).Length > maxLength,
+            Message = $"Text exceed max length of {maxLength} characters"
         };
 
         private static dynamic IsNotTheDerivedContentType(

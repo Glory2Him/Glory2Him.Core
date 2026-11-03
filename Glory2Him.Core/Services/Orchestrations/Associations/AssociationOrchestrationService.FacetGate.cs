@@ -218,7 +218,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 
         // Each refusal names the switch that refused (§ARC16.2.1). §SEC14.5's no-existence-leak
         // posture does not reach it: resolution has already shown the caller both endpoints, so
-        // the name discloses a policy on a row they can see.
+        // the name discloses a policy on a row they can see. On the tag suggestion, which shares
+        // this gate, resolution has shown the caller the host alone, and the far end is a type
+        // before any tag is read, so the name discloses a policy on the post they can see and
+        // nothing of any tag.
         private static void ValidateSettingAllowsTheFacet(
             ContentItemSetting winningSetting,
             FacetQuestion facetQuestion) =>

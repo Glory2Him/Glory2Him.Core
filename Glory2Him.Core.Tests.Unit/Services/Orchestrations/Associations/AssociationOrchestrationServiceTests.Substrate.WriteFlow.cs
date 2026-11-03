@@ -46,7 +46,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         // Every rule the method path's write flow holds ahead of the pair probe, each named by
         // what it refuses. A rule added to that flow later belongs in this list — and the point
         // of the seam is that it then holds on both doors without a line of the event handler
-        // changing.
+        // changing. The list drives the tag suggestion too, which is neither door and reaches the
+        // same rules through the members that hold them
+        // (ShouldRefuseTheWriteFlowsRefusalsOnTheSuggestionAsTheUpsertDoesAsync, in
+        // AssociationOrchestrationServiceTests.SuggestTag.WriteFlow.cs), so a rule added here is
+        // driven on the suggestion there, or excepted there by name.
         public static TheoryData<string> WriteFlowRefusals() =>
             new TheoryData<string>
             {
