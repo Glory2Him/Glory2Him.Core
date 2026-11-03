@@ -38,9 +38,18 @@ namespace Glory2Him.WebApp.Infrastructure
         private static readonly BinaryOperatorKind[] admittedBinaryOperators =
         {
             BinaryOperatorKind.Equal,
+            BinaryOperatorKind.NotEqual,
+            BinaryOperatorKind.GreaterThan,
+            BinaryOperatorKind.GreaterThanOrEqual,
+            BinaryOperatorKind.LessThan,
+            BinaryOperatorKind.LessThanOrEqual,
             BinaryOperatorKind.And,
-            BinaryOperatorKind.Or
+            BinaryOperatorKind.Or,
+            BinaryOperatorKind.Has
         };
+
+        private static readonly string[] patternFunctionNames = { "contains", "startswith", "endswith" };
+        private static readonly string[] caseFunctionNames = { "tolower", "toupper" };
 
         public override void ValidateQuery(HttpRequest request, ODataQueryOptions queryOptions)
         {
@@ -83,6 +92,15 @@ namespace Glory2Him.WebApp.Infrastructure
                     AdmitFilterTerm(binaryOperatorNode.Right, ownEntityType);
                     return;
 
+                case UnaryOperatorNode unaryOperatorNode
+                    when unaryOperatorNode.OperatorKind == UnaryOperatorKind.Not:
+                    AdmitFilterTerm(unaryOperatorNode.Operand, ownEntityType);
+                    return;
+
+                case InNode inNode when inNode.Right is CollectionConstantNode:
+                    AdmitFilterTerm(inNode.Left, ownEntityType);
+                    return;
+
                 case SingleValueFunctionCallNode functionCallNode
                     when IsAdmittedFunctionCall(functionCallNode, ownEntityType):
                     return;
@@ -101,22 +119,43 @@ namespace Glory2Him.WebApp.Infrastructure
             SingleValueFunctionCallNode functionCallNode,
             IEdmStructuredType ownEntityType)
         {
+            return IsPatternFunctionCall(functionCallNode, ownEntityType)
+                || IsCaseFunctionCall(functionCallNode, ownEntityType);
+        }
+
+        // contains, startswith and endswith search a string column, or tolower or toupper of
+        // one, for a literal needle. A column needle is refused: EF Core translates it to a
+        // CHARINDEX that raises on a stored value over 4000 characters.
+        private static bool IsPatternFunctionCall(
+            SingleValueFunctionCallNode functionCallNode,
+            IEdmStructuredType ownEntityType)
+        {
             QueryNode[] parameters = functionCallNode.Parameters.ToArray();
 
             return functionCallNode.Source is null
-                && functionCallNode.Name == "contains"
+                && patternFunctionNames.Contains(functionCallNode.Name)
                 && parameters.Length == 2
-                && IsCaseFoldedStringColumn(parameters[0], ownEntityType)
+                && IsStringColumnOrItsCase(parameters[0], ownEntityType)
                 && IsStringLiteral(parameters[1]);
         }
 
-        private static bool IsCaseFoldedStringColumn(QueryNode parameter, IEdmStructuredType ownEntityType)
+        private static bool IsStringColumnOrItsCase(QueryNode parameter, IEdmStructuredType ownEntityType)
         {
-            return parameter is SingleValueFunctionCallNode caseFunctionCallNode
-                && caseFunctionCallNode.Source is null
-                && caseFunctionCallNode.Name == "tolower"
-                && caseFunctionCallNode.Parameters.Count() == 1
-                && IsStringColumn(caseFunctionCallNode.Parameters.Single(), ownEntityType);
+            return IsStringColumn(parameter, ownEntityType)
+                || parameter is SingleValueFunctionCallNode caseFunctionCallNode
+                    && IsCaseFunctionCall(caseFunctionCallNode, ownEntityType);
+        }
+
+        private static bool IsCaseFunctionCall(
+            SingleValueFunctionCallNode functionCallNode,
+            IEdmStructuredType ownEntityType)
+        {
+            QueryNode[] parameters = functionCallNode.Parameters.ToArray();
+
+            return functionCallNode.Source is null
+                && caseFunctionNames.Contains(functionCallNode.Name)
+                && parameters.Length == 1
+                && IsStringColumn(parameters[0], ownEntityType);
         }
 
         // A string column is the entity's own string property, or the conversion OData inserts
