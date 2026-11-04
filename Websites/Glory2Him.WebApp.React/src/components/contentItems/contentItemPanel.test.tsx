@@ -1174,6 +1174,34 @@ describe('ContentItemPanel', () => {
         });
     });
 
+    // RULE 3.1.8: the server refuses a reaction on a rejected item, so the card does not offer
+    // one there (user ruling 2026-10-28). The gate asks the item's own status and nothing else.
+    describe('a rejected item', () => {
+        it.each([
+            ['Draft', ApprovalStatus.Draft],
+            ['Submitted', ApprovalStatus.Submitted],
+            ['Approved', ApprovalStatus.Approved],
+            ['no status', undefined]
+        ])('should offer Like on an item that is not rejected (%s)', async (_, approvalStatus) => {
+            // given
+            const item: ContentItemSearchItem = { ...quoteItem, approvalStatus };
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={item}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={vi.fn()} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+
+            // then
+            expect(screen.getByRole('menuitem', { name: 'Amen' })).toBeInTheDocument();
+            expect(screen.getByRole('menuitem', { name: 'Love' })).toBeInTheDocument();
+            expect(screen.getByRole('menuitem', { name: 'Joy' })).toBeInTheDocument();
+        });
+    });
+
     describe('honest figures', () => {
         // The count is a figure and figures are never invented; the way IN is an affordance
         // and renders regardless, uncounted.
