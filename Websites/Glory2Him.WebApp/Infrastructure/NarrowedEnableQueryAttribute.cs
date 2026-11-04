@@ -36,7 +36,8 @@ namespace Glory2Him.WebApp.Infrastructure
     /// parsed option. <c>$filter</c> and <c>$orderby</c> are then walked, node by node, against
     /// an allowlist of terms that cannot raise on any stored value in reach and that reach only
     /// the read's own entity. A node the allowlist does not name is refused wherever it sits;
-    /// nothing is accepted because no rule names it.</para>
+    /// nothing is accepted because no rule names it. A <c>$select</c> item carrying a nested
+    /// option is refused too, because OData can apply one to the rows.</para>
     ///
     /// <para><b>How it refuses.</b> Every refusal is an <see cref="ODataException"/>, which the
     /// attribute answers with <c>400</c> while it validates, before the caller's options reach
