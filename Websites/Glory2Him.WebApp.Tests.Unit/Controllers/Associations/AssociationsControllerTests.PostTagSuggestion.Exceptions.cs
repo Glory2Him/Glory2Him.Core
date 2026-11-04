@@ -65,5 +65,46 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
 
             this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldReturnNotFoundOnPostTagSuggestionIfThePostIsNotFoundAsync()
+        {
+            // given
+            TagSuggestion someTagSuggestion = CreateRandomTagSuggestion();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            string someMessage = GetRandomString();
+
+            var notFoundAssociationOrchestrationException =
+                new NotFoundAssociationOrchestrationException(
+                    message: someMessage);
+
+            var associationOrchestrationValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: someMessage,
+                    innerException: notFoundAssociationOrchestrationException);
+
+            NotFoundObjectResult expectedNotFoundObjectResult =
+                NotFound(notFoundAssociationOrchestrationException);
+
+            var expectedActionResult =
+                new ActionResult<AssociationSubmissionResult>(expectedNotFoundObjectResult);
+
+            this.associationOrchestrationServiceMock.Setup(service =>
+                service.SuggestTagAsync(someTagSuggestion, cancellationToken))
+                    .ThrowsAsync(associationOrchestrationValidationException);
+
+            // when
+            ActionResult<AssociationSubmissionResult> actualActionResult =
+                await this.associationsController.PostTagSuggestionAsync(someTagSuggestion, cancellationToken);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.associationOrchestrationServiceMock.Verify(service =>
+                service.SuggestTagAsync(someTagSuggestion, cancellationToken),
+                    Times.Once);
+
+            this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
     }
 }
