@@ -885,6 +885,62 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // A REJECTED ENDPOINT IS REFUSED ON THIS DOOR AS ON THE UPSERT (#1359;
+        // AssociationOrchestrationService.RejectedEndpoints.md §2 rule 1). The door runs the
+        // upsert's write flow, which holds the refusal, so a signed caller the far end's service
+        // answers at Rejected — its owner or a review role, which that mocked service decides — is
+        // refused with the same answer, naming the side the envelope carries it on.
+        [Theory]
+        [MemberData(nameof(RejectedFarEnds))]
+        public async Task ShouldThrowValidationExceptionOnAddingEventIfAnEndpointIsRejectedAndLogItAsync(
+            EntityType farEndType,
+            string rejectedEndpointName)
+        {
+            // given
+            bool isThePostOnA = rejectedEndpointName == "B";
+
+            Association addRequest = isThePostOnA
+                ? CreateHonestAddRequestBetween(EntityType.ContentItem, farEndType)
+                : CreateHonestAddRequestBetween(farEndType, EntityType.ContentItem);
+
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+
+            SetupEventPathEndpointReadsBetween(
+                addRequest,
+                inputEnvelope,
+                entityAApprovalStatus: isThePostOnA ? ApprovalStatus.Draft : ApprovalStatus.Rejected,
+                entityBApprovalStatus: isThePostOnA ? ApprovalStatus.Rejected : ApprovalStatus.Draft);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: $"The {rejectedEndpointName} endpoint is rejected, so it cannot be paired.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         private static SecurityContext CreateSignedReader() =>
             new SecurityContext
             {
@@ -893,22 +949,27 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 Username = $"reader-{Guid.NewGuid()}",
             };
 
-        // Stubs both endpoint reads as the signed caller would be answered, whatever the two types.
+        // Stubs both endpoint reads as the signed caller would be answered, whatever the two types,
+        // each row at the approval status handed, Draft unless a test names another.
         private void SetupEventPathEndpointReadsBetween(
             Association addRequest,
-            EventEnvelope<Association> inboundEnvelope)
+            EventEnvelope<Association> inboundEnvelope,
+            ApprovalStatus entityAApprovalStatus = ApprovalStatus.Draft,
+            ApprovalStatus entityBApprovalStatus = ApprovalStatus.Draft)
         {
             SetupEventPathEndpointRead(
                 addRequest.EntityAType,
                 addRequest.EntityAKeyId,
                 addRequest.EntityAGroupId,
-                inboundEnvelope);
+                inboundEnvelope,
+                entityAApprovalStatus);
 
             SetupEventPathEndpointRead(
                 addRequest.EntityBType,
                 addRequest.EntityBKeyId,
                 addRequest.EntityBGroupId,
-                inboundEnvelope);
+                inboundEnvelope,
+                entityBApprovalStatus);
         }
 
         // The settings the gate asks for on this door: the ContentItem on A under the type its
