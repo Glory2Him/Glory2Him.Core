@@ -33,9 +33,11 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
             CancellationToken cancellationToken = TestContext.Current.CancellationToken;
             string someMessage = GetRandomString();
 
+            // A message of its own, so an answer carrying the outer exception rather than this
+            // one does not compare equal.
             var unauthorizedAssociationOrchestrationException =
                 new UnauthorizedAssociationOrchestrationException(
-                    message: someMessage);
+                    message: GetRandomString());
 
             var associationOrchestrationValidationException =
                 new AssociationOrchestrationValidationException(
@@ -74,9 +76,11 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
             CancellationToken cancellationToken = TestContext.Current.CancellationToken;
             string someMessage = GetRandomString();
 
+            // A message of its own, so an answer carrying the outer exception rather than this
+            // one does not compare equal.
             var notFoundAssociationOrchestrationException =
                 new NotFoundAssociationOrchestrationException(
-                    message: someMessage);
+                    message: GetRandomString());
 
             var associationOrchestrationValidationException =
                 new AssociationOrchestrationValidationException(
@@ -153,9 +157,11 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
             var someInnerException = new Exception();
             string someMessage = GetRandomString();
 
+            // A message of its own, so an answer carrying the outer exception rather than this
+            // one does not compare equal.
             var alreadyExistsAssociationException =
                 new AlreadyExistsAssociationException(
-                    message: someMessage,
+                    message: GetRandomString(),
                     innerException: someInnerException,
                     data: someInnerException.Data);
 
