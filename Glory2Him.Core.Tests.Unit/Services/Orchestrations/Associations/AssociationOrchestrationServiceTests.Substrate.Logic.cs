@@ -233,11 +233,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         }
 
         // A versioned endpoint resolves to the group it is handed; a non-versioned one has none.
+        // Each row is answered at the approval status handed, Draft unless a test names another.
         private void SetupEventPathEndpointRead(
             EntityType entityType,
             Guid keyId,
             Guid groupId,
-            EventEnvelope<Association> inboundEnvelope)
+            EventEnvelope<Association> inboundEnvelope,
+            ApprovalStatus approvalStatus = ApprovalStatus.Draft)
         {
             switch (entityType)
             {
@@ -250,6 +252,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                                     Id = keyId,
                                     GroupId = groupId,
                                     ContentType = ContentType.Story,
+                                    ApprovalStatus = approvalStatus,
                                 });
 
                     return;
@@ -258,7 +261,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     this.linkServiceMock.Setup(service =>
                         service.RetrieveLinkByIdAsync(
                             keyId, inboundEnvelope, TestContext.Current.CancellationToken))
-                                .ReturnsAsync(new Link { Id = keyId, GroupId = groupId });
+                                .ReturnsAsync(new Link
+                                {
+                                    Id = keyId,
+                                    GroupId = groupId,
+                                    ApprovalStatus = approvalStatus,
+                                });
 
                     return;
 
@@ -266,7 +274,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     this.tagServiceMock.Setup(service =>
                         service.RetrieveTagByIdAsync(
                             keyId, inboundEnvelope, TestContext.Current.CancellationToken))
-                                .ReturnsAsync(new Tag { Id = keyId });
+                                .ReturnsAsync(new Tag { Id = keyId, ApprovalStatus = approvalStatus });
 
                     return;
 
@@ -274,7 +282,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     this.reactionServiceMock.Setup(service =>
                         service.RetrieveReactionByIdAsync(
                             keyId, inboundEnvelope, TestContext.Current.CancellationToken))
-                                .ReturnsAsync(new Reaction { Id = keyId });
+                                .ReturnsAsync(new Reaction { Id = keyId, ApprovalStatus = approvalStatus });
 
                     return;
 
@@ -282,7 +290,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     this.bibleReferenceServiceMock.Setup(service =>
                         service.RetrieveBibleReferenceByIdAsync(
                             keyId, inboundEnvelope, TestContext.Current.CancellationToken))
-                                .ReturnsAsync(new BibleReference { Id = keyId });
+                                .ReturnsAsync(new BibleReference
+                                {
+                                    Id = keyId,
+                                    ApprovalStatus = approvalStatus,
+                                });
 
                     return;
 
@@ -290,7 +302,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     this.commentServiceMock.Setup(service =>
                         service.RetrieveCommentByIdAsync(
                             keyId, inboundEnvelope, TestContext.Current.CancellationToken))
-                                .ReturnsAsync(new Comment { Id = keyId });
+                                .ReturnsAsync(new Comment { Id = keyId, ApprovalStatus = approvalStatus });
 
                     return;
             }

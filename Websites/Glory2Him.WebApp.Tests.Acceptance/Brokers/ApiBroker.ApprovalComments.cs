@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Glory2Him.WebApp.Tests.Acceptance.Models.ApprovalComments;
 
@@ -31,6 +32,11 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             Guid approvalCommentId) =>
             await this.apiFactoryClient.GetContentAsync<List<ApprovalComment>>(
                 $"{approvalCommentsRelativeUrl}?$filter=Id eq {approvalCommentId}");
+
+        // The raw response, because the status code is the assertion: a typed read throws on a
+        // refused query option instead of reporting it.
+        public async ValueTask<HttpResponseMessage> GetApprovalCommentsResponseAsync(string queryString) =>
+            await this.httpClient.GetAsync($"{approvalCommentsRelativeUrl}?{queryString}");
 
         public async ValueTask<ApprovalComment> GetApprovalCommentByIdAsync(Guid approvalCommentId) =>
             await this.apiFactoryClient.GetContentAsync<ApprovalComment>(

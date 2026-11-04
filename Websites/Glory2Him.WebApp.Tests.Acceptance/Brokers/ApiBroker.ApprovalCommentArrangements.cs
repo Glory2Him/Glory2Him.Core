@@ -56,6 +56,33 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             return await this.storageBroker.InsertApprovalAsync(approval);
         }
 
+        /// <summary>
+        /// A comment written by the user named, on the round named. Beneath HTTP so the round and
+        /// its comment can be arranged before the test acts as that user.
+        /// </summary>
+        public async ValueTask<CoreApprovalComment> InsertApprovalCommentByAsync(
+            Guid approvalId,
+            string authorUserId)
+        {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+
+            var approvalComment = new CoreApprovalComment
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                Comment = "Arranged by the acceptance suite.",
+                CommentType = ApprovalCommentType.Comment,
+                IsResolved = false,
+                IsDeleted = false,
+                CreatedBy = authorUserId,
+                CreatedWhen = now,
+                UpdatedBy = authorUserId,
+                UpdatedWhen = now
+            };
+
+            return await this.storageBroker.InsertApprovalCommentAsync(approvalComment);
+        }
+
         public async ValueTask<CoreApprovalComment> GetCoreApprovalCommentByIdAsync(Guid approvalCommentId) =>
             await this.storageBroker.SelectApprovalCommentByIdAsync(approvalCommentId);
 

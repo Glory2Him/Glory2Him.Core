@@ -1,7 +1,7 @@
 # Associations controller — association reads
 Parent: [AssociationReads.md](../../AssociationReads.md)
 Level: exposer — `AssociationsController` (`Websites/Glory2Him.WebApp/Controllers/Associations/`), existing
-Inherits: §ARC17.2 (shape versus served literal), §ARC17.4, §EVN13 rule 3, §SEC14.5, §SEC14.7 posture A′ rule 7, `Backend/Controllers/AssociationsController.md` (the class and its shared mapping), `the-standard-exposers`, AssociationReads.md rules 1, 2 and 6–8
+Inherits: §ARC17.2 (shape versus served literal), §ARC17.4, §ARC17.7, §EVN13 rule 3, §SEC14.5, §SEC14.7 posture A′ rule 7, `Backend/Controllers/AssociationsController.md` (the class and its shared mapping), `the-standard-exposers`, AssociationReads.md rules 1, 2 and 6–8
 
 §ARC17.4's two reads on the association resource's exposer. The class, its binding to
 `IAssociationOrchestrationService` alone and its shared exception mapping are
@@ -32,7 +32,8 @@ controller's `[EnableQuery]` collection read is (`TagsController.Get`, `ContentI
    live row with an endpoint in its scope (§SEC14.7 posture A rule 4, posture A′ rules 2, 5 and 7).
 4. **A `$filter` finds nothing the caller may not see.** A `$filter` on `userId` naming another
    reader finds none of that reader's reactions, for an anonymous caller and for a signed-in
-   reader outside the review tier (§SEC14.7 posture A′ rule 7, *Why*).
+   reader outside the review tier (§SEC14.7 posture A′ rule 7, *Why*). No option a caller sends
+   changes the answer on a row the caller may not see (§ARC17.7).
 5. **It carries the shared mapping's dependency and service arms alone**: a dependency exception
    is `424` and a service exception is `500`. The read raises neither validation family: it
    takes no input, and nothing beneath it refuses a caller, as `TagsController.Get` maps those two

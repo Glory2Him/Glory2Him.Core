@@ -37,6 +37,11 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             await this.apiFactoryClient.GetContentAsync<List<Tag>>(
                 $"{tagsRelativeUrl}?$filter=Id eq {tagId}");
 
+        // The raw response, because the status code is the assertion: a typed read throws on a
+        // refused query option instead of reporting it.
+        public async ValueTask<HttpResponseMessage> GetTagsResponseAsync(string queryString) =>
+            await this.httpClient.GetAsync($"{tagsRelativeUrl}?{queryString}");
+
         public async ValueTask<Tag> GetTagByIdAsync(Guid tagId) =>
             await this.apiFactoryClient.GetContentAsync<Tag>($"{tagsRelativeUrl}/{tagId}");
 

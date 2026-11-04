@@ -97,6 +97,7 @@ resolves by grep even though the citable number is now prefixed.
   - [ARC17.4 Association Endpoints](#arc174-association-endpoints-formerly-174)
   - [ARC17.5 Approval Endpoints](#arc175-approval-endpoints-formerly-175)
   - [ARC17.6 Media, Share and Crawler Endpoints](#arc176-media-share-and-crawler-endpoints-formerly-176)
+  - [ARC17.7 The Query Surface Of Every `[EnableQuery]` Read](#arc177-the-query-surface-of-every-enablequery-read-new-1390)
 
 ---
 
@@ -1535,13 +1536,13 @@ Recommended endpoints:
 
 **RULED — the two CRUD reads are `[AllowAnonymous]`, the three ordinary writes carry a BARE `[Authorize]`, and only the hard delete names a role.** (The seventh row, §ARC16.8's summary read, is `[AllowAnonymous]` on its own section's reasoning and is not one of the two this ruling is about.)
 
-- **The reads.** They are built to serve an anonymous caller: the foundation's collection filter gives one the public rows, and its by-id read answers a non-public row not-found rather than refusing the caller. **`[AllowAnonymous]` does not make reaction authorship public**: §SEC14.7 posture A′ rule 7 keeps a personal row from every caller but its owner and the review tier, on both reads, and that is what makes an anonymous route with `[EnableQuery]` over it safe to serve. **So neither read ships ahead of that rule**: served anonymously without it, they would publish every public reaction's reader, and a `$filter` on `UserId` would list one reader's reactions, since personal rows are written through `UpsertAssociationAsync` (#724). `DesignFeatures/AssociationReads.md` designs both reads, rule 7 beneath them and the React reads above them (#857), and each route ships only after rule 7 is built on the foundation read beneath it. §SEC14.7 posture A′ rule 7, *Where it is built*, records how far it is built.
+- **The reads.** They are built to serve an anonymous caller: the foundation's collection filter gives one the public rows, and its by-id read answers a non-public row not-found rather than refusing the caller. **`[AllowAnonymous]` does not make reaction authorship public**: §SEC14.7 posture A′ rule 7 keeps a personal row from every caller but its owner and the review tier, on both reads, and that, with §ARC17.7's query surface, is what makes an anonymous route with `[EnableQuery]` over it safe to serve. **So neither read ships ahead of that rule**: served anonymously without it, they would publish every public reaction's reader, and a `$filter` on `UserId` would list one reader's reactions, since personal rows are written through `UpsertAssociationAsync` (#724). `DesignFeatures/AssociationReads.md` designs both reads, rule 7 beneath them and the React reads above them (#857), and each route ships only after rule 7 is built on the foundation read beneath it. §SEC14.7 posture A′ rule 7, *Where it is built*, records how far it is built.
 
   **§SEC14.3 rule 6 does not hold them back** (owner ruling 2026-10-13, under #857). Rule 6 is a named vacancy in the composite both reads go through (§ARC12.5 entry 1), and the two reads ship without it. Until it is built they serve an association that its host's effective settings hide, such as an approved tag on a post whose `ShowTags` is off. That is an editorial pairing alone, since rule 7 keeps every personal row from all but its owner and the review tier; it is approved and published, both its endpoints are visible to the caller (§SEC14.3 rules 3 and 4), and each endpoint's own route already serves the far end. A page gates the associations it shows on the host's settings, as `UI/Components/ContentItemPanel.md rule 2.29` and `DesignFeatures/PostModeration.md` rule 8 do. Building rule 6 adds its term to the composite (§ARC16.8's shared-rule table) and changes neither route. Posture A′ is *"the endpoint-derived variant of posture A"* and inherits posture A rule 4, whose collection line ends *"anonymous callers see public only"*; posture A′ rule 5 says the same thing from the predicate's side — a caller with no scoped roles gets two empty sets and the query degrades to the public-plus-own predicate, which for an anonymous caller is the public set. An `[Authorize]` would answer `401` before that filter ran and refuse the public subset the rule grants. `TagsController` records exactly this reason on its own two reads, and `ContentItemSettingsController` and `ContentItemsController` put theirs the same way — three built instances of one rule rather than a precedent stretched to a new case: `Tag` is posture A and `Association` posture A′, and the read line is the same line.
 - **The three ordinary writes.** The tier that governs them cannot be written as a role list at all. Posture A′ rule 2 composes it from the endpoints' denormalised types on the **stored** row, at two tiers each, so a `Tag-Publishers` may act on a `Tag` ↔ `ContentItem` pairing and no attribute can name that person — the role is composed from a column the attribute cannot see. `Roles.cs` carries no `Association-*` constants for the same reason. A role list here would be wrong in the **strict** direction, refusing a caller posture A′ admits, so the attribute asks for authentication only and the service decides. This is `ContentItemSettingsController`'s shape, and `TagsController`'s owner-branch reasoning one step further, because here even the moderator branch is row-derived.
 - **The hard delete.** Posture A′ rule 4 makes it `Administrators` **and** subject to the endpoint veto. The role half is expressible, so the attribute names it and the service re-decides both halves.
 
-**RULED — `[EnableQuery]` sits over the collection read. The ruling is this section's, made on #310's reasoning.** #310 put *"#318's controller, its routes and its query-option surface"* outside its own scope, so it did not rule the attribute; what it supplies is the reason the attribute is safe. It composed §SEC14.3 rules 3 and 4 **into** the query rather than resolving them into a set above it, so what the orchestration hands up is still an unenumerated queryable, and its non-functional constraint 3 names that as *"what keeps #318's route composable and its SQL capped"* (§ARC12.2.1 rule 7: *composing it further is allowed*). Over a live queryable OData's options translate into the same SQL as everything beneath them, so the attribute adds composition and not a second evaluation; the cap is the host's `ODataPageSizeConvention`, which sets the attribute's page size. **Who may be found through it is ruled separately**, by §SEC14.7 posture A′ rule 7, and is the reason this attribute is safe on an anonymous route.
+**RULED — `[EnableQuery]` sits over the collection read. The ruling is this section's, made on #310's reasoning.** #310 put *"#318's controller, its routes and its query-option surface"* outside its own scope, so it did not rule the attribute; what it supplies is the reason the attribute composes and stays capped. It composed §SEC14.3 rules 3 and 4 **into** the query rather than resolving them into a set above it, so what the orchestration hands up is still an unenumerated queryable, and its non-functional constraint 3 names that as *"what keeps #318's route composable and its SQL capped"* (§ARC12.2.1 rule 7: *composing it further is allowed*). Over a live queryable OData's options translate into the same SQL as everything beneath them, so the attribute adds composition and not a second evaluation; the cap is the host's `ODataPageSizeConvention`, which sets the attribute's page size. **Who may be found through it is ruled separately**, by §SEC14.7 posture A′ rule 7, and §ARC17.7 rules what a caller's options may contain; the two together are why this attribute is safe on an anonymous route.
 
 ### ARC17.5 Approval Endpoints *(formerly §17.5)*
 
@@ -1578,3 +1579,131 @@ Recommended endpoints (§DOM5.6, §DOM19.6–§DOM19.8 — designed, not built):
 | `GET` | `/s/{code}` | 301 to the canonical content URL (§DOM19.7). |
 | `GET` | `/sitemap.xml`, `/sitemap-topics.xml` | Published-content sitemaps (§DOM19.6). |
 | `GET` | `/robots.txt` | Crawler directives (§DOM19.6). |
+
+### ARC17.7 The Query Surface Of Every `[EnableQuery]` Read *(new; #1390)*
+
+**RULED — every `[EnableQuery]` read accepts only the query this section allows, and the host applies it, not the exposer.** This is the fix for security advisory [GHSA-3m43-v266-m6qf](https://github.com/Glory2Him/Glory2Him.Core/security/advisories/GHSA-3m43-v266-m6qf), merged to `main` in 6e3c378c, and every statement of the host here is true of that commit. The owner's rulings of 2026-11-03 set its reach: one host-applied convention narrows what every `[EnableQuery]` read accepts, every such route included, and no route gets a task of its own. They also put the path through a navigation property inside it. The owner's ruling of 2026-11-04 keeps the refusal as it is where it meets the amender record, whose design had expected a caller's `$filter` on it to pass: filtering by amender, if it is needed, gets its own narrow, server-side query (§APR8.6.3 rule 9).
+
+**The property** (§SEC14.5 rules 1 and 4, and its *Indistinguishability* paragraph). Whatever query options a caller sends to an `[EnableQuery]` read, the response's status and its body are the ones that caller would receive if the rows it may not see did not exist.
+
+**Why the posture beneath the attribute does not give it.** The posture is composed into the same SQL as the caller's options, and SQL Server does not promise to evaluate the posture's terms before the caller's. A caller term that can raise on some stored value therefore raises on rows the posture excludes as well, and the error surfaces as a `500` that a matching hidden row causes and an absent one does not. Composition keeps hidden rows out of the body. It does not keep them out of the status.
+
+**Navigation.** A term reaching through a navigation property can test rows the posture never filters, because the posture filters only the read's own entity. *The property* covers that path, and the rule below refuses it.
+
+**The rule.**
+- **Which query options a read accepts.** An `[EnableQuery]` read accepts `$filter`, `$orderby`, `$select`, `$top`, `$skip` and `$count`, and no other option, for every caller.
+  - `$apply`, `$compute` and `$search` are refused, and so are `$expand`, `$format`, `$skiptoken`, `$deltatoken` and every other option.
+  - `$apply` and `$compute` carry the same terms as `$filter`. `$apply` has no validator of its own and is applied first. `$compute` puts a navigated column in the body. Before the fix, `$search` was accepted and ignored and `$format` was accepted, while `$expand`, `$skiptoken` and `$deltatoken` were already refused under the host's configuration.
+- **Whatever spelling carries an option.** OData accepts each option without its `$` and in any letter case, and maps every spelling to the same parsed option. So the rule is read from the options OData parsed, `ODataQueryOptions` and its `RawValues`, never from the keys of the request's query string. Turning off the `$`-less form would leave letter case open, so the host's switch is left as it is.
+- **What `$filter` and `$orderby` may hold.** They are accepted only when every term in them is on *The allowlist* below: terms that cannot raise on any stored value in reach, and that reach only the read's own entity.
+- **What `$select` may hold.** The rule reads the parsed `$select` clause and refuses every nested option it carries: any option on a property's item (`PathSelectItem`), and a `$filter` or `$search` on a `$count` item, the only two OData keeps there. It refuses them whatever they hold, whichever property they sit on and whatever the letter case of their names.
+  - OData 9.5.0 applies a `$filter` nested in a `$select` item on a collection-valued structural property, so that item would carry a caller term past the walk. No entity in reach has one at 6e3c378c. `AmenderUserIds` (§APR8.6.3 rule 1) adds one to six entities in reach.
+  - On a navigation, OData refuses nested options. On a single-valued property, OData applies none of them to the rows: it ignores most, and fails on some whatever the rows hold. Neither answer depends on the rows. Both are refused too, so the rule does not depend on the property's kind.
+  - On a `$count` item, OData drops `$top`, `$skip`, `$orderby`, `$count` and `$compute` before the clause is built, so they are applied to nothing. A nested `$select` fails in OData's own parse before the rule runs, with `400` or `500`, whatever the rows hold.
+- **How a refusal answers.** Anything refused is refused when the query is validated, with `400`. That is the same whatever the table holds and whoever asks. The message names only what the caller sent (§SEC14.5, *who supplied the value*). A nested `$select` fails in OData's parse before validation (*What `$select` may hold*).
+
+**When validation runs, and why that is enough.**
+- Every one of the 14 actions in *Reach* returns `ValueTask<ActionResult<…>>`. `EnableQueryAttribute` does not unwrap a `ValueTask` when the action is executing (`EnableQueryAttribute.cs` lines 184–210 at Microsoft.AspNetCore.OData 9.5.0). So on these actions it validates in `OnActionExecuted`: after the action has returned, and only on a `2xx` answer.
+- By then the action has built its queryable with no caller term in it. Validation runs before the caller's options are applied (`ExecuteQuery`, lines 486–511), so a refused term never reaches SQL.
+- The two group reads materialise their rows before validation runs, but they allow only `$top`, `$skip` and `$count`, so no caller term reaches their rows either.
+- An action whose own answer is not `2xx` never applies the caller's options, so that answer does not depend on them.
+
+**The allowlist.**
+- **`$filter` may hold only:**
+  - the read's own entity's single-valued structural properties, with no navigation property and no `$count`;
+  - literals, `null` included. An enum member name arrives as a typed enum constant, with no conversion;
+  - the comparisons `eq`, `ne`, `gt`, `ge`, `lt` and `le`, along with `has`, `in`, `and`, `or` and `not`;
+  - the three pattern functions `contains`, `startswith` and `endswith`. The first argument is a string column, or `tolower` or `toupper` of one. The second argument, the needle, is a string literal;
+  - `tolower` and `toupper`, whose argument is a string column;
+  - **a conversion OData inserts (a convert node), over a term that is itself on this list.** A `cast` is a function call, not an inserted conversion, and is refused.
+  - The operands of every other term above are themselves from this list.
+- **The conversions as they parse under 9.5.0.**
+  - The React search shape `and(or(contains(...), contains(...)), <enum> eq 'Beta')` arrives wrapped as `Convert[Edm.Boolean](...)`, a conversion over a boolean subexpression.
+  - `<guid> eq null` arrives as `<guid> eq Convert[Edm.Guid](null)`.
+  - A column is converted to the literal's wider type: `<int> eq 5000000000` gives `Convert[Edm.Int64](<int>)`, and `<int> eq 1.5` gives `Convert[Edm.Single](<int>)`.
+- **Why no inserted conversion in reach can raise on a stored value.**
+  - OData inserts a conversion only to bring the two sides of an operator to a common type, or to lift a value to its nullable form. Either way it widens and never narrows.
+  - The numeric columns in reach at 6e3c378c are `int` and `decimal(4,2)`: `ContentItem` and `Link` `Version`; `SortOrder` on `ContentItemSetting` and `Reaction`; `ContentItemSetting`'s three `Max…Length`; `ApprovalSetting.RequiredNumberOfApprovals`; and `ApprovalSetting`'s two AI thresholds. `Association`'s `SortOrder` (`int`) and `ConfidenceScore` (`decimal(4,2)`) come into reach with the association collection read (`AssociationsController.Get`, #1124), and are of the same two types.
+  - Every widening of those types (to `Int64`, `Single`, `Double`, or `Decimal` as EF maps it, `decimal(18,2)`) holds every value they can store. A conversion over a boolean, an enum, a `Guid`, a non-nullable string or `null` lifts nullability only.
+  - **A column of a wider numeric type added in reach** (`bigint`, or a `decimal` wider than 16 integer digits) could narrow under a `decimal(18,2)` conversion. Adding one is a design change made under this section.
+- **Why a pattern function's needle is a literal.**
+  - EF Core translates a column needle, such as `contains(<a>, <column b>)` or `contains(<a>, tolower(<column b>))`, to `CHARINDEX([b], [a]) > 0 OR [b] LIKE N''`. That raises `String or binary data would be truncated` on a stored needle over 4000 characters.
+  - `ContentItem.Content`, `Comment.Content`, `BibleReference.Scripture` and `BibleReference.ScriptureHtml` are `nvarchar(max)`.
+  - A literal needle translates to `LIKE @p ESCAPE N'\'` and raises on no stored value. The React app sends literal needles only.
+- **The walk is an allowlist over node kinds, and it is total.**
+  - The walker visits every node of the parsed `$filter` tree. In `$orderby`, it visits every node of every key: `OrderByClause.Expression` and each `ThenBy`.
+  - At each node, it admits the node only if the node's `QueryNodeKind`, with that kind's condition, is in the list below. It then walks every child the list names for that kind.
+  - A node of any other kind, a kind whose condition fails, or a child in any position the list does not name, is refused wherever it sits: at the root, beneath a comparison, beneath `and`, `or` or `not`, beneath an inserted conversion, beneath `in`, or inside a function's argument.
+  - Refusal is the default. Nothing is accepted because no rule names it.
+- **The admitted node kinds** (Microsoft.OData.Core 8.4.0, as Microsoft.AspNetCore.OData 9.5.0 resolves it in the host), each with its condition and the children walked. Every other `QueryNodeKind` value is refused.
+  - `Constant`: any literal, `null` included. A leaf.
+  - `CollectionConstant`: only as the right operand of `In`, holding literals only.
+  - `Convert` (a conversion OData inserts): its `Source` is walked.
+  - `BinaryOperator`: `OperatorKind` is one of `Equal`, `NotEqual`, `GreaterThan`, `GreaterThanOrEqual`, `LessThan`, `LessThanOrEqual`, `And`, `Or` and `Has`. `Left` and `Right` are walked. Every other `BinaryOperatorKind` is refused.
+  - `UnaryOperator`: `OperatorKind` is `Not`. `Operand` is walked. Every other `UnaryOperatorKind` is refused.
+  - `In`: `Left` is walked. `Right` is a `CollectionConstant`.
+  - `SingleValueFunctionCall`: `Name` is one of the five.
+    - *A string column*, in these two bullets, is an admitted `SingleValuePropertyAccess` of a string, or a `Convert` OData inserts over one. A non-nullable string column (`Nullable=false`, such as `ContentItem.Content` or `Tag.Name`) arrives as `Convert[Edm.String](<column>)`, because the functions take a nullable string. The conversion lifts nullability only.
+    - For `contains`, `startswith` and `endswith`, the first parameter is a string column, or `tolower` or `toupper` of one. The second is a string `Constant`.
+    - For `tolower` and `toupper`, the one parameter is a string column.
+    - A parameter of any other kind, or in any other position, is refused.
+  - `SingleValuePropertyAccess`: its `Source` is a `ResourceRangeVariableReference` to `$it`, the read's own entity. The property is a structural property declared on that entity.
+  - `ResourceRangeVariableReference`: only `$it`, and only as an admitted property's `Source`. Lambdas are refused, so no other range variable exists.
+- **In `$orderby`, each key, first and later, is exactly one admitted `SingleValuePropertyAccess`**, `asc` or `desc`. No other kind is admitted as a key or beneath one.
+- **What the list refuses by kind,** whichever position it sits in:
+  - navigation (`SingleNavigationNode`, `CollectionNavigationNode`);
+  - casts (`SingleResourceCast`, `SingleValueCast`, `CollectionResourceCast`);
+  - `Count`, and lambdas (`Any`, `All` and `NonResourceRangeVariableReference`);
+  - open and complex properties;
+  - collection property access;
+  - every function call kind other than `SingleValueFunctionCall`;
+  - parameter aliases. These arrive already resolved, and are refused if one ever does not.
+
+  The terms *Everything else in `$filter` is refused* names below, and the non-literal needles above, are cases of this list, not a separate list.
+- **Everything else in `$filter` is refused.** That covers every arithmetic operator, unary negation, every other function (`now()`, `cast` and `isof` included), lambdas (`any` and `all`) and any path through a navigation property.
+- **`$orderby` may hold only** the read's own entity's single-valued structural properties, each `asc` or `desc`, **in every key**. OData parses the first key into `OrderByClause.Expression` and each later key into `ThenBy`, so the walk covers the whole chain. An expression, a function call of any kind, a `$count` and a navigation path are refused in any key.
+- **`$select`, `$top`, `$skip` and `$count`** keep OData's own rules and the attribute's own settings, except that a `$select` item carrying a nested option is refused (*What `$select` may hold*).
+  - A navigation property named in `$select` answers `{}` and carries none of the related row's columns. `$compute`, which did carry them, is refused.
+  - `AddOData`'s `Select()`, `Filter()`, `OrderBy()` and `Count()` switch on query features. They do not limit the attribute's `AllowedQueryOptions`, whose default `Supported` includes `$apply`, `$compute` and `$search`. That is why the rule above names the six options itself.
+
+**Why the two OData settings are not the mechanism** (against Microsoft.AspNetCore.OData 9.5.0):
+- `AllowedArithmeticOperators` is not checked in `$orderby`.
+- Unary negation is checked under `AllowedLogicalOperators.Not`.
+- `now()` maps to no `AllowedFunctions` flag.
+- `$apply` has no validator.
+- `ComputeQueryValidator` checks nothing.
+- No setting confines `$orderby` to property paths or keeps navigation out.
+
+So the rule is a validator of its own, built on the one public extension point the attribute gives for it.
+
+**The components.** Both live in `Websites/Glory2Him.WebApp/Infrastructure/`.
+- **`NarrowedEnableQueryAttribute`** derives from `EnableQueryAttribute`. Its one operation is the override of `ValidateQuery(HttpRequest, ODataQueryOptions)`. It runs the base validation first, so every setting the attribute carries still refuses what it refused before. It then:
+  - reads every option from the parsed `ODataQueryOptions` and its `RawValues`, never from the request's query string, so every spelling is caught;
+  - refuses any query option outside the six, whatever the attribute's own `AllowedQueryOptions` allow;
+  - walks the parsed `$filter` and `$orderby` against *The allowlist* and refuses any term outside it;
+  - refuses any `$select` item carrying a nested option (*What `$select` may hold*).
+
+  Each refusal is an OData validation failure, which the attribute answers with `400`.
+- **`ODataQuerySurfaceConvention`** is an `IApplicationModelConvention`. `Program.cs` registers it in `options.Conventions` beside `ODataPageSizeConvention`. It replaces every `EnableQueryAttribute` in a controller's or an action's filters with a `NarrowedEnableQueryAttribute`.
+  - The replacement carries every public setting of the attribute it replaces, `AllowedQueryOptions`, `EnsureStableOrdering` and the page size included, and the host's page size whichever convention runs first. The exception is a `MaxTop` or `MaxSkip` of `0` (*The convention's limits*).
+  - `MaxTop` and `MaxSkip` read an unset limit back as `0`, and a `0` set through their setters refuses every positive `$top` and `$skip`. So an unset limit stays unset.
+- **It narrows and never widens what an attribute's public settings allow**, apart from *The convention's limits*. An attribute that already allows less still allows less, because its settings are kept and the base validation still runs. `ContentItemsController.GetContentItemsByGroupId` and its `LinksController` sibling still allow `$top`, `$skip` and `$count` only.
+- **The host-level check** is `CollectionQuerySurfaceApiTests.ShouldNarrowEveryQueryableCollectionReadsQueryAttribute` (`Websites/Glory2Him.WebApp.Tests.Acceptance/Apis/`). It reads every query attribute from the running host's action descriptors, the global filters (`MvcOptions.Filters`) included, and fails on any `EnableQueryAttribute` that is not a `NarrowedEnableQueryAttribute`.
+- **The convention's limits.** None of these is on the host at 6e3c378c.
+  - **An attribute that sets `MaxTop` or `MaxSkip` to `0` itself** reads back as unset, so its replacement leaves that limit unset. An exposer refuses `$top` or `$skip` by leaving it out of `AllowedQueryOptions`, which is carried.
+  - **A subclass of `EnableQueryAttribute`** is replaced by a plain `NarrowedEnableQueryAttribute` with its public settings, and loses what the subclass adds. A restriction beyond the public settings is a design change made under this section. A subclass left unreplaced fails the host-level check.
+  - In those two shapes *The rule* still holds. What is lost is the exposer's own further restriction.
+  - **What the convention and the host-level check reach.** The convention narrows an `EnableQueryAttribute` only where it sits in a controller's or an action's filters. The host-level check fails on an `EnableQueryAttribute` that is not a `NarrowedEnableQueryAttribute`, in those filters or in the global filters, which the convention does not visit. Any other way of applying a caller's query options is outside both: for example, a filter factory that creates the attribute, a filter provider, an action or a minimal-API endpoint taking `ODataQueryOptions`, or OData's endpoint filter. The host has none, and adding one is a design change made under this section.
+- **The OData version is pinned.** `NarrowedEnableQueryAttributeTests.ShouldResolveTheODataCoreVersionTheFunctionNamesArePinnedTo` fails when the resolved Microsoft.OData.Core is not 8.4.0, the version this section is written against, so an upgrade fails the suite until it is revisited.
+
+**Existing callers keep working.**
+- Every `$filter` and `$orderby` the React app sends uses only `eq`, `ne`, `and`, `or`, `null`, `contains`, `tolower` and property orderings. That includes `contentItemId ne null` on the content item settings list (`apiBroker.contentItemSettings.ts`).
+- Its search terms are matched against `tolower` of `title`, `content` and `author`. `content` is non-nullable, so it arrives with the inserted conversion that *The admitted node kinds* admits. That search is in `apiBroker.contentItems.ts`, sent to `GET api/ContentItems` and `GET api/ContentItems/Public`.
+- It also sends `$skip` and `$top`, and no other option.
+- That holds across `Websites/Glory2Him.WebApp.React/src/brokers/apiBroker.contentItems.ts`, `apiBroker.contentItemSettings.ts`, `apiBroker.approvalComments.ts`, `apiBroker.approvals.ts`, `apiBroker.approvalSettings.ts` and `apiBroker.reactions.ts`, and the acceptance suite sends the same. All of it stays accepted.
+
+**Reach: 14 `[EnableQuery]` attributes in 10 controllers at 6e3c378c.** One each in `ApprovalCommentsController`, `ApprovalReviewsController`, `ApprovalSettingsController`, `BibleReferencesController`, `CommentsController`, `ContentItemSettingsController`, `ReactionsController` and `TagsController`, and three each in `ContentItemsController` and `LinksController`. All are in `Websites/Glory2Him.WebApp`. Nothing registers an `EnableQueryAttribute` globally (`MvcOptions.Filters`), and nothing applies a caller's query options in any of the other ways *The convention's limits* puts outside the convention and the host-level check. So the controllers' and actions' filters hold every queryable read. A read served after 6e3c378c, `AssociationsController.Get` among them (§ARC17.4; `DesignFeatures/Backend/Controllers/AssociationsController.AssociationReads.md §1`, #1124), is narrowed the same way, with no attribute of its own, wherever its `EnableQueryAttribute` is not a subclass and sits in its action's or its controller's filters (*The convention's limits*). The host-level check reads it, and fails on it if it is not narrowed.
+
+**Not covered:**
+- A difference in response time. The owner has not ruled on it.
+- Whether SQL Server evaluates a computed `$select` or `$orderby` term on rows the posture excludes. It is not established, and it stops mattering once `$compute` is refused, `$orderby` is confined to properties and no `$select` item carries a nested option.
