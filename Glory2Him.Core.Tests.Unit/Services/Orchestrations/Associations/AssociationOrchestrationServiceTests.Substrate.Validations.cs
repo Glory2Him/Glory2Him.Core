@@ -941,6 +941,60 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // THE POST IS AN ENDPOINT LIKE ANY OTHER (#1359; RejectedEndpoints.md rules 1 and 10). The
+        // post's service answers the signed caller the version the envelope names at Rejected, so
+        // the door refuses the pair naming A, and that version's read is the post's only one.
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddingEventIfThePostIsRejectedAndLogItAsync()
+        {
+            // given
+            Association addRequest = CreateHonestAddRequestBetween(EntityType.ContentItem, EntityType.Tag);
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+
+            SetupEventPathEndpointReadsBetween(
+                addRequest,
+                inputEnvelope,
+                entityAApprovalStatus: ApprovalStatus.Rejected,
+                entityBApprovalStatus: ApprovalStatus.Draft);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "The A endpoint is rejected, so it cannot be paired.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    onAddingTask.AsTask);
+
+            // then: the version's own read, as the signed caller, and nothing more of the post's service
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.contentItemServiceMock.Verify(service =>
+                service.RetrieveContentItemByIdAsync(
+                    addRequest.EntityAKeyId,
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         private static SecurityContext CreateSignedReader() =>
             new SecurityContext
             {
