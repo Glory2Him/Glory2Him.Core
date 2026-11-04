@@ -146,7 +146,9 @@ namespace Glory2Him.WebApp.Controllers.Associations
                     tagSuggestion,
                     cancellationToken);
 
-            return Created(associationSubmissionResult);
+            return associationSubmissionResult.Status is AssociationSubmissionStatus.Created
+                ? Created(associationSubmissionResult)
+                : Ok(associationSubmissionResult);
         }
 
         [HttpGet("ReactionSummaries")]
