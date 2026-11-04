@@ -137,6 +137,11 @@ namespace Glory2Him.WebApp.Controllers.Associations
             }
         }
 
+        public ValueTask<ActionResult<AssociationSubmissionResult>> PostTagSuggestionAsync(
+            TagSuggestion tagSuggestion,
+            CancellationToken cancellationToken) =>
+            throw new NotImplementedException();
+
         [HttpGet("ReactionSummaries")]
         [AllowAnonymous]
         public async ValueTask<ActionResult<IReadOnlyList<ContentItemReactionSummary>>> GetReactionSummariesAsync(

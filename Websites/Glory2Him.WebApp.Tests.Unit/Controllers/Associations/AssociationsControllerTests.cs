@@ -173,6 +173,24 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
                 AssociationId = status is AssociationRemovalStatus.Removed ? Guid.NewGuid() : null
             };
 
+        /// <summary>
+        /// The caller's shape — the post's id and the tag's name, and nothing else
+        /// (TagSuggestions.md rule 1).
+        /// </summary>
+        private static TagSuggestion CreateRandomTagSuggestion() =>
+            new TagSuggestion
+            {
+                ContentItemId = Guid.NewGuid(),
+                Name = GetRandomString()
+            };
+
+        private static AssociationSubmissionResult CreateAssociationSubmissionResult(
+            AssociationSubmissionStatus status) =>
+            new AssociationSubmissionResult
+            {
+                Status = status
+            };
+
         private static AssociationSuggestionResult CreateAssociationSuggestionResult(
             AssociationSuggestionStatus status) =>
             new AssociationSuggestionResult
