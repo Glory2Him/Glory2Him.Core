@@ -173,6 +173,13 @@ namespace Glory2Him.WebApp.Controllers.Associations
             {
                 return BadRequest(associationOrchestrationValidationException.InnerException);
             }
+            catch (AssociationOrchestrationDependencyValidationException
+                associationOrchestrationDependencyValidationException)
+                when (associationOrchestrationDependencyValidationException.InnerException
+                    is AlreadyExistsAssociationException)
+            {
+                return Conflict(associationOrchestrationDependencyValidationException.InnerException);
+            }
         }
 
         [HttpGet("ReactionSummaries")]
