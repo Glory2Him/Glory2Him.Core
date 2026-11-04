@@ -126,6 +126,91 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // NO REMOVAL IS A DOOR THE REFUSAL REACHES (#1360; RejectedEndpoints.md rule 3;
+        // AssociationOrchestrationService.RejectedEndpoints.md §3). The withdrawal resolves its
+        // endpoints through the resolution the upsert's refusal of a rejected endpoint reads, and
+        // the refusal sits in the add's flow alone (§1 rule 9). This fails if it is ever moved into
+        // that shared resolution. The reader sees the rejected host, being its owner or holding a
+        // review role, so its service answers it at Rejected.
+        [Theory]
+        [InlineData(EntityType.ContentItem)]
+        [InlineData(EntityType.BibleReference)]
+        public async Task ShouldRemoveTheReadersReactionOnARejectedHostAsync(EntityType hostType)
+        {
+            // given: a reader whose live reaction holds a rejected host on A and a reaction on B
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateReaderSecurityContext(readerUserId);
+            Association removalRequest = CreateRawUpsertRequestBetween(hostType, EntityType.Reaction);
+            SetupInboundEnvelopeFor(removalRequest);
+
+            Association expectedLookupPair =
+                SetupMethodPathEndpointReadsAt(
+                    removalRequest,
+                    entityAApprovalStatus: ApprovalStatus.Rejected,
+                    entityBApprovalStatus: ApprovalStatus.Draft);
+
+            expectedLookupPair.UserId = readerUserId;
+
+            var readersRow = new PersonalAssociationMatch
+            {
+                Id = Guid.NewGuid(),
+                EntityBKeyId = removalRequest.EntityBKeyId,
+                IsDeleted = false,
+            };
+
+            var withdrawnRow = new Association
+            {
+                Id = readersRow.Id,
+                IsDeleted = true,
+            };
+
+            this.associationServiceMock.Setup(service =>
+                service.FindPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedLookupPair)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(readersRow);
+
+            this.associationServiceMock.Setup(service =>
+                service.RemoveAssociationByIdAsync(
+                    readersRow.Id,
+                    null,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(withdrawnRow);
+
+            var expectedResult = new AssociationRemovalResult
+            {
+                Status = AssociationRemovalStatus.Removed,
+                AssociationId = readersRow.Id,
+            };
+
+            // when
+            AssociationRemovalResult actualResult =
+                await this.associationOrchestrationService.RemoveAssociationByPairAsync(
+                    removalRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then: the rejection refuses nothing; the reader's row is withdrawn and answered
+            // Removed with its id
+            actualResult.Should().BeEquivalentTo(expectedResult);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindPersonalAssociationAsync(
+                    It.Is(SameAssociationAs(expectedLookupPair)),
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.RemoveAssociationByIdAsync(
+                    readersRow.Id,
+                    null,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         [Fact]
         public async Task ShouldAnswerNothingToRemoveWhenTheReaderHoldsNoReactionAsync()
         {
