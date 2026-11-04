@@ -100,6 +100,18 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         }
 
         /// <summary>
+        /// Every association either of whose endpoints is the given content item, at any status,
+        /// live or soft-deleted. Either endpoint, for the reason
+        /// <see cref="RemoveCoreAssociationsOnContentItemAsync"/> gives.
+        /// </summary>
+        public async ValueTask<IReadOnlyList<CoreAssociation>> GetCoreAssociationsOnContentItemAsync(
+            Guid contentItemId) =>
+            await this.storageBroker.SelectAssociationsAsync(
+                associations => associations.Where(association =>
+                    association.EntityAKeyId == contentItemId
+                    || association.EntityBKeyId == contentItemId));
+
+        /// <summary>
         /// Removes every association either of whose endpoints is the given content item, with
         /// their approval rounds. A test that posts more than once, or whose response body is
         /// not the result it expects, cannot name every row its posts wrote, so it tears down by

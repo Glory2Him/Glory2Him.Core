@@ -10,8 +10,11 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.Approvals;
 using CoreTag = Glory2Him.Core.Models.Foundations.Tags.Tag;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
@@ -36,6 +39,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         /// </summary>
         public async ValueTask<CoreTag> InsertDraftTagAsync(string authorUserId) =>
             await InsertTagAtAsync(authorUserId, ApprovalStatus.Draft);
+
+        /// <summary>
+        /// A REJECTED tag, whose name a suggestion withholds rather than pairs. Beneath HTTP
+        /// because no endpoint rejects a tag: rejection arrives as an event.
+        /// </summary>
+        public async ValueTask<CoreTag> InsertRejectedTagAsync(string authorUserId) =>
+            await InsertTagAtAsync(authorUserId, ApprovalStatus.Rejected);
 
         /// <summary>
         /// An approved, published tag, visible to every caller. Beneath HTTP because no endpoint
@@ -86,6 +96,37 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
 
         public async ValueTask<CoreTag> GetCoreTagByIdAsync(Guid tagId) =>
             await this.storageBroker.SelectTagByIdAsync(tagId);
+
+        /// <summary>
+        /// Every tag holding the name, at any status, live or soft-deleted. A tag suggestion adds
+        /// a tag the response never names by its id, so a test finds it by the name it posted.
+        /// </summary>
+        public async ValueTask<IReadOnlyList<CoreTag>> GetCoreTagsByNameAsync(string name) =>
+            await this.storageBroker.SelectTagsAsync(
+                tags => tags.Where(tag => tag.Name == name));
+
+        /// <summary>
+        /// Physically removes every tag holding the name, with the approval round each one's
+        /// write opened: a tag a suggestion adds is written at <c>Submitted</c>, so the approval
+        /// workflow opens a round on it as the request is served.
+        /// </summary>
+        public async ValueTask RemoveCoreTagsByNameAsync(string name)
+        {
+            IReadOnlyList<CoreTag> storedTags = await GetCoreTagsByNameAsync(name);
+
+            foreach (CoreTag storedTag in storedTags)
+            {
+                Approval storedApproval =
+                    await GetCoreApprovalByEntityAsync(EntityType.Tag, storedTag.Id);
+
+                if (storedApproval is not null)
+                {
+                    await this.storageBroker.DeleteApprovalAsync(storedApproval);
+                }
+
+                await this.storageBroker.DeleteTagAsync(storedTag);
+            }
+        }
 
         public async ValueTask RemoveCoreTagAsync(CoreTag tag) =>
             await this.storageBroker.DeleteTagAsync(tag);
