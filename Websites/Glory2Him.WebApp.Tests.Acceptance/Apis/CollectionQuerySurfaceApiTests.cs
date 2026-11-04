@@ -107,6 +107,61 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis
             }
         }
 
+        /// <summary>
+        /// C3. An ordering by one of the entity's own properties, descending, is still answered,
+        /// and applied. The later item is arranged first, so the order the rows were written in
+        /// is not the order asked for.
+        /// </summary>
+        [Fact]
+        public async Task ShouldOrderThePublicContentItemsByCreatedWhenDescendingAsync()
+        {
+            // given
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            DateTimeOffset anHourAgo = now.AddHours(-1);
+            var arrangedContentItems = new List<CoreContentItem>();
+
+            try
+            {
+                CoreContentItem laterContentItem =
+                    await this.apiBroker.InsertFeedContentItemAsync(createdWhen: now, publishDate: now);
+
+                arrangedContentItems.Add(laterContentItem);
+
+                CoreContentItem earlierContentItem =
+                    await this.apiBroker.InsertFeedContentItemAsync(
+                        createdWhen: anHourAgo,
+                        publishDate: anHourAgo);
+
+                arrangedContentItems.Add(earlierContentItem);
+
+                this.apiBroker.ActAsAnonymous();
+
+                // when
+                HttpResponseMessage response =
+                    await this.apiBroker.GetContentItemsResponseAsync(
+                        $"api/contentItems/Public?$orderby={Uri.EscapeDataString("createdWhen desc")}");
+
+                // then
+                response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                List<Guid> actualArrangedContentItemIds = (await ReadIdsAsync(response))
+                    .Where(contentItemId =>
+                        contentItemId == laterContentItem.Id || contentItemId == earlierContentItem.Id)
+                    .ToList();
+
+                actualArrangedContentItemIds.Should().Equal(laterContentItem.Id, earlierContentItem.Id);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+
+                foreach (CoreContentItem arrangedContentItem in arrangedContentItems)
+                {
+                    await this.apiBroker.RemoveCoreContentItemByIdAsync(arrangedContentItem.Id);
+                }
+            }
+        }
+
         private static async ValueTask<List<Guid>> ReadIdsAsync(HttpResponseMessage response)
         {
             string payload = await response.Content.ReadAsStringAsync();
