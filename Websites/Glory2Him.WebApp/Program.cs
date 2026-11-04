@@ -58,6 +58,12 @@ builder.Services
         options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
 
         options.Conventions.Add(oDataPageSizeConvention);
+
+        // What a caller's query options may hold is a host posture too, so every [EnableQuery]
+        // is replaced by the narrowed attribute here rather than in each exposer
+        // (GHSA-3m43-v266-m6qf). The host's page size reaches the replacement whichever of the
+        // two conventions runs first.
+        options.Conventions.Add(new ODataQuerySurfaceConvention());
     })
     // These actions return ActionResult<IQueryable<T>> on ordinary attribute routes rather than
     // through an OData route, so the response is a plain JSON array: no @odata.nextLink, and
