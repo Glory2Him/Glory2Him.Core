@@ -30,8 +30,9 @@ namespace Glory2Him.WebApp.Controllers.Associations
     /// The association exposure point (§ARC12.6 row 14). It binds
     /// <see cref="IAssociationOrchestrationService"/> alone (§EVN13 rule 3), holds no logic, and
     /// maps the orchestration's exception families onto status codes. Its routes are added by the
-    /// work that needs them rather than all at once: today it serves the upsert, the pair-keyed
-    /// withdrawal, the reaction summary read, the collection read and the read by id.
+    /// work that needs them rather than all at once: today it serves the upsert, the tag
+    /// suggestion, the pair-keyed withdrawal, the reaction summary read, the collection read and
+    /// the read by id.
     ///
     /// <para><b>The upsert answers <c>201</c> only when a row was created, and <c>200</c>
     /// otherwise</b>, with the result rather than the row as the body. Both depart from
@@ -39,6 +40,18 @@ namespace Glory2Him.WebApp.Controllers.Associations
     /// <c>Documentation/DesignFeatures/Backend/Controllers/AssociationsController.md</c>,
     /// <i>Deviations</i>, records why: five of the six outcomes create nothing, and the row
     /// would leak its author (§ARC16.8.1).</para>
+    ///
+    /// <para><b>The tag suggestion answers <c>201</c> for the status <c>Created</c>, and
+    /// <c>200</c> when the pair already existed</b>, with a status rather than the row as the
+    /// body. Both depart from <c>the-standard-exposers</c> ts-exposers-003, and
+    /// <c>Documentation/DesignFeatures/Backend/Controllers/AssociationsController.TagSuggestions.md</c>,
+    /// <i>Deviations</i> 1 and 2, records why: a suggestion whose pair already exists creates
+    /// nothing, and the row would tell of a tag the caller cannot see. The <c>201</c> covers every
+    /// <c>Created</c>, those where nothing was created included — a tag the caller cannot see,
+    /// whatever holds the pair, and a withheld tag whose pair is free — so the code tells a
+    /// withheld tag from a hidden one in nothing (<c>TagSuggestions.md</c> rules 4, 5 and 7).
+    /// Every rule of the suggestion is the orchestration's; the route maps the status and asks
+    /// nothing else.</para>
     ///
     /// <para><b>The withdrawal answers <c>204</c> on both of its outcomes</b>, with no body —
     /// another departure from <c>the-standard-exposers</c>, ts-exposers-006, recorded beside the
