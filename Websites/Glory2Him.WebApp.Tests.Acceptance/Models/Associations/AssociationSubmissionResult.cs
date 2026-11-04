@@ -15,9 +15,11 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Models.Associations
 {
     /// <summary>
     /// What the tag suggestion answers: its status, and nothing else (TagSuggestions.md rule 7).
+    /// The status is nullable because <c>Created</c> is the enum's default: a body carrying no
+    /// status reads as null here, so an assertion of <c>Created</c> proves the status arrived.
     /// </summary>
     public class AssociationSubmissionResult
     {
-        public AssociationSubmissionStatus Status { get; set; }
+        public AssociationSubmissionStatus? Status { get; set; }
     }
 }
