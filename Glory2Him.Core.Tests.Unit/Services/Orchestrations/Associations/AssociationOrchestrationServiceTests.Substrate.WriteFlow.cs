@@ -59,6 +59,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 "a caller blocked from an endpoint's content type",
                 "a missing endpoint key",
                 "an endpoint that does not resolve",
+                "a rejected endpoint",
             };
 
         // ONE WRITE FLOW, BOTH DOORS (#631 criterion 4). The event handler carries no second copy
@@ -126,6 +127,28 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                             .ThrowsAsync(tagValidationException);
             }
 
+            if (refusal == "a rejected endpoint")
+            {
+                var rejectedTag = new Tag
+                {
+                    Id = methodRequest.EntityBKeyId,
+                    ApprovalStatus = ApprovalStatus.Rejected,
+                };
+
+                this.tagServiceMock.Setup(service =>
+                    service.RetrieveTagByIdAsync(
+                        methodRequest.EntityBKeyId,
+                        It.IsAny<CancellationToken>()))
+                            .ReturnsAsync(rejectedTag);
+
+                this.tagServiceMock.Setup(service =>
+                    service.RetrieveTagByIdAsync(
+                        eventRequest.EntityBKeyId,
+                        inputEnvelope,
+                        It.IsAny<CancellationToken>()))
+                            .ReturnsAsync(rejectedTag);
+            }
+
             // when
             ValueTask<AssociationSuggestionResult> methodPathTask =
                 this.associationOrchestrationService.UpsertAssociationAsync(
@@ -147,6 +170,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             // then
             eventPathException.Should().BeEquivalentTo(methodPathException);
+
+            if (refusal == "a rejected endpoint")
+            {
+                methodPathException.Should().BeEquivalentTo(
+                    new AssociationOrchestrationValidationException(
+                        message: "Content item association orchestration validation error occurred, " +
+                            "fix the errors and try again.",
+                        innerException: new InvalidAssociationOrchestrationException(
+                            message: "The B endpoint is rejected, so it cannot be paired.")));
+            }
 
             // neither door reaches a write
             this.associationServiceMock.Verify(service =>
