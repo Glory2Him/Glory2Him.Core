@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
@@ -37,6 +38,23 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
                 .Select(filterDescriptor => filterDescriptor.Filter)
                 .OfType<EnableQueryAttribute>()
                 .Select(enableQueryAttribute => enableQueryAttribute.PageSize)
+                .ToList();
+
+        /// <summary>
+        /// The type of every query attribute the booted host will actually run, read off the
+        /// same descriptors as <see cref="GetQueryableCollectionPageSizes"/>. A descriptor's
+        /// filters include the global ones, so an attribute registered in
+        /// <c>MvcOptions.Filters</c> is read here too. The type is the one fact that leaves:
+        /// which attribute validates a caller's query options (GHSA-3m43-v266-m6qf).
+        /// </summary>
+        internal IReadOnlyList<Type> GetQueryableCollectionQueryAttributeTypes() =>
+            webApplicationFactory.Services
+                .GetRequiredService<IActionDescriptorCollectionProvider>()
+                .ActionDescriptors.Items
+                .SelectMany(actionDescriptor => actionDescriptor.FilterDescriptors)
+                .Select(filterDescriptor => filterDescriptor.Filter)
+                .OfType<EnableQueryAttribute>()
+                .Select(enableQueryAttribute => enableQueryAttribute.GetType())
                 .ToList();
     }
 }
