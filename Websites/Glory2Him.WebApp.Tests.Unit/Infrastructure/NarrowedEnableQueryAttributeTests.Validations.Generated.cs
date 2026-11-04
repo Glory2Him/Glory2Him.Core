@@ -256,6 +256,14 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
 
         private static readonly string[] selectOuterSpellings = { "$select=", "select=", "$SELECT=" };
 
+        // Each item is sent after an own property, and after *. Beside *, OData folds a
+        // property's item into the wildcard's subsumed items, options and all.
+        private static readonly (string Label, string Before)[] selectItemNeighbours =
+        {
+            ("", "id,"),
+            (" beside *", "*,")
+        };
+
         // The items the keep check needs kept in every outer spelling: every nested option on
         // the list but $select, both $count items and both letter cases.
         private static readonly string[] selectItemsThatMustBeKept =
@@ -278,10 +286,13 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
         };
 
         private static readonly Lazy<KeptRow[]> keptSelectRows =
-            new(() => KeepRowsABareAttributeAccepts(selectItemsWithANestedOption.SelectMany(
-                item => selectOuterSpellings.Select(spelling => new GeneratedRow(
-                    Label: item.Label + ", " + spelling,
-                    Query: spelling + "id," + item.Item)))));
+            new(() => KeepRowsABareAttributeAccepts(
+                from item in selectItemsWithANestedOption
+                from neighbour in selectItemNeighbours
+                from spelling in selectOuterSpellings
+                select new GeneratedRow(
+                    Label: item.Label + neighbour.Label + ", " + spelling,
+                    Query: spelling + neighbour.Before + item.Item)));
 
         private static readonly Lazy<KeptRow[]> keptNodeKindFilterRows =
             new(() => KeepRowsABareAttributeAccepts(nodeKindSeeds.SelectMany(GenerateFilterRows)));
