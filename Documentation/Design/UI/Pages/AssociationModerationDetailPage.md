@@ -256,7 +256,7 @@ barring (§SEC14.7 posture A′ rules 1 and 3).
 | Any status — **the post's *Take down*** ≠ item 5 | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ✅ Yes |
 | Post `Approved` or `Rejected`, not the viewer's — **Edit**, rendered locked ≠ item 4 | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes |
 | The setting allows reactions, post not `Rejected` — **Like** ≠ item 3 | ➖ n/a | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes |
-| As the row above, post `Rejected` — **Like** ≠ `UI/Components/ContentItemPanel.md §10 item 29` | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ❌ No |
+| As the row above, post `Rejected` — **Like** | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ❌ No |
 
 ¹ The route guard shows *Access Restricted* and a *Login* button.
 ² Once the post page widens (rule 2.2); `Administrators` alone today.
