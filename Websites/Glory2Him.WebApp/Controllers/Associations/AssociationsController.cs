@@ -143,14 +143,24 @@ namespace Glory2Him.WebApp.Controllers.Associations
             [FromBody] TagSuggestion tagSuggestion,
             CancellationToken cancellationToken)
         {
-            AssociationSubmissionResult associationSubmissionResult =
-                await this.associationOrchestrationService.SuggestTagAsync(
-                    tagSuggestion,
-                    cancellationToken);
+            try
+            {
+                AssociationSubmissionResult associationSubmissionResult =
+                    await this.associationOrchestrationService.SuggestTagAsync(
+                        tagSuggestion,
+                        cancellationToken);
 
-            return associationSubmissionResult.Status is AssociationSubmissionStatus.Created
-                ? Created(associationSubmissionResult)
-                : Ok(associationSubmissionResult);
+                return associationSubmissionResult.Status is AssociationSubmissionStatus.Created
+                    ? Created(associationSubmissionResult)
+                    : Ok(associationSubmissionResult);
+            }
+            catch (AssociationOrchestrationValidationException
+                associationOrchestrationValidationException)
+                when (associationOrchestrationValidationException.InnerException
+                    is UnauthorizedAssociationOrchestrationException)
+            {
+                return Unauthorized(associationOrchestrationValidationException.InnerException);
+            }
         }
 
         [HttpGet("ReactionSummaries")]
