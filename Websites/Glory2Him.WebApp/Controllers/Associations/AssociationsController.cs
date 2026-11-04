@@ -137,10 +137,17 @@ namespace Glory2Him.WebApp.Controllers.Associations
             }
         }
 
-        public ValueTask<ActionResult<AssociationSubmissionResult>> PostTagSuggestionAsync(
-            TagSuggestion tagSuggestion,
-            CancellationToken cancellationToken) =>
-            throw new NotImplementedException();
+        public async ValueTask<ActionResult<AssociationSubmissionResult>> PostTagSuggestionAsync(
+            [FromBody] TagSuggestion tagSuggestion,
+            CancellationToken cancellationToken)
+        {
+            AssociationSubmissionResult associationSubmissionResult =
+                await this.associationOrchestrationService.SuggestTagAsync(
+                    tagSuggestion,
+                    cancellationToken);
+
+            return Created(associationSubmissionResult);
+        }
 
         [HttpGet("ReactionSummaries")]
         [AllowAnonymous]
