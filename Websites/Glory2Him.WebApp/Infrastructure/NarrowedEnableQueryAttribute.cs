@@ -106,7 +106,8 @@ namespace Glory2Him.WebApp.Infrastructure
 
             if (queryOptions.SelectExpand is not null)
             {
-                RefuseSelectItemsCarryingANestedOption(queryOptions.SelectExpand.SelectExpandClause);
+                RefuseSelectItemsCarryingANestedOption(
+                    queryOptions.SelectExpand.SelectExpandClause.SelectedItems);
             }
         }
 
@@ -130,10 +131,17 @@ namespace Glory2Him.WebApp.Infrastructure
         // parsed clause carries is refused, whatever it holds and whichever property it sits on:
         // any option on a property's item, and the $filter or $search OData keeps on a $count
         // item. The parsed clause reads every letter case of an option's name as the same option.
-        private static void RefuseSelectItemsCarryingANestedOption(SelectExpandClause selectExpandClause)
+        // Beside *, OData folds every property's item into the wildcard's subsumed items, options
+        // and all, so those are read as the clause's own.
+        private static void RefuseSelectItemsCarryingANestedOption(IEnumerable<SelectItem> selectItems)
         {
-            foreach (SelectItem selectItem in selectExpandClause.SelectedItems)
+            foreach (SelectItem selectItem in selectItems)
             {
+                if (selectItem is WildcardSelectItem wildcardSelectItem)
+                {
+                    RefuseSelectItemsCarryingANestedOption(wildcardSelectItem.SubsumedSelectItems);
+                }
+
                 bool carriesANestedOption = selectItem switch
                 {
                     PathSelectItem pathSelectItem => pathSelectItem.HasOptions,
