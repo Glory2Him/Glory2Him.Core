@@ -43,6 +43,9 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
             return theoryData;
         }
 
+        public static TheoryData<string> CarryingOptions() =>
+            new TheoryData<string>(QuerySurfaceProbes.CarryingOptions);
+
         private static string ProbeLeftOperand(string tagName) =>
             $"1 div indexof(name,'{tagName}')";
 
@@ -80,6 +83,31 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
                 this.apiBroker.ActAsSeededAdministrator();
                 await this.apiBroker.RemoveCoreTagByIdAsync(draftTag.Id);
             }
+        }
+
+        /// <summary>
+        /// C5. The same probe naming a name no tag has is refused the same way, so the answer no
+        /// longer differs between a hidden row and no row.
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(CarryingOptions))]
+        public async Task ShouldRefuseAProbeMatchingNoTagAsync(string carryingOption)
+        {
+            // given
+            string absentTagName = Guid.NewGuid().ToString("N");
+
+            string queryString = QuerySurfaceProbes.Carry(
+                carryingOption,
+                ProbeLeftOperand(absentTagName),
+                ProbeRest);
+
+            this.apiBroker.ActAsContributor();
+
+            // when
+            HttpResponseMessage response = await this.apiBroker.GetTagsResponseAsync(queryString);
+
+            // then
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         }
     }
 }
