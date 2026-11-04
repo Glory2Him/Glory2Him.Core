@@ -18,9 +18,12 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Securities;
 using Glory2Him.WebApp.Infrastructure;
 using Glory2Him.WebApp.Tests.Acceptance.Brokers;
+using CoreApprovalComment = Glory2Him.Core.Models.Foundations.ApprovalComments.ApprovalComment;
+using CoreApprovalReview = Glory2Him.Core.Models.Foundations.ApprovalReviews.ApprovalReview;
 using CoreContentItem = Glory2Him.Core.Models.Foundations.ContentItems.ContentItem;
 using CoreContentItemSetting = Glory2Him.Core.Models.Foundations.ContentItemSettings.ContentItemSetting;
 
@@ -272,6 +275,68 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis
             {
                 this.apiBroker.ActAsSeededAdministrator();
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(arrangedContentItem.Id);
+            }
+        }
+
+        public static TheoryData<string> CarryingOptions() =>
+            new TheoryData<string>(QuerySurfaceProbes.CarryingOptions);
+
+        /// <summary>
+        /// C9. A term reaching through a navigation to a review the caller may not see is
+        /// refused, whichever option carries it. Before the fix it narrowed the caller's own
+        /// comments by that review.
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(CarryingOptions))]
+        public async Task ShouldRefuseANavigationProbeOfTheApprovalCommentsAsync(string carryingOption)
+        {
+            // given
+            string commenterUserId = Guid.NewGuid().ToString();
+            string reviewerUserId = Guid.NewGuid().ToString();
+
+            Approval arrangedApproval =
+                await this.apiBroker.InsertOpenApprovalAsync(authorUserId: Guid.NewGuid().ToString());
+
+            CoreApprovalComment arrangedApprovalComment = null;
+            CoreApprovalReview arrangedApprovalReview = null;
+
+            try
+            {
+                arrangedApprovalComment =
+                    await this.apiBroker.InsertApprovalCommentByAsync(arrangedApproval.Id, commenterUserId);
+
+                arrangedApprovalReview =
+                    await this.apiBroker.InsertReviewByAsync(arrangedApproval.Id, reviewerUserId);
+
+                string queryString = QuerySurfaceProbes.Carry(
+                    carryingOption,
+                    $"approval/approvalReviews/$count($filter=createdBy eq '{reviewerUserId}')",
+                    "gt 0");
+
+                this.apiBroker.ActAs(commenterUserId);
+
+                // when
+                HttpResponseMessage response =
+                    await this.apiBroker.GetApprovalCommentsResponseAsync(queryString);
+
+                // then
+                response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+
+                if (arrangedApprovalReview is not null)
+                {
+                    await this.apiBroker.RemoveCoreApprovalReviewByIdAsync(arrangedApprovalReview.Id);
+                }
+
+                if (arrangedApprovalComment is not null)
+                {
+                    await this.apiBroker.RemoveCoreApprovalCommentByIdAsync(arrangedApprovalComment.Id);
+                }
+
+                await this.apiBroker.RemoveApprovalByIdAsync(arrangedApproval.Id);
             }
         }
 
