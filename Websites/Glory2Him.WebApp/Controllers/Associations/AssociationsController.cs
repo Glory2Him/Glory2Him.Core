@@ -137,6 +137,8 @@ namespace Glory2Him.WebApp.Controllers.Associations
             }
         }
 
+        [HttpPost("TagSuggestions")]
+        [Authorize]
         public async ValueTask<ActionResult<AssociationSubmissionResult>> PostTagSuggestionAsync(
             [FromBody] TagSuggestion tagSuggestion,
             CancellationToken cancellationToken)
