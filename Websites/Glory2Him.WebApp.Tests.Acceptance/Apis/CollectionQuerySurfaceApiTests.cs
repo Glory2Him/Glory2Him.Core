@@ -228,6 +228,53 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis
             }
         }
 
+        public static TheoryData<string, string> CallersAndOrderBySpellings()
+        {
+            var theoryData = new TheoryData<string, string>();
+
+            foreach (string caller in QuerySurfaceProbes.Callers)
+            {
+                theoryData.Add(caller, "$orderby");
+                theoryData.Add(caller, "orderby");
+            }
+
+            return theoryData;
+        }
+
+        /// <summary>
+        /// C8. An ordering that is an expression is refused, whoever asks and in either spelling.
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(CallersAndOrderBySpellings))]
+        public async Task ShouldRefuseAnArithmeticOrderingOfThePublicContentItemsAsync(
+            string caller,
+            string orderBySpelling)
+        {
+            // given
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+
+            CoreContentItem arrangedContentItem =
+                await this.apiBroker.InsertFeedContentItemAsync(createdWhen: now, publishDate: now);
+
+            try
+            {
+                QuerySurfaceProbes.ActAs(this.apiBroker, caller);
+
+                // when
+                HttpResponseMessage response =
+                    await this.apiBroker.GetContentItemsResponseAsync(
+                        $"api/contentItems/Public?{orderBySpelling}={Uri.EscapeDataString("1 div version")}");
+
+                // then
+                response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(arrangedContentItem.Id);
+            }
+        }
+
         private static async ValueTask<List<Guid>> ReadIdsAsync(HttpResponseMessage response)
         {
             string payload = await response.Content.ReadAsStringAsync();
