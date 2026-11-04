@@ -19,8 +19,9 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure.QueryModels
     /// The entity a queryable read answers in these tests. It holds a column of each kind the
     /// allowlist names: two nullable strings, so a needle can be another column; a non-nullable
     /// string, which OData wraps in an inserted conversion inside a function, as it does the
-    /// host's own; an integer, a decimal, a flags enum and a nullable Guid. It also reaches past
-    /// itself through a single-valued and a collection-valued navigation.
+    /// host's own; an integer, a decimal, a flags enum and a nullable Guid; and a list of strings,
+    /// a collection-valued structural property. It also reaches past itself through a
+    /// single-valued and a collection-valued navigation.
     ///
     /// <para><c>[Required]</c> is what makes a string non-nullable to OData here, because this
     /// project has nullable reference types disabled.</para>
@@ -40,5 +41,6 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure.QueryModels
         public Guid? GroupId { get; set; }
         public QueryItemParent Parent { get; set; }
         public ICollection<QueryItemChild> Children { get; set; }
+        public ICollection<string> Labels { get; set; }
     }
 }

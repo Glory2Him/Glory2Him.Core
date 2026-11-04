@@ -78,7 +78,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
 
         // One seed per node kind outside the table, and more where a kind reaches a column
         // another way: through the navigation, its required column, a type-cast segment, cast(),
-        // $it, and an alias the parser resolves to a navigation.
+        // $it, an alias the parser resolves to a navigation, and the list of strings.
         private static readonly QuerySeed[] nodeKindSeeds =
         {
             new("SingleNavigationNode", "parent/title", Literal: "'v'"),
@@ -101,7 +101,10 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             new("CollectionResourceCast", "children/" + ChildTypeName + "/any(x: x/note eq 'v')", Literal: null),
             new("CollectionResourceCast, counted", "children/" + ChildTypeName + "/$count", Literal: "4"),
             new("$it to the navigation", "$it/parent/title", Literal: "'v'"),
-            new("an alias naming the navigation", "@p", Literal: "'v'", Suffix: "&@p=parent/title")
+            new("an alias naming the navigation", "@p", Literal: "'v'", Suffix: "&@p=parent/title"),
+            new("CollectionPropertyAccess, counted", "labels/$count", Literal: "4"),
+            new("Any over the list", "labels/any(x: x eq 'v')", Literal: null),
+            new("In, with the list on its right", "'v' in labels", Literal: null)
         };
 
         // A25's seeds for the kinds the $filter table admits, each refused as an $orderby key.
@@ -126,10 +129,6 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
         {
             new(QueryNodeKind.None, Seed: null,
                 "The enum's zero value: no node reports it."),
-            new(QueryNodeKind.NonResourceRangeVariableReference, Seed: null,
-                "A range variable over a collection of primitives or enums; the model holds none."),
-            new(QueryNodeKind.CollectionPropertyAccess, Seed: null,
-                "A collection of primitives or enums; the model holds none."),
             new(QueryNodeKind.SingleValueOpenPropertyAccess,
                 new QuerySeed("an undeclared property", "unknownproperty", Literal: "'v'"),
                 "An open type's property; the model's types are closed, so the parser refuses it."),
