@@ -995,6 +995,85 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // A REFUSED ENVELOPE WRITES NOTHING (#1359; AssociationOrchestrationService.RejectedEndpoints.md
+        // §2 rule 2). The row, the Association-Added fact and the ProcessedEvents record are all the
+        // foundation handler's, so a refusal has done none of them exactly when that handler was
+        // never reached. The item's setting allows the facet and the foundation would add the pair,
+        // so only the refusal of the rejected tag stands between this envelope and a write.
+        [Fact]
+        public async Task ShouldNeverDelegateAPairWithARejectedEndpointToTheFoundationAsync()
+        {
+            // given
+            Association addRequest = CreateHonestAddRequestBetween(EntityType.ContentItem, EntityType.Tag);
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+
+            SetupEventPathEndpointReadsBetween(
+                addRequest,
+                inputEnvelope,
+                entityAApprovalStatus: ApprovalStatus.Draft,
+                entityBApprovalStatus: ApprovalStatus.Rejected);
+
+            List<ContentItemSettingKey> expectedSettingKeys = CreateEventPathSettingKeysFor(addRequest);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEffectiveContentItemSettingsAsync(
+                    It.Is(SameSettingKeysAs(expectedSettingKeys)),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new List<EffectiveContentItemSetting>
+                        {
+                            new EffectiveContentItemSetting
+                            {
+                                ContentItemId = addRequest.EntityAKeyId,
+                                ContentItemSetting = CreateAllowingContentItemSetting(ContentType.Story),
+                            },
+                        });
+
+            this.associationServiceMock.Setup(service =>
+                service.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(inputEnvelope);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                onAddingTask.AsTask);
+
+            // then: no probe, no write, no fact published, no ProcessedEvents row recorded
+            this.associationServiceMock.Verify(service =>
+                service.OnAddingAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindAssociationByPairAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindOverlappingAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.associationServiceMock.Verify(service =>
+                service.HasAlreadyAddedAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+        }
+
         private static SecurityContext CreateSignedReader() =>
             new SecurityContext
             {
