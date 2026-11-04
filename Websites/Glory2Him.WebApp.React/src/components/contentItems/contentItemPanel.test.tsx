@@ -1200,6 +1200,22 @@ describe('ContentItemPanel', () => {
             expect(screen.getByRole('menuitem', { name: 'Love' })).toBeInTheDocument();
             expect(screen.getByRole('menuitem', { name: 'Joy' })).toBeInTheDocument();
         });
+
+        it('should not offer Like on a rejected item', () => {
+            // given
+            const rejectedItem: ContentItemSearchItem =
+                { ...quoteItem, approvalStatus: ApprovalStatus.Rejected };
+
+            // when
+            renderCard(
+                <ContentItemPanel
+                    contentItem={rejectedItem}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={vi.fn()} />);
+
+            // then
+            expect(screen.queryByRole('button', { name: /Like/ })).not.toBeInTheDocument();
+        });
     });
 
     describe('honest figures', () => {
