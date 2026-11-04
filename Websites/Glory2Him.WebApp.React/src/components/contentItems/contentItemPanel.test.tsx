@@ -1216,6 +1216,36 @@ describe('ContentItemPanel', () => {
             // then
             expect(screen.queryByRole('button', { name: /Like/ })).not.toBeInTheDocument();
         });
+
+        // The persona matrix: a rejected post is seen only by its owner and the moderators, but
+        // the gate asks the status alone, so no viewer is spared. signInAs mints userId 'user-1'.
+        it.each([
+            ['a signed-out reader', null, 'account-bryan'],
+            ['a signed-in reader', ['Users'], 'account-bryan'],
+            ['its owner', ['Users'], 'user-1'],
+            ['a holder of Reviewers', ['Reviewers'], 'account-bryan'],
+            ['a holder of Publishers', ['Publishers'], 'account-bryan'],
+            ['a holder of Administrators', ['Administrators'], 'account-bryan']
+        ])('should not offer Like on a rejected item whoever views it (%s)',
+            (_, roles, submittedById) => {
+            // given
+            if (roles != null) {
+                signInAs(authState, roles);
+            }
+
+            const rejectedItem: ContentItemSearchItem =
+                { ...quoteItem, submittedById, approvalStatus: ApprovalStatus.Rejected };
+
+            // when
+            renderCard(
+                <ContentItemPanel
+                    contentItem={rejectedItem}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={vi.fn()} />);
+
+            // then
+            expect(screen.queryByRole('button', { name: /Like/ })).not.toBeInTheDocument();
+        });
     });
 
     describe('honest figures', () => {
