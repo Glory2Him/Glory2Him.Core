@@ -17,9 +17,12 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.WebApp.Infrastructure;
 using Glory2Him.WebApp.Tests.Acceptance.Brokers;
 using CoreContentItem = Glory2Him.Core.Models.Foundations.ContentItems.ContentItem;
+using CoreContentItemSetting = Glory2Him.Core.Models.Foundations.ContentItemSettings.ContentItemSetting;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Apis
 {
@@ -159,6 +162,69 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis
                 {
                     await this.apiBroker.RemoveCoreContentItemByIdAsync(arrangedContentItem.Id);
                 }
+            }
+        }
+
+        /// <summary>
+        /// C10. The settings list's own filter (<c>apiBroker.contentItemSettings.ts</c>) is still
+        /// answered. <c>contentItemId ne null</c> compares a nullable <c>Guid</c> with the
+        /// conversion OData inserts over <c>null</c>. The default is asserted absent too, so a
+        /// filter that was accepted but not applied would fail.
+        /// </summary>
+        [Fact]
+        public async Task ShouldAnswerAFilterForTheContentItemOverridesAsync()
+        {
+            // given
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            string userId = Guid.NewGuid().ToString();
+
+            CoreContentItemSetting defaultContentItemSetting =
+                await this.apiBroker.GetCoreDefaultContentItemSettingAsync(ContentType.Story);
+
+            CoreContentItem arrangedContentItem =
+                await this.apiBroker.InsertFeedContentItemAsync(createdWhen: now, publishDate: now);
+
+            CoreContentItemSetting arrangedOverride = null;
+
+            try
+            {
+                arrangedOverride = await this.apiBroker.InsertCoreContentItemSettingAsync(
+                    new CoreContentItemSetting
+                    {
+                        Id = Guid.NewGuid(),
+                        ContentType = ContentType.Story,
+                        ContentItemId = arrangedContentItem.Id,
+                        CreatedBy = userId,
+                        CreatedWhen = now,
+                        UpdatedBy = userId,
+                        UpdatedWhen = now,
+                        IsDeleted = false
+                    });
+
+                this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators);
+
+                // when
+                HttpResponseMessage response =
+                    await this.apiBroker.GetContentItemSettingsResponseAsync(
+                        $"$filter={Uri.EscapeDataString("contentItemId ne null")}");
+
+                // then
+                response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                List<Guid> actualContentItemSettingIds = await ReadIdsAsync(response);
+                actualContentItemSettingIds.Should().Contain(arrangedOverride.Id);
+                actualContentItemSettingIds.Should().NotContain(defaultContentItemSetting.Id);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+
+                if (arrangedOverride is not null)
+                {
+                    await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(arrangedOverride.Id);
+                }
+
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(arrangedContentItem.Id);
             }
         }
 

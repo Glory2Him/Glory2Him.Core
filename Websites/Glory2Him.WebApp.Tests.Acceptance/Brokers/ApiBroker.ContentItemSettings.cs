@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Glory2Him.WebApp.Tests.Acceptance.Models.ContentItemSettings;
 
@@ -29,6 +30,11 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         public async ValueTask<List<ContentItemSetting>> GetSpecificContentItemSettingByIdAsync(Guid contentItemSettingId) =>
             await this.apiFactoryClient.GetContentAsync<List<ContentItemSetting>>(
                 $"{contentItemSettingsRelativeUrl}?$filter=Id eq {contentItemSettingId}");
+
+        // The raw response, because the status code is the assertion: a typed read throws on a
+        // refused query option instead of reporting it.
+        public async ValueTask<HttpResponseMessage> GetContentItemSettingsResponseAsync(string queryString) =>
+            await this.httpClient.GetAsync($"{contentItemSettingsRelativeUrl}?{queryString}");
 
         public async ValueTask<ContentItemSetting> GetContentItemSettingByIdAsync(Guid contentItemSettingId) =>
             await this.apiFactoryClient.GetContentAsync<ContentItemSetting>($"{contentItemSettingsRelativeUrl}/{contentItemSettingId}");
