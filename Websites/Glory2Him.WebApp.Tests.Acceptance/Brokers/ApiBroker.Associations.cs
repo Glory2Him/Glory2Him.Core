@@ -50,6 +50,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             return await this.httpClient.GetAsync(url);
         }
 
+        // The raw response, because the status code is part of the assertion: a row withheld from
+        // the caller is absent from a 200, never refused. The query string is the caller's, whole,
+        // because what its OData options find is under test.
+        public async ValueTask<HttpResponseMessage> GetAssociationsAsync(string odataQuery) =>
+            await this.httpClient.GetAsync($"{associationsRelativeUrl}?{odataQuery}");
+
         // The raw response, because the status code is the assertion: the read answers 404 to
         // every caller a row is withheld from, and a typed read throws on it.
         public async ValueTask<HttpResponseMessage> GetAssociationByIdAsync(Guid associationId) =>

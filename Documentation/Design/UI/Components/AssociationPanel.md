@@ -301,7 +301,7 @@ Every page renders the family through its stories. No page renders `AssociationP
 
 | Purpose | Endpoint | State |
 | --- | --- | --- |
-| Read the associations for an entity — "associations for this entity", keyed on the effective id (§DOM4.6 rule 1) | `GET /api/associations` (§ARC17.4) | designed; not yet served (section 10, item 21) |
+| Read the associations for an entity — "associations for this entity", keyed on the effective id (§DOM4.6 rule 1) | `GET /api/associations` (§ARC17.4) | served (#1124); a page reads it through `DesignFeatures/UI/Foundations/AssociationService.AssociationReads.md §1` (section 10, item 21) |
 | Suggest a tag (`TagAssociationPanel`'s `onAdd`), by its name | `POST /api/associations/tag-suggestions` (§ARC17.4; `DesignFeatures/TagSuggestions.md`) | designed; not yet served (section 10, item 24) |
 | Suggest any other association (`onAdd`) | `POST /api/associations` (§ARC17.4, §ARC16.8.1) | served for a reader's reaction (#728) and an editorial suggestion (#1088; section 10, item 24) |
 | Remove an association (`onRemove`) | `DELETE /api/associations/{id}` (§ARC17.4) — owner or `Administrators` | designed; not yet exposed (section 10, item 22) |

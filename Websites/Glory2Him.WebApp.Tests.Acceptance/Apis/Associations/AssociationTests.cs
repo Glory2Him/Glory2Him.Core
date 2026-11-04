@@ -20,6 +20,7 @@ using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.WebApp.Tests.Acceptance.Brokers;
 using Glory2Him.WebApp.Tests.Acceptance.Models.Associations;
+using CoreAssociation = Glory2Him.Core.Models.Foundations.Associations.Association;
 using CoreContentItem = Glory2Him.Core.Models.Foundations.ContentItems.ContentItem;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
@@ -153,6 +154,30 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Associations
 
             return (readerId, postResult.AssociationId);
         }
+
+        /// <summary>
+        /// A <c>$filter</c> finding every association on the content item the stored row names,
+        /// by that endpoint's effective id — the column a page seeks an entity's associations on.
+        /// Either side, because the foundation writes the pair in canonical order rather than
+        /// the order it was posted in.
+        /// </summary>
+        private static string CreateContentItemAssociationsQuery(CoreAssociation storedAssociation)
+        {
+            Guid contentItemEffectiveId =
+                storedAssociation.EntityAType is EntityType.ContentItem
+                    ? storedAssociation.EntityAEffectiveId
+                    : storedAssociation.EntityBEffectiveId;
+
+            string filter =
+                $"entityAEffectiveId eq {contentItemEffectiveId}"
+                    + $" or entityBEffectiveId eq {contentItemEffectiveId}";
+
+            return $"$filter={Uri.EscapeDataString(filter)}";
+        }
+
+        private static async ValueTask<List<CoreAssociation>> ReadAssociationsAsync(
+            HttpResponseMessage response) =>
+            await response.Content.ReadFromJsonAsync<List<CoreAssociation>>();
 
         // ReactionSeedData's two rows, as the summary projects them.
         private static List<ContentItemReactionCount> CreateOneAmenAndOneLoveCounts() =>
