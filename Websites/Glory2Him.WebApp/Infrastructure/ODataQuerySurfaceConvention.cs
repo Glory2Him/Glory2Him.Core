@@ -16,8 +16,8 @@ using Microsoft.AspNetCore.OData.Query;
 namespace Glory2Him.WebApp.Infrastructure
 {
     /// <summary>
-    /// Replaces every <c>[EnableQuery]</c> on the application model with a
-    /// <see cref="NarrowedEnableQueryAttribute"/> carrying the same settings, so every queryable
+    /// Replaces every <c>[EnableQuery]</c> in a controller's or an action's filters with a
+    /// <see cref="NarrowedEnableQueryAttribute"/> carrying the same public settings, so every queryable
     /// read accepts only the query surface that attribute allows (GHSA-3m43-v266-m6qf). An
     /// exposer keeps writing a bare <c>[EnableQuery]</c>; the host decides what it accepts.
     ///
@@ -28,26 +28,35 @@ namespace Glory2Him.WebApp.Infrastructure
     /// original stays in the model's <c>Attributes</c>, which are read-only metadata and never run
     /// as a filter.</para>
     ///
-    /// <para><b>It narrows and never widens.</b> The replacement carries every public setting of
-    /// the attribute it replaces, so whatever that attribute allowed or refused, the replacement
-    /// allows or refuses the same, and the narrowed attribute's own rule only refuses more.
+    /// <para><b>It narrows and never widens what an attribute's public settings allow.</b> The
+    /// replacement carries every public setting of the attribute it replaces, so whatever those
+    /// settings allowed or refused, the replacement allows or refuses the same, and the narrowed
+    /// attribute's own rule only refuses more.
     /// <see cref="EnableQueryAttribute.PageSize"/>, <see cref="EnableQueryAttribute.MaxTop"/> and
     /// <see cref="EnableQueryAttribute.MaxSkip"/> read an unset value back as <c>0</c>, and a
     /// <c>0</c> written through their setters is refused (the page size) or refuses every positive
     /// <c>$top</c> and <c>$skip</c> (the two limits). So each is copied only when it is set, and an
     /// unset one stays unset. An attribute that set <c>MaxTop</c> or <c>MaxSkip</c> to <c>0</c>
-    /// itself cannot be told apart from an unset one through those settings; no read on the host
-    /// sets one.</para>
+    /// itself cannot be told apart from an unset one through those settings, so its replacement
+    /// leaves that limit unset; an exposer refuses <c>$top</c> or <c>$skip</c> by leaving it out
+    /// of <see cref="EnableQueryAttribute.AllowedQueryOptions"/>, which is carried. A subclass of
+    /// <see cref="EnableQueryAttribute"/> is replaced by a plain
+    /// <see cref="NarrowedEnableQueryAttribute"/> with its public settings, and loses what the
+    /// subclass adds. No read on the host has either shape.</para>
     ///
     /// <para><b>Beside <see cref="ODataPageSizeConvention"/>.</b> The host's page size reaches
     /// the replacement whichever of the two runs first: run after it, the replacement copies the
     /// size it wrote; run before it, the replacement is the <see cref="EnableQueryAttribute"/> it
     /// then fills.</para>
     ///
-    /// <para><b>What it does not reach.</b> As with <see cref="ODataPageSizeConvention"/>, only
-    /// the attributes hanging off the application model. An <see cref="EnableQueryAttribute"/>
-    /// registered globally through <c>MvcOptions.Filters</c> would not be narrowed. Nothing
-    /// registers one that way today.</para>
+    /// <para><b>What it does not reach.</b> It visits a controller's and an action's filters
+    /// only. An <see cref="EnableQueryAttribute"/> registered globally through
+    /// <c>MvcOptions.Filters</c> sits in the application model's own filters, which it does not
+    /// visit, so that attribute would not be narrowed; the host-level check that every query
+    /// attribute is narrowed fails on one. Any other way of applying a caller's query options is
+    /// outside both: a filter factory that creates the attribute, a filter provider, an action or
+    /// a minimal-API endpoint taking <see cref="ODataQueryOptions"/>, or OData's endpoint filter.
+    /// The host has none, and adding one is a design change made under GHSA-3m43-v266-m6qf.</para>
     /// </summary>
     public sealed class ODataQuerySurfaceConvention : IApplicationModelConvention
     {

@@ -33,11 +33,12 @@ namespace Glory2Him.WebApp.Infrastructure
     /// it and its setter refuses anything below <c>1</c>, so <c>0</c> is exactly "this action
     /// named no page size of its own" and is the only case this fills in.</para>
     ///
-    /// <para><b>What it does not reach.</b> Only the attributes hanging off the application model
-    /// — a controller's and an action's. An <see cref="EnableQueryAttribute"/> registered globally
-    /// through <c>MvcOptions.Filters</c> lives outside that model, so it would keep the framework
-    /// default of no paging at all. Nothing registers one that way today; a change that starts to
-    /// must carry its own page size, because this will not supply one.</para>
+    /// <para><b>What it does not reach.</b> It visits a controller's and an action's filters
+    /// only. An <see cref="EnableQueryAttribute"/> registered globally through
+    /// <c>MvcOptions.Filters</c> sits in the application model's own filters, which it does not
+    /// visit, so that attribute would keep the framework default of no paging at all. Nothing
+    /// registers one that way today; a change that starts to must carry its own page size,
+    /// because this will not supply one.</para>
     /// </summary>
     public sealed class ODataPageSizeConvention : IApplicationModelConvention
     {
