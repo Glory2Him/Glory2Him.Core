@@ -222,6 +222,67 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
         private static readonly (string Name, string Reason)[] functionNamesThatCannotBind =
             Array.Empty<(string Name, string Reason)>();
 
+        // A30's nested options, each inside a $select item. The nested $filter holds a term the
+        // walk admits, so what is refused is the nesting, not the term.
+        private static readonly (string Option, string Nested)[] selectNestedOptions =
+        {
+            ("$filter", "$filter=$this eq 'v'"),
+            ("$orderby", "$orderby=$this"),
+            ("$top", "$top=1"),
+            ("$skip", "$skip=1"),
+            ("$count", "$count=true"),
+            ("$search", "$search=x"),
+            ("$compute", "$compute=length($this) as n"),
+            ("$select", "$select=$this")
+        };
+
+        // Each nested option on the list and on a string column; the two options OData keeps on
+        // a $count item; and the list's nested $filter in two other letter cases.
+        private static readonly (string Label, string Item)[] selectItemsWithANestedOption =
+            selectNestedOptions
+                .SelectMany(option => new[]
+                {
+                    (option.Option + " on the list", "labels(" + option.Nested + ")"),
+                    (option.Option + " on a string", "name(" + option.Nested + ")")
+                })
+                .Concat(new[]
+                {
+                    ("$filter on the list's $count", "labels/$count($filter=$this eq 'v')"),
+                    ("$search on the list's $count", "labels/$count($search=x)"),
+                    ("$FILTER on the list", "labels($FILTER=$this eq 'v')"),
+                    ("$Filter on the list", "labels($Filter=$this eq 'v')")
+                })
+                .ToArray();
+
+        private static readonly string[] selectOuterSpellings = { "$select=", "select=", "$SELECT=" };
+
+        // The items the keep check needs kept in every outer spelling: every nested option on
+        // the list but $select, both $count items and both letter cases.
+        private static readonly string[] selectItemsThatMustBeKept =
+            selectNestedOptions
+                .Where(option => option.Option != "$select")
+                    .Select(option => option.Option + " on the list")
+                        .Concat(new[]
+                        {
+                            "$filter on the list's $count",
+                            "$search on the list's $count",
+                            "$FILTER on the list",
+                            "$Filter on the list"
+                        })
+                        .ToArray();
+
+        private static readonly (string Label, string Reason)[] selectItemsNeverKept =
+        {
+            ("$select on the list", "A bare attribute refuses a nested $select: OData's own parse fails first."),
+            ("$select on a string", "A bare attribute refuses a nested $select: OData's own parse fails first.")
+        };
+
+        private static readonly Lazy<KeptRow[]> keptSelectRows =
+            new(() => KeepRowsABareAttributeAccepts(selectItemsWithANestedOption.SelectMany(
+                item => selectOuterSpellings.Select(spelling => new GeneratedRow(
+                    Label: item.Label + ", " + spelling,
+                    Query: spelling + "id," + item.Item)))));
+
         private static readonly Lazy<KeptRow[]> keptNodeKindFilterRows =
             new(() => KeepRowsABareAttributeAccepts(nodeKindSeeds.SelectMany(GenerateFilterRows)));
 
@@ -246,6 +307,9 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
 
         public static TheoryData<string, string> KeptNodeKindOrderByRows() =>
             ToTheoryData(keptNodeKindOrderByRows.Value);
+
+        public static TheoryData<string, string> KeptSelectRows() =>
+            ToTheoryData(keptSelectRows.Value);
 
         public static TheoryData<string, string> KeptOperatorRows() =>
             ToTheoryData(keptOperatorFilterRows.Value.Concat(keptOperatorOrderByRows.Value));

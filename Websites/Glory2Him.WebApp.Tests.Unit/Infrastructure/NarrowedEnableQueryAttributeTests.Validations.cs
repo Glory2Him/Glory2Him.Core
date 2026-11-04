@@ -601,5 +601,45 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             // then
             validateQueryAction.Should().Throw<ODataException>();
         }
+
+        // A30. A $select item carrying a nested option is refused whatever the option holds,
+        // on the list or a string column, on a $count item, in any letter case of the option's
+        // name and in every spelling of $select. A bare attribute accepts each kept row.
+        [Theory]
+        [MemberData(nameof(KeptSelectRows))]
+        public void ShouldRefuseASelectItemCarryingANestedOption(string row, string query)
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().Throw<ODataException>(because: row);
+        }
+
+        // A30's keep check. The rows the rule exists for are kept in every outer spelling, so
+        // none drops out of the theory unnoticed; a nested $select is named as never kept.
+        [Fact]
+        public void ShouldKeepEverySelectRowTheRuleExistsFor()
+        {
+            // given
+            string[] labelsThatMustBeKept = selectItemsThatMustBeKept
+                .SelectMany(item => selectOuterSpellings.Select(spelling => item + ", " + spelling))
+                    .ToArray();
+
+            string[] labelsNeverKept = selectItemsNeverKept
+                .SelectMany(item => selectOuterSpellings.Select(spelling => item.Label + ", " + spelling))
+                    .ToArray();
+
+            // when
+            string[] keptLabels = keptSelectRows.Value.Select(row => row.Label).ToArray();
+
+            // then
+            keptLabels.Should().Contain(labelsThatMustBeKept);
+            keptLabels.Should().NotContain(labelsNeverKept);
+        }
     }
 }
