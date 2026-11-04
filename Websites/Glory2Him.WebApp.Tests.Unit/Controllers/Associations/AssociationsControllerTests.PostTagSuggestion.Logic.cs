@@ -58,5 +58,43 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
 
             associationOrchestrationServiceMock.VerifyNoOtherCalls();
         }
+
+        [Theory]
+        [InlineData(AssociationSubmissionStatus.AlreadySuggested)]
+        [InlineData(AssociationSubmissionStatus.AlreadySuggestedByCaller)]
+        [InlineData(AssociationSubmissionStatus.PreviouslySuggestedByCaller)]
+        public async Task ShouldReturnOkOnPostTagSuggestionWhenThePairAlreadyExistedAsync(
+            AssociationSubmissionStatus status)
+        {
+            // given
+            TagSuggestion randomTagSuggestion = CreateRandomTagSuggestion();
+            TagSuggestion inputTagSuggestion = randomTagSuggestion;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            AssociationSubmissionResult suggestedResult = CreateAssociationSubmissionResult(status);
+            AssociationSubmissionResult expectedResult = suggestedResult.DeepClone();
+
+            var expectedObjectResult =
+                new OkObjectResult(expectedResult);
+
+            var expectedActionResult =
+                new ActionResult<AssociationSubmissionResult>(expectedObjectResult);
+
+            associationOrchestrationServiceMock
+                .Setup(service => service.SuggestTagAsync(inputTagSuggestion, cancellationToken))
+                    .ReturnsAsync(suggestedResult);
+
+            // when
+            ActionResult<AssociationSubmissionResult> actualActionResult =
+                await associationsController.PostTagSuggestionAsync(inputTagSuggestion, cancellationToken);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            associationOrchestrationServiceMock
+                .Verify(service => service.SuggestTagAsync(inputTagSuggestion, cancellationToken),
+                    Times.Once);
+
+            associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
     }
 }
