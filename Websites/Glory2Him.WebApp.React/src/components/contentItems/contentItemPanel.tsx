@@ -292,11 +292,13 @@ export function ContentItemPanel({
     // What this card may OFFER, decided against its own effective row. Both halves of the §6.5
     // pair are asked — ReactionsAllowed says the type accepts them, ShowReactions says this
     // surface renders them — plus the panel's own condition that somebody is listening, because
-    // a control whose event goes nowhere is worse than no control.
+    // a control whose event goes nowhere is worse than no control. A rejected item offers none
+    // either, whoever views it: the server refuses a reaction there (rule 3.1.8).
     const offeredReactions = (() => {
         if (showReactionSection === false
             || onReactionSelected == null
             || reactionOptions.length === 0
+            || contentItem.approvalStatus === ApprovalStatus.Rejected
             || contentItemSetting?.reactionsAllowed === false
             || contentItemSetting?.showReactions === false) {
             return [] as ReadonlyArray<ContentItemReactionOption>;
