@@ -102,6 +102,11 @@ namespace Glory2Him.WebApp.Infrastructure
                     orderByKey: orderByClause.Expression,
                     ownEntityType: GetOwnEntityType(queryOptions));
             }
+
+            if (queryOptions.SelectExpand is not null)
+            {
+                RefuseSelectItemsCarryingANestedOption(queryOptions.SelectExpand.SelectExpandClause);
+            }
         }
 
         private static IEdmStructuredType GetOwnEntityType(ODataQueryOptions queryOptions) =>
@@ -115,6 +120,31 @@ namespace Glory2Him.WebApp.Infrastructure
                 {
                     throw new ODataException(
                         $"The query option '${option.Name.ToLowerInvariant()}' is not accepted by this read.");
+                }
+            }
+        }
+
+        // OData applies a $filter nested in a $select item on a collection-valued structural
+        // property, so that item would carry a caller term past the walk. Every nested option the
+        // parsed clause carries is refused, whatever it holds and whichever property it sits on:
+        // any option on a property's item, and the $filter or $search OData keeps on a $count
+        // item. The parsed clause reads every letter case of an option's name as the same option.
+        private static void RefuseSelectItemsCarryingANestedOption(SelectExpandClause selectExpandClause)
+        {
+            foreach (SelectItem selectItem in selectExpandClause.SelectedItems)
+            {
+                bool carriesANestedOption = selectItem switch
+                {
+                    PathSelectItem pathSelectItem => pathSelectItem.HasOptions,
+                    PathCountSelectItem countSelectItem =>
+                        countSelectItem.Filter is not null || countSelectItem.Search is not null,
+                    _ => false
+                };
+
+                if (carriesANestedOption)
+                {
+                    throw new ODataException(
+                        "The $select holds an item this read does not accept: one carrying a nested query option.");
                 }
             }
         }
