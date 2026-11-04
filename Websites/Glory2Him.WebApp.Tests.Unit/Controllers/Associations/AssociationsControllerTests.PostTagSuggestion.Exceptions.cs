@@ -143,5 +143,49 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
 
             this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldReturnConflictOnPostTagSuggestionIfAlreadyExistsErrorOccurredAsync()
+        {
+            // given
+            TagSuggestion someTagSuggestion = CreateRandomTagSuggestion();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var someInnerException = new Exception();
+            string someMessage = GetRandomString();
+
+            var alreadyExistsAssociationException =
+                new AlreadyExistsAssociationException(
+                    message: someMessage,
+                    innerException: someInnerException,
+                    data: someInnerException.Data);
+
+            var associationOrchestrationDependencyValidationException =
+                new AssociationOrchestrationDependencyValidationException(
+                    message: someMessage,
+                    innerException: alreadyExistsAssociationException);
+
+            ConflictObjectResult expectedConflictObjectResult =
+                Conflict(alreadyExistsAssociationException);
+
+            var expectedActionResult =
+                new ActionResult<AssociationSubmissionResult>(expectedConflictObjectResult);
+
+            this.associationOrchestrationServiceMock.Setup(service =>
+                service.SuggestTagAsync(someTagSuggestion, cancellationToken))
+                    .ThrowsAsync(associationOrchestrationDependencyValidationException);
+
+            // when
+            ActionResult<AssociationSubmissionResult> actualActionResult =
+                await this.associationsController.PostTagSuggestionAsync(someTagSuggestion, cancellationToken);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.associationOrchestrationServiceMock.Verify(service =>
+                service.SuggestTagAsync(someTagSuggestion, cancellationToken),
+                    Times.Once);
+
+            this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
     }
 }
