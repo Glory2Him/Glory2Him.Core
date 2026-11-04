@@ -225,6 +225,51 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             validateQueryAction.Should().NotThrow();
         }
 
+        // B3's table sets every boolean to its non-default value, so two booleans copied across
+        // each other read back the same there. Here one is set at a time and the rest keep their
+        // defaults, so a crossed copy reads back differently. The two group reads set
+        // EnsureStableOrdering alone.
+        [Theory]
+        [InlineData(nameof(EnableQueryAttribute.EnableConstantParameterization))]
+        [InlineData(nameof(EnableQueryAttribute.EnableCorrelatedSubqueryBuffering))]
+        [InlineData(nameof(EnableQueryAttribute.EnsureStableOrdering))]
+        [InlineData(nameof(EnableQueryAttribute.HandleReferenceNavigationPropertyExpandFilter))]
+        public void ShouldCarryEachBooleanSettingOnItsOwn(string settingName)
+        {
+            // given
+            var enableQueryAttribute = new EnableQueryAttribute();
+            PropertyInfo setting = typeof(EnableQueryAttribute).GetProperty(settingName);
+            setting.SetValue(enableQueryAttribute, (bool)setting.GetValue(enableQueryAttribute) is false);
+
+            PropertyInfo[] booleanSettings = typeof(EnableQueryAttribute)
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                    .Where(property => property.PropertyType == typeof(bool)
+                        && property.SetMethod?.IsPublic is true)
+                            .ToArray();
+
+            Dictionary<string, object> expectedSettings = booleanSettings.ToDictionary(
+                property => property.Name,
+                property => property.GetValue(enableQueryAttribute));
+
+            ApplicationModel applicationModel =
+                CreateApplicationModelWithActionFilter(enableQueryAttribute);
+
+            var oDataQuerySurfaceConvention = new ODataQuerySurfaceConvention();
+
+            // when
+            oDataQuerySurfaceConvention.Apply(applicationModel);
+
+            // then
+            EnableQueryAttribute replacement =
+                GetActionFilters(applicationModel).OfType<EnableQueryAttribute>().Single();
+
+            Dictionary<string, object> carriedSettings = booleanSettings.ToDictionary(
+                property => property.Name,
+                property => property.GetValue(replacement));
+
+            carriedSettings.Should().BeEquivalentTo(expectedSettings);
+        }
+
         private const int HostPageSize = 25;
 
         private static readonly Dictionary<string, object> nonDefaultSettings = new()
