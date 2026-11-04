@@ -11,9 +11,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Text.Json;
+using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.WebApp.Infrastructure;
 using Glory2Him.WebApp.Tests.Acceptance.Brokers;
+using CoreContentItem = Glory2Him.Core.Models.Foundations.ContentItems.ContentItem;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Apis
 {
@@ -55,6 +61,61 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis
             // type that was not narrowed.
             actualQueryAttributeTypes.Should().OnlyContain(
                 queryAttributeType => queryAttributeType == typeof(NarrowedEnableQueryAttribute));
+        }
+
+        /// <summary>
+        /// C2. The search the React app sends (<c>apiBroker.contentItems.ts</c>, its search page)
+        /// is still answered. <c>content</c> is non-nullable, so its <c>tolower</c> arrives over
+        /// the conversion OData inserts, which the narrowed attribute admits.
+        /// </summary>
+        [Fact]
+        public async Task ShouldAnswerTheSearchTheReactAppSendsOnThePublicContentItemsAsync()
+        {
+            // given
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+
+            CoreContentItem arrangedContentItem =
+                await this.apiBroker.InsertFeedContentItemAsync(createdWhen: now, publishDate: now);
+
+            string term = arrangedContentItem.Title.Split(' ').Last().ToLowerInvariant();
+
+            string searchFilter =
+                $"(contains(tolower(title),'{term}')"
+                + $" or contains(tolower(content),'{term}')"
+                + $" or contains(tolower(author),'{term}'))";
+
+            try
+            {
+                this.apiBroker.ActAsAnonymous();
+
+                // when
+                HttpResponseMessage response =
+                    await this.apiBroker.GetContentItemsResponseAsync(
+                        "api/contentItems/Public"
+                            + $"?$filter={Uri.EscapeDataString(searchFilter)}&$skip=0&$top=10");
+
+                // then
+                response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                List<Guid> actualContentItemIds = await ReadIdsAsync(response);
+                actualContentItemIds.Should().Contain(arrangedContentItem.Id);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(arrangedContentItem.Id);
+            }
+        }
+
+        private static async ValueTask<List<Guid>> ReadIdsAsync(HttpResponseMessage response)
+        {
+            string payload = await response.Content.ReadAsStringAsync();
+            using JsonDocument document = JsonDocument.Parse(payload);
+
+            return document.RootElement
+                .EnumerateArray()
+                .Select(row => row.GetProperty("id").GetGuid())
+                .ToList();
         }
     }
 }
