@@ -224,5 +224,42 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
 
             this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldReturnFailedDependencyOnPostTagSuggestionIfDependencyErrorOccurredAsync()
+        {
+            // given
+            TagSuggestion someTagSuggestion = CreateRandomTagSuggestion();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var someInnerException = new Xeption();
+
+            var associationOrchestrationDependencyException =
+                new AssociationOrchestrationDependencyException(
+                    message: GetRandomString(),
+                    innerException: someInnerException);
+
+            FailedDependencyObjectResult expectedFailedDependencyObjectResult =
+                FailedDependency(someInnerException);
+
+            var expectedActionResult =
+                new ActionResult<AssociationSubmissionResult>(expectedFailedDependencyObjectResult);
+
+            this.associationOrchestrationServiceMock.Setup(service =>
+                service.SuggestTagAsync(someTagSuggestion, cancellationToken))
+                    .ThrowsAsync(associationOrchestrationDependencyException);
+
+            // when
+            ActionResult<AssociationSubmissionResult> actualActionResult =
+                await this.associationsController.PostTagSuggestionAsync(someTagSuggestion, cancellationToken);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.associationOrchestrationServiceMock.Verify(service =>
+                service.SuggestTagAsync(someTagSuggestion, cancellationToken),
+                    Times.Once);
+
+            this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
     }
 }
