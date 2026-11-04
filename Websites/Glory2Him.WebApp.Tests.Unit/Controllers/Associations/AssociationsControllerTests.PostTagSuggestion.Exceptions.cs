@@ -261,5 +261,42 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Associations
 
             this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldReturnInternalServerErrorOnPostTagSuggestionIfServerErrorOccurredAsync()
+        {
+            // given
+            TagSuggestion someTagSuggestion = CreateRandomTagSuggestion();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var someInnerException = new Xeption();
+
+            var associationOrchestrationServiceException =
+                new AssociationOrchestrationServiceException(
+                    message: GetRandomString(),
+                    innerException: someInnerException);
+
+            InternalServerErrorObjectResult expectedInternalServerErrorObjectResult =
+                InternalServerError(associationOrchestrationServiceException);
+
+            var expectedActionResult =
+                new ActionResult<AssociationSubmissionResult>(expectedInternalServerErrorObjectResult);
+
+            this.associationOrchestrationServiceMock.Setup(service =>
+                service.SuggestTagAsync(someTagSuggestion, cancellationToken))
+                    .ThrowsAsync(associationOrchestrationServiceException);
+
+            // when
+            ActionResult<AssociationSubmissionResult> actualActionResult =
+                await this.associationsController.PostTagSuggestionAsync(someTagSuggestion, cancellationToken);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.associationOrchestrationServiceMock.Verify(service =>
+                service.SuggestTagAsync(someTagSuggestion, cancellationToken),
+                    Times.Once);
+
+            this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
     }
 }
