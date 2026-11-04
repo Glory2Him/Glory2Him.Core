@@ -147,5 +147,24 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             // then
             validateQueryAction.Should().NotThrow();
         }
+
+        // Only a nested option is refused in $select. A wildcard, with or without the items it
+        // subsumes, carries none, so it stays accepted.
+        [Theory]
+        [InlineData("$select=*")]
+        [InlineData("$select=*,name")]
+        [InlineData("select=*,labels")]
+        public void ShouldAcceptASelectWithAWildcardCarryingNoNestedOption(string query)
+        {
+            // given
+            var narrowedEnableQueryAttribute = new NarrowedEnableQueryAttribute();
+
+            // when
+            Action validateQueryAction = () =>
+                ValidateQuery(narrowedEnableQueryAttribute, query);
+
+            // then
+            validateQueryAction.Should().NotThrow();
+        }
     }
 }
