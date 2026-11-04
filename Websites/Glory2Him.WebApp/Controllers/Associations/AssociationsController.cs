@@ -168,6 +168,11 @@ namespace Glory2Him.WebApp.Controllers.Associations
             {
                 return NotFound(associationOrchestrationValidationException.InnerException);
             }
+            catch (AssociationOrchestrationValidationException
+                associationOrchestrationValidationException)
+            {
+                return BadRequest(associationOrchestrationValidationException.InnerException);
+            }
         }
 
         [HttpGet("ReactionSummaries")]
