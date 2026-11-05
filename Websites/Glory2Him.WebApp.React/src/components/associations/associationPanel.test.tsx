@@ -1142,6 +1142,29 @@ describe('AssociationPanel', () => {
             // then
             expect(screen.getByPlaceholderText('Start typing a tag…')).toBeInTheDocument();
         });
+
+        it.each([
+            ['Draft', ApprovalStatus.Draft],
+            ['Submitted', ApprovalStatus.Submitted],
+            ['Approved', ApprovalStatus.Approved],
+            ['not given', undefined]
+        ])('should offer the login prompt on a host that is not rejected (%s)',
+            (_, hostApprovalStatus) => {
+            // given
+            signOut(authState);
+
+            // when
+            renderWithAuth(
+                <AssociationPanel
+                    title="Tags"
+                    showAdd={true}
+                    hostApprovalStatus={hostApprovalStatus}
+                    loginButtonText="Login to suggest a tag" />);
+
+            // then
+            expect(screen.getByRole('link', { name: /Login to suggest a tag/ }))
+                .toBeInTheDocument();
+        });
     });
 
     describe('border', () => {
