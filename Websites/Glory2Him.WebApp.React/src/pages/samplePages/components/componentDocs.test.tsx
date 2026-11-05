@@ -199,6 +199,18 @@ describe('Component reference pages', () => {
             // then
             expect(screen.queryByPlaceholderText('Start typing a tag…')).not.toBeInTheDocument();
         });
+
+        it('should keep the chips and the owner\'s withdrawal once the host board picks Rejected', async () => {
+            // given
+            renderWithAuth(<AssociationPanelDoc />);
+
+            // when
+            await userEvent.click(screen.getByRole('radio', { name: 'Rejected' }));
+
+            // then: only the add box and the login prompt go
+            expect(screen.getByRole('link', { name: '#creation' })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Remove awaiting-mine' })).toBeInTheDocument();
+        });
     });
 
     describe('TagAssociationPanelDoc', () => {
