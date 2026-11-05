@@ -1174,6 +1174,80 @@ describe('ContentItemPanel', () => {
         });
     });
 
+    // RULE 3.1.8: the server refuses a reaction on a rejected item, so the card does not offer
+    // one there (user ruling 2026-10-28). The gate asks the item's own status and nothing else.
+    describe('a rejected item', () => {
+        it.each([
+            ['Draft', ApprovalStatus.Draft],
+            ['Submitted', ApprovalStatus.Submitted],
+            ['Approved', ApprovalStatus.Approved],
+            ['no status', undefined]
+        ])('should offer Like on an item that is not rejected (%s)', async (_, approvalStatus) => {
+            // given
+            const item: ContentItemSearchItem = { ...quoteItem, approvalStatus };
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={item}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={vi.fn()} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+
+            // then
+            expect(screen.getByRole('menuitem', { name: 'Amen' })).toBeInTheDocument();
+            expect(screen.getByRole('menuitem', { name: 'Love' })).toBeInTheDocument();
+            expect(screen.getByRole('menuitem', { name: 'Joy' })).toBeInTheDocument();
+        });
+
+        it('should not offer Like on a rejected item', () => {
+            // given
+            const rejectedItem: ContentItemSearchItem =
+                { ...quoteItem, approvalStatus: ApprovalStatus.Rejected };
+
+            // when
+            renderCard(
+                <ContentItemPanel
+                    contentItem={rejectedItem}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={vi.fn()} />);
+
+            // then
+            expect(screen.queryByRole('button', { name: /Like/ })).not.toBeInTheDocument();
+        });
+
+        // The persona matrix: a rejected post is seen only by its owner and the moderators, but
+        // the gate asks the status alone, so no viewer is spared. signInAs mints userId 'user-1'.
+        it.each([
+            ['a signed-out reader', null, 'account-bryan'],
+            ['a signed-in reader', ['Users'], 'account-bryan'],
+            ['its owner', ['Users'], 'user-1'],
+            ['a holder of Reviewers', ['Reviewers'], 'account-bryan'],
+            ['a holder of Publishers', ['Publishers'], 'account-bryan'],
+            ['a holder of Administrators', ['Administrators'], 'account-bryan']
+        ])('should not offer Like on a rejected item whoever views it (%s)',
+            (_, roles, submittedById) => {
+            // given
+            if (roles != null) {
+                signInAs(authState, roles);
+            }
+
+            const rejectedItem: ContentItemSearchItem =
+                { ...quoteItem, submittedById, approvalStatus: ApprovalStatus.Rejected };
+
+            // when
+            renderCard(
+                <ContentItemPanel
+                    contentItem={rejectedItem}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={vi.fn()} />);
+
+            // then
+            expect(screen.queryByRole('button', { name: /Like/ })).not.toBeInTheDocument();
+        });
+    });
+
     describe('honest figures', () => {
         // The count is a figure and figures are never invented; the way IN is an affordance
         // and renders regardless, uncounted.

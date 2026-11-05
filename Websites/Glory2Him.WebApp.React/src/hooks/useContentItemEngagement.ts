@@ -106,7 +106,8 @@ const createReactionWriteQueue = (takeOverlayAway: (contentItemId: string) => vo
 // THE COUNTS ARE THE SERVER'S. A page hands the hook the ids of each page of cards it has
 // delivered, and withReactions puts each card's reaction summary on it: the reactions its item
 // has been given, and the reader's own. A card the read has no summary for carries neither and
-// still offers Like; a page that hands no pages reads nothing.
+// still offers Like, except on a rejected item, which never has one; a page that hands no pages
+// reads nothing.
 //
 // CHOOSING IS RECORDED. A signed-in reader's choice gives, changes or withdraws their reaction,
 // and the card shows it at once, as an overlay on the item's summary that stands until the read

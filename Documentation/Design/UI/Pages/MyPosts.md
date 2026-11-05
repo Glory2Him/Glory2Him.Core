@@ -188,7 +188,7 @@ The read-only roles each action answers to are those components' security and ac
 | As the row above, the item `Approved` — **Share** | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | As the row above, the item `Draft`, `Submitted` or `Rejected` — **Share** ≠ item 5 | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ❌ No | ❌ No |
 | As the row above, the item not `Rejected` — **Like** | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
-| As the row above, the item `Rejected` — **Like** ≠ `UI/Components/ContentItemPanel.md §10 item 29` | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ❌ No | ❌ No |
+| As the row above, the item `Rejected` — **Like** | ➖ n/a | ➖ n/a | ❌ No | ❌ No | ❌ No | ❌ No |
 | As the row above — **View** ≠ item 6 | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | As the row above, no ReadOnly covering the item's type — **Edit** (labelled *View* today) | ➖ n/a | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | As the row above, no ReadOnly covering the item's type — **Moderate** | ➖ n/a | ➖ n/a | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes |
