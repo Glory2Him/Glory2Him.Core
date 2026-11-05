@@ -277,6 +277,30 @@ describe('Component reference pages', () => {
             // then
             expect(screen.queryByPlaceholderText('Start typing a tag…')).not.toBeInTheDocument();
         });
+
+        it.each([
+            'not given (the default)',
+            'Draft',
+            'Submitted',
+            'Approved'
+        ])('should offer the add box on every host status the board picks but Rejected (%s)',
+            async (choice) => {
+            // given
+            renderWithAuth(<TagAssociationPanelDoc />);
+
+            const hostStatusBoard = screen.getByText('hostApprovalStatus', { selector: 'p' })
+                .parentElement as HTMLElement;
+
+            // when: the first choice is the board as the page opens
+            if (choice === 'not given (the default)') {
+                expect(within(hostStatusBoard).getByRole('radio', { name: choice })).toBeChecked();
+            } else {
+                await userEvent.click(within(hostStatusBoard).getByRole('radio', { name: choice }));
+            }
+
+            // then
+            expect(screen.getByPlaceholderText('Start typing a tag…')).toBeInTheDocument();
+        });
     });
 
     describe('BibleReferenceAssociationPanelDoc', () => {
@@ -337,6 +361,30 @@ describe('Component reference pages', () => {
 
             // then
             expect(screen.queryByPlaceholderText('e.g. Romans 3:23…')).not.toBeInTheDocument();
+        });
+
+        it.each([
+            'not given (the default)',
+            'Draft',
+            'Submitted',
+            'Approved'
+        ])('should offer the add box on every host status the board picks but Rejected (%s)',
+            async (choice) => {
+            // given
+            renderWithAuth(<BibleReferenceAssociationPanelDoc />);
+
+            const hostStatusBoard = screen.getByText('hostApprovalStatus', { selector: 'p' })
+                .parentElement as HTMLElement;
+
+            // when: the first choice is the board as the page opens
+            if (choice === 'not given (the default)') {
+                expect(within(hostStatusBoard).getByRole('radio', { name: choice })).toBeChecked();
+            } else {
+                await userEvent.click(within(hostStatusBoard).getByRole('radio', { name: choice }));
+            }
+
+            // then
+            expect(screen.getByPlaceholderText('e.g. Romans 3:23…')).toBeInTheDocument();
         });
     });
 
