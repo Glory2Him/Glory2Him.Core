@@ -22,6 +22,8 @@ import {
     ApprovalStatus
 } from '../../../models/components/contentItems/contentItemFormItem';
 
+import { securityContextOptions } from './shared/securityContextDemo';
+
 import {
     createAuthState,
     renderWithAuth,
@@ -181,6 +183,21 @@ describe('Component reference pages', () => {
 
             // then
             expect(screen.getByPlaceholderText('Start typing a tag…')).toBeInTheDocument();
+        });
+
+        it.each(securityContextOptions.map((option) => option.label))(
+            'should offer no new suggestion once the host board picks Rejected (%s)',
+            async (persona) => {
+            // given
+            renderWithAuth(<AssociationPanelDoc />);
+
+            await userEvent.click(screen.getByRole('radio', { name: persona }));
+
+            // when
+            await userEvent.click(screen.getByRole('radio', { name: 'Rejected' }));
+
+            // then
+            expect(screen.queryByPlaceholderText('Start typing a tag…')).not.toBeInTheDocument();
         });
     });
 
