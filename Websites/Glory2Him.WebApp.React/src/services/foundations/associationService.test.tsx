@@ -1197,8 +1197,10 @@ describe('associationService.useSuggestTag', () => {
     // THE ASSOCIATION READS A SUGGESTION MUST REACH, seeded for real rather than spied on: one a
     // page is serving (active, so it is read again at once) and one cached from another screen
     // (inactive, so it is marked stale and NOT fetched), both keyed under the Associations
-    // prefix as useGetAssociationsByEffectiveId keys its reads. The write is held open so what
-    // happens before it settles can be told apart from what happens after.
+    // prefix as useGetAssociationsByEffectiveId keys its reads. A third is keyed on another
+    // entity type, a tag, as a list filtered by tag holds it: the family is the prefix, not one
+    // entity type under it, so a filter narrowed to the content items reds the test. The write
+    // is held open so what happens before it settles can be told apart from what happens after.
     //
     // Reads outside the family stand beside them, the reaction summaries and the tags: the
     // suggestion invalidates the associations and nothing else, so a filter that widens past
@@ -1206,6 +1208,7 @@ describe('associationService.useSuggestTag', () => {
     const seedAssociationReads = async () => {
         const activeAssociationRead = vi.fn().mockResolvedValue([]);
         const cachedAssociationRead = vi.fn().mockResolvedValue([]);
+        const tagKeyedAssociationRead = vi.fn().mockResolvedValue([]);
         const summaryRead = vi.fn().mockResolvedValue([]);
         const tagRead = vi.fn().mockResolvedValue([]);
 
@@ -1222,6 +1225,11 @@ describe('associationService.useSuggestTag', () => {
         });
 
         await queryClient.prefetchQuery({
+            queryKey: ['Associations', EntityType.Tag, 'tag-1'],
+            queryFn: tagKeyedAssociationRead
+        });
+
+        await queryClient.prefetchQuery({
             queryKey: ['ReactionSummaries', ['quote-1']],
             queryFn: summaryRead
         });
@@ -1233,7 +1241,13 @@ describe('associationService.useSuggestTag', () => {
 
         await waitFor(() => expect(activeAssociationRead).toHaveBeenCalledTimes(1));
 
-        return { activeAssociationRead, cachedAssociationRead, summaryRead, tagRead };
+        return {
+            activeAssociationRead,
+            cachedAssociationRead,
+            tagKeyedAssociationRead,
+            summaryRead,
+            tagRead
+        };
     };
 
     const isStale = (queryKey: ReadonlyArray<unknown>) =>
@@ -1257,6 +1271,7 @@ describe('associationService.useSuggestTag', () => {
         await waitFor(() => expect(postTagSuggestionAsync).toHaveBeenCalledTimes(1));
         expect(reads.activeAssociationRead).toHaveBeenCalledTimes(1);
         expect(isStale(['Associations', EntityType.ContentItem, 'quote-2'])).toBe(false);
+        expect(isStale(['Associations', EntityType.Tag, 'tag-1'])).toBe(false);
 
         // when
         await settleTheSuggestion();
@@ -1265,6 +1280,8 @@ describe('associationService.useSuggestTag', () => {
         await waitFor(() => expect(reads.activeAssociationRead).toHaveBeenCalledTimes(2));
         expect(isStale(['Associations', EntityType.ContentItem, 'quote-2'])).toBe(true);
         expect(reads.cachedAssociationRead).toHaveBeenCalledTimes(1);
+        expect(isStale(['Associations', EntityType.Tag, 'tag-1'])).toBe(true);
+        expect(reads.tagKeyedAssociationRead).toHaveBeenCalledTimes(1);
         expect(isStale(['ReactionSummaries', ['quote-1']])).toBe(false);
         expect(reads.summaryRead).toHaveBeenCalledTimes(1);
         expect(isStale(['Tags', ['tag-1']])).toBe(false);
