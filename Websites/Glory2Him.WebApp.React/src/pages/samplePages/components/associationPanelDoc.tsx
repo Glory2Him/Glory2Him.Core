@@ -183,7 +183,7 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
     },
     {
         name: 'showAdd', type: 'boolean', defaultValue: 'false',
-        description: 'Visibility gate for the suggestion box. Signed-out readers get the login prompt instead.'
+        description: 'Visibility gate for the suggestion box. Signed-out readers get the login prompt instead, except on a Rejected host, where neither is offered.'
     },
     {
         name: 'addRoles', type: 'string (csv)', defaultValue: "''",
@@ -212,6 +212,10 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
     {
         name: 'normalizeAddedValue', type: '(raw: string) => string', defaultValue: 'trim',
         description: 'Applied to each separated value, before the duplicate check and before onAdd.'
+    },
+    {
+        name: 'hostApprovalStatus', type: 'ApprovalStatus', defaultValue: '—',
+        description: 'The approval status of the post the panel hangs off, handed by the page as data. Rejected withholds the add box and the login prompt, and nothing else.'
     },
     {
         name: 'loginHref', type: 'string', defaultValue: 'current path',
