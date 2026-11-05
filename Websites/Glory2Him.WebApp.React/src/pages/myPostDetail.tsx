@@ -233,6 +233,7 @@ export function MyPostDetail() {
                             <TagAssociationPanel
                                 associationCollection={[]}
                                 onAdd={suggestTag}
+                                hostApprovalStatus={contentItem?.approvalStatus}
                                 showBorder
                                 cssClass="mb-4" />
 
