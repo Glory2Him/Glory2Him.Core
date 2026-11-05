@@ -308,7 +308,7 @@ Every page renders the family through its stories. No page renders `AssociationP
 | Remove an association (`onRemove`) | `DELETE /api/associations/{id}` (§ARC17.4) — owner or `Administrators` | designed; not yet exposed (section 10, item 22) |
 | Approve or reject (`onApprove`, `onReject`) | not ruled — see section 10 | — |
 
-No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `contentItemModerationDetailPage.tsx` pass empty collections and answer `onAdd` with a "coming soon" toast; `postSingle.tsx`, `bibleReference.tsx` and the magazine sample hold suggestions in local state only. *(code: those files — suggestTag, asSuggestion)*
+No consumer calls any of them today but the tag suggestion, which `myPostDetail.tsx` sends (#1373). `postDetail.tsx` and `contentItemModerationDetailPage.tsx` pass empty collections and answer `onAdd` with a "coming soon" toast, and `myPostDetail.tsx` passes empty collections and answers its Bible reference panel's `onAdd` with one; `postSingle.tsx`, `bibleReference.tsx` and the magazine sample hold suggestions in local state only. *(code: those files — suggestTag, asSuggestion)*
 
 **Indirect:** the auth context from `AuthProvider` (`src/components/securitys/authProvider.tsx`), which reads the current user through `accountService.useGetCurrentUser`; React Router, whose `Link` renders a linked chip label and the login link, and which supplies the current path to the default `loginHref` — today's coupling, section 10, item 15.
 
