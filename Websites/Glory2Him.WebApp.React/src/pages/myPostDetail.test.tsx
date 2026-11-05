@@ -613,4 +613,21 @@ describe('MyPostDetail', () => {
         expect(screen.getByText('Suggest a tag')).toBeInTheDocument();
         expect(screen.getByPlaceholderText('Start typing a tag…')).toBeInTheDocument();
     });
+
+    // THE BIBLE REFERENCE PANEL IS UNCHANGED: its write is MyPostDetail.md §6 item 19's, so it
+    // still answers coming soon, and the tag panel's wiring does not reach it.
+    it('should still answer a suggested bible reference with coming soon and send nothing',
+        async () => {
+            // given
+            renderPageOnItsRoute();
+
+            // when
+            await userEvent.type(
+                screen.getByPlaceholderText('e.g. Romans 3:23…'), 'John 3:16{Enter}');
+
+            // then
+            expect(toastSuccess).toHaveBeenCalledTimes(1);
+            expect(toastSuccess).toHaveBeenCalledWith('Suggesting bible references is coming soon.');
+            expect(suggestTagWith).not.toHaveBeenCalled();
+        });
 });
