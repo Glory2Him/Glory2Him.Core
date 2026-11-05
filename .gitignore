@@ -459,3 +459,10 @@ Glory2Him.Core.Database.HeaderStripped.sql
 # probe would execute on an agent that cannot reach the external resource and
 # break the build somewhere unrelated to the change in flight.
 DeleteMe/
+
+# Agent workflow. The Visual Studio rules above ignore every release/ and Releases/
+# folder; the releaser's skill and the release notes release.yml publishes are not
+# build output, so they are let back in.
+!.claude/skills/release/
+!Documentation/Releases/
+.worktrees/
