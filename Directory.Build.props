@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    The one version source for every project in the solution. The releaser sets it
+    on the release branch (see DEVELOPERS.md); nothing else changes it, and no
+    .csproj sets its own <Version>. The release workflow refuses to tag a release
+    branch whose version does not match its name.
+  -->
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+</Project>
