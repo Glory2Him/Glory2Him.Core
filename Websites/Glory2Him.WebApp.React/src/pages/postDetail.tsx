@@ -20,24 +20,6 @@ import {
 } from '../services/views/contentItems/resolveContentItemSetting';
 import { useDocumentTitle } from './useDocumentTitle';
 
-// One content item, read. Where a contribution lands after it is submitted, and the permanent
-// address of the item afterwards.
-//
-// TWO COLUMNS, 7 / 5, the same split the contributor's own surface keeps: the item on the left,
-// and on the right the surfaces that belong BESIDE a content item rather than within it
-// (§20.6.2) — its tags, its bible references, and the invitation to share something else. A
-// reader arriving at a post meets them there and is invited to suggest one of each; the
-// association panels are pure renderers, so this page owns what
-// the events mean, and today that is an honest "coming soon": a suggestion is a ContentItem
-// association write, and associations have no HTTP exposer yet (#318). The panels take their
-// collections from THIS page, which holds the item's id off the URL — the wiring point where the
-// association read plugs in when it exists.
-//
-// EDITING IS OFF HERE. showEditSection is left at its default, the surface switch
-// ContentItemPanel puts ahead of every role check: no Edit, no route into the editor,
-// however the reader's roles fall. A public page that could never be turned into an edit
-// surface by a role change elsewhere is the point of that switch — an editing surface is a
-// separate page's decision, not this one's.
 // What a reader is told of a suggested tag, by the status the server answered with
 // (DesignFeatures/TagSuggestions.md rule 8, the messages' single home).
 const tagSuggestionMessages: Readonly<Record<AssociationSubmissionStatus, string>> = {
@@ -56,6 +38,24 @@ const tagSuggestionMessages: Readonly<Record<AssociationSubmissionStatus, string
         'Thank you. You have already suggested this tag for this post.'
 };
 
+// One content item, read. Where a contribution lands after it is submitted, and the permanent
+// address of the item afterwards.
+//
+// TWO COLUMNS, 7 / 5, the same split the contributor's own surface keeps: the item on the left,
+// and on the right the surfaces that belong BESIDE a content item rather than within it
+// (§20.6.2) — its tags, its bible references, and the invitation to share something else. A
+// reader arriving at a post meets them there and is invited to suggest one of each; the
+// association panels are pure renderers, so this page owns what
+// the events mean, and today that is an honest "coming soon": a suggestion is a ContentItem
+// association write, and associations have no HTTP exposer yet (#318). The panels take their
+// collections from THIS page, which holds the item's id off the URL — the wiring point where the
+// association read plugs in when it exists.
+//
+// EDITING IS OFF HERE. showEditSection is left at its default, the surface switch
+// ContentItemPanel puts ahead of every role check: no Edit, no route into the editor,
+// however the reader's roles fall. A public page that could never be turned into an edit
+// surface by a role change elsewhere is the point of that switch — an editing surface is a
+// separate page's decision, not this one's.
 export function PostDetail() {
     const { contentItemId = '' } = useParams();
     const navigate = useNavigate();
