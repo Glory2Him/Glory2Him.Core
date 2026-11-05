@@ -117,8 +117,9 @@ export interface AssociationPanelProps {
     // ── Add ───────────────────────────────────────────────────────────────────
     showAdd?: boolean;
 
-    // Comma-separated, empty by default: any authenticated reader may suggest. [OWNER] is
-    // meaningless — there is no item yet to own — and is ignored.
+    // Comma-separated, empty by default: any authenticated reader may suggest, except on a
+    // rejected host, where nobody is offered the box (rule 2.33). [OWNER] is meaningless —
+    // there is no item yet to own — and is ignored.
     addRoles?: string;
     suggestTitle?: string;
     suggestDescription?: string;
@@ -148,8 +149,9 @@ export interface AssociationPanelProps {
     hostApprovalStatus?: ApprovalStatus;
 
     // ── Login ─────────────────────────────────────────────────────────────────
-    // Replaces the add box when adding is on but nobody is signed in. Defaults to the current
-    // path as the return url, so the reader lands back here.
+    // Replaces the add box when adding is on but nobody is signed in, except on a rejected host,
+    // where neither is offered (rule 2.33). Defaults to the current path as the return url, so
+    // the reader lands back here.
     loginHref?: string;
     loginButtonText?: string;
     loginButtonCssClass?: string;
