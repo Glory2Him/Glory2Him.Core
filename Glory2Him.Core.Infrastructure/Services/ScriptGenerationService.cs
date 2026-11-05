@@ -55,10 +55,11 @@ namespace Glory2Him.Core.Infrastructure.Services
                     // The branch filter is NOT a duplicate of Push.Branches above: it names every
                     // branch a pull request may target. Task PRs merge into a feature branch and
                     // the feature PR into main, and a hotfix's tier 3 PR targets the release branch
-                    // cut from the last tag; all three are tested, and nothing else is.
+                    // cut from the last tag; all three are tested, and nothing else is. No
+                    // "closed": only the old tag job needed it, and release.yml now does that.
                     PullRequest = new PullRequestEvent
                     {
-                        Types = ["opened", "synchronize", "reopened", "closed"],
+                        Types = ["opened", "synchronize", "reopened"],
                         Branches = [branchName, FeatureBranches, ReleaseBranches]
                     }
                 },
@@ -751,6 +752,12 @@ namespace Glory2Him.Core.Infrastructure.Services
                 script.Contains(anchor));
 
             string labelScript = labelStep.With["script"];
+
+            // A later ADotNet that carries the prefix itself needs nothing added.
+            if (labelScript.Contains("'FEATURES:',"))
+            {
+                return labelJob;
+            }
             int anchorIndex = labelScript.IndexOf(anchor);
             int lineStart = labelScript.LastIndexOf('\n', anchorIndex) + 1;
             string indent = labelScript[lineStart..anchorIndex];
@@ -772,7 +779,7 @@ namespace Glory2Him.Core.Infrastructure.Services
             GithubTask checkStep = requireIssueOrTaskJob.Steps.Single(step =>
                 step.Id == "check_for_issues_or_tasks");
 
-            string condition = checkStep.If.Trim();
+            string condition = checkStep.If?.Trim() ?? string.Empty;
 
             if (!condition.StartsWith("${{") || !condition.EndsWith("}}"))
             {

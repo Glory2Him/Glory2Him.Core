@@ -611,8 +611,9 @@ gh api "repos/{owner}/{repo}/issues/500/timeline?per_page=100" \
 Claude Code runs on your own machine, where the code is checked out. Windows with Git
 Bash is the reference setup; Linux and macOS work too. The build driver is a bash
 script and needs `git`, `gh`, `jq` (`winget install jqlang.jq` on Windows), `node` and
-`claude` on the path. The integration tests need LocalDB, so on your machine they run
-on Windows only; CI runs them on Linux against its own SQL Server container.
+`claude` on the path. The integration tests, and the WebApp and storage-client
+acceptance tests, need LocalDB, so on your machine they run on Windows only; CI runs
+them on Linux against its own SQL Server container.
 
 You sign in to Claude Code with your Claude Pro account (`/login`), and to GitHub with
 your own account (`gh auth login`). Builds run under your identity; there is no
@@ -800,7 +801,9 @@ left unlabelled.
 
 **PR body.** Must link an issue or the PR linter fails: `Closes #512`. `fixes` and
 `resolves` (and their past-tense forms) and `AB#<n>` also match. Both the linter and the
-Build check run on PRs into `main` and into `users/*/feature-*`.
+Build check run on PRs into `main`, into `users/*/feature-*` and into `release/v*`. A
+`RELEASES:` PR is exempt from the linked-issue check: everything it carries is already
+merged and closed.
 
 **`gh api` only.** The agents and scripts use `gh api` for every GitHub call — REST, bar the one GraphQL call that takes a feature PR out of draft —
 never the `gh issue` or `gh pr` subcommands, so they behave the same everywhere. Do the
@@ -1024,7 +1027,7 @@ dotnet test Glory2Him.Core.Tests.Unit
 foreach ($kind in "*Tests.Unit*.csproj", "*Tests.Acceptance*.csproj", "*Tests.Integration*.csproj") {
   foreach ($project in Get-ChildItem -Filter $kind -Recurse) {
     dotnet test $project.FullName
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    if ($LASTEXITCODE -ne 0) { throw "$($project.Name) failed" }
   }
 }
 
