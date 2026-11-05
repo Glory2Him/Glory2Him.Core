@@ -58,6 +58,7 @@ import { TagAssociationPanel } from '../../components/associations/tagAssociatio
 // and the hash-stripping normalizer all come from the component's own defaults.
 <TagAssociationPanel
     associationCollection={tags}
+    hostApprovalStatus={post.approvalStatus}
     onAdd={suggestTagAsync}
     onRemove={removeTagAsync}
     onApprove={approveTagAsync}
