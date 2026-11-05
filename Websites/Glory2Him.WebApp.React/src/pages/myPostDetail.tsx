@@ -167,11 +167,14 @@ export function MyPostDetail() {
     // than silently dropping what somebody typed.
     const suggestTagMutation = associationService.useSuggestTag();
 
-    const suggestTag = async (name: string) => {
-        const { status } = await suggestTagMutation.mutateAsync({ contentItemId, name });
-
-        toastSuccess(tagSuggestionAnswers[status]);
-    };
+    // Each run is answered through its OWN promise, never through a callback handed to mutate:
+    // TanStack Query fires such a callback for the last of several consecutive calls only, and
+    // a tag list raises onAdd once per tag in one tick. A refused or failed run is the app's
+    // global error toast's to announce, which the hook leaves on, so the page adds nothing.
+    const suggestTag = (name: string) =>
+        suggestTagMutation.mutateAsync({ contentItemId, name })
+            .then(({ status }) => toastSuccess(tagSuggestionAnswers[status]))
+            .catch(() => undefined);
 
     const suggestBibleReference = () =>
         toastSuccess('Suggesting bible references is coming soon.');
