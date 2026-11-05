@@ -1204,6 +1204,38 @@ describe('AssociationPanel', () => {
             expect(screen.queryByText('Suggest a tag')).not.toBeInTheDocument();
             expect(screen.queryByText('Think a tag is missing?')).not.toBeInTheDocument();
         });
+
+        // Rule 2.33 withholds the box and nothing else: the chips, their links and Remove read
+        // as they do with the property not given.
+        it.each([
+            ['Rejected', ApprovalStatus.Rejected],
+            ['not given', undefined]
+        ])('should still show what is already associated on a rejected host, and let its owner withdraw it (%s)',
+            (_, hostApprovalStatus) => {
+            // given
+            signInAs(authState, ['Users']);
+
+            // when
+            renderWithAuth(
+                <AssociationPanel
+                    title="Tags"
+                    hostApprovalStatus={hostApprovalStatus}
+                    chipHrefFor={(item) => `/Search?q=${item.value}`}
+                    associationCollection={[
+                        approvedItem('faith'),
+                        submittedItem('hope', ViewerId)
+                    ]} />);
+
+            // then
+            expect(screen.getByRole('link', { name: 'faith' }))
+                .toHaveAttribute('href', '/Search?q=faith');
+
+            expect(screen.getByRole('link', { name: 'hope' }))
+                .toHaveAttribute('href', '/Search?q=hope');
+
+            expect(screen.getByRole('button', { name: 'Remove hope' })).toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'Remove faith' })).not.toBeInTheDocument();
+        });
     });
 
     describe('border', () => {
