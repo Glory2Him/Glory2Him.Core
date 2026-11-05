@@ -1165,6 +1165,45 @@ describe('AssociationPanel', () => {
             expect(screen.getByRole('link', { name: /Login to suggest a tag/ }))
                 .toBeInTheDocument();
         });
+
+        // The persona matrix: the gate asks the host's status alone, so no viewer is spared.
+        // signInAs mints userId 'user-1', the ViewerId that owns the chip in the collection.
+        it.each([
+            ['a signed-out reader', null],
+            ['a signed-in reader', ['Users']],
+            ['the owner of a chip in the collection', ['Users']],
+            ['a holder of Reviewers', ['Reviewers']],
+            ['a holder of Publishers', ['Publishers']],
+            ['a holder of Administrators', ['Administrators']]
+        ])('should offer no new suggestion on a rejected host whoever views it (%s)',
+            (persona, roles) => {
+            // given
+            if (roles != null) {
+                signInAs(authState, roles);
+            }
+
+            const chipOwner = persona === 'the owner of a chip in the collection'
+                ? ViewerId
+                : OtherId;
+
+            // when
+            renderWithAuth(
+                <AssociationPanel
+                    title="Tags"
+                    showAdd={true}
+                    hostApprovalStatus={ApprovalStatus.Rejected}
+                    associationCollection={[submittedItem('faith', chipOwner)]}
+                    suggestTitle="Suggest a tag"
+                    suggestDescription="Think a tag is missing?"
+                    addPlaceholderText="Start typing a tag…"
+                    loginButtonText="Login to suggest a tag" />);
+
+            // then
+            expect(screen.queryByPlaceholderText('Start typing a tag…')).not.toBeInTheDocument();
+            expect(screen.queryByText(/Login to suggest a tag/)).not.toBeInTheDocument();
+            expect(screen.queryByText('Suggest a tag')).not.toBeInTheDocument();
+            expect(screen.queryByText('Think a tag is missing?')).not.toBeInTheDocument();
+        });
     });
 
     describe('border', () => {
