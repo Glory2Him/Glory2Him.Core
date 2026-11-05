@@ -1,11 +1,14 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MyPostDetail } from './myPostDetail';
 import { AuthProvider } from '../components/securitys/authProvider';
 import { EntityType } from '../models/foundations/approvalSettings/approvalSetting';
 import { AssociationRequest } from '../models/foundations/associations/associationRequest';
+import { AssociationSubmissionResult } from '../models/foundations/associations/associationSubmissionResult';
+import { AssociationSubmissionStatus } from '../models/foundations/associations/associationSubmissionStatus';
+import { TagSuggestion } from '../models/foundations/associations/tagSuggestion';
 import { ContentItemReactionSummary } from '../models/foundations/associations/contentItemReactionSummary';
 import { ContentItem } from '../models/foundations/contentItems/contentItem';
 import { ContentType } from '../models/foundations/contentItemSettings/contentType';
@@ -106,6 +109,18 @@ let serverSummaries: Record<string, ContentItemReactionSummary> = {};
 const upsertAssociation = vi.fn<(association: AssociationRequest) => Promise<unknown>>();
 const removeAssociationByPair = vi.fn<(association: AssociationRequest) => Promise<unknown>>();
 
+// The tag suggestion write, mocked at its own boundary: each run is one call, answered with the
+// status the test gives it.
+const suggestTagWith =
+    vi.fn<(tagSuggestion: TagSuggestion) => Promise<AssociationSubmissionResult>>();
+
+// What the page says of an answer, read where it says it.
+const toastSuccess = vi.fn<(message: string) => void>();
+
+vi.mock('../brokers/toastBroker.success', () => ({
+    toastSuccess: (message: string) => toastSuccess(message)
+}));
+
 vi.mock('../services/foundations/associationService', () => ({
     associationService: {
         useGetReactionSummaries: (contentItemIdPages: ReadonlyArray<ReadonlyArray<string>>) => {
@@ -122,6 +137,7 @@ vi.mock('../services/foundations/associationService', () => ({
         },
 
         useUpsertAssociation: () => ({ mutateAsync: upsertAssociation }),
+        useSuggestTag: () => ({ mutateAsync: suggestTagWith }),
         useRemoveAssociationByPair: () => ({ mutateAsync: removeAssociationByPair }),
         useReadReactionSummariesAgain: () => () => new Promise(() => undefined)
     }
@@ -194,6 +210,17 @@ const renderPage = (initialEntry: Parameters<typeof MemoryRouter>[0]['initialEnt
             </AuthProvider>
         </MemoryRouter>);
 
+// The page on its own route, so that the id it reads off the URL is the one the address carries.
+const renderPageOnItsRoute = () =>
+    render(
+        <MemoryRouter initialEntries={['/myposts/quote-1']}>
+            <AuthProvider>
+                <Routes>
+                    <Route path="/myposts/:contentItemId" element={<MyPostDetail />} />
+                </Routes>
+            </AuthProvider>
+        </MemoryRouter>);
+
 const cardOf = (container: HTMLElement): HTMLElement =>
     container.querySelector('.g2h-content-item-card') as HTMLElement;
 
@@ -233,6 +260,9 @@ describe('MyPostDetail', () => {
         upsertAssociation.mockImplementation(() => new Promise(() => undefined));
         removeAssociationByPair.mockReset();
         removeAssociationByPair.mockImplementation(() => new Promise(() => undefined));
+        suggestTagWith.mockReset();
+        suggestTagWith.mockResolvedValue({ status: AssociationSubmissionStatus.Created });
+        toastSuccess.mockReset();
         signInAs(authState, ['Users']);
     });
 
@@ -479,5 +509,21 @@ describe('MyPostDetail', () => {
             groupId: 'group-1',
             createdBy: 'user-1'
         }));
+    });
+
+    // THE TAG PANEL'S SUGGESTION IS SENT, by the name the panel raised, for the post on the route
+    // (MyPostDetail.md rule 2.24).
+    it('should send a suggested tag by its name for the post on the route', async () => {
+        // given
+        renderPageOnItsRoute();
+
+        // when
+        await userEvent.type(screen.getByPlaceholderText('Start typing a tag…'), 'miracles{Enter}');
+
+        // then
+        expect(suggestTagWith).toHaveBeenCalledTimes(1);
+
+        expect(suggestTagWith).toHaveBeenCalledWith(
+            { contentItemId: 'quote-1', name: 'miracles' });
     });
 });
