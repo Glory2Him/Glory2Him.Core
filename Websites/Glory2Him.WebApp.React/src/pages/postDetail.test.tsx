@@ -8,6 +8,8 @@ import { AuthProvider } from '../components/securitys/authProvider';
 import { ApprovalStatus } from '../models/components/contentItems/contentItemFormItem';
 import { EntityType } from '../models/foundations/approvalSettings/approvalSetting';
 import { AssociationRequest } from '../models/foundations/associations/associationRequest';
+import { AssociationSubmissionResult } from '../models/foundations/associations/associationSubmissionResult';
+import { TagSuggestion } from '../models/foundations/associations/tagSuggestion';
 import { ContentItemReactionSummary } from '../models/foundations/associations/contentItemReactionSummary';
 import { ContentItem } from '../models/foundations/contentItems/contentItem';
 import { ContentItemSetting } from '../models/foundations/contentItemSettings/contentItemSetting';
@@ -169,6 +171,11 @@ let serverSummaries: Record<string, ContentItemReactionSummary> = {};
 const upsertAssociation = vi.fn<(association: AssociationRequest) => Promise<unknown>>();
 const removeAssociationByPair = vi.fn<(association: AssociationRequest) => Promise<unknown>>();
 
+// The suggested tag's write, mocked as the reaction writes are. Each run answers through the
+// promise its own call returns, so a test settles each run as it chooses.
+const sendTagSuggestion =
+    vi.fn<(tagSuggestion: TagSuggestion) => Promise<AssociationSubmissionResult>>();
+
 vi.mock('../services/foundations/associationService', () => ({
     associationService: {
         useGetReactionSummaries: (contentItemIdPages: ReadonlyArray<ReadonlyArray<string>>) => {
@@ -186,6 +193,7 @@ vi.mock('../services/foundations/associationService', () => ({
 
         useUpsertAssociation: () => ({ mutateAsync: upsertAssociation }),
         useRemoveAssociationByPair: () => ({ mutateAsync: removeAssociationByPair }),
+        useSuggestTag: () => ({ mutateAsync: sendTagSuggestion }),
         useReadReactionSummariesAgain: () => () => new Promise(() => undefined)
     }
 }));
@@ -328,6 +336,16 @@ const reactionPairFor = (reactionName: string): AssociationRequest => ({
     entityBKeyId: reactionNamed(reactionName).id
 });
 
+// Commits a value in the tag panel's Suggest a tag box, as a reader does.
+const suggestATag = async (value: string): Promise<void> => {
+    await userEvent.type(screen.getByRole('textbox', { name: 'Suggest a tag' }), value);
+
+    await userEvent.click(
+        within(screen.getByRole('textbox', { name: 'Suggest a tag' })
+            .closest('section') as HTMLElement)
+            .getByRole('button', { name: 'Add' }));
+};
+
 describe('PostDetail', () => {
     afterEach(() => {
         // In the test body this is skipped by a failing assertion, and the stubbed navigator
@@ -349,6 +367,8 @@ describe('PostDetail', () => {
         upsertAssociation.mockImplementation(() => new Promise(() => undefined));
         removeAssociationByPair.mockReset();
         removeAssociationByPair.mockImplementation(() => new Promise(() => undefined));
+        sendTagSuggestion.mockReset();
+        sendTagSuggestion.mockImplementation(() => new Promise(() => undefined));
     });
 
     it('should read the item named by the route', () => {
@@ -412,23 +432,19 @@ describe('PostDetail', () => {
             .toBeInTheDocument();
     });
 
-    it('should answer a suggested tag honestly rather than dropping it', async () => {
+    it('should send a suggested tag by its name for the post on the route', async () => {
         // given
         signInAs(authState);
         renderPage();
 
         // when
-        await userEvent.type(
-            screen.getByRole('textbox', { name: 'Suggest a tag' }), 'grace');
+        await suggestATag('grace');
 
-        await userEvent.click(
-            within(screen.getByRole('textbox', { name: 'Suggest a tag' })
-                .closest('section') as HTMLElement)
-                .getByRole('button', { name: 'Add' }));
+        // then: one run, for the post the route names, carrying the value the panel raised
+        expect(sendTagSuggestion).toHaveBeenCalledTimes(1);
 
-        // then: the write lands with the association exposer (#318); until then somebody who
-        // typed a suggestion is told where it went rather than watching it vanish
-        expect(toastSuccess).toHaveBeenCalledWith('Suggesting tags is coming soon.');
+        expect(sendTagSuggestion).toHaveBeenCalledWith(
+            { contentItemId: 'content-item-1', name: 'grace' });
     });
 
     it('should answer a suggested bible reference honestly rather than dropping it', async () => {
