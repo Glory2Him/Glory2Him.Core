@@ -579,6 +579,27 @@ describe('PostDetail', () => {
             .toBeInTheDocument();
     });
 
+    it('should leave a failed suggestion to the global error toast', async () => {
+        // given: a refusal or a failure — the hook announces it through the app's global error
+        // toast, so the page has nothing of its own to say
+        signInAs(authState);
+        let refuse: (reason: unknown) => void = () => undefined;
+
+        sendTagSuggestion.mockImplementation(() =>
+            new Promise((_, reject) => { refuse = reject; }));
+
+        renderPage();
+        await suggestATag('grace');
+
+        // when
+        refuse(new Error('Refused'));
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        // then
+        expect(sendTagSuggestion).toHaveBeenCalledTimes(1);
+        expect(toastSuccess).not.toHaveBeenCalled();
+    });
+
     it('should answer a suggested bible reference honestly rather than dropping it', async () => {
         // given
         signInAs(authState);
