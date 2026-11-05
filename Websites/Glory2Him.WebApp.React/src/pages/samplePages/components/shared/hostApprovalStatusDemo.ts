@@ -13,3 +13,6 @@ export const hostApprovalStatusOptions: ReadonlyArray<DemoRadioOption> = [
     { key: String(ApprovalStatus.Approved), label: 'Approved' },
     { key: String(ApprovalStatus.Rejected), label: 'Rejected' }
 ];
+
+export const hostApprovalStatusFor = (key: string): ApprovalStatus | undefined =>
+    key === hostApprovalStatusNotGivenKey ? undefined : Number(key) as ApprovalStatus;

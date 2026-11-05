@@ -27,6 +27,7 @@ import {
 } from './shared/securityContextDemo';
 
 import {
+    hostApprovalStatusFor,
     hostApprovalStatusNotGivenKey,
     hostApprovalStatusOptions
 } from './shared/hostApprovalStatusDemo';
@@ -374,6 +375,7 @@ export const AssociationPanelDoc = () => {
                             chipPrefixText="#"
                             chipHrefFor={(item) => `/Search?q=${encodeURIComponent(item.value)}`}
                             showAdd={showAdd}
+                            hostApprovalStatus={hostApprovalStatusFor(hostApprovalStatusKey)}
                             showModerationActions={showModerationActions}
                             showBorder={showBorder}
                             isLoading={isLoading}
