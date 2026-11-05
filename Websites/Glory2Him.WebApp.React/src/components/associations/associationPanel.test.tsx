@@ -1118,6 +1118,32 @@ describe('AssociationPanel', () => {
         });
     });
 
+    describe('the host approval status', () => {
+        // Only a rejected host withholds the box: every other status, and none given, is
+        // offered it as before.
+        it.each([
+            ['Draft', ApprovalStatus.Draft],
+            ['Submitted', ApprovalStatus.Submitted],
+            ['Approved', ApprovalStatus.Approved],
+            ['not given', undefined]
+        ])('should offer the add box on a host that is not rejected (%s)',
+            (_, hostApprovalStatus) => {
+            // given
+            signInAs(authState, ['Users']);
+
+            // when
+            renderWithAuth(
+                <AssociationPanel
+                    title="Tags"
+                    showAdd={true}
+                    hostApprovalStatus={hostApprovalStatus}
+                    addPlaceholderText="Start typing a tag…" />);
+
+            // then
+            expect(screen.getByPlaceholderText('Start typing a tag…')).toBeInTheDocument();
+        });
+    });
+
     describe('border', () => {
         it('should carry the class that neutralises the theme\'s section padding', () => {
             // when
