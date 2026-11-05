@@ -113,6 +113,7 @@ vi.mock('../services/foundations/associationService', () => ({
         useGetReactionSummaries: () => ({ summaries: {}, isLoading: false, isError: false }),
         useUpsertAssociation: () => ({ mutateAsync: () => new Promise(() => undefined) }),
         useRemoveAssociationByPair: () => ({ mutateAsync: () => new Promise(() => undefined) }),
+        useSuggestTag: () => ({ mutateAsync: () => new Promise(() => undefined) }),
         useReadReactionSummariesAgain: () => () => new Promise(() => undefined)
     }
 }));
