@@ -7,6 +7,8 @@ import { ContentItemPanel } from '../components/contentItems/contentItemPanel';
 import { SharingPanel } from '../components/contentItems/sharingPanel';
 import { Spinner } from '../components/coreUI/spinner';
 import { useContentItemEngagement } from '../hooks/useContentItemEngagement';
+import { associationService } from '../services/foundations/associationService';
+import { AssociationSubmissionStatus } from '../models/foundations/associations/associationSubmissionStatus';
 import { contentItemService } from '../services/foundations/contentItemService';
 import { contentItemSettingService } from '../services/foundations/contentItemSettingService';
 import { contributorService } from '../services/foundations/contributorService';
@@ -18,6 +20,24 @@ import {
 } from '../services/views/contentItems/resolveContentItemSetting';
 import { useDocumentTitle } from './useDocumentTitle';
 
+// What a reader is told of a suggested tag, by the status the server answered with
+// (DesignFeatures/TagSuggestions.md rule 8, the messages' single home).
+const tagSuggestionMessages: Readonly<Record<AssociationSubmissionStatus, string>> = {
+    [AssociationSubmissionStatus.Created]:
+        'Thank you for your contribution. Your tag has been suggested and is under review.',
+
+    [AssociationSubmissionStatus.AlreadySuggested]:
+        'Thank you for your contribution. This tag has already been suggested by another user '
+            + 'and is under review.',
+
+    [AssociationSubmissionStatus.AlreadySuggestedByCaller]:
+        'Thank you for your contribution. You have already suggested this tag, and it is under '
+            + 'review.',
+
+    [AssociationSubmissionStatus.PreviouslySuggestedByCaller]:
+        'Thank you. You have already suggested this tag for this post.'
+};
+
 // One content item, read. Where a contribution lands after it is submitted, and the permanent
 // address of the item afterwards.
 //
@@ -25,9 +45,9 @@ import { useDocumentTitle } from './useDocumentTitle';
 // and on the right the surfaces that belong BESIDE a content item rather than within it
 // (§20.6.2) — its tags, its bible references, and the invitation to share something else. A
 // reader arriving at a post meets them there and is invited to suggest one of each; the
-// association panels are pure renderers, so this page owns what
-// the events mean, and today that is an honest "coming soon": a suggestion is a ContentItem
-// association write, and associations have no HTTP exposer yet (#318). The panels take their
+// association panels are pure renderers, so this page owns what the events mean. A suggested
+// tag is sent, and its answer told; a suggested bible reference is still answered with an honest
+// "coming soon", since its write is not wired here yet. The panels take their
 // collections from THIS page, which holds the item's id off the URL — the wiring point where the
 // association read plugs in when it exists.
 //
@@ -135,9 +155,21 @@ export function PostDetail() {
     // invitation caught the reader on is on the record for whenever that surface reads it.
     const from = `${location.pathname}${location.search}`;
 
-    // The association writes arrive with #318; until then the boxes answer honestly rather
-    // than silently dropping what somebody typed.
-    const suggestTag = () => toastSuccess('Suggesting tags is coming soon.');
+    // The tag panel's suggestion is sent by its name through associationService.useSuggestTag,
+    // for the post on the route, and answered with the message its status names. Each run is
+    // answered through the promise its own call returns, never a callback handed to mutate,
+    // which fires for the last of several consecutive calls only — a list of tags raises onAdd
+    // once for each name, in one tick. A refused or failed run is the global error toast's to
+    // announce, so the page lets it go quietly. The Bible reference panel's suggestion still
+    // answers "coming soon".
+    const suggestTagMutation = associationService.useSuggestTag();
+
+    const suggestTag = (name: string) => {
+        void suggestTagMutation.mutateAsync({ contentItemId, name })
+            .then(
+                result => toastSuccess(tagSuggestionMessages[result.status]),
+                () => undefined);
+    };
 
     const suggestBibleReference = () =>
         toastSuccess('Suggesting bible references is coming soon.');
@@ -200,6 +232,7 @@ export function PostDetail() {
                             <TagAssociationPanel
                                 associationCollection={[]}
                                 onAdd={suggestTag}
+                                hostApprovalStatus={contentItem?.approvalStatus}
                                 showBorder
                                 cssClass="mb-4" />
 

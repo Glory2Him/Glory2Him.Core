@@ -1,5 +1,5 @@
 import { createElement } from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,12 +8,19 @@ import { AuthProvider } from '../components/securitys/authProvider';
 import { ApprovalStatus } from '../models/components/contentItems/contentItemFormItem';
 import { EntityType } from '../models/foundations/approvalSettings/approvalSetting';
 import { AssociationRequest } from '../models/foundations/associations/associationRequest';
+import { AssociationSubmissionResult } from '../models/foundations/associations/associationSubmissionResult';
+import { AssociationSubmissionStatus } from '../models/foundations/associations/associationSubmissionStatus';
+import { TagSuggestion } from '../models/foundations/associations/tagSuggestion';
 import { ContentItemReactionSummary } from '../models/foundations/associations/contentItemReactionSummary';
 import { ContentItem } from '../models/foundations/contentItems/contentItem';
 import { ContentItemSetting } from '../models/foundations/contentItemSettings/contentItemSetting';
 import { ContentType } from '../models/foundations/contentItemSettings/contentType';
 import { Reaction } from '../models/foundations/reactions/reaction';
 import { createAuthState, setLoading, signInAs, signOut } from '../tests/testAuth';
+
+import {
+    TagAssociationPanelProps
+} from '../components/associations/tagAssociationPanel';
 
 import {
     ContentItemPanelProps
@@ -35,6 +42,12 @@ const toastSuccess = vi.fn();
 
 vi.mock('../brokers/toastBroker.success', () => ({
     toastSuccess: (message: string) => toastSuccess(message)
+}));
+
+const toastError = vi.fn();
+
+vi.mock('../brokers/toastBroker.error', () => ({
+    toastError: (message: string) => toastError(message)
 }));
 
 // WHAT THE PAGE HANDS THE PANEL, captured while the REAL panel still renders — every other
@@ -59,6 +72,25 @@ vi.mock('../components/contentItems/contentItemPanel', async () => {
             panelProps = props;
 
             return createElement(actual.ContentItemPanel, props);
+        }
+    };
+});
+
+// What the page hands the tag panel, captured the same way: the real panel still renders, so a
+// test reads both the status it was handed and whether it then offers its box.
+let tagPanelProps: TagAssociationPanelProps | undefined;
+
+vi.mock('../components/associations/tagAssociationPanel', async () => {
+    const actual = await vi.importActual<
+        typeof import('../components/associations/tagAssociationPanel')>(
+            '../components/associations/tagAssociationPanel');
+
+    return {
+        ...actual,
+        TagAssociationPanel: (props: TagAssociationPanelProps) => {
+            tagPanelProps = props;
+
+            return createElement(actual.TagAssociationPanel, props);
         }
     };
 });
@@ -169,6 +201,11 @@ let serverSummaries: Record<string, ContentItemReactionSummary> = {};
 const upsertAssociation = vi.fn<(association: AssociationRequest) => Promise<unknown>>();
 const removeAssociationByPair = vi.fn<(association: AssociationRequest) => Promise<unknown>>();
 
+// The suggested tag's write, mocked as the reaction writes are. Each run answers through the
+// promise its own call returns, so a test settles each run as it chooses.
+const sendTagSuggestion =
+    vi.fn<(tagSuggestion: TagSuggestion) => Promise<AssociationSubmissionResult>>();
+
 vi.mock('../services/foundations/associationService', () => ({
     associationService: {
         useGetReactionSummaries: (contentItemIdPages: ReadonlyArray<ReadonlyArray<string>>) => {
@@ -186,6 +223,7 @@ vi.mock('../services/foundations/associationService', () => ({
 
         useUpsertAssociation: () => ({ mutateAsync: upsertAssociation }),
         useRemoveAssociationByPair: () => ({ mutateAsync: removeAssociationByPair }),
+        useSuggestTag: () => ({ mutateAsync: sendTagSuggestion }),
         useReadReactionSummariesAgain: () => () => new Promise(() => undefined)
     }
 }));
@@ -328,6 +366,16 @@ const reactionPairFor = (reactionName: string): AssociationRequest => ({
     entityBKeyId: reactionNamed(reactionName).id
 });
 
+// Commits a value in the tag panel's Suggest a tag box, as a reader does.
+const suggestATag = async (value: string): Promise<void> => {
+    await userEvent.type(screen.getByRole('textbox', { name: 'Suggest a tag' }), value);
+
+    await userEvent.click(
+        within(screen.getByRole('textbox', { name: 'Suggest a tag' })
+            .closest('section') as HTMLElement)
+            .getByRole('button', { name: 'Add' }));
+};
+
 describe('PostDetail', () => {
     afterEach(() => {
         // In the test body this is skipped by a failing assertion, and the stubbed navigator
@@ -337,7 +385,9 @@ describe('PostDetail', () => {
 
     beforeEach(() => {
         toastSuccess.mockClear();
+        toastError.mockClear();
         panelProps = undefined;
+        tagPanelProps = undefined;
         signOut(authState);
         contentItem = ownedItem;
         contentItemSettings = [testimonySetting, quoteSetting];
@@ -349,6 +399,8 @@ describe('PostDetail', () => {
         upsertAssociation.mockImplementation(() => new Promise(() => undefined));
         removeAssociationByPair.mockReset();
         removeAssociationByPair.mockImplementation(() => new Promise(() => undefined));
+        sendTagSuggestion.mockReset();
+        sendTagSuggestion.mockImplementation(() => new Promise(() => undefined));
     });
 
     it('should read the item named by the route', () => {
@@ -412,23 +464,148 @@ describe('PostDetail', () => {
             .toBeInTheDocument();
     });
 
-    it('should answer a suggested tag honestly rather than dropping it', async () => {
+    it('should send a suggested tag by its name for the post on the route', async () => {
         // given
         signInAs(authState);
         renderPage();
 
         // when
-        await userEvent.type(
-            screen.getByRole('textbox', { name: 'Suggest a tag' }), 'grace');
+        await suggestATag('grace');
 
-        await userEvent.click(
-            within(screen.getByRole('textbox', { name: 'Suggest a tag' })
-                .closest('section') as HTMLElement)
-                .getByRole('button', { name: 'Add' }));
+        // then: one run, for the post the route names, carrying the value the panel raised
+        expect(sendTagSuggestion).toHaveBeenCalledTimes(1);
 
-        // then: the write lands with the association exposer (#318); until then somebody who
-        // typed a suggestion is told where it went rather than watching it vanish
-        expect(toastSuccess).toHaveBeenCalledWith('Suggesting tags is coming soon.');
+        expect(sendTagSuggestion).toHaveBeenCalledWith(
+            { contentItemId: 'content-item-1', name: 'grace' });
+    });
+
+    it.each([
+        [
+            'Created',
+            AssociationSubmissionStatus.Created,
+            'Thank you for your contribution. Your tag has been suggested and is under review.'
+        ],
+        [
+            'AlreadySuggested',
+            AssociationSubmissionStatus.AlreadySuggested,
+            'Thank you for your contribution. This tag has already been suggested by another '
+                + 'user and is under review.'
+        ],
+        [
+            'AlreadySuggestedByCaller',
+            AssociationSubmissionStatus.AlreadySuggestedByCaller,
+            'Thank you for your contribution. You have already suggested this tag, and it is '
+                + 'under review.'
+        ],
+        [
+            'PreviouslySuggestedByCaller',
+            AssociationSubmissionStatus.PreviouslySuggestedByCaller,
+            'Thank you. You have already suggested this tag for this post.'
+        ]
+    ])('should thank the reader for a suggested tag as its answer has it (%s)',
+        async (_, status, message) => {
+            // given
+            signInAs(authState);
+            sendTagSuggestion.mockResolvedValue({ status });
+            renderPage();
+
+            // when
+            await suggestATag('grace');
+
+            // then: the words TagSuggestions.md rule 8 gives the answer's status, once
+            await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith(message));
+            expect(toastSuccess).toHaveBeenCalledTimes(1);
+        });
+
+    it('should send each tag of a list and answer each in a toast of its own', async () => {
+        // given: the panel raises onAdd once for each name, in one tick, and the two runs
+        // answer differently
+        signInAs(authState);
+
+        sendTagSuggestion
+            .mockResolvedValueOnce({ status: AssociationSubmissionStatus.Created })
+            .mockResolvedValueOnce({ status: AssociationSubmissionStatus.AlreadySuggested });
+
+        renderPage();
+
+        // when
+        await suggestATag('grace, mercy');
+
+        // then: a run of its own for each, and each run answered in its own words
+        expect(sendTagSuggestion).toHaveBeenCalledTimes(2);
+
+        expect(sendTagSuggestion).toHaveBeenNthCalledWith(
+            1, { contentItemId: 'content-item-1', name: 'grace' });
+
+        expect(sendTagSuggestion).toHaveBeenNthCalledWith(
+            2, { contentItemId: 'content-item-1', name: 'mercy' });
+
+        await waitFor(() => expect(toastSuccess).toHaveBeenCalledTimes(2));
+
+        expect(toastSuccess).toHaveBeenCalledWith(
+            'Thank you for your contribution. Your tag has been suggested and is under review.');
+
+        expect(toastSuccess).toHaveBeenCalledWith(
+            'Thank you for your contribution. This tag has already been suggested by another '
+                + 'user and is under review.');
+    });
+
+    it.each([
+        ['Draft', ApprovalStatus.Draft],
+        ['Submitted', ApprovalStatus.Submitted],
+        ['Approved', ApprovalStatus.Approved]
+    ])('should offer the tag box on a post that is not rejected (%s)', (_, approvalStatus) => {
+        // given
+        signInAs(authState);
+        contentItem = { ...ownedItem, approvalStatus };
+
+        // when
+        renderPage();
+
+        // then: the panel is told the post's status, and offers its box
+        expect(tagPanelProps?.hostApprovalStatus).toBe(approvalStatus);
+        expect(screen.getByRole('textbox', { name: 'Suggest a tag' })).toBeInTheDocument();
+    });
+
+    it('should withhold the tag box on a rejected post', () => {
+        // given: the page shows a rejected post to its owner until PostDetail.md §6 item 12
+        // is built, and ownedItem is the signed-in reader's
+        signInAs(authState);
+        contentItem = { ...ownedItem, approvalStatus: ApprovalStatus.Rejected };
+
+        // when
+        renderPage();
+
+        // then: the panel is told the post is rejected and offers no box, so nothing is sent;
+        // the Bible reference panel is not this task's and keeps its box
+        expect(tagPanelProps?.hostApprovalStatus).toBe(ApprovalStatus.Rejected);
+        expect(screen.queryByRole('textbox', { name: 'Suggest a tag' })).not.toBeInTheDocument();
+        expect(sendTagSuggestion).not.toHaveBeenCalled();
+
+        expect(screen.getByRole('textbox', { name: 'Suggest a bible reference' }))
+            .toBeInTheDocument();
+    });
+
+    it('should leave a failed suggestion to the global error toast', async () => {
+        // given: a refusal or a failure — the hook announces it through the app's global error
+        // toast, so the page has nothing of its own to say
+        signInAs(authState);
+        let refuse: (reason: unknown) => void = () => undefined;
+
+        sendTagSuggestion.mockImplementation(() =>
+            new Promise((_, reject) => { refuse = reject; }));
+
+        renderPage();
+        await suggestATag('grace');
+
+        // when
+        refuse(new Error('Refused'));
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        // then: the hook is mocked, so any error toast here would be the page's own
+        expect(sendTagSuggestion).toHaveBeenCalledTimes(1);
+        expect(toastSuccess).not.toHaveBeenCalled();
+        expect(toastError).not.toHaveBeenCalled();
     });
 
     it('should answer a suggested bible reference honestly rather than dropping it', async () => {
