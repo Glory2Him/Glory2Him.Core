@@ -1,5 +1,5 @@
 import { createElement } from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,6 +9,7 @@ import { ApprovalStatus } from '../models/components/contentItems/contentItemFor
 import { EntityType } from '../models/foundations/approvalSettings/approvalSetting';
 import { AssociationRequest } from '../models/foundations/associations/associationRequest';
 import { AssociationSubmissionResult } from '../models/foundations/associations/associationSubmissionResult';
+import { AssociationSubmissionStatus } from '../models/foundations/associations/associationSubmissionStatus';
 import { TagSuggestion } from '../models/foundations/associations/tagSuggestion';
 import { ContentItemReactionSummary } from '../models/foundations/associations/contentItemReactionSummary';
 import { ContentItem } from '../models/foundations/contentItems/contentItem';
@@ -446,6 +447,44 @@ describe('PostDetail', () => {
         expect(sendTagSuggestion).toHaveBeenCalledWith(
             { contentItemId: 'content-item-1', name: 'grace' });
     });
+
+    it.each([
+        [
+            'Created',
+            AssociationSubmissionStatus.Created,
+            'Thank you for your contribution. Your tag has been suggested and is under review.'
+        ],
+        [
+            'AlreadySuggested',
+            AssociationSubmissionStatus.AlreadySuggested,
+            'Thank you for your contribution. This tag has already been suggested by another '
+                + 'user and is under review.'
+        ],
+        [
+            'AlreadySuggestedByCaller',
+            AssociationSubmissionStatus.AlreadySuggestedByCaller,
+            'Thank you for your contribution. You have already suggested this tag, and it is '
+                + 'under review.'
+        ],
+        [
+            'PreviouslySuggestedByCaller',
+            AssociationSubmissionStatus.PreviouslySuggestedByCaller,
+            'Thank you. You have already suggested this tag for this post.'
+        ]
+    ])('should thank the reader for a suggested tag as its answer has it (%s)',
+        async (_, status, message) => {
+            // given
+            signInAs(authState);
+            sendTagSuggestion.mockResolvedValue({ status });
+            renderPage();
+
+            // when
+            await suggestATag('grace');
+
+            // then: the words TagSuggestions.md rule 8 gives the answer's status, once
+            await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith(message));
+            expect(toastSuccess).toHaveBeenCalledTimes(1);
+        });
 
     it('should answer a suggested bible reference honestly rather than dropping it', async () => {
         // given
