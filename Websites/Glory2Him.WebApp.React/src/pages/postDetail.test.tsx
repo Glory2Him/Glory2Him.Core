@@ -19,6 +19,10 @@ import { Reaction } from '../models/foundations/reactions/reaction';
 import { createAuthState, setLoading, signInAs, signOut } from '../tests/testAuth';
 
 import {
+    TagAssociationPanelProps
+} from '../components/associations/tagAssociationPanel';
+
+import {
     ContentItemPanelProps
 } from '../components/contentItems/contentItemPanel';
 
@@ -62,6 +66,25 @@ vi.mock('../components/contentItems/contentItemPanel', async () => {
             panelProps = props;
 
             return createElement(actual.ContentItemPanel, props);
+        }
+    };
+});
+
+// What the page hands the tag panel, captured the same way: the real panel still renders, so a
+// test reads both the status it was handed and whether it then offers its box.
+let tagPanelProps: TagAssociationPanelProps | undefined;
+
+vi.mock('../components/associations/tagAssociationPanel', async () => {
+    const actual = await vi.importActual<
+        typeof import('../components/associations/tagAssociationPanel')>(
+            '../components/associations/tagAssociationPanel');
+
+    return {
+        ...actual,
+        TagAssociationPanel: (props: TagAssociationPanelProps) => {
+            tagPanelProps = props;
+
+            return createElement(actual.TagAssociationPanel, props);
         }
     };
 });
@@ -357,6 +380,7 @@ describe('PostDetail', () => {
     beforeEach(() => {
         toastSuccess.mockClear();
         panelProps = undefined;
+        tagPanelProps = undefined;
         signOut(authState);
         contentItem = ownedItem;
         contentItemSettings = [testimonySetting, quoteSetting];
@@ -517,6 +541,23 @@ describe('PostDetail', () => {
         expect(toastSuccess).toHaveBeenCalledWith(
             'Thank you for your contribution. This tag has already been suggested by another '
                 + 'user and is under review.');
+    });
+
+    it.each([
+        ['Draft', ApprovalStatus.Draft],
+        ['Submitted', ApprovalStatus.Submitted],
+        ['Approved', ApprovalStatus.Approved]
+    ])('should offer the tag box on a post that is not rejected (%s)', (_, approvalStatus) => {
+        // given
+        signInAs(authState);
+        contentItem = { ...ownedItem, approvalStatus };
+
+        // when
+        renderPage();
+
+        // then: the panel is told the post's status, and offers its box
+        expect(tagPanelProps?.hostApprovalStatus).toBe(approvalStatus);
+        expect(screen.getByRole('textbox', { name: 'Suggest a tag' })).toBeInTheDocument();
     });
 
     it('should answer a suggested bible reference honestly rather than dropping it', async () => {
