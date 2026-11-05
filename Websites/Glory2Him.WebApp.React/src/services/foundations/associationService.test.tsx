@@ -11,7 +11,10 @@ import { associationService } from './associationService';
 import { queryClientGlobalOptions } from '../../brokers/apiBroker.globals';
 import { EntityType } from '../../models/foundations/approvalSettings/approvalSetting';
 import { AssociationRequest } from '../../models/foundations/associations/associationRequest';
+import { AssociationSubmissionResult } from '../../models/foundations/associations/associationSubmissionResult';
+import { AssociationSubmissionStatus } from '../../models/foundations/associations/associationSubmissionStatus';
 import { ContentItemReactionSummary } from '../../models/foundations/associations/contentItemReactionSummary';
+import { TagSuggestion } from '../../models/foundations/associations/tagSuggestion';
 
 import {
     AssociationSuggestionResult,
@@ -21,12 +24,14 @@ import {
 const postAssociationAsync = vi.fn();
 const deleteAssociationPairAsync = vi.fn();
 const getReactionSummariesAsync = vi.fn();
+const postTagSuggestionAsync = vi.fn();
 
 vi.mock('../../brokers/apiBroker.associations', () => ({
     default: class {
         PostAssociationAsync = postAssociationAsync;
         DeleteAssociationPairAsync = deleteAssociationPairAsync;
         GetReactionSummariesAsync = getReactionSummariesAsync;
+        PostTagSuggestionAsync = postTagSuggestionAsync;
     }
 }));
 
@@ -1141,5 +1146,51 @@ describe('associationService.useReadReactionSummariesAgain', () => {
         expect(readOutsideTheFamily).toHaveBeenCalledTimes(1);
         expect(queryClient.getQueryState(summaryKey(emptyPage))?.fetchStatus).toBe('idle');
         expect(queryClient.getQueryState(summaryKey(emptyPage))?.dataUpdateCount).toBe(0);
+    });
+});
+
+describe('associationService.useSuggestTag', () => {
+    let queryClient: QueryClient;
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const tagSuggestion: TagSuggestion = {
+        contentItemId: 'quote-1',
+        name: 'grace'
+    };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+
+        postTagSuggestionAsync.mockResolvedValue(
+            { status: AssociationSubmissionStatus.Created });
+
+        queryClient = new QueryClient({
+            defaultOptions: { queries: { retry: false } }
+        });
+    });
+
+    it.each([
+        ['Created', AssociationSubmissionStatus.Created],
+        ['AlreadySuggested', AssociationSubmissionStatus.AlreadySuggested],
+        ['AlreadySuggestedByCaller', AssociationSubmissionStatus.AlreadySuggestedByCaller],
+        ['PreviouslySuggestedByCaller', AssociationSubmissionStatus.PreviouslySuggestedByCaller]
+    ])('should send the suggestion through the broker and resolve with its result (%s)', async (_, status) => {
+        // given
+        const brokerResult: AssociationSubmissionResult = { status };
+        postTagSuggestionAsync.mockResolvedValue(brokerResult);
+
+        const { result } = renderHook(
+            () => associationService.useSuggestTag(), { wrapper });
+
+        // when
+        const actualResult = await result.current.mutateAsync(tagSuggestion);
+
+        // then
+        expect(postTagSuggestionAsync).toHaveBeenCalledTimes(1);
+        expect(postTagSuggestionAsync).toHaveBeenCalledWith(tagSuggestion);
+        expect(actualResult).toBe(brokerResult);
     });
 });
