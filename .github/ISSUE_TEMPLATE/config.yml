@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+- name: How work flows through this repository
+  url: https://github.com/Glory2Him/Glory2Him.Template/blob/main/DEVELOPERS.md
+  about: Features start from the form above. Small changes that need no design go through /tweak, which raises its own issue.

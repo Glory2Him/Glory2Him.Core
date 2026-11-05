@@ -1,0 +1,106 @@
+name: Feature request
+description: Describe a behaviour the service should have. A developer, product owner or business analyst can raise one; the planner turns it into user stories and tasks.
+type: Feature
+labels:
+- "type: feature"
+- "status: needs-design"
+body:
+- type: markdown
+  attributes:
+    value: |
+      Write this in the language of the service and the people who use it, not in code. The
+      planner reads it word for word and will come back with questions if anything is missing,
+      so a short, precise answer beats a long, vague one.
+
+      This text stays at the top of the issue as you wrote it. The planner adds the design
+      below it, and nothing is built until QA has signed the plan and the maintainer has
+      approved it.
+- type: textarea
+  id: summary
+  attributes:
+    label: Summary
+    description: One or two sentences. What should someone be able to do that they cannot do today, and why does it matter?
+    placeholder: Members can save a search and run it again later, so they stop retyping the same filters every visit.
+  validations:
+    required: true
+- type: textarea
+  id: users
+  attributes:
+    label: Who uses it
+    description: The roles involved and what each one is trying to get done. Include anyone who must not be able to use it.
+    placeholder: |
+      - Member: saves, renames, runs and deletes their own saved searches.
+      - Moderator: needs nothing new; saved searches are private to their owner.
+      - Another member must not see, run or change someone else's saved searches.
+  validations:
+    required: true
+- type: textarea
+  id: behaviour
+  attributes:
+    label: Behaviour
+    description: The scenarios, one per block, as Given / When / Then. Cover the usual path and the awkward ones — empty, too many, out of order, someone else's record.
+    placeholder: |
+      Given I searched for posts tagged "prayer"
+      When I save the search as "Prayer posts"
+      Then "Prayer posts" appears in my saved searches with today's date
+
+      Given I have no saved searches
+      When I open my saved searches
+      Then I see "You have not saved any searches yet"
+  validations:
+    required: true
+- type: textarea
+  id: must-not
+  attributes:
+    label: What must not happen
+    description: Things that would be wrong even if every scenario above passed — data shown to the wrong person, a record changed that should not be, a limit exceeded.
+    placeholder: A member never sees or runs another member's saved search, even by changing the address in the browser.
+  validations:
+    required: true
+- type: textarea
+  id: mockups
+  attributes:
+    label: Mockups
+    description: Drag images and finished diagrams in here, or link an HTML export under Documentation/Mockups/. A draft in Documentation/Diagrams/ does not count — no agent reads that folder. Every rule a mockup shows should also be written as a scenario above; "matches the mockup" is not enough on its own.
+  validations:
+    required: false
+- type: textarea
+  id: data
+  attributes:
+    label: Data
+    description: What is stored, where it comes from, who owns it, and how long it is kept. Name any personal or sensitive data, and any other system it is read from or sent to.
+    placeholder: Stores each saved search's name, its filters and its owner, kept until the member deletes it or closes their account. Sent to no other system.
+  validations:
+    required: false
+- type: textarea
+  id: done-when
+  attributes:
+    label: Done when
+    description: How you will know it works once it is in DEV — what you will try, and what you expect to see.
+    placeholder: I can sign in to DEV as a test member, save a search, sign out and back in, run it and get the same results, and a second test member cannot see it.
+  validations:
+    required: true
+- type: textarea
+  id: out-of-scope
+  attributes:
+    label: Out of scope
+    description: Related things this feature deliberately does not do, so nobody builds them by accident.
+    placeholder: Sharing a saved search. Email alerts when a saved search has new results.
+  validations:
+    required: false
+- type: input
+  id: ported-from
+  attributes:
+    label: Ported from
+    description: If this request comes from an existing document in Documentation/Planning/, link it by a URL pinned to the commit. Everything the planner needs must still be in the fields above — the planner does not read the document.
+    placeholder: https://github.com/<owner>/<repo>/blob/<40-char-sha>/Documentation/Planning/saved-searches.docx
+  validations:
+    required: false
+- type: input
+  id: deadline
+  attributes:
+    label: Deadline
+    description: A date and the reason for it, if there is one. Leave blank if there is none.
+    placeholder: 2026-12-01 — the search page is redesigned that week.
+  validations:
+    required: false

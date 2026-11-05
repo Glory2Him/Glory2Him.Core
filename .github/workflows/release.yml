@@ -1,0 +1,123 @@
+name: Release
+# Runs when a RELEASES: PR from a release/vX.Y.Z branch merges. The releaser agent
+# prepared the branch and the maintainer merged it; this does the two things the agent
+# is never allowed to: tag and publish.
+#
+# The tag goes on the head of the release branch, not on the merge commit. For an
+# ordinary release the two hold the same tree. For a hotfix, cut from the last tag, the
+# head holds only that tag plus the fix, which is what was tested and what ships.
+#
+# A release deploys nothing. Every merge to main already deploys to DEV, from this
+# repository's own build.yml. PROD is added later: a job here that needs publish, reads
+# its tag output and deploys that tag behind the Production environment's
+# required-reviewer approval. It belongs in this workflow because a tag pushed with
+# GITHUB_TOKEN does not start other workflows, so an "on: push: tags" deployment would
+# never run.
+on:
+  pull_request:
+    types:
+    - closed
+    branches:
+    - main
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  publish:
+    name: Tag And Publish
+    if: >-
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.title, 'RELEASES:') &&
+      startsWith(github.event.pull_request.head.ref, 'release/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+    - name: Read The Version
+      id: version
+      env:
+        HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      run: |
+        tag="${HEAD_REF#release/}"
+        if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "Release branch '$HEAD_REF' is not release/vX.Y.Z."
+          exit 1
+        fi
+        echo "tag=$tag" >> "$GITHUB_OUTPUT"
+        echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+    - name: Check out
+      uses: actions/checkout@v5
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        fetch-depth: 0
+    - name: Check The Branch Carries The Version
+      id: check
+      env:
+        VERSION: ${{ steps.version.outputs.version }}
+        TAG: ${{ steps.version.outputs.tag }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      run: |
+        # A re-run after a failed publish finds its own tag: carry on from there. A tag on
+        # any other commit is a different release, and nothing is touched.
+        if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+          if [[ "$(git rev-parse "refs/tags/$TAG^{commit}")" != "$HEAD_SHA" ]]; then
+            echo "$TAG already exists on another commit. Nothing was tagged."
+            exit 1
+          fi
+          echo "tagged=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "tagged=false" >> "$GITHUB_OUTPUT"
+        fi
+        if [[ -f Directory.Build.props ]] && ! grep -q "<Version>$VERSION</Version>" Directory.Build.props; then
+          echo "Directory.Build.props does not say <Version>$VERSION</Version>."
+          exit 1
+        fi
+        if [[ ! -f "Documentation/Releases/$TAG.md" ]]; then
+          echo "Documentation/Releases/$TAG.md is missing; the releaser writes it."
+          exit 1
+        fi
+    - name: Set Up .NET
+      if: hashFiles('**/*.csproj') != ''
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: 10.x
+    - name: Generate The SBOM
+      # Generated here, from the tagged tree, rather than trusted from the branch.
+      run: |
+        mkdir -p sbom
+        if [[ -n "$(find . -name '*.csproj' -not -path './.git/*' -print -quit)" ]]; then
+          dotnet tool install --global CycloneDX
+          target=$(find . -maxdepth 2 \( -name '*.slnx' -o -name '*.sln' \) | head -1)
+          dotnet CycloneDX "${target:-.}" --output sbom --filename dotnet.cdx.json --output-format json
+        fi
+        while IFS= read -r lock; do
+          app=$(dirname "$lock")
+          name=$(basename "$app")
+          (cd "$app" && npm ci --ignore-scripts && npx --yes @cyclonedx/cyclonedx-npm --output-file "$GITHUB_WORKSPACE/sbom/$name.cdx.json")
+        done < <(find . -name package-lock.json -not -path '*/node_modules/*' -not -path './.git/*')
+        ls sbom
+    - name: Tag The Release
+      if: steps.check.outputs.tagged != 'true'
+      env:
+        TAG: ${{ steps.version.outputs.tag }}
+        PR: ${{ github.event.pull_request.number }}
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git tag -a "$TAG" -m "Release $TAG (#$PR)"
+        git push origin "refs/tags/$TAG"
+    - name: Publish The GitHub Release
+      env:
+        GH_TOKEN: ${{ github.token }}
+        TAG: ${{ steps.version.outputs.tag }}
+      run: |
+        shopt -s nullglob
+        if gh release view "$TAG" >/dev/null 2>&1; then
+          files=(sbom/*.json)
+          if (( ${#files[@]} )); then gh release upload "$TAG" "${files[@]}" --clobber; fi
+        else
+          gh release create "$TAG" --verify-tag --title "$TAG" \
+            --notes-file "Documentation/Releases/$TAG.md" sbom/*.json
+        fi

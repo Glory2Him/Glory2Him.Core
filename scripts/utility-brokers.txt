@@ -1,0 +1,24 @@
+# Utility brokers, read by scripts/architecture-graph.py.
+#
+# One broker per line: <ClassName> <kind>. A utility broker carries no entity's data, so
+# any service — an orchestration included — may hold one without breaking the same-kind or
+# skip rules, and no broker counts toward the Florance two-to-three. There are six kinds,
+# spelled exactly as below; any other kind is an error:
+#
+#   logging     writes the log
+#   datetime    tells the time
+#   identifier  makes new identifiers
+#   identity    puts the caller's identity on a signed envelope
+#   events      publishes events or verifies the ones received
+#   access      answers "may this person do this?" with a verdict, gathering only the
+#               facts that question needs; it never hands an entity's data back
+#
+# Every other broker is off limits to an orchestration: a storage broker first, and any
+# other broker that hands an entity's data back. The first three are seeded here; add this
+# repository's own class names as it gains them, for example:
+#
+#   AccessBroker access
+
+LoggingBroker logging
+DateTimeBroker datetime
+IdentifierBroker identifier
