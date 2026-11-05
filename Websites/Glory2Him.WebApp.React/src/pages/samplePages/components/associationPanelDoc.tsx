@@ -12,6 +12,7 @@ import {
     ComponentPropRow,
     DemoControls,
     DemoNumberInput,
+    DemoRadioGroup,
     DocSection,
     LiveDemo,
     PropsTable
@@ -24,6 +25,12 @@ import {
     SecurityContextSection,
     securityContextOptions
 } from './shared/securityContextDemo';
+
+import {
+    hostApprovalStatusFor,
+    hostApprovalStatusNotGivenKey,
+    hostApprovalStatusOptions
+} from './shared/hostApprovalStatusDemo';
 
 const minimalSample = `
 import { AssociationPanel } from '../../components/associations/associationPanel';
@@ -176,7 +183,7 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
     },
     {
         name: 'showAdd', type: 'boolean', defaultValue: 'false',
-        description: 'Visibility gate for the suggestion box. Signed-out readers get the login prompt instead.'
+        description: 'Visibility gate for the suggestion box. Signed-out readers get the login prompt instead, except on a Rejected host, where neither is offered.'
     },
     {
         name: 'addRoles', type: 'string (csv)', defaultValue: "''",
@@ -205,6 +212,10 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
     {
         name: 'normalizeAddedValue', type: '(raw: string) => string', defaultValue: 'trim',
         description: 'Applied to each separated value, before the duplicate check and before onAdd.'
+    },
+    {
+        name: 'hostApprovalStatus', type: 'ApprovalStatus', defaultValue: '—',
+        description: 'The approval status of the post the panel hangs off, handed by the page as data. Rejected withholds the add box and the login prompt, and nothing else.'
     },
     {
         name: 'loginHref', type: 'string', defaultValue: 'current path',
@@ -259,6 +270,7 @@ export const AssociationPanelDoc = () => {
     const [showAdd, setShowAdd] = useState(true);
     const [showModerationActions, setShowModerationActions] = useState(true);
     const [addMaxLength, setAddMaxLength] = useState(100);
+    const [hostApprovalStatusKey, setHostApprovalStatusKey] = useState(hostApprovalStatusNotGivenKey);
 
     const [items, setItems] = useState<ReadonlyArray<AssociationItem>>([
         {
@@ -314,6 +326,13 @@ export const AssociationPanelDoc = () => {
                     selected={securityContext}
                     onChange={setSecurityContext} />
 
+                <DemoRadioGroup
+                    title="hostApprovalStatus"
+                    name="association-host-approval-status"
+                    options={hostApprovalStatusOptions}
+                    selectedKey={hostApprovalStatusKey}
+                    onChange={setHostApprovalStatusKey} />
+
                 <DemoControls toggles={[
                     {
                         name: 'association-add',
@@ -360,6 +379,7 @@ export const AssociationPanelDoc = () => {
                             chipPrefixText="#"
                             chipHrefFor={(item) => `/Search?q=${encodeURIComponent(item.value)}`}
                             showAdd={showAdd}
+                            hostApprovalStatus={hostApprovalStatusFor(hostApprovalStatusKey)}
                             showModerationActions={showModerationActions}
                             showBorder={showBorder}
                             isLoading={isLoading}

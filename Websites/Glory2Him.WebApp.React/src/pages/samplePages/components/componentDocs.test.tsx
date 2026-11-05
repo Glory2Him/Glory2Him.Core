@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssociationPanelDoc } from './associationPanelDoc';
@@ -21,6 +21,8 @@ import { TagAssociationPanelDoc } from './tagAssociationPanelDoc';
 import {
     ApprovalStatus
 } from '../../../models/components/contentItems/contentItemFormItem';
+
+import { securityContextOptions } from './shared/securityContextDemo';
 
 import {
     createAuthState,
@@ -158,6 +160,57 @@ describe('Component reference pages', () => {
             expect(screen.getAllByText('viewAllRoles').length).toBeGreaterThan(0);
             expect(screen.getAllByText('showModerationActions').length).toBeGreaterThan(0);
         });
+
+        it.each([
+            'not given (the default)',
+            'Draft',
+            'Submitted',
+            'Approved'
+        ])('should offer the add box on every host status the board picks but Rejected (%s)',
+            async (choice) => {
+            // given
+            renderWithAuth(<AssociationPanelDoc />);
+
+            const hostStatusBoard = screen.getByText('hostApprovalStatus', { selector: 'p' })
+                .parentElement as HTMLElement;
+
+            // when: the first choice is the board as the page opens
+            if (choice === 'not given (the default)') {
+                expect(within(hostStatusBoard).getByRole('radio', { name: choice })).toBeChecked();
+            } else {
+                await userEvent.click(within(hostStatusBoard).getByRole('radio', { name: choice }));
+            }
+
+            // then
+            expect(screen.getByPlaceholderText('Start typing a tag…')).toBeInTheDocument();
+        });
+
+        it.each(securityContextOptions.map((option) => option.label))(
+            'should offer no new suggestion once the host board picks Rejected (%s)',
+            async (persona) => {
+            // given
+            renderWithAuth(<AssociationPanelDoc />);
+
+            await userEvent.click(screen.getByRole('radio', { name: persona }));
+
+            // when
+            await userEvent.click(screen.getByRole('radio', { name: 'Rejected' }));
+
+            // then
+            expect(screen.queryByPlaceholderText('Start typing a tag…')).not.toBeInTheDocument();
+        });
+
+        it('should keep the chips and the owner\'s withdrawal once the host board picks Rejected', async () => {
+            // given
+            renderWithAuth(<AssociationPanelDoc />);
+
+            // when
+            await userEvent.click(screen.getByRole('radio', { name: 'Rejected' }));
+
+            // then: only the add box and the login prompt go
+            expect(screen.getByRole('link', { name: '#creation' })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Remove awaiting-mine' })).toBeInTheDocument();
+        });
     });
 
     describe('TagAssociationPanelDoc', () => {
@@ -213,6 +266,41 @@ describe('Component reference pages', () => {
             expect(screen.getByRole('button', { name: 'Approve grace' })).toBeInTheDocument();
             expect(screen.getByRole('button', { name: 'Reject grace' })).toBeInTheDocument();
         });
+
+        it('should offer no new suggestion once the host board picks Rejected', async () => {
+            // given
+            renderWithAuth(<TagAssociationPanelDoc />);
+
+            // when
+            await userEvent.click(screen.getByRole('radio', { name: 'Rejected' }));
+
+            // then
+            expect(screen.queryByPlaceholderText('Start typing a tag…')).not.toBeInTheDocument();
+        });
+
+        it.each([
+            'not given (the default)',
+            'Draft',
+            'Submitted',
+            'Approved'
+        ])('should offer the add box on every host status the board picks but Rejected (%s)',
+            async (choice) => {
+            // given
+            renderWithAuth(<TagAssociationPanelDoc />);
+
+            const hostStatusBoard = screen.getByText('hostApprovalStatus', { selector: 'p' })
+                .parentElement as HTMLElement;
+
+            // when: the first choice is the board as the page opens
+            if (choice === 'not given (the default)') {
+                expect(within(hostStatusBoard).getByRole('radio', { name: choice })).toBeChecked();
+            } else {
+                await userEvent.click(within(hostStatusBoard).getByRole('radio', { name: choice }));
+            }
+
+            // then
+            expect(screen.getByPlaceholderText('Start typing a tag…')).toBeInTheDocument();
+        });
     });
 
     describe('BibleReferenceAssociationPanelDoc', () => {
@@ -262,6 +350,41 @@ describe('Component reference pages', () => {
 
             expect(screen.queryByRole('button', { name: 'Approve Romans 3:23' }))
                 .not.toBeInTheDocument();
+        });
+
+        it('should offer no new suggestion once the host board picks Rejected', async () => {
+            // given
+            renderWithAuth(<BibleReferenceAssociationPanelDoc />);
+
+            // when
+            await userEvent.click(screen.getByRole('radio', { name: 'Rejected' }));
+
+            // then
+            expect(screen.queryByPlaceholderText('e.g. Romans 3:23…')).not.toBeInTheDocument();
+        });
+
+        it.each([
+            'not given (the default)',
+            'Draft',
+            'Submitted',
+            'Approved'
+        ])('should offer the add box on every host status the board picks but Rejected (%s)',
+            async (choice) => {
+            // given
+            renderWithAuth(<BibleReferenceAssociationPanelDoc />);
+
+            const hostStatusBoard = screen.getByText('hostApprovalStatus', { selector: 'p' })
+                .parentElement as HTMLElement;
+
+            // when: the first choice is the board as the page opens
+            if (choice === 'not given (the default)') {
+                expect(within(hostStatusBoard).getByRole('radio', { name: choice })).toBeChecked();
+            } else {
+                await userEvent.click(within(hostStatusBoard).getByRole('radio', { name: choice }));
+            }
+
+            // then
+            expect(screen.getByPlaceholderText('e.g. Romans 3:23…')).toBeInTheDocument();
         });
     });
 

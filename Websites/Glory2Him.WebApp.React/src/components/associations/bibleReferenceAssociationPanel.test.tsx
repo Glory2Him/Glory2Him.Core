@@ -242,4 +242,18 @@ describe('BibleReferenceAssociationPanel', () => {
         expect(screen.queryByRole('button', { name: 'Reject Romans 3:23' }))
             .not.toBeInTheDocument();
     });
+
+    it('should forward the host\'s approval status to the panel', () => {
+        // given
+        signInAs(authState, ['Users']);
+
+        // when
+        renderWithAuth(
+            <BibleReferenceAssociationPanel
+                showAdd={true}
+                hostApprovalStatus={ApprovalStatus.Rejected} />);
+
+        // then
+        expect(screen.queryByPlaceholderText('e.g. Romans 3:23…')).not.toBeInTheDocument();
+    });
 });

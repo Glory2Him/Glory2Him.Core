@@ -12,6 +12,7 @@ import {
     ComponentDoc,
     ComponentPropRow,
     DemoControls,
+    DemoRadioGroup,
     DocSection,
     LiveDemo,
     PropsTable
@@ -25,6 +26,12 @@ import {
     SecurityContextSection,
     securityContextOptions
 } from './shared/securityContextDemo';
+
+import {
+    hostApprovalStatusFor,
+    hostApprovalStatusNotGivenKey,
+    hostApprovalStatusOptions
+} from './shared/hostApprovalStatusDemo';
 
 // The two personas the shared list has no reason to carry for every doc page — this component's
 // own §18.6 scoped tier, so the Live demo can actually show a BibleReference-scoped-only
@@ -104,7 +111,7 @@ const defaultRows: ReadonlyArray<ComponentPropRow> = [
     {
         name: 'loginButtonText', type: 'string',
         defaultValue: "'Login to suggest a bible reference'",
-        description: 'Shown to a signed-out reader in place of the box.'
+        description: 'Shown to a signed-out reader in place of the box, except on a Rejected host, where neither is shown.'
     },
     {
         name: 'moderationRoles', type: 'string (csv)',
@@ -131,6 +138,7 @@ export const BibleReferenceAssociationPanelDoc = () => {
     const [showModerationActions, setShowModerationActions] = useState(false);
     const [showBorder, setShowBorder] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [hostApprovalStatusKey, setHostApprovalStatusKey] = useState(hostApprovalStatusNotGivenKey);
 
     const [references, setReferences] = useState<ReadonlyArray<AssociationItem>>([
         {
@@ -176,6 +184,13 @@ export const BibleReferenceAssociationPanelDoc = () => {
                     onChange={setSecurityContext}
                     extraOptions={bibleReferenceSecurityContextOptions} />
 
+                <DemoRadioGroup
+                    title="hostApprovalStatus"
+                    name="bible-reference-host-approval-status"
+                    options={hostApprovalStatusOptions}
+                    selectedKey={hostApprovalStatusKey}
+                    onChange={setHostApprovalStatusKey} />
+
                 <DemoControls toggles={[
                     {
                         name: 'bible-reference-add',
@@ -213,6 +228,7 @@ export const BibleReferenceAssociationPanelDoc = () => {
                             associationCollection={references}
                             emptyText="No references yet."
                             showAdd={showAdd}
+                            hostApprovalStatus={hostApprovalStatusFor(hostApprovalStatusKey)}
                             showModerationActions={showModerationActions}
                             showBorder={showBorder}
                             isLoading={isLoading}

@@ -117,8 +117,9 @@ export interface AssociationPanelProps {
     // ── Add ───────────────────────────────────────────────────────────────────
     showAdd?: boolean;
 
-    // Comma-separated, empty by default: any authenticated reader may suggest. [OWNER] is
-    // meaningless — there is no item yet to own — and is ignored.
+    // Comma-separated, empty by default: any authenticated reader may suggest, except on a
+    // rejected host, where nobody is offered the box (rule 2.33). [OWNER] is meaningless —
+    // there is no item yet to own — and is ignored.
     addRoles?: string;
     suggestTitle?: string;
     suggestDescription?: string;
@@ -142,9 +143,15 @@ export interface AssociationPanelProps {
     // a trim.
     normalizeAddedValue?: (rawValue: string) => string;
 
+    // The approval status of the post the panel hangs off, handed by the page as data. Rejected
+    // withholds the add box and the login prompt and nothing else (rule 2.33): the chips, their
+    // links and their actions stay as the other gates have them. Not given, nothing is withheld.
+    hostApprovalStatus?: ApprovalStatus;
+
     // ── Login ─────────────────────────────────────────────────────────────────
-    // Replaces the add box when adding is on but nobody is signed in. Defaults to the current
-    // path as the return url, so the reader lands back here.
+    // Replaces the add box when adding is on but nobody is signed in, except on a rejected host,
+    // where neither is offered (rule 2.33). Defaults to the current path as the return url, so
+    // the reader lands back here.
     loginHref?: string;
     loginButtonText?: string;
     loginButtonCssClass?: string;
@@ -205,6 +212,7 @@ export function AssociationPanel({
     addButtonText = 'Add',
     onAdd,
     normalizeAddedValue = (rawValue: string) => rawValue.trim(),
+    hostApprovalStatus,
     loginHref,
     loginButtonText = 'Login to suggest',
     loginButtonCssClass = 'btn-outline-primary',
@@ -337,14 +345,19 @@ export function AssociationPanel({
 
     const addRoleList = parseRoles(addRoles);
 
+    // A rejected host takes no new suggestion, whoever views it (rule 2.33).
+    const isHostRejected = hostApprovalStatus === ApprovalStatus.Rejected;
+
     const mayAdd =
         showAdd
+        && isHostRejected === false
         && isAuthenticated
         && (addRoleList.length === 0 || holdsAnyRole(addRoleList));
 
     // Signed out with adding on: the box is replaced by a way in, never simply hidden —
-    // otherwise the reader cannot tell the panel accepts suggestions at all.
-    const showLoginPrompt = showAdd && isAuthenticated === false;
+    // otherwise the reader cannot tell the panel accepts suggestions at all. A rejected host is
+    // offered neither the box nor the way in.
+    const showLoginPrompt = showAdd && isHostRejected === false && isAuthenticated === false;
 
     const visibleItems = associationCollection.filter(isVisible);
 

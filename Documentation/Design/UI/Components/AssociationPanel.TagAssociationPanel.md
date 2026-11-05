@@ -41,7 +41,7 @@
 
 **3.1.2** A chip reads `#<value>`, and is a link where the page supplies `chipHrefFor` (rule 2.4). *(test: tagAssociationPanel.test.tsx — "should hash-prefix each chip and link it to the search"; user, 2026-09-26)* ≠ item 5
 
-**3.1.3** Signed out, the reader gets the tag-specific login prompt in place of the box. *(test: tagAssociationPanel.test.tsx — "should offer the tag-specific login prompt to an anonymous reader")*
+**3.1.3** Signed out, the reader gets the tag-specific login prompt in place of the box, except on a `Rejected` host, where neither is offered (`UI/Components/AssociationPanel.md rule 2.33`). *(test: tagAssociationPanel.test.tsx — "should offer the tag-specific login prompt to an anonymous reader")*
 
 **3.1.4** Every other property-driven rule is `UI/Components/AssociationPanel.md §3.1`, unchanged.
 
@@ -63,10 +63,10 @@ The full matrix is `UI/Components/AssociationPanel.md §3.4`, read with the Revi
 
 | Property and/or Role Condition | Anonymous | Signed-in reader | Owner | Reviewer | Publisher | Administrator |
 | --- | --- | --- | --- | --- | --- | --- |
-| defaults (`showAdd` omitted), no read-only role the story composes held (rule 2.9) — **add box** | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| defaults (`showAdd` omitted), the host not `Rejected` (`UI/Components/AssociationPanel.md rule 2.33`), no read-only role the story composes held (rule 2.9) — **add box** | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | defaults (`showAdd` omitted), viewer also holds `ReadOnly` or `Tag-ReadOnly` (rule 2.9) — **add box** ≠ `UI/Components/AssociationPanel.md §10 item 1` | ➖ n/a | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
 | defaults (`showAdd` omitted), on a post whose type the page gives, viewer also holds `ContentItem-ReadOnly` or that type's `ContentItem-{ContentType}-ReadOnly` (rule 2.9) — **add box** ≠ `UI/Components/AssociationPanel.md §10 item 20` | ➖ n/a | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
-| defaults (`showAdd` omitted) — **login prompt** | ✅ Yes | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
+| defaults (`showAdd` omitted), the host not `Rejected` (`UI/Components/AssociationPanel.md rule 2.33`) — **login prompt** | ✅ Yes | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
 | `showModerationActions=true`, Submitted tag, viewer holds only `Tag-Reviewers` or `Tag-Publishers` — **Reject / Approve** ≠ `UI/Components/AssociationPanel.md §10 item 16` | ➖ n/a | ➖ n/a | ➖ n/a | ❌ No | ✅ Yes | ➖ n/a |
 | `showModerationActions=true`, Submitted tag, viewer holds only another entity type's scoped role, `viewAllRoles` widened to it — **Reject / Approve** | ➖ n/a | ❌ No | ➖ n/a | ➖ n/a | ➖ n/a | ➖ n/a |
 
@@ -106,8 +106,8 @@ The actions are the panel's; this story composes their roles for tags. Every cel
 | --- | --- | --- | --- | --- | --- |
 | **The chips** (a gated view) | Every viewer the visibility gate admits, with this story's moderation tier (rule 3.2.1) | None: a read (§SEC14.7 posture A′ rule 3) | ✅ Allowed | ✅ Approved tags only | The association read the consumer hands in (§SEC14.3) |
 | **A tag's label** — a link or a hook ≠ item 5 | Everyone who sees the tag | None: it writes nothing | ✅ Allowed | ✅ Offered; raises `chipOnClick`, or follows the link the page supplies through `chipHrefFor` (rule 2.4) | Nothing: where it leads is the page's (§UI20.6.4) |
-| **The add box** — suggesting a tag ≠ `UI/Components/AssociationPanel.md §10 items 1 and 20` | A signed-in reader; on by default here (rule 2.7) | `ReadOnly`, `Tag-ReadOnly`, and on a post the post's `ContentItem-ReadOnly` and `ContentItem-{ContentType}-ReadOnly` (rule 2.9) | ❌ Refused — the box is withheld | Not offered; the tag-specific login prompt stands in its place (rule 3.1.3) | §SEC14.7 posture A′ rule 1, which also asks the host end's blocks |
-| **The login prompt** ≠ `UI/Components/AssociationPanel.md §10 item 15` | Every signed-out reader (rule 3.1.3) | None: its reader holds no role | Not shown — a blocked-role holder is signed in | ✅ Offered; raises `loginButtonOnClick`, or follows the `loginHref` the page supplies | Nothing: sign-in is the page's (§UI20.6.6 rule 2) |
+| **The add box** — suggesting a tag ≠ `UI/Components/AssociationPanel.md §10 items 1 and 20` | A signed-in reader, when the host is not `Rejected` (`UI/Components/AssociationPanel.md rule 2.33`); on by default here (rule 2.7) | `ReadOnly`, `Tag-ReadOnly`, and on a post the post's `ContentItem-ReadOnly` and `ContentItem-{ContentType}-ReadOnly` (rule 2.9) | ❌ Refused — the box is withheld | Not offered; the tag-specific login prompt stands in its place, except on a `Rejected` host, where neither is offered (rule 3.1.3) | §SEC14.7 posture A′ rule 1, which also asks the host end's blocks |
+| **The login prompt** ≠ `UI/Components/AssociationPanel.md §10 item 15` | Every signed-out reader, when the host is not `Rejected` (rule 3.1.3) | None: its reader holds no role | Not shown — a blocked-role holder is signed in | ✅ Offered; raises `loginButtonOnClick`, or follows the `loginHref` the page supplies | Nothing: sign-in is the page's (§UI20.6.6 rule 2) |
 | **Remove** ≠ `UI/Components/AssociationPanel.md §10 items 1 and 20` | As the panel: the owner on their own `Draft` or `Submitted` tag, and `removeRoles` on a moderation surface | `ReadOnly`, `Tag-ReadOnly`, and on a post the post's `ContentItem-ReadOnly` and `ContentItem-{ContentType}-ReadOnly` (rule 2.9) | ❌ Refused — withheld, the owner's withdrawal included | Not offered | §SEC14.7 posture A rule 3 and posture A′ rule 4; §APR9.9 for the owner's window |
 | **Reject** ≠ `UI/Components/AssociationPanel.md §10 items 1, 16 and 20` | The publisher tier — `Publishers`, `Tag-Publishers` — and `Administrators`, on somebody else's `Submitted` tag, with `showModerationActions` on (rule 2.5) | `ReadOnly`, `Tag-ReadOnly`, and on a post the post's `ContentItem-ReadOnly` and `ContentItem-{ContentType}-ReadOnly` (rule 2.9) | ❌ Refused — withheld | Not offered | `TransitionAssociationApprovalAsync` (§SEC14.7 posture A′, §APR8.6 HR-3) |
 | **Approve** ≠ `UI/Components/AssociationPanel.md §10 items 1, 16 and 20` | As Reject (rule 2.5) | `ReadOnly`, `Tag-ReadOnly`, and on a post the post's `ContentItem-ReadOnly` and `ContentItem-{ContentType}-ReadOnly` (rule 2.9) | ❌ Refused — withheld | Not offered | As Reject |
