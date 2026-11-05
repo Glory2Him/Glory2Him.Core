@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -526,4 +526,40 @@ describe('MyPostDetail', () => {
         expect(suggestTagWith).toHaveBeenCalledWith(
             { contentItemId: 'quote-1', name: 'miracles' });
     });
+
+    // WHAT CAME OF IT, in the words TagSuggestions.md rule 8 gives each status - the words
+    // /posts/{id} uses too.
+    it.each([
+        [
+            AssociationSubmissionStatus.Created,
+            'Thank you for your contribution. Your tag has been suggested and is under review.'
+        ],
+        [
+            AssociationSubmissionStatus.AlreadySuggested,
+            'Thank you for your contribution. This tag has already been suggested by another '
+            + 'user and is under review.'
+        ],
+        [
+            AssociationSubmissionStatus.AlreadySuggestedByCaller,
+            'Thank you for your contribution. You have already suggested this tag, and it is '
+            + 'under review.'
+        ],
+        [
+            AssociationSubmissionStatus.PreviouslySuggestedByCaller,
+            'Thank you. You have already suggested this tag for this post.'
+        ]
+    ])('should thank the reader for a suggested tag as its answer has it (status %s)',
+        async (status, message) => {
+            // given
+            suggestTagWith.mockResolvedValue({ status });
+            renderPageOnItsRoute();
+
+            // when
+            await userEvent.type(
+                screen.getByPlaceholderText('Start typing a tag…'), 'miracles{Enter}');
+
+            // then
+            await waitFor(() => expect(toastSuccess).toHaveBeenCalledTimes(1));
+            expect(toastSuccess).toHaveBeenCalledWith(message);
+        });
 });
