@@ -11,7 +11,10 @@ import { associationService } from './associationService';
 import { queryClientGlobalOptions } from '../../brokers/apiBroker.globals';
 import { EntityType } from '../../models/foundations/approvalSettings/approvalSetting';
 import { AssociationRequest } from '../../models/foundations/associations/associationRequest';
+import { AssociationSubmissionResult } from '../../models/foundations/associations/associationSubmissionResult';
+import { AssociationSubmissionStatus } from '../../models/foundations/associations/associationSubmissionStatus';
 import { ContentItemReactionSummary } from '../../models/foundations/associations/contentItemReactionSummary';
+import { TagSuggestion } from '../../models/foundations/associations/tagSuggestion';
 
 import {
     AssociationSuggestionResult,
@@ -21,12 +24,14 @@ import {
 const postAssociationAsync = vi.fn();
 const deleteAssociationPairAsync = vi.fn();
 const getReactionSummariesAsync = vi.fn();
+const postTagSuggestionAsync = vi.fn();
 
 vi.mock('../../brokers/apiBroker.associations', () => ({
     default: class {
         PostAssociationAsync = postAssociationAsync;
         DeleteAssociationPairAsync = deleteAssociationPairAsync;
         GetReactionSummariesAsync = getReactionSummariesAsync;
+        PostTagSuggestionAsync = postTagSuggestionAsync;
     }
 }));
 
@@ -1141,5 +1146,195 @@ describe('associationService.useReadReactionSummariesAgain', () => {
         expect(readOutsideTheFamily).toHaveBeenCalledTimes(1);
         expect(queryClient.getQueryState(summaryKey(emptyPage))?.fetchStatus).toBe('idle');
         expect(queryClient.getQueryState(summaryKey(emptyPage))?.dataUpdateCount).toBe(0);
+    });
+});
+
+describe('associationService.useSuggestTag', () => {
+    let queryClient: QueryClient;
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const tagSuggestion: TagSuggestion = {
+        contentItemId: 'quote-1',
+        name: 'grace'
+    };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+
+        postTagSuggestionAsync.mockResolvedValue(
+            { status: AssociationSubmissionStatus.Created });
+
+        queryClient = new QueryClient({
+            defaultOptions: { queries: { retry: false } }
+        });
+    });
+
+    it.each([
+        ['Created', AssociationSubmissionStatus.Created],
+        ['AlreadySuggested', AssociationSubmissionStatus.AlreadySuggested],
+        ['AlreadySuggestedByCaller', AssociationSubmissionStatus.AlreadySuggestedByCaller],
+        ['PreviouslySuggestedByCaller', AssociationSubmissionStatus.PreviouslySuggestedByCaller]
+    ])('should send the suggestion through the broker and resolve with its result (%s)', async (_, status) => {
+        // given
+        const brokerResult: AssociationSubmissionResult = { status };
+        postTagSuggestionAsync.mockResolvedValue(brokerResult);
+
+        const { result } = renderHook(
+            () => associationService.useSuggestTag(), { wrapper });
+
+        // when
+        const actualResult = await result.current.mutateAsync(tagSuggestion);
+
+        // then
+        expect(postTagSuggestionAsync).toHaveBeenCalledTimes(1);
+        expect(postTagSuggestionAsync).toHaveBeenCalledWith(tagSuggestion);
+        expect(actualResult).toBe(brokerResult);
+    });
+
+    // THE ASSOCIATION READS A SUGGESTION MUST REACH, seeded for real rather than spied on: one a
+    // page is serving (active, so it is read again at once) and one cached from another screen
+    // (inactive, so it is marked stale and NOT fetched), both keyed under the Associations
+    // prefix as useGetAssociationsByEffectiveId keys its reads. A third is keyed on another
+    // entity type, a tag, as a list filtered by tag holds it: the family is the prefix, not one
+    // entity type under it, so a filter narrowed to the content items reds the test. The write
+    // is held open so what happens before it settles can be told apart from what happens after.
+    //
+    // Reads outside the family stand beside them, the reaction summaries and the tags: the
+    // suggestion invalidates the associations and nothing else, so a filter that widens past
+    // the prefix reds the test.
+    const seedAssociationReads = async () => {
+        const activeAssociationRead = vi.fn().mockResolvedValue([]);
+        const cachedAssociationRead = vi.fn().mockResolvedValue([]);
+        const tagKeyedAssociationRead = vi.fn().mockResolvedValue([]);
+        const summaryRead = vi.fn().mockResolvedValue([]);
+        const tagRead = vi.fn().mockResolvedValue([]);
+
+        renderHook(
+            () => useQuery({
+                queryKey: ['Associations', EntityType.ContentItem, 'quote-1'],
+                queryFn: activeAssociationRead
+            }),
+            { wrapper });
+
+        await queryClient.prefetchQuery({
+            queryKey: ['Associations', EntityType.ContentItem, 'quote-2'],
+            queryFn: cachedAssociationRead
+        });
+
+        await queryClient.prefetchQuery({
+            queryKey: ['Associations', EntityType.Tag, 'tag-1'],
+            queryFn: tagKeyedAssociationRead
+        });
+
+        await queryClient.prefetchQuery({
+            queryKey: ['ReactionSummaries', ['quote-1']],
+            queryFn: summaryRead
+        });
+
+        await queryClient.prefetchQuery({
+            queryKey: ['Tags', ['tag-1']],
+            queryFn: tagRead
+        });
+
+        await waitFor(() => expect(activeAssociationRead).toHaveBeenCalledTimes(1));
+
+        return {
+            activeAssociationRead,
+            cachedAssociationRead,
+            tagKeyedAssociationRead,
+            summaryRead,
+            tagRead
+        };
+    };
+
+    const isStale = (queryKey: ReadonlyArray<unknown>) =>
+        queryClient.getQueryState(queryKey)?.isInvalidated;
+
+    const holdTheSuggestionOpen = () => {
+        let settle: { resolve: (value: unknown) => void; reject: (reason: unknown) => void } =
+            { resolve: () => undefined, reject: () => undefined };
+
+        postTagSuggestionAsync.mockReturnValue(
+            new Promise((resolve, reject) => { settle = { resolve, reject }; }));
+
+        return () => settle;
+    };
+
+    const expectTheAssociationsReadAgainOnSettle = async (
+        settleTheSuggestion: () => Promise<unknown>,
+        reads: Awaited<ReturnType<typeof seedAssociationReads>>) => {
+
+        // then, before the suggestion settles
+        await waitFor(() => expect(postTagSuggestionAsync).toHaveBeenCalledTimes(1));
+        expect(reads.activeAssociationRead).toHaveBeenCalledTimes(1);
+        expect(isStale(['Associations', EntityType.ContentItem, 'quote-2'])).toBe(false);
+        expect(isStale(['Associations', EntityType.Tag, 'tag-1'])).toBe(false);
+
+        // when
+        await settleTheSuggestion();
+
+        // then
+        await waitFor(() => expect(reads.activeAssociationRead).toHaveBeenCalledTimes(2));
+        expect(isStale(['Associations', EntityType.ContentItem, 'quote-2'])).toBe(true);
+        expect(reads.cachedAssociationRead).toHaveBeenCalledTimes(1);
+        expect(isStale(['Associations', EntityType.Tag, 'tag-1'])).toBe(true);
+        expect(reads.tagKeyedAssociationRead).toHaveBeenCalledTimes(1);
+        expect(isStale(['ReactionSummaries', ['quote-1']])).toBe(false);
+        expect(reads.summaryRead).toHaveBeenCalledTimes(1);
+        expect(isStale(['Tags', ['tag-1']])).toBe(false);
+        expect(reads.tagRead).toHaveBeenCalledTimes(1);
+    };
+
+    // Matched by PREFIX: an association read is keyed on the entity it asked for, and the
+    // suggested pairing may belong to any of them.
+    it('should read the associations again once a tag is suggested', async () => {
+        // given
+        const reads = await seedAssociationReads();
+        const settle = holdTheSuggestionOpen();
+
+        const { result } = renderHook(
+            () => associationService.useSuggestTag(), { wrapper });
+
+        // when
+        const suggestion = result.current.mutateAsync(tagSuggestion);
+
+        // then
+        await expectTheAssociationsReadAgainOnSettle(
+            async () => {
+                settle().resolve({ status: AssociationSubmissionStatus.Created });
+                await suggestion;
+            },
+            reads);
+    });
+
+    // A FAILED SUGGESTION MAY STILL HAVE LANDED: the server can write the pairing and the answer
+    // be lost on the way back, so the associations are read again either way. It is announced
+    // by the app's global error toast, as every failed write is, so the hook declares no
+    // suppressGlobalErrorToast.
+    it('should read the associations again when a suggestion fails', async () => {
+        // given
+        const brokerError = new Error('refused');
+        const reads = await seedAssociationReads();
+        const settle = holdTheSuggestionOpen();
+
+        const { result } = renderHook(
+            () => associationService.useSuggestTag(), { wrapper });
+
+        // when
+        const suggestion = result.current.mutateAsync(tagSuggestion);
+
+        // then
+        await expectTheAssociationsReadAgainOnSettle(
+            async () => {
+                settle().reject(brokerError);
+                await expect(suggestion).rejects.toBe(brokerError);
+            },
+            reads);
+
+        const [mutation] = queryClient.getMutationCache().getAll();
+        expect(mutation.options.meta?.suppressGlobalErrorToast).toBeUndefined();
     });
 });

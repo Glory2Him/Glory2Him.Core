@@ -1,8 +1,10 @@
 import { Query, QueryClient, useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import AssociationBroker from '../../brokers/apiBroker.associations';
 import { AssociationRequest } from '../../models/foundations/associations/associationRequest';
+import { AssociationSubmissionResult } from '../../models/foundations/associations/associationSubmissionResult';
 import { AssociationSuggestionResult } from '../../models/foundations/associations/associationSuggestionResult';
 import { ContentItemReactionSummary } from '../../models/foundations/associations/contentItemReactionSummary';
+import { TagSuggestion } from '../../models/foundations/associations/tagSuggestion';
 
 export interface ReactionSummariesRead {
     summaries: Readonly<Record<string, ContentItemReactionSummary>>;
@@ -76,6 +78,27 @@ export const associationService = {
 
             onSettled: () => {
                 queryClient.invalidateQueries({ queryKey: ['ReactionSummaries'] });
+            }
+        });
+    },
+
+    // Sends a reader's suggested tag. No suppressGlobalErrorToast: a refused or failed suggestion
+    // is announced as every failed write is, and what the reader is told of an answer is the
+    // page's.
+    //
+    // The associations are read again ON SETTLE, success or failure, as useUpsertAssociation
+    // reads its summaries: a suggestion that failed may still have landed. Matched by the
+    // Associations PREFIX, since each association read is keyed on the entity it asked for.
+    useSuggestTag: () => {
+        const associationBroker = new AssociationBroker();
+        const queryClient = useQueryClient();
+
+        return useMutation<AssociationSubmissionResult, unknown, TagSuggestion>({
+            mutationFn: async (tagSuggestion: TagSuggestion) =>
+                await associationBroker.PostTagSuggestionAsync(tagSuggestion),
+
+            onSettled: () => {
+                queryClient.invalidateQueries({ queryKey: ['Associations'] });
             }
         });
     },

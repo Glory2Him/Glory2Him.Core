@@ -1,7 +1,9 @@
 import ApiBroker from './apiBroker';
 import { AssociationRequest } from '../models/foundations/associations/associationRequest';
+import { AssociationSubmissionResult } from '../models/foundations/associations/associationSubmissionResult';
 import { AssociationSuggestionResult } from '../models/foundations/associations/associationSuggestionResult';
 import { ContentItemReactionSummary } from '../models/foundations/associations/contentItemReactionSummary';
+import { TagSuggestion } from '../models/foundations/associations/tagSuggestion';
 
 class AssociationBroker {
     relativeAssociationsUrl = '/api/associations';
@@ -39,6 +41,15 @@ class AssociationBroker {
         const result = await this.apiBroker.GetAsync(url);
 
         return result.data as ContentItemReactionSummary[];
+    }
+
+    // The server answers 201 on Created and 200 on every other outcome, both with the result as
+    // the body; PostAsync resolves both.
+    async PostTagSuggestionAsync(tagSuggestion: TagSuggestion): Promise<AssociationSubmissionResult> {
+        const url = `${this.relativeAssociationsUrl}/tagsuggestions`;
+        const result = await this.apiBroker.PostAsync(url, tagSuggestion);
+
+        return result.data as AssociationSubmissionResult;
     }
 }
 
