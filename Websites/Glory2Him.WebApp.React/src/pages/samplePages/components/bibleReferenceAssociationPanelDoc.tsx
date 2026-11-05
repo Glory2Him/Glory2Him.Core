@@ -111,7 +111,7 @@ const defaultRows: ReadonlyArray<ComponentPropRow> = [
     {
         name: 'loginButtonText', type: 'string',
         defaultValue: "'Login to suggest a bible reference'",
-        description: 'Shown to a signed-out reader in place of the box.'
+        description: 'Shown to a signed-out reader in place of the box, except on a Rejected host, where neither is shown.'
     },
     {
         name: 'moderationRoles', type: 'string (csv)',
