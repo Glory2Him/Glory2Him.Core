@@ -121,6 +121,12 @@ vi.mock('../brokers/toastBroker.success', () => ({
     toastSuccess: (message: string) => toastSuccess(message)
 }));
 
+const toastError = vi.fn<(message: string) => void>();
+
+vi.mock('../brokers/toastBroker.error', () => ({
+    toastError: (message: string) => toastError(message)
+}));
+
 vi.mock('../services/foundations/associationService', () => ({
     associationService: {
         useGetReactionSummaries: (contentItemIdPages: ReadonlyArray<ReadonlyArray<string>>) => {
@@ -263,6 +269,7 @@ describe('MyPostDetail', () => {
         suggestTagWith.mockReset();
         suggestTagWith.mockResolvedValue({ status: AssociationSubmissionStatus.Created });
         toastSuccess.mockReset();
+        toastError.mockReset();
         signInAs(authState, ['Users']);
     });
 
@@ -645,5 +652,36 @@ describe('MyPostDetail', () => {
         expect(screen.queryByText('Suggest a tag')).not.toBeInTheDocument();
         expect(screen.queryByPlaceholderText('Start typing a tag…')).not.toBeInTheDocument();
         expect(suggestTagWith).not.toHaveBeenCalled();
+    });
+
+    // A REFUSED OR FAILED SUGGESTION is announced as any failed write is, by the app's global
+    // error toast, which the hook raises (AssociationService.TagSuggestions.md §1 rule 3). The
+    // page says nothing of its own - neither thanks nor an error of its own.
+    it('should leave a failed suggestion to the global error toast', async () => {
+        // given
+        let failSuggestion: (reason: unknown) => void = () => undefined;
+
+        suggestTagWith.mockImplementation(() => new Promise((_, reject) => {
+            failSuggestion = reject;
+        }));
+
+        const unhandled = vi.fn();
+        process.on('unhandledRejection', unhandled);
+        renderPageOnItsRoute();
+        await userEvent.type(screen.getByPlaceholderText('Start typing a tag…'), 'miracles{Enter}');
+
+        try {
+            // when
+            failSuggestion(new Error('Refused'));
+            await new Promise((resolve) => setTimeout(resolve, 0));
+
+            // then
+            expect(suggestTagWith).toHaveBeenCalledTimes(1);
+            expect(toastSuccess).not.toHaveBeenCalled();
+            expect(toastError).not.toHaveBeenCalled();
+            expect(unhandled).not.toHaveBeenCalled();
+        } finally {
+            process.off('unhandledRejection', unhandled);
+        }
     });
 });
