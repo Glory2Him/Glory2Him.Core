@@ -118,7 +118,7 @@ Nothing else to add beyond rule 2.5's role tier and rule 2.9's read-only roles.
 
 | Route | Page | What the page sets |
 | --- | --- | --- |
-| `/posts/:contentItemId` | `src/pages/postDetail.tsx` | `associationCollection` (empty), `onAdd`, `showBorder`, `cssClass` |
+| `/posts/:contentItemId` | `src/pages/postDetail.tsx` | `associationCollection` (empty), `onAdd`, `hostApprovalStatus`, `showBorder`, `cssClass` |
 | `/myposts/:contentItemId` | `src/pages/myPostDetail.tsx` | `associationCollection` (empty), `onAdd`, `hostApprovalStatus`, `showBorder`, `cssClass` |
 | `/Admin/Posts/:contentItemId` | `src/pages/admin/contentItemModerationDetailPage.tsx` | `associationCollection` (empty), `onAdd`, `showBorder`, `cssClass` — until `UI/Pages/ContentItemModerationDetailPage.md §6 item 17` replaces them with the card's association chips (`DesignFeatures/PostModeration.md` rule 1) |
 | `/BibleReferences` | `src/pages/bibleReference.tsx` | `suggestDescription` (a passage rather than a post), `associationCollection`, `onAdd`, `onRemove` |
