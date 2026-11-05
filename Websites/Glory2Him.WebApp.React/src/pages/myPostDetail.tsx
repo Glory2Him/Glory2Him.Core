@@ -24,8 +24,24 @@ import {
     resolveContentItemSetting
 } from '../services/views/contentItems/resolveContentItemSetting';
 
+import { AssociationSubmissionStatus } from '../models/foundations/associations/associationSubmissionStatus';
 import { useContentItemEngagement } from '../hooks/useContentItemEngagement';
 import { useDocumentTitle } from './useDocumentTitle';
+
+// What the reader is told of a suggested tag, in the words DesignFeatures/TagSuggestions.md rule 8
+// gives each status.
+const tagSuggestionAnswers: Readonly<Record<AssociationSubmissionStatus, string>> = {
+    [AssociationSubmissionStatus.Created]:
+        'Thank you for your contribution. Your tag has been suggested and is under review.',
+    [AssociationSubmissionStatus.AlreadySuggested]:
+        'Thank you for your contribution. This tag has already been suggested by another user '
+        + 'and is under review.',
+    [AssociationSubmissionStatus.AlreadySuggestedByCaller]:
+        'Thank you for your contribution. You have already suggested this tag, and it is under '
+        + 'review.',
+    [AssociationSubmissionStatus.PreviouslySuggestedByCaller]:
+        'Thank you. You have already suggested this tag for this post.'
+};
 
 // ONE OF MY POSTS, read on its own surface — where /posts/contribute lands a fresh submission
 // and where /myposts sends every click into an item. The public /posts/{id} page keeps the same
@@ -151,8 +167,10 @@ export function MyPostDetail() {
     // than silently dropping what somebody typed.
     const suggestTagMutation = associationService.useSuggestTag();
 
-    const suggestTag = (name: string) => {
-        suggestTagMutation.mutateAsync({ contentItemId, name });
+    const suggestTag = async (name: string) => {
+        const { status } = await suggestTagMutation.mutateAsync({ contentItemId, name });
+
+        toastSuccess(tagSuggestionAnswers[status]);
     };
 
     const suggestBibleReference = () =>
