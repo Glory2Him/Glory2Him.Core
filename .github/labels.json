@@ -30,6 +30,16 @@
     "description": "The releases category"
   },
   {
+    "name": "FEATURES",
+    "color": "0e8a16",
+    "description": "A whole feature merging from its feature branch into main"
+  },
+  {
+    "name": "MAJOR FEATURES",
+    "color": "0e8a16",
+    "description": "A whole feature merging from its feature branch into main — a major change"
+  },
+  {
     "name": "DATA",
     "color": "daa520",
     "description": "The data category"
@@ -610,6 +620,36 @@
     "description": "Suggested model and effort for this issue"
   },
   {
+    "name": "status: needs-design",
+    "color": "d4c5f9",
+    "description": "Feature request raised; the planner has not designed it yet"
+  },
+  {
+    "name": "status: in-plan-review",
+    "color": "c5def5",
+    "description": "Plan written; QA is reviewing the stories and tasks"
+  },
+  {
+    "name": "status: awaiting-approval",
+    "color": "fbca04",
+    "description": "QA signed the plan; waiting on the maintainer to approve it"
+  },
+  {
+    "name": "status: building",
+    "color": "1d76db",
+    "description": "Approved; the feature build is running task by task"
+  },
+  {
+    "name": "status: in-feature-qa",
+    "color": "5319e7",
+    "description": "Every task merged; QA is verifying the whole feature"
+  },
+  {
+    "name": "status: blocked",
+    "color": "b60205",
+    "description": "Stopped on a question or a failure a person must resolve"
+  },
+  {
     "name": "status: needs-scoping",
     "color": "e4e669",
     "description": "Criteria written, waiting on QA to sign them off"
@@ -627,17 +667,52 @@
   {
     "name": "status: done",
     "color": "6a737d",
-    "description": "Merged and verified"
+    "description": "Built and verified: a task merged into its feature branch, or a feature whose PR waits for the maintainer"
+  },
+  {
+    "name": "type: feature",
+    "color": "a2eeef",
+    "description": "A behaviour the service should have; parent of user stories"
+  },
+  {
+    "name": "type: user-story",
+    "color": "bfdadc",
+    "description": "One user's slice of a feature; parent of tasks"
+  },
+  {
+    "name": "type: task",
+    "color": "ededed",
+    "description": "One unit of work a developer builds in one PR"
+  },
+  {
+    "name": "approved",
+    "color": "0e8a16",
+    "description": "The maintainer approved the plan; the build may start"
+  },
+  {
+    "name": "tier: 3",
+    "color": "c2e0c6",
+    "description": "A small change through /tweak: no design, PR straight to main"
+  },
+  {
+    "name": "global rules",
+    "color": "5319e7",
+    "description": "The rules every feature inherits; changed only through QA and the maintainer's approval"
+  },
+  {
+    "name": "legacy",
+    "color": "d4c5f9",
+    "description": "Signed off before the issue-based workflow; built against the Planning documents it cites"
   },
   {
     "name": "ready for development",
     "color": "0e8a16",
-    "description": "QA signed the task off; a developer may start once its design is on main"
+    "description": "QA signed the task off in the plan review; built once the feature is approved"
   },
   {
     "name": "ready for review",
     "color": "0e8a16",
-    "description": "QA passed the PR or design PR with no finding of any severity open; ready for a human merge review"
+    "description": "QA passed the PR with no finding of any severity open; ready for a human merge review"
   },
   {
     "name": "design: architecture",
