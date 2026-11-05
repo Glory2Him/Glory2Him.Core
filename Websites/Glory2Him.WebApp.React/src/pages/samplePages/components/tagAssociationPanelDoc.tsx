@@ -12,6 +12,7 @@ import {
     ComponentDoc,
     ComponentPropRow,
     DemoControls,
+    DemoRadioGroup,
     DocSection,
     LiveDemo,
     PropsTable
@@ -25,6 +26,12 @@ import {
     SecurityContextSection,
     securityContextOptions
 } from './shared/securityContextDemo';
+
+import {
+    hostApprovalStatusFor,
+    hostApprovalStatusNotGivenKey,
+    hostApprovalStatusOptions
+} from './shared/hostApprovalStatusDemo';
 
 // The two personas the shared list has no reason to carry for every doc page — this component's
 // own §18.6 scoped tier, so the Live demo can actually show a Tag-scoped-only moderator deciding
@@ -132,6 +139,7 @@ export const TagAssociationPanelDoc = () => {
     const [showModerationActions, setShowModerationActions] = useState(false);
     const [showBorder, setShowBorder] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [hostApprovalStatusKey, setHostApprovalStatusKey] = useState(hostApprovalStatusNotGivenKey);
 
     const [tags, setTags] = useState<ReadonlyArray<AssociationItem>>([
         { id: '1', value: 'creation', createdBy: demoOtherSubmitterId, approvalStatus: ApprovalStatus.Approved },
@@ -166,6 +174,13 @@ export const TagAssociationPanelDoc = () => {
                     selected={securityContext}
                     onChange={setSecurityContext}
                     extraOptions={tagSecurityContextOptions} />
+
+                <DemoRadioGroup
+                    title="hostApprovalStatus"
+                    name="tag-host-approval-status"
+                    options={hostApprovalStatusOptions}
+                    selectedKey={hostApprovalStatusKey}
+                    onChange={setHostApprovalStatusKey} />
 
                 <DemoControls toggles={[
                     {
@@ -204,6 +219,7 @@ export const TagAssociationPanelDoc = () => {
                             associationCollection={tags}
                             emptyText="No tags yet."
                             showAdd={showAdd}
+                            hostApprovalStatus={hostApprovalStatusFor(hostApprovalStatusKey)}
                             showModerationActions={showModerationActions}
                             showBorder={showBorder}
                             isLoading={isLoading}
