@@ -308,7 +308,7 @@ Every page renders the family through its stories. No page renders `AssociationP
 | Remove an association (`onRemove`) | `DELETE /api/associations/{id}` (§ARC17.4) — owner or `Administrators` | designed; not yet exposed (section 10, item 22) |
 | Approve or reject (`onApprove`, `onReject`) | not ruled — see section 10 | — |
 
-No consumer calls any of them today but the tag suggestion, which `myPostDetail.tsx` sends (#1373). `postDetail.tsx` and `contentItemModerationDetailPage.tsx` pass empty collections and answer `onAdd` with a "coming soon" toast, and `myPostDetail.tsx` passes empty collections and answers its Bible reference panel's `onAdd` with one; `postSingle.tsx`, `bibleReference.tsx` and the magazine sample hold suggestions in local state only. *(code: those files — suggestTag, asSuggestion)*
+No consumer calls any of them today but the tag suggestion, which `myPostDetail.tsx` sends (#1373). `postDetail.tsx`, `myPostDetail.tsx` and `contentItemModerationDetailPage.tsx` pass empty collections and answer `onAdd` with a "coming soon" toast, except `myPostDetail.tsx`'s tag panel; `postSingle.tsx`, `bibleReference.tsx` and the magazine sample hold suggestions in local state only. *(code: those files — suggestTag, asSuggestion)*
 
 **Indirect:** the auth context from `AuthProvider` (`src/components/securitys/authProvider.tsx`), which reads the current user through `accountService.useGetCurrentUser`; React Router, whose `Link` renders a linked chip label and the login link, and which supplies the current path to the default `loginHref` — today's coupling, section 10, item 15.
 
@@ -383,8 +383,9 @@ No consumer calls any of them today but the tag suggestion, which `myPostDetail.
 21. (#1128) **Gap — this family cannot read or remove its associations over HTTP.** The reads and writes the
     page calls for this family — reading an entity's associations, suggesting one and removing
     one (section 7; §ARC17.4) — are designed and part built, and section 7 records which routes
-    are served, yet no product page reads or writes an association through the family, and every
-    page in section 6 passes an empty collection or holds suggestions in its own state. A page
+    are served, yet no product page reads an association through the family, and none writes one
+    through it but `myPostDetail.tsx`, which sends the tag panel's suggestion (#1373); every page
+    in section 6 passes an empty collection or holds suggestions in its own state. A page
     list narrowed by tag or Bible reference builds on the same read, and the narrowing itself is
     not this item's: it is `UI/Components/ContentItemListPanel.md §10 item 15`, since #857 plans
     only the read (user ruling 2026-10-05). The work was filed as #318 (closed). Suggesting
