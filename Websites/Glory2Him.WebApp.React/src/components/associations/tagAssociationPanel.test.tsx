@@ -227,4 +227,18 @@ describe('TagAssociationPanel', () => {
         expect(screen.queryByRole('button', { name: 'Approve test' })).not.toBeInTheDocument();
         expect(screen.queryByRole('button', { name: 'Reject test' })).not.toBeInTheDocument();
     });
+
+    it('should forward the host\'s approval status to the panel', () => {
+        // given
+        signInAs(authState, ['Users']);
+
+        // when
+        renderWithAuth(
+            <TagAssociationPanel
+                showAdd={true}
+                hostApprovalStatus={ApprovalStatus.Rejected} />);
+
+        // then
+        expect(screen.queryByPlaceholderText('Start typing a tag…')).not.toBeInTheDocument();
+    });
 });
