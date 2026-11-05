@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssociationPanelDoc } from './associationPanelDoc';
@@ -157,6 +157,30 @@ describe('Component reference pages', () => {
             expect(container.querySelectorAll('pre code').length).toBeGreaterThan(0);
             expect(screen.getAllByText('viewAllRoles').length).toBeGreaterThan(0);
             expect(screen.getAllByText('showModerationActions').length).toBeGreaterThan(0);
+        });
+
+        it.each([
+            'not given (the default)',
+            'Draft',
+            'Submitted',
+            'Approved'
+        ])('should offer the add box on every host status the board picks but Rejected (%s)',
+            async (choice) => {
+            // given
+            renderWithAuth(<AssociationPanelDoc />);
+
+            const hostStatusBoard = screen.getByText('hostApprovalStatus', { selector: 'p' })
+                .parentElement as HTMLElement;
+
+            // when: the first choice is the board as the page opens
+            if (choice === 'not given (the default)') {
+                expect(within(hostStatusBoard).getByRole('radio', { name: choice })).toBeChecked();
+            } else {
+                await userEvent.click(within(hostStatusBoard).getByRole('radio', { name: choice }));
+            }
+
+            // then
+            expect(screen.getByPlaceholderText('Start typing a tag…')).toBeInTheDocument();
         });
     });
 
