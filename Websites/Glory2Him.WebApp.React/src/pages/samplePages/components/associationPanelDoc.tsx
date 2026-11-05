@@ -12,6 +12,7 @@ import {
     ComponentPropRow,
     DemoControls,
     DemoNumberInput,
+    DemoRadioGroup,
     DocSection,
     LiveDemo,
     PropsTable
@@ -24,6 +25,11 @@ import {
     SecurityContextSection,
     securityContextOptions
 } from './shared/securityContextDemo';
+
+import {
+    hostApprovalStatusNotGivenKey,
+    hostApprovalStatusOptions
+} from './shared/hostApprovalStatusDemo';
 
 const minimalSample = `
 import { AssociationPanel } from '../../components/associations/associationPanel';
@@ -259,6 +265,7 @@ export const AssociationPanelDoc = () => {
     const [showAdd, setShowAdd] = useState(true);
     const [showModerationActions, setShowModerationActions] = useState(true);
     const [addMaxLength, setAddMaxLength] = useState(100);
+    const [hostApprovalStatusKey, setHostApprovalStatusKey] = useState(hostApprovalStatusNotGivenKey);
 
     const [items, setItems] = useState<ReadonlyArray<AssociationItem>>([
         {
@@ -313,6 +320,13 @@ export const AssociationPanelDoc = () => {
                 <SecurityContextSection
                     selected={securityContext}
                     onChange={setSecurityContext} />
+
+                <DemoRadioGroup
+                    title="hostApprovalStatus"
+                    name="association-host-approval-status"
+                    options={hostApprovalStatusOptions}
+                    selectedKey={hostApprovalStatusKey}
+                    onChange={setHostApprovalStatusKey} />
 
                 <DemoControls toggles={[
                     {
