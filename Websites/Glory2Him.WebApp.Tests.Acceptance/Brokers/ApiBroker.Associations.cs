@@ -38,6 +38,14 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             return await this.httpClient.PostAsync(associationsRelativeUrl, content);
         }
 
+        // The raw response, because the status code is the assertion: the suggestion answers 201
+        // for the status Created and 200 when the pair already existed, and a typed post reports
+        // neither.
+        public async ValueTask<HttpResponseMessage> PostTagSuggestionAsync(TagSuggestion tagSuggestion) =>
+            await this.httpClient.PostAsJsonAsync(
+                $"{associationsRelativeUrl}/TagSuggestions",
+                tagSuggestion);
+
         // The raw response, because the status code is the assertion on the validation arms and
         // a typed read throws on them. The query string is the caller's, whole, because how the
         // ids bind from it — and what the read does with options beside them — is under test.

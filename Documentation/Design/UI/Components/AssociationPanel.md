@@ -302,7 +302,7 @@ Every page renders the family through its stories. No page renders `AssociationP
 | Purpose | Endpoint | State |
 | --- | --- | --- |
 | Read the associations for an entity — "associations for this entity", keyed on the effective id (§DOM4.6 rule 1) | `GET /api/associations` (§ARC17.4) | served (#1124); a page reads it through `DesignFeatures/UI/Foundations/AssociationService.AssociationReads.md §1` (section 10, item 21) |
-| Suggest a tag (`TagAssociationPanel`'s `onAdd`), by its name | `POST /api/associations/tag-suggestions` (§ARC17.4; `DesignFeatures/TagSuggestions.md`) | designed; not yet served (section 10, item 24) |
+| Suggest a tag (`TagAssociationPanel`'s `onAdd`), by its name | `POST /api/associations/tag-suggestions` (§ARC17.4; `DesignFeatures/TagSuggestions.md`) | served (#1369; section 10, item 24) |
 | Suggest any other association (`onAdd`) | `POST /api/associations` (§ARC17.4, §ARC16.8.1) | served for a reader's reaction (#728) and an editorial suggestion (#1088; section 10, item 24) |
 | Remove an association (`onRemove`) | `DELETE /api/associations/{id}` (§ARC17.4) — owner or `Administrators` | designed; not yet exposed (section 10, item 22) |
 | Approve or reject (`onApprove`, `onReject`) | not ruled — see section 10 | — |
@@ -435,7 +435,7 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
     rule 2; `DesignFeatures/Backend/Foundations/AssociationService.md §13`). It takes ids, and
     the tag panel raises a name, so a suggested tag is sent by its name to a route of its own
     instead, `POST /api/associations/tag-suggestions`, which finds or adds the tag and pairs it
-    (§ARC17.4; `DesignFeatures/TagSuggestions.md`, designed and not yet built).
+    (§ARC17.4; `DesignFeatures/TagSuggestions.md`; served by #1369).
 25. (#1375) **Gap — the add box is offered on a rejected post.** Rule 2.33 (owner ruling
     2026-10-29) withholds the add box, and the login prompt in its place, where the post the
     panel hangs off is `Rejected`, and the page is to hand the panel the post's approval status,
