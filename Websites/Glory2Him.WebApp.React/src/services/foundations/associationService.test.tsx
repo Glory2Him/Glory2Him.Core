@@ -1292,4 +1292,32 @@ describe('associationService.useSuggestTag', () => {
             },
             reads);
     });
+
+    // A FAILED SUGGESTION MAY STILL HAVE LANDED: the server can write the pairing and the answer
+    // be lost on the way back, so the associations are read again either way. It is announced
+    // by the app's global error toast, as every failed write is, so the hook declares no
+    // suppressGlobalErrorToast.
+    it('should read the associations again when a suggestion fails', async () => {
+        // given
+        const brokerError = new Error('refused');
+        const reads = await seedAssociationReads();
+        const settle = holdTheSuggestionOpen();
+
+        const { result } = renderHook(
+            () => associationService.useSuggestTag(), { wrapper });
+
+        // when
+        const suggestion = result.current.mutateAsync(tagSuggestion);
+
+        // then
+        await expectTheAssociationsReadAgainOnSettle(
+            async () => {
+                settle().reject(brokerError);
+                await expect(suggestion).rejects.toBe(brokerError);
+            },
+            reads);
+
+        const [mutation] = queryClient.getMutationCache().getAll();
+        expect(mutation.options.meta?.suppressGlobalErrorToast).toBeUndefined();
+    });
 });
