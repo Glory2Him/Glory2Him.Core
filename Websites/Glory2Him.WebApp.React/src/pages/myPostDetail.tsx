@@ -6,6 +6,7 @@ import { TagAssociationPanel } from '../components/associations/tagAssociationPa
 import { ContentItemPanel } from '../components/contentItems/contentItemPanel';
 import { SharingPanel } from '../components/contentItems/sharingPanel';
 import { Spinner } from '../components/coreUI/spinner';
+import { associationService } from '../services/foundations/associationService';
 import { contentItemService } from '../services/foundations/contentItemService';
 import { contentItemSettingService } from '../services/foundations/contentItemSettingService';
 import { toContentItemSearchItem } from '../services/views/contentItems/toContentItemSearchItem';
@@ -148,7 +149,11 @@ export function MyPostDetail() {
 
     // The association writes arrive with #318; until then the boxes answer honestly rather
     // than silently dropping what somebody typed.
-    const suggestTag = () => toastSuccess('Suggesting tags is coming soon.');
+    const suggestTagMutation = associationService.useSuggestTag();
+
+    const suggestTag = (name: string) => {
+        suggestTagMutation.mutateAsync({ contentItemId, name });
+    };
 
     const suggestBibleReference = () =>
         toastSuccess('Suggesting bible references is coming soon.');
