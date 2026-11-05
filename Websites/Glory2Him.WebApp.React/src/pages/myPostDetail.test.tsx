@@ -562,4 +562,37 @@ describe('MyPostDetail', () => {
             await waitFor(() => expect(toastSuccess).toHaveBeenCalledTimes(1));
             expect(toastSuccess).toHaveBeenCalledWith(message);
         });
+
+    // ONE TOAST PER RUN. A list raises onAdd twice in one tick, and each run is answered in its
+    // own words, not the last run's alone.
+    it('should send each tag of a list and answer each in a toast of its own', async () => {
+        // given
+        suggestTagWith
+            .mockResolvedValueOnce({ status: AssociationSubmissionStatus.Created })
+            .mockResolvedValueOnce({ status: AssociationSubmissionStatus.AlreadySuggested });
+
+        renderPageOnItsRoute();
+
+        // when
+        await userEvent.type(
+            screen.getByPlaceholderText('Start typing a tag…'), 'faith, healing{Enter}');
+
+        // then
+        expect(suggestTagWith).toHaveBeenCalledTimes(2);
+
+        expect(suggestTagWith).toHaveBeenNthCalledWith(
+            1, { contentItemId: 'quote-1', name: 'faith' });
+
+        expect(suggestTagWith).toHaveBeenNthCalledWith(
+            2, { contentItemId: 'quote-1', name: 'healing' });
+
+        await waitFor(() => expect(toastSuccess).toHaveBeenCalledTimes(2));
+
+        expect(toastSuccess).toHaveBeenCalledWith(
+            'Thank you for your contribution. Your tag has been suggested and is under review.');
+
+        expect(toastSuccess).toHaveBeenCalledWith(
+            'Thank you for your contribution. This tag has already been suggested by another '
+            + 'user and is under review.');
+    });
 });
