@@ -44,6 +44,12 @@ vi.mock('../brokers/toastBroker.success', () => ({
     toastSuccess: (message: string) => toastSuccess(message)
 }));
 
+const toastError = vi.fn();
+
+vi.mock('../brokers/toastBroker.error', () => ({
+    toastError: (message: string) => toastError(message)
+}));
+
 // WHAT THE PAGE HANDS THE PANEL, captured while the REAL panel still renders — every other
 // test in this file reads the rendered card, so the spy wraps rather than replaces.
 //
@@ -379,6 +385,7 @@ describe('PostDetail', () => {
 
     beforeEach(() => {
         toastSuccess.mockClear();
+        toastError.mockClear();
         panelProps = undefined;
         tagPanelProps = undefined;
         signOut(authState);
@@ -595,9 +602,10 @@ describe('PostDetail', () => {
         refuse(new Error('Refused'));
         await new Promise(resolve => setTimeout(resolve, 0));
 
-        // then
+        // then: the hook is mocked, so any error toast here would be the page's own
         expect(sendTagSuggestion).toHaveBeenCalledTimes(1);
         expect(toastSuccess).not.toHaveBeenCalled();
+        expect(toastError).not.toHaveBeenCalled();
     });
 
     it('should answer a suggested bible reference honestly rather than dropping it', async () => {
