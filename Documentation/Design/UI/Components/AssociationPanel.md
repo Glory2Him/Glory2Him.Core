@@ -53,7 +53,7 @@ The panel is the generic half of a family. It knows nothing about tags or bible 
 
 **2.19 [Must]** Ownership is matched on the account id — `createdBy` against the signed-in user's `userId` — and never on a display name, which two accounts can share. *(code: associationPanel.tsx — isOwnedByViewer)*
 
-**2.20 [Should]** When adding is on and nobody is signed in, the add box is replaced by a way in, never simply hidden — otherwise the reader cannot tell the panel accepts suggestions at all. The way in is the login prompt of rule 3.1.16. It is offered to every signed-out reader, because every signed-out reader who would contribute is sent to sign in (§UI20.6.6 rule 2). *(code: associationPanel.tsx — showLoginPrompt; test: associationPanel.test.tsx — "should replace the add box with a login link carrying the return url"; user, 2026-09-27)*
+**2.20 [Should]** When adding is on and nobody is signed in, the add box is replaced by a way in, never simply hidden — otherwise the reader cannot tell the panel accepts suggestions at all — except on a rejected host, where neither is offered (rule 2.33). The way in is the login prompt of rule 3.1.16. It is offered to every signed-out reader on a host that is not `Rejected`, because every signed-out reader who would contribute is sent to sign in (§UI20.6.6 rule 2). *(code: associationPanel.tsx — showLoginPrompt; test: associationPanel.test.tsx — "should replace the add box with a login link carrying the return url"; user, 2026-09-27)*
 
 **2.21 [Must]** One box can hold several associations. The characters that separate them are a property, whose default is a comma and a semicolon. Nothing else separates, so "grace and faith" stays one association and a bible reference keeps the colons and dashes it is written with. A story keeps the default or sets its own: the tag story keeps it, and the bible reference story separates on the semicolon alone (`UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md rule 3.1.2`). *(code: associationPanel.tsx — separateValues; test: associationPanel.test.tsx — "should separate on a semicolon and leave the words inside a value alone"; user, 2026-09-27)* ≠ item 17
 
@@ -169,8 +169,8 @@ Defaults throughout: `viewAllRoles="Administrators"`, `moderationRoles="Reviewer
 | `showAdd=true`, the host not `Rejected`, no read-only role the panel composes (rule 3.3.6) — **add box** | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | `showAdd=true`, the host not `Rejected` — **login prompt** | ✅ Yes | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
 | `showAdd=true`, the host `Rejected` (rule 2.33), any `addRoles` — **add box** or **login prompt** | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
-| `showAdd=true`, `addRoles="Administrators"`, no read-only role the panel composes — **add box** | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No | ✅ Yes |
-| `showAdd=true`, `addRoles="Administrators"` — **login prompt** | ✅ Yes¹ | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
+| `showAdd=true`, the host not `Rejected`, `addRoles="Administrators"`, no read-only role the panel composes — **add box** | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No | ✅ Yes |
+| `showAdd=true`, the host not `Rejected`, `addRoles="Administrators"` — **login prompt** | ✅ Yes¹ | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
 | `showAdd=true`, viewer also holds a read-only role the panel composes (rule 2.30) — **add box** ≠ items 1 and 20 | ➖ n/a | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
 | `showAdd=true`, the host post's type given, viewer also holds that post's `ContentItem-ReadOnly` or `ContentItem-{ContentType}-ReadOnly` for its type (rule 2.30) — **add box** ≠ item 20 | ➖ n/a | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
 | Viewer also holds a read-only role the panel composes (rule 2.30) — **Approved chips**, the read-only view | ➖ n/a | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
@@ -260,7 +260,7 @@ Every read-only role in the **Blocked by** column is composed by the component i
 | --- | --- | --- | --- | --- | --- |
 | **The chips** (a gated view) | Every viewer the visibility gate admits, per status (rule 3.2.2) | None: a read, and reads stay outside the veto (§SEC14.7 posture A′ rule 3) | ✅ Allowed — the same chips as anyone of their tier, in the read-only view (rule 2.30) | ✅ Approved chips only (rule 3.2.2) | The association read the consumer hands in (§SEC14.3, §SEC14.7 posture A rule 4) |
 | **A chip's label** — a link or a hook | Everyone who sees the chip (rule 3.1.10) | None: it writes nothing | ✅ Allowed | ✅ Offered; raises `chipOnClick`, or follows the link the page supplies through `chipHrefFor` (rule 3.1.10) | Nothing: where it leads is the page's (§UI20.6.4) |
-| **The add box** — typing, Enter and Add, raising `onAdd` ≠ items 1 and 20 | A signed-in reader when `showAdd` is on and the host is not `Rejected` (rule 2.33); `addRoles` narrows it (rule 3.2.5) | `ReadOnly`, the `%EntityType%-ReadOnly` the story names, and on a post the post's `ContentItem-ReadOnly` and `ContentItem-{ContentType}-ReadOnly` for its type (rule 2.30) | ❌ Refused — the box is withheld, with no login prompt in its place (rules 2.30, 3.2.5) | Not offered; the login prompt stands in its place (rule 2.20) | §SEC14.7 posture A′ rule 1, which also asks the host end's blocks |
+| **The add box** — typing, Enter and Add, raising `onAdd` ≠ items 1 and 20 | A signed-in reader when `showAdd` is on and the host is not `Rejected` (rule 2.33); `addRoles` narrows it (rule 3.2.5) | `ReadOnly`, the `%EntityType%-ReadOnly` the story names, and on a post the post's `ContentItem-ReadOnly` and `ContentItem-{ContentType}-ReadOnly` for its type (rule 2.30) | ❌ Refused — the box is withheld, with no login prompt in its place (rules 2.30, 3.2.5) | Not offered; the login prompt stands in its place (rule 2.20), except on a `Rejected` host, where neither is offered (rule 2.33) | §SEC14.7 posture A′ rule 1, which also asks the host end's blocks |
 | **The login prompt** ≠ item 15 | Every signed-out reader, when `showAdd` is on and the host is not `Rejected` (rules 2.20, 2.33, 3.3.5) | None: its reader holds no role | Not shown — a blocked-role holder is signed in | ✅ Offered; raises `loginButtonOnClick`, or follows the `loginHref` the page supplies (rule 3.1.16) | Nothing: sign-in is the page's (§UI20.6.6 rule 2) |
 | **Remove**, raising `onRemove` ≠ items 1 and 20 | The owner, on their own `Draft` or `Submitted` chip, whatever `showModerationActions` says (rule 2.18); with `showModerationActions` on, `removeRoles` — by default `Administrators`, at any status (rule 3.2.3) | As the add box (rule 2.30) | ❌ Refused — withheld, the owner's withdrawal included (rule 3.3.6) | Not offered (rule 3.2.3) | §SEC14.7 posture A rule 3 and posture A′ rule 4; the owner's window is §APR9.9, which the server does not ask yet (section 10, item 12) |
 | **Reject**, raising `onReject` ≠ items 1, 16 and 20 | A `moderationRoles` holder of the publisher tier or `Administrators`, on somebody else's `Submitted` chip, with `showModerationActions` on (rule 3.2.4) | As the add box (rule 2.30) | ❌ Refused — withheld (rule 3.3.6) | Not offered (rule 3.2.4) | `TransitionAssociationApprovalAsync`: the publisher tier, never the review tier (§APR8.6 HR-3) (§SEC14.7 posture A′). The row's author may approve it by the ordinary route only where `AllowSelfApproval` permits, and an `Administrators` author may bypass over their own submission (§APR8.6 HR-2); the panel is stricter and offers its author neither Reject nor Approve (rule 2.16; item 11) |
@@ -352,7 +352,8 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
    - "Which chips render" names a `hideUnapprovedFromOthers` property and "the filter switched off". The panel has no such property. The test named "should not render a removed item even with the filter turned off" sets no filter either (`associationPanel.test.tsx`).
    - The same section says "an unapproved chip is visible only to someone who has an action available on it". With `showModerationActions` off that is not so: a reviewer sees a Submitted chip, and an administrator sees a Draft chip, with no action on either (rules 3.2.2, 3.3.3).
    - "Which action appears" does not say it assumes `showModerationActions` on. Under the default posture only the owner's withdrawal appears (section 3.4).
-   - The props table (`propRows`) omits `cssClass`, `approvedTooltip`, `pendingTooltip`, `rejectedTooltip`, `removeIconCssClass`, `approveTooltip`, `rejectTooltip`, `approveIconCssClass` and `rejectIconCssClass`, all of which `AssociationPanelProps` declares.
+   - The props table (`propRows`) omits `cssClass`, `approvedTooltip`, `pendingTooltip`, `rejectedTooltip`, `removeIconCssClass`, `approveTooltip`, `rejectTooltip`, `approveIconCssClass`, `rejectIconCssClass` and `hostApprovalStatus`, all of which `AssociationPanelProps` declares.
+   - The `showAdd` row says signed-out readers get the login prompt instead. On a `Rejected` host they get neither (rule 2.33).
    - The `addMaxLength` row says the cap matches "the storage cap". The component does not say so, and this document does not adopt it.
 6. (needs issue) **Test name contradicts its setup.** "should still let the owner withdraw their own item with moderation switched off" renders with `showModerationActions={true}`. The switched-off case is covered by "should still let a contributor withdraw their own unapproved item with actions off". Evidence: `associationPanel.test.tsx`, line 731 at 70dc72e7.
 7. (needs issue) **Magazine sample suggestions cannot be withdrawn.** `postSingleMagazineSample.tsx` projects each suggestion with `asSuggestedAssociation(value, undefined)`, so the owner rule never fires and the `onRemove` it wires is unreachable. `postSingle.tsx` and `bibleReference.tsx` pass `user?.userId`.
@@ -374,10 +375,10 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
     §SEC14.7 posture A′ rule 1 has the server refuse a block on either end; and rule 3.3.6
     withholds Remove, Reject and Approve on the same terms. The page is to hand the panel the
     post's content type, as data, for it. The panel takes no such property and composes no role
-    for the host's end: `mayAdd` asks only `showAdd`, sign-in and `addRoles`
-    (`associationPanel.tsx`, lines 340-343 at 70dc72e7), and the roles file says a panel "KNOWS
-    ONLY ITS OWN END" (`associationRoles.ts`, lines 8-16). The stories forward every panel
-    property through their rest spread
+    for the host's end: `mayAdd` asks `showAdd`, the host's approval status (rule 2.33), sign-in
+    and `addRoles`, and no role of the host's end (`associationPanel.tsx`, lines 351-355 at
+    1dec87ad), and the roles file says a panel "KNOWS ONLY ITS OWN END" (`associationRoles.ts`,
+    lines 8-16). The stories forward every panel property through their rest spread
     (`UI/Components/AssociationPanel.TagAssociationPanel.md §4.3`), so the property reaches them
     with the panel's. The panel's own end's roles, which it does not compose either, are item 1.
 21. (#1128) **Gap — this family cannot read or remove its associations over HTTP.** The reads and writes the
@@ -440,7 +441,7 @@ No consumer calls any of them today. `postDetail.tsx`, `myPostDetail.tsx` and `c
 25. Built (#1375) **The panel takes no new suggestion on a rejected post.** Rule 2.33 (owner
     ruling 2026-10-29): where `hostApprovalStatus` is `Rejected`, the panel offers no add box and
     no login prompt, whoever views it, and its chips, their links and its actions stay as its
-    other gates have them (`associationPanel.tsx`, lines 349-358, at 39d35289). Each page that
+    other gates have them (`associationPanel.tsx`, lines 351-360, at 1dec87ad). Each page that
     renders a story beside a post hands it the post's status: the tag panel on `/posts/{id}` and
     `/myposts/{id}` (`UI/Pages/PostDetail.md §6 item 17`, `UI/Pages/MyPostDetail.md §6 item 18`),
     and the Bible reference panel there under #1357 (`UI/Pages/PostDetail.md §6 item 18`,
