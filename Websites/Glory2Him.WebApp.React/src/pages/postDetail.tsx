@@ -8,6 +8,7 @@ import { SharingPanel } from '../components/contentItems/sharingPanel';
 import { Spinner } from '../components/coreUI/spinner';
 import { useContentItemEngagement } from '../hooks/useContentItemEngagement';
 import { associationService } from '../services/foundations/associationService';
+import { AssociationSubmissionStatus } from '../models/foundations/associations/associationSubmissionStatus';
 import { contentItemService } from '../services/foundations/contentItemService';
 import { contentItemSettingService } from '../services/foundations/contentItemSettingService';
 import { contributorService } from '../services/foundations/contributorService';
@@ -37,6 +38,24 @@ import { useDocumentTitle } from './useDocumentTitle';
 // however the reader's roles fall. A public page that could never be turned into an edit
 // surface by a role change elsewhere is the point of that switch — an editing surface is a
 // separate page's decision, not this one's.
+// What a reader is told of a suggested tag, by the status the server answered with
+// (DesignFeatures/TagSuggestions.md rule 8, the messages' single home).
+const tagSuggestionMessages: Readonly<Record<AssociationSubmissionStatus, string>> = {
+    [AssociationSubmissionStatus.Created]:
+        'Thank you for your contribution. Your tag has been suggested and is under review.',
+
+    [AssociationSubmissionStatus.AlreadySuggested]:
+        'Thank you for your contribution. This tag has already been suggested by another user '
+            + 'and is under review.',
+
+    [AssociationSubmissionStatus.AlreadySuggestedByCaller]:
+        'Thank you for your contribution. You have already suggested this tag, and it is under '
+            + 'review.',
+
+    [AssociationSubmissionStatus.PreviouslySuggestedByCaller]:
+        'Thank you. You have already suggested this tag for this post.'
+};
+
 export function PostDetail() {
     const { contentItemId = '' } = useParams();
     const navigate = useNavigate();
@@ -141,7 +160,8 @@ export function PostDetail() {
     const suggestTagMutation = associationService.useSuggestTag();
 
     const suggestTag = (name: string) => {
-        void suggestTagMutation.mutateAsync({ contentItemId, name });
+        void suggestTagMutation.mutateAsync({ contentItemId, name })
+            .then(result => toastSuccess(tagSuggestionMessages[result.status]));
     };
 
     const suggestBibleReference = () =>
