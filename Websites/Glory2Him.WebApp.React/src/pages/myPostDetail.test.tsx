@@ -1,11 +1,14 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MyPostDetail } from './myPostDetail';
 import { AuthProvider } from '../components/securitys/authProvider';
 import { EntityType } from '../models/foundations/approvalSettings/approvalSetting';
 import { AssociationRequest } from '../models/foundations/associations/associationRequest';
+import { AssociationSubmissionResult } from '../models/foundations/associations/associationSubmissionResult';
+import { AssociationSubmissionStatus } from '../models/foundations/associations/associationSubmissionStatus';
+import { TagSuggestion } from '../models/foundations/associations/tagSuggestion';
 import { ContentItemReactionSummary } from '../models/foundations/associations/contentItemReactionSummary';
 import { ContentItem } from '../models/foundations/contentItems/contentItem';
 import { ContentType } from '../models/foundations/contentItemSettings/contentType';
@@ -106,6 +109,24 @@ let serverSummaries: Record<string, ContentItemReactionSummary> = {};
 const upsertAssociation = vi.fn<(association: AssociationRequest) => Promise<unknown>>();
 const removeAssociationByPair = vi.fn<(association: AssociationRequest) => Promise<unknown>>();
 
+// The tag suggestion write, mocked at its own boundary: each run is one call, answered with the
+// status the test gives it.
+const suggestTagWith =
+    vi.fn<(tagSuggestion: TagSuggestion) => Promise<AssociationSubmissionResult>>();
+
+// What the page says of an answer, read where it says it.
+const toastSuccess = vi.fn<(message: string) => void>();
+
+vi.mock('../brokers/toastBroker.success', () => ({
+    toastSuccess: (message: string) => toastSuccess(message)
+}));
+
+const toastError = vi.fn<(message: string) => void>();
+
+vi.mock('../brokers/toastBroker.error', () => ({
+    toastError: (message: string) => toastError(message)
+}));
+
 vi.mock('../services/foundations/associationService', () => ({
     associationService: {
         useGetReactionSummaries: (contentItemIdPages: ReadonlyArray<ReadonlyArray<string>>) => {
@@ -122,6 +143,7 @@ vi.mock('../services/foundations/associationService', () => ({
         },
 
         useUpsertAssociation: () => ({ mutateAsync: upsertAssociation }),
+        useSuggestTag: () => ({ mutateAsync: suggestTagWith }),
         useRemoveAssociationByPair: () => ({ mutateAsync: removeAssociationByPair }),
         useReadReactionSummariesAgain: () => () => new Promise(() => undefined)
     }
@@ -194,6 +216,17 @@ const renderPage = (initialEntry: Parameters<typeof MemoryRouter>[0]['initialEnt
             </AuthProvider>
         </MemoryRouter>);
 
+// The page on its own route, so that the id it reads off the URL is the one the address carries.
+const renderPageOnItsRoute = () =>
+    render(
+        <MemoryRouter initialEntries={['/myposts/quote-1']}>
+            <AuthProvider>
+                <Routes>
+                    <Route path="/myposts/:contentItemId" element={<MyPostDetail />} />
+                </Routes>
+            </AuthProvider>
+        </MemoryRouter>);
+
 const cardOf = (container: HTMLElement): HTMLElement =>
     container.querySelector('.g2h-content-item-card') as HTMLElement;
 
@@ -233,6 +266,10 @@ describe('MyPostDetail', () => {
         upsertAssociation.mockImplementation(() => new Promise(() => undefined));
         removeAssociationByPair.mockReset();
         removeAssociationByPair.mockImplementation(() => new Promise(() => undefined));
+        suggestTagWith.mockReset();
+        suggestTagWith.mockResolvedValue({ status: AssociationSubmissionStatus.Created });
+        toastSuccess.mockReset();
+        toastError.mockReset();
         signInAs(authState, ['Users']);
     });
 
@@ -479,5 +516,172 @@ describe('MyPostDetail', () => {
             groupId: 'group-1',
             createdBy: 'user-1'
         }));
+    });
+
+    // THE TAG PANEL'S SUGGESTION IS SENT, by the name the panel raised, for the post on the route
+    // (MyPostDetail.md rule 2.24).
+    it('should send a suggested tag by its name for the post on the route', async () => {
+        // given
+        renderPageOnItsRoute();
+
+        // when
+        await userEvent.type(screen.getByPlaceholderText('Start typing a tag…'), 'miracles{Enter}');
+
+        // then
+        expect(suggestTagWith).toHaveBeenCalledTimes(1);
+
+        expect(suggestTagWith).toHaveBeenCalledWith(
+            { contentItemId: 'quote-1', name: 'miracles' });
+    });
+
+    // WHAT CAME OF IT, in the words TagSuggestions.md rule 8 gives each status - the words
+    // /posts/{id} uses too.
+    it.each([
+        [
+            AssociationSubmissionStatus.Created,
+            'Thank you for your contribution. Your tag has been suggested and is under review.'
+        ],
+        [
+            AssociationSubmissionStatus.AlreadySuggested,
+            'Thank you for your contribution. This tag has already been suggested by another '
+            + 'user and is under review.'
+        ],
+        [
+            AssociationSubmissionStatus.AlreadySuggestedByCaller,
+            'Thank you for your contribution. You have already suggested this tag, and it is '
+            + 'under review.'
+        ],
+        [
+            AssociationSubmissionStatus.PreviouslySuggestedByCaller,
+            'Thank you. You have already suggested this tag for this post.'
+        ]
+    ])('should thank the reader for a suggested tag as its answer has it (status %s)',
+        async (status, message) => {
+            // given
+            suggestTagWith.mockResolvedValue({ status });
+            renderPageOnItsRoute();
+
+            // when
+            await userEvent.type(
+                screen.getByPlaceholderText('Start typing a tag…'), 'miracles{Enter}');
+
+            // then
+            await waitFor(() => expect(toastSuccess).toHaveBeenCalledTimes(1));
+            expect(toastSuccess).toHaveBeenCalledWith(message);
+        });
+
+    // ONE TOAST PER RUN. A list raises onAdd twice in one tick, and each run is answered in its
+    // own words, not the last run's alone.
+    it('should send each tag of a list and answer each in a toast of its own', async () => {
+        // given
+        suggestTagWith
+            .mockResolvedValueOnce({ status: AssociationSubmissionStatus.Created })
+            .mockResolvedValueOnce({ status: AssociationSubmissionStatus.AlreadySuggested });
+
+        renderPageOnItsRoute();
+
+        // when
+        await userEvent.type(
+            screen.getByPlaceholderText('Start typing a tag…'), 'faith, healing{Enter}');
+
+        // then
+        expect(suggestTagWith).toHaveBeenCalledTimes(2);
+
+        expect(suggestTagWith).toHaveBeenNthCalledWith(
+            1, { contentItemId: 'quote-1', name: 'faith' });
+
+        expect(suggestTagWith).toHaveBeenNthCalledWith(
+            2, { contentItemId: 'quote-1', name: 'healing' });
+
+        await waitFor(() => expect(toastSuccess).toHaveBeenCalledTimes(2));
+
+        expect(toastSuccess).toHaveBeenCalledWith(
+            'Thank you for your contribution. Your tag has been suggested and is under review.');
+
+        expect(toastSuccess).toHaveBeenCalledWith(
+            'Thank you for your contribution. This tag has already been suggested by another '
+            + 'user and is under review.');
+    });
+
+    // THE BOX STANDS on a post that is not rejected: the page hands the tag panel the item's
+    // status, and the panel withholds the box on Rejected alone (AssociationPanel.md rule 2.33).
+    it.each([
+        ['Draft', ApprovalStatus.Draft],
+        ['Submitted', ApprovalStatus.Submitted],
+        ['Approved', ApprovalStatus.Approved]
+    ])('should offer the tag box on a post that is not rejected (%s)', (_, approvalStatus) => {
+        // given
+        contentItem = { ...draftQuote, approvalStatus };
+
+        // when
+        renderPageOnItsRoute();
+
+        // then
+        expect(screen.getByText('Suggest a tag')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('Start typing a tag…')).toBeInTheDocument();
+    });
+
+    // THE BIBLE REFERENCE PANEL IS UNCHANGED: its write is MyPostDetail.md §6 item 19's, so it
+    // still answers coming soon, and the tag panel's wiring does not reach it.
+    it('should still answer a suggested bible reference with coming soon and send nothing',
+        async () => {
+            // given
+            renderPageOnItsRoute();
+
+            // when
+            await userEvent.type(
+                screen.getByPlaceholderText('e.g. Romans 3:23…'), 'John 3:16{Enter}');
+
+            // then
+            expect(toastSuccess).toHaveBeenCalledTimes(1);
+            expect(toastSuccess).toHaveBeenCalledWith('Suggesting bible references is coming soon.');
+            expect(suggestTagWith).not.toHaveBeenCalled();
+        });
+
+    // A REJECTED POST TAKES NO NEW TAG (TagSuggestions.md rule 17): the tag panel is handed the
+    // item's status and offers no box, so nothing can be committed and nothing is sent.
+    it('should withhold the tag box on a rejected post', () => {
+        // given
+        contentItem = { ...draftQuote, approvalStatus: ApprovalStatus.Rejected };
+
+        // when
+        renderPageOnItsRoute();
+
+        // then
+        expect(screen.getByRole('heading', { name: 'Tags' })).toBeInTheDocument();
+        expect(screen.queryByText('Suggest a tag')).not.toBeInTheDocument();
+        expect(screen.queryByPlaceholderText('Start typing a tag…')).not.toBeInTheDocument();
+        expect(suggestTagWith).not.toHaveBeenCalled();
+    });
+
+    // A REFUSED OR FAILED SUGGESTION is announced as any failed write is, by the app's global
+    // error toast, which the hook raises (AssociationService.TagSuggestions.md §1 rule 3). The
+    // page says nothing of its own - neither thanks nor an error of its own.
+    it('should leave a failed suggestion to the global error toast', async () => {
+        // given
+        let failSuggestion: (reason: unknown) => void = () => undefined;
+
+        suggestTagWith.mockImplementation(() => new Promise((_, reject) => {
+            failSuggestion = reject;
+        }));
+
+        const unhandled = vi.fn();
+        process.on('unhandledRejection', unhandled);
+        renderPageOnItsRoute();
+        await userEvent.type(screen.getByPlaceholderText('Start typing a tag…'), 'miracles{Enter}');
+
+        try {
+            // when
+            failSuggestion(new Error('Refused'));
+            await new Promise((resolve) => setTimeout(resolve, 0));
+
+            // then
+            expect(suggestTagWith).toHaveBeenCalledTimes(1);
+            expect(toastSuccess).not.toHaveBeenCalled();
+            expect(toastError).not.toHaveBeenCalled();
+            expect(unhandled).not.toHaveBeenCalled();
+        } finally {
+            process.off('unhandledRejection', unhandled);
+        }
     });
 });

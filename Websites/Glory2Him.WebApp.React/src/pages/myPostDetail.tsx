@@ -6,6 +6,7 @@ import { TagAssociationPanel } from '../components/associations/tagAssociationPa
 import { ContentItemPanel } from '../components/contentItems/contentItemPanel';
 import { SharingPanel } from '../components/contentItems/sharingPanel';
 import { Spinner } from '../components/coreUI/spinner';
+import { associationService } from '../services/foundations/associationService';
 import { contentItemService } from '../services/foundations/contentItemService';
 import { contentItemSettingService } from '../services/foundations/contentItemSettingService';
 import { toContentItemSearchItem } from '../services/views/contentItems/toContentItemSearchItem';
@@ -23,8 +24,24 @@ import {
     resolveContentItemSetting
 } from '../services/views/contentItems/resolveContentItemSetting';
 
+import { AssociationSubmissionStatus } from '../models/foundations/associations/associationSubmissionStatus';
 import { useContentItemEngagement } from '../hooks/useContentItemEngagement';
 import { useDocumentTitle } from './useDocumentTitle';
+
+// What the reader is told of a suggested tag, in the words DesignFeatures/TagSuggestions.md rule 8
+// gives each status.
+const tagSuggestionAnswers: Readonly<Record<AssociationSubmissionStatus, string>> = {
+    [AssociationSubmissionStatus.Created]:
+        'Thank you for your contribution. Your tag has been suggested and is under review.',
+    [AssociationSubmissionStatus.AlreadySuggested]:
+        'Thank you for your contribution. This tag has already been suggested by another user '
+        + 'and is under review.',
+    [AssociationSubmissionStatus.AlreadySuggestedByCaller]:
+        'Thank you for your contribution. You have already suggested this tag, and it is under '
+        + 'review.',
+    [AssociationSubmissionStatus.PreviouslySuggestedByCaller]:
+        'Thank you. You have already suggested this tag for this post.'
+};
 
 // ONE OF MY POSTS, read on its own surface — where /posts/contribute lands a fresh submission
 // and where /myposts sends every click into an item. The public /posts/{id} page keeps the same
@@ -34,8 +51,8 @@ import { useDocumentTitle } from './useDocumentTitle';
 // TWO COLUMNS, 7 / 5: the item on the left, and on the right the surfaces that belong BESIDE a
 // content item rather than within it (§20.6.2) — its tags, its bible references, and the
 // invitation to share something else. Each association panel is a pure renderer; this page owns
-// what its events mean, and today that is an honest "coming soon": suggesting an association is
-// a ContentItem association write, and associations have no HTTP exposer yet (#318). The panels
+// what its events mean. The tag panel's suggestion is sent; the Bible reference panel's is still
+// answered with an honest "coming soon", since its suggestion write is not wired yet. The panels
 // take their collections from THIS page, which holds the item's id off the URL — the wiring
 // point where the association read plugs in when it exists.
 export function MyPostDetail() {
@@ -146,9 +163,20 @@ export function MyPostDetail() {
 
     const from = `${location.pathname}${location.search}`;
 
-    // The association writes arrive with #318; until then the boxes answer honestly rather
-    // than silently dropping what somebody typed.
-    const suggestTag = () => toastSuccess('Suggesting tags is coming soon.');
+    // The tag panel's suggestion is sent by its name through associationService.useSuggestTag,
+    // for the item on the route, and answered with the message its status names. The Bible
+    // reference panel's still answers "coming soon" rather than silently dropping what somebody
+    // typed.
+    const suggestTagMutation = associationService.useSuggestTag();
+
+    // Each run is answered through its OWN promise, never through a callback handed to mutate:
+    // TanStack Query fires such a callback for the last of several consecutive calls only, and
+    // a tag list raises onAdd once per tag in one tick. A refused or failed run is the app's
+    // global error toast's to announce, which the hook leaves on, so the page adds nothing.
+    const suggestTag = (name: string) =>
+        suggestTagMutation.mutateAsync({ contentItemId, name })
+            .then(({ status }) => toastSuccess(tagSuggestionAnswers[status]))
+            .catch(() => undefined);
 
     const suggestBibleReference = () =>
         toastSuccess('Suggesting bible references is coming soon.');
@@ -210,6 +238,7 @@ export function MyPostDetail() {
                             <TagAssociationPanel
                                 associationCollection={[]}
                                 onAdd={suggestTag}
+                                hostApprovalStatus={contentItem?.approvalStatus}
                                 showBorder
                                 cssClass="mb-4" />
 
