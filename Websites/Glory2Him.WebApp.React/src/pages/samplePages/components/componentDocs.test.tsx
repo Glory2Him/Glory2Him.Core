@@ -266,6 +266,17 @@ describe('Component reference pages', () => {
             expect(screen.getByRole('button', { name: 'Approve grace' })).toBeInTheDocument();
             expect(screen.getByRole('button', { name: 'Reject grace' })).toBeInTheDocument();
         });
+
+        it('should offer no new suggestion once the host board picks Rejected', async () => {
+            // given
+            renderWithAuth(<TagAssociationPanelDoc />);
+
+            // when
+            await userEvent.click(screen.getByRole('radio', { name: 'Rejected' }));
+
+            // then
+            expect(screen.queryByPlaceholderText('Start typing a tag…')).not.toBeInTheDocument();
+        });
     });
 
     describe('BibleReferenceAssociationPanelDoc', () => {
@@ -315,6 +326,17 @@ describe('Component reference pages', () => {
 
             expect(screen.queryByRole('button', { name: 'Approve Romans 3:23' }))
                 .not.toBeInTheDocument();
+        });
+
+        it('should offer no new suggestion once the host board picks Rejected', async () => {
+            // given
+            renderWithAuth(<BibleReferenceAssociationPanelDoc />);
+
+            // when
+            await userEvent.click(screen.getByRole('radio', { name: 'Rejected' }));
+
+            // then
+            expect(screen.queryByPlaceholderText('e.g. Romans 3:23…')).not.toBeInTheDocument();
         });
     });
 
