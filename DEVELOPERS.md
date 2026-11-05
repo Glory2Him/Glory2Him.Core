@@ -21,9 +21,12 @@ Read `INTENT.md` for what the system is for, and the **Global Rules** issue — 
 open issue labelled `global rules` — for the rules every feature inherits and the
 terms they use. This repository was made from the older template, with its design
 kept as documents, and is moving onto this workflow: Glory2Him/Glory2Him.Core#1381
-tracks the move. Until the Global Rules issue carries `approved` there is no new
-design, and the tasks signed before the move wait for their legacy features' intake;
-`CLAUDE.md` says where the old documents are meanwhile.
+tracks the move. Every open issue from the old process is closed as superseded and
+its work re-planned the new way, one feature at a time, from the documents it was
+planned against; this repository has no `legacy` features, though the shared agents
+and skills, and this guide, describe them for other repositories. Until the Global
+Rules issue carries `approved` there is no new design; `CLAUDE.md` says where the old
+documents are meanwhile.
 
 Glory2Him has one maintainer. Where this guide says "the maintainer", that is the
 person who approves plans and merges to `main`; it may well be you.
@@ -353,7 +356,8 @@ feature request field by field for you to submit through the form, and puts the 
 and terms through the Global Rules change. When a document is fully ported, its row in
 `Documentation/Planning/README.md` names the issues it became.
 
-**The one exception: a `legacy` task.** A repository made from the older template kept
+**The one exception: a `legacy` task** — in other repositories; this one closed its
+old tasks instead and re-plans their work (Glory2Him/Glory2Him.Core#1381). A repository made from the older template kept
 its design as files and may hold tasks signed `ready for development` against them.
 Moving it onto this workflow puts those files under `Planning/` in one rename-only
 commit, keeping their sub-paths — `Documentation/Design/X` becomes
@@ -1078,11 +1082,15 @@ description rather than mechanism:
   needs the maintainer's bypass.
 - **Your machine** set up: `git` and Git Bash, `gh`, `jq`, `node`, `claude` signed in
   to your Pro account, the .NET SDK and LocalDB.
+- **The old issues closed**, each with a comment naming the document its design lives
+  in.
 - **The Global Rules issue**, filed lean with a **Legacy rules** index over the old
-  global documents, reviewed by QA and approved by the maintainer. Until then the
-  planner has nothing to cite, and `/plan-feature` refuses to start.
-- **The legacy features**, filed one at a time over the tasks signed before the move,
-  each taken in by QA before it is built.
+  global sections not yet ported, and the presentation component rules in full,
+  reviewed by QA and approved by the maintainer. Until then the planner has nothing to
+  cite, and `/plan-feature` refuses to start.
+- **The features**, ported one at a time from the old documents through
+  `/grill-with-docs` and planned with `/plan-feature`: Presentation Components first,
+  then Like.
 
 Stated plainly so nobody goes looking:
 

@@ -19,9 +19,12 @@ move step by step, following
 - **No new design.** No feature is grilled or planned, and no design document
   changes, until the Global Rules issue carries `approved`: there are no settled rules
   to plan against yet.
-- **No building the old way.** The developer refuses a task whose feature lacks
-  `approved`, so every task signed `ready for development` before the move waits for
-  its legacy feature's intake.
+- **No building the old way, and no legacy lane.** Every open issue from the old
+  process is closed as superseded, its comment naming the document its design lives
+  in. That work is re-planned the new way, one feature at a time — ported from its
+  documents through `/grill-with-docs`, planned with `/plan-feature`, approved, then
+  built — starting with Presentation Components, then Like. This repository has no
+  `legacy` features; the shared agents and skills support them for other repositories.
 - **Where the old design is.** Until the documents move, they are at
   `Documentation/Design/`, `Documentation/DesignFeatures/` and
   `Documentation/G2H Design.md`; after it, under `Documentation/Planning/` at the same
@@ -40,9 +43,10 @@ Delete this section once #1381 closes.
   to them; a deviation needs a documented reason in its user story. They change only
   through a `Change <n>:` comment, QA's rules review and the maintainer's
   `approved`. An issue that disagrees with them is stale intent, not an instruction;
-  correct the issue. In a moved repository its **Legacy rules** section indexes old
-  rule sections: an unstruck line binds `legacy` features only, and a new feature that
-  needs one waits until it is settled. This repository keeps its own rule numbers,
+  correct the issue. Its **Legacy rules** section indexes the old rule sections not
+  yet ported. With no `legacy` features here, an unstruck line binds nothing: a
+  feature that needs one waits until `/grill-with-docs` ports or retires it. This
+  repository keeps its own rule numbers,
   nested ones included (`§ARC12.5.4`, `§APR8.6.2.1`), so existing citations still
   resolve; only `§ARC1`–`§ARC5` are reserved for the form's pre-filled rules.
 - **Features, user stories and tasks** — GitHub issues, linked as sub-issues. A
@@ -62,9 +66,6 @@ Delete this section once #1381 closes.
   count only once ported through the issue forms — features through the Feature
   request form, rules and terms into the Global Rules issue — which `/grill-with-docs
   Documentation/Planning/<document>` does with a person, and no other agent opens it.
-  **The one exception** is a task labelled `legacy`: it, and only it, is built and
-  verified against the documents it cites, read at their `Documentation/Planning/`
-  path (`Documentation/Planning/README.md` has the mapping).
 - **The agents and shared skills** — `.claude/agents/`, and the skills under
   `.claude/skills/` the Template carries, are maintained in `Glory2Him.Template`.
   In any other Glory2Him repository they are a copy refreshed from the Template:
