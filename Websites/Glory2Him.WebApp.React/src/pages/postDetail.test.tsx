@@ -560,6 +560,25 @@ describe('PostDetail', () => {
         expect(screen.getByRole('textbox', { name: 'Suggest a tag' })).toBeInTheDocument();
     });
 
+    it('should withhold the tag box on a rejected post', () => {
+        // given: the page shows a rejected post to its owner until PostDetail.md §6 item 12
+        // is built, and ownedItem is the signed-in reader's
+        signInAs(authState);
+        contentItem = { ...ownedItem, approvalStatus: ApprovalStatus.Rejected };
+
+        // when
+        renderPage();
+
+        // then: the panel is told the post is rejected and offers no box, so nothing is sent;
+        // the Bible reference panel is not this task's and keeps its box
+        expect(tagPanelProps?.hostApprovalStatus).toBe(ApprovalStatus.Rejected);
+        expect(screen.queryByRole('textbox', { name: 'Suggest a tag' })).not.toBeInTheDocument();
+        expect(sendTagSuggestion).not.toHaveBeenCalled();
+
+        expect(screen.getByRole('textbox', { name: 'Suggest a bible reference' }))
+            .toBeInTheDocument();
+    });
+
     it('should answer a suggested bible reference honestly rather than dropping it', async () => {
         // given
         signInAs(authState);
