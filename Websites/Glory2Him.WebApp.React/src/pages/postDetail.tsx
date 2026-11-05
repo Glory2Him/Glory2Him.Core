@@ -161,7 +161,9 @@ export function PostDetail() {
 
     const suggestTag = (name: string) => {
         void suggestTagMutation.mutateAsync({ contentItemId, name })
-            .then(result => toastSuccess(tagSuggestionMessages[result.status]));
+            .then(
+                result => toastSuccess(tagSuggestionMessages[result.status]),
+                () => undefined);
     };
 
     const suggestBibleReference = () =>
