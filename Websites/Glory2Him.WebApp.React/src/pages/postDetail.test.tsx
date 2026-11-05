@@ -486,6 +486,39 @@ describe('PostDetail', () => {
             expect(toastSuccess).toHaveBeenCalledTimes(1);
         });
 
+    it('should send each tag of a list and answer each in a toast of its own', async () => {
+        // given: the panel raises onAdd once for each name, in one tick, and the two runs
+        // answer differently
+        signInAs(authState);
+
+        sendTagSuggestion
+            .mockResolvedValueOnce({ status: AssociationSubmissionStatus.Created })
+            .mockResolvedValueOnce({ status: AssociationSubmissionStatus.AlreadySuggested });
+
+        renderPage();
+
+        // when
+        await suggestATag('grace, mercy');
+
+        // then: a run of its own for each, and each run answered in its own words
+        expect(sendTagSuggestion).toHaveBeenCalledTimes(2);
+
+        expect(sendTagSuggestion).toHaveBeenNthCalledWith(
+            1, { contentItemId: 'content-item-1', name: 'grace' });
+
+        expect(sendTagSuggestion).toHaveBeenNthCalledWith(
+            2, { contentItemId: 'content-item-1', name: 'mercy' });
+
+        await waitFor(() => expect(toastSuccess).toHaveBeenCalledTimes(2));
+
+        expect(toastSuccess).toHaveBeenCalledWith(
+            'Thank you for your contribution. Your tag has been suggested and is under review.');
+
+        expect(toastSuccess).toHaveBeenCalledWith(
+            'Thank you for your contribution. This tag has already been suggested by another '
+                + 'user and is under review.');
+    });
+
     it('should answer a suggested bible reference honestly rather than dropping it', async () => {
         // given
         signInAs(authState);
