@@ -595,4 +595,22 @@ describe('MyPostDetail', () => {
             'Thank you for your contribution. This tag has already been suggested by another '
             + 'user and is under review.');
     });
+
+    // THE BOX STANDS on a post that is not rejected: the page hands the tag panel the item's
+    // status, and the panel withholds the box on Rejected alone (AssociationPanel.md rule 2.33).
+    it.each([
+        ['Draft', ApprovalStatus.Draft],
+        ['Submitted', ApprovalStatus.Submitted],
+        ['Approved', ApprovalStatus.Approved]
+    ])('should offer the tag box on a post that is not rejected (%s)', (_, approvalStatus) => {
+        // given
+        contentItem = { ...draftQuote, approvalStatus };
+
+        // when
+        renderPageOnItsRoute();
+
+        // then
+        expect(screen.getByText('Suggest a tag')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('Start typing a tag…')).toBeInTheDocument();
+    });
 });
