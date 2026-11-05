@@ -84,10 +84,15 @@ export const associationService = {
 
     useSuggestTag: () => {
         const associationBroker = new AssociationBroker();
+        const queryClient = useQueryClient();
 
         return useMutation<AssociationSubmissionResult, unknown, TagSuggestion>({
             mutationFn: async (tagSuggestion: TagSuggestion) =>
-                await associationBroker.PostTagSuggestionAsync(tagSuggestion)
+                await associationBroker.PostTagSuggestionAsync(tagSuggestion),
+
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: ['Associations'] });
+            }
         });
     },
 
