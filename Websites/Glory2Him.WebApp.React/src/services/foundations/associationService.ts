@@ -1,8 +1,10 @@
 import { Query, QueryClient, useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import AssociationBroker from '../../brokers/apiBroker.associations';
 import { AssociationRequest } from '../../models/foundations/associations/associationRequest';
+import { AssociationSubmissionResult } from '../../models/foundations/associations/associationSubmissionResult';
 import { AssociationSuggestionResult } from '../../models/foundations/associations/associationSuggestionResult';
 import { ContentItemReactionSummary } from '../../models/foundations/associations/contentItemReactionSummary';
+import { TagSuggestion } from '../../models/foundations/associations/tagSuggestion';
 
 export interface ReactionSummariesRead {
     summaries: Readonly<Record<string, ContentItemReactionSummary>>;
@@ -77,6 +79,15 @@ export const associationService = {
             onSettled: () => {
                 queryClient.invalidateQueries({ queryKey: ['ReactionSummaries'] });
             }
+        });
+    },
+
+    useSuggestTag: () => {
+        const associationBroker = new AssociationBroker();
+
+        return useMutation<AssociationSubmissionResult, unknown, TagSuggestion>({
+            mutationFn: async (tagSuggestion: TagSuggestion) =>
+                await associationBroker.PostTagSuggestionAsync(tagSuggestion)
         });
     },
 
