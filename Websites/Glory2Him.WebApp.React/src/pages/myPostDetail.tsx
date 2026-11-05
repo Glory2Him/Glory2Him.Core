@@ -51,8 +51,8 @@ const tagSuggestionAnswers: Readonly<Record<AssociationSubmissionStatus, string>
 // TWO COLUMNS, 7 / 5: the item on the left, and on the right the surfaces that belong BESIDE a
 // content item rather than within it (§20.6.2) — its tags, its bible references, and the
 // invitation to share something else. Each association panel is a pure renderer; this page owns
-// what its events mean, and today that is an honest "coming soon": suggesting an association is
-// a ContentItem association write, and associations have no HTTP exposer yet (#318). The panels
+// what its events mean. The tag panel's suggestion is sent; the Bible reference panel's is still
+// answered with an honest "coming soon", since its suggestion write is not wired yet. The panels
 // take their collections from THIS page, which holds the item's id off the URL — the wiring
 // point where the association read plugs in when it exists.
 export function MyPostDetail() {
@@ -163,8 +163,10 @@ export function MyPostDetail() {
 
     const from = `${location.pathname}${location.search}`;
 
-    // The association writes arrive with #318; until then the boxes answer honestly rather
-    // than silently dropping what somebody typed.
+    // The tag panel's suggestion is sent by its name through associationService.useSuggestTag,
+    // for the item on the route, and answered with the message its status names. The Bible
+    // reference panel's still answers "coming soon" rather than silently dropping what somebody
+    // typed.
     const suggestTagMutation = associationService.useSuggestTag();
 
     // Each run is answered through its OWN promise, never through a callback handed to mutate:
