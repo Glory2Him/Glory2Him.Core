@@ -630,4 +630,20 @@ describe('MyPostDetail', () => {
             expect(toastSuccess).toHaveBeenCalledWith('Suggesting bible references is coming soon.');
             expect(suggestTagWith).not.toHaveBeenCalled();
         });
+
+    // A REJECTED POST TAKES NO NEW TAG (TagSuggestions.md rule 17): the tag panel is handed the
+    // item's status and offers no box, so nothing can be committed and nothing is sent.
+    it('should withhold the tag box on a rejected post', () => {
+        // given
+        contentItem = { ...draftQuote, approvalStatus: ApprovalStatus.Rejected };
+
+        // when
+        renderPageOnItsRoute();
+
+        // then
+        expect(screen.getByRole('heading', { name: 'Tags' })).toBeInTheDocument();
+        expect(screen.queryByText('Suggest a tag')).not.toBeInTheDocument();
+        expect(screen.queryByPlaceholderText('Start typing a tag…')).not.toBeInTheDocument();
+        expect(suggestTagWith).not.toHaveBeenCalled();
+    });
 });
