@@ -59,7 +59,7 @@ view you were on, and switching carries your current selection across.
     `…ing` — and publish fact events — `…ed` — and the fact addresses have
     no subscribers)
 - **Duplication over line-spaghetti** (the *per consumer* view only, matching
-  `Planning/Glory 2 Him.drawio`): a dependency is drawn once per consumer, showing only
+  `Documentation/Planning/Glory 2 Him.drawio`): a dependency is drawn once per consumer, showing only
   the method rows that consumer uses, instead of many lines converging on one
   shared node. The exception is client-library / external exposers (marked
   "shared" in the side panel): all consumers link to a single copy. In the

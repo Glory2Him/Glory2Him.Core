@@ -38,8 +38,9 @@ Mockups stay in `Documentation/Mockups/`.
 
 **In Glory2Him.Core** the move took `Documentation/Design/`, `Documentation/DesignFeatures/`
 and `Documentation/G2H Design.md`, and then the draw.io model `G2H Design.md` names as its
-source, `Documentation/Glory 2 Him.drawio` (Glory2Him/Glory2Him.Core#1404). The images,
-the foundation-service prompt and `ModelBudget/` stayed where they were. This
+source, `Documentation/Glory 2 Him.drawio` (Glory2Him/Glory2Him.Core#1404). `Mockups/`,
+`DependencyGraph/`, the images, the foundation-service prompt, `ModelBudget/` and the
+Documentation project stayed where they were. This
 repository has **no `legacy` tasks**: its open issues from the old process were closed
 as superseded instead (Glory2Him/Glory2Him.Core#1381, decision C13), each closing comment
 naming its document, where it has one, at commit `e764625a58029eb076c0490c2d1c92b14fcb2d00`, the last

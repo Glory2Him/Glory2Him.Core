@@ -26,9 +26,10 @@ move step by step, following
   built — starting with Presentation Components, then Like. This repository has no
   `legacy` features; the shared agents and skills support them for other repositories.
 - **Where the old design is.** Under `Documentation/Planning/`, at the sub-paths it
-  had before the move: `Design/`, `DesignFeatures/` and `G2H Design.md`. An old issue
-  or comment naming `Documentation/Design/X` or `Documentation/DesignFeatures/X` means
-  `Documentation/Planning/Design/X` or `Documentation/Planning/DesignFeatures/X`. The
+  had before the move: `Design/`, `DesignFeatures/`, `G2H Design.md` and the draw.io
+  model `Glory 2 Him.drawio`. An old issue or comment naming `Documentation/<path>` for
+  any of them means `Documentation/Planning/<path>`; the Planning README's table is the
+  mapping. The
   old design is never a source for new work. `Documentation/Design/` is now the
   releaser's, and holds only its placeholder until the first release under this workflow.
 

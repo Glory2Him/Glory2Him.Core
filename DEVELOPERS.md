@@ -338,6 +338,8 @@ Documentation/
   Decisions/               decision records, added by DESIGN: PR
   Procedures/              how the workflow runs, step by step
   Releases/                release notes, one file per version, written by the releaser
+  Prompt-CreateFoundationService.md   this repository's: a prompt from before the agents
+  Glory2Him.Documentation.csproj      puts the folder in the solution; holds no code
   ModelBudget/             tally.py — what each effort cost, and what it bought
 ```
 
