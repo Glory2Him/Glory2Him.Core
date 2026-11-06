@@ -7,6 +7,8 @@ Run from the repository root after adding a prefix to prLinter.yml:
 
 It fails rather than guessing when a prefix has no colour, so a new prefix cannot
 silently become a default grey label the first time someone uses it in a PR title.
+It also fails on a description longer than the 100 characters GitHub accepts, which
+the Labels workflow would otherwise only discover at sync time.
 """
 import json
 import re
@@ -106,7 +108,7 @@ STATUS_LABELS = [
     ("status: needs-scoping", "e4e669", "Criteria written, waiting on QA to sign them off"),
     ("status: in-progress", "1d76db", "A developer is implementing it"),
     ("status: in-qa", "5319e7", "Implemented, under adversarial verification"),
-    ("status: done", "6a737d", "Built and verified: a task merged into its feature branch, or a feature whose PR waits for the maintainer"),
+    ("status: done", "6a737d", "Built and verified: a task merged into its feature branch, or a feature PR awaiting the maintainer"),
 ]
 
 # Issue types (Feature, User Story, Task) are set with the issue type field where the
@@ -215,6 +217,15 @@ duplicates = {name for name in names if names.count(name) > 1}
 
 if duplicates:
     raise SystemExit(f"Duplicate labels: {', '.join(sorted(duplicates))}")
+
+# GitHub refuses a label description over 100 characters, and the Labels workflow would
+# then fail on that one label at sync time. Refuse it here instead, where it is written.
+MAX_DESCRIPTION = 100
+too_long = [f"{label['name']} ({len(label['description'])})" for label in labels
+            if len(label["description"]) > MAX_DESCRIPTION]
+
+if too_long:
+    raise SystemExit(f"Descriptions over {MAX_DESCRIPTION} characters: {', '.join(too_long)}")
 
 with open(OUT, "w", encoding="utf-8", newline="\n") as file:
     json.dump(labels, file, indent=2, ensure_ascii=False)

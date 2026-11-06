@@ -667,7 +667,7 @@
   {
     "name": "status: done",
     "color": "6a737d",
-    "description": "Built and verified: a task merged into its feature branch, or a feature whose PR waits for the maintainer"
+    "description": "Built and verified: a task merged into its feature branch, or a feature PR awaiting the maintainer"
   },
   {
     "name": "type: feature",
