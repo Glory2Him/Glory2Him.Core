@@ -26,8 +26,7 @@
 #
 # The surviving authority for what each gate checks is
 # `Documentation/Planning/G2H Design.md` §IDX1.5 (which area is in which file, and the
-# citation-prefix rule) and `DEVELOPERS.md`'s "The split, and why sections
-# carry prefixes".
+# citation-prefix rule).
 #
 # Usage:
 #   Tools/design-split-audit.sh [--scope <20|sec|arc|apr|dom|all>] [--gate <g1|g4|all>]

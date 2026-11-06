@@ -1091,8 +1091,10 @@ What the move still has to put in place, step by step in
 Glory2Him/Glory2Him.Core#1381. Until each exists, the sections that depend on it are
 description rather than mechanism:
 
-- **One run of the label sync** — Actions → Labels → Run workflow — so the status,
-  type, approval, `legacy` and effort labels exist.
+- **A clean label sync.** The first run, when #1403 merged, created the status, type,
+  approval, `legacy` and effort labels but failed to update `status: done`, whose
+  description was over GitHub's 100-character limit. #1405 brings the shorter one, and
+  its merge reruns the sync (Actions → Labels). Delete this line once that run passes.
 - **The User Story issue type and sub-issues** enabled for the organisation. The build
   driver finds a feature's stories and tasks only through sub-issues.
 - **Rulesets** on `main` and `users/*/feature-*`: a PR required, the `Build` check
