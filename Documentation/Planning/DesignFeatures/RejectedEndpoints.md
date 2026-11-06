@@ -1,5 +1,5 @@
 # Rejected endpoints
-Epic: [INTENT.md](../../INTENT.md)
+Epic: [INTENT.md](../../../INTENT.md)
 Inherits: §ARC12.3.1 rules 5 and 5a, §ARC12.5 (*an orchestration holds brokers*, and the two-to-three rule), §ARC12.5.2 (`Association-Adding`'s write flow), §ARC16.2.1, §ARC16.8.1, §DOM4.5, §DOM4.10 rules 6–9, §EVN13 rule 3, §SEC14.1, §SEC14.5 rules 1 and 2, §SEC14.6 rules 1 and 4, §SEC14.7 posture A rule 4 and posture A′ rules 1 and 4, §APR9.9 rules 6 and 7, Likes.md rule 11a
 Mockups: none. No page is redesigned: the post card stops offering Like on a rejected post, as it stops offering it where the setting refuses reactions (rule 9).
 Design task: #1352

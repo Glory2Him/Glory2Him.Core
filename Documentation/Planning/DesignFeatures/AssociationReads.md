@@ -1,5 +1,5 @@
 # Association reads
-Epic: [INTENT.md](../../INTENT.md)
+Epic: [INTENT.md](../../../INTENT.md)
 Inherits: §ARC12.2.1 rule 7, §ARC12.5 entry 1, §ARC16.8 (*Where each shared rule lives*), §ARC17.2 (shape versus served literal), §ARC17.4, §DOM4.4, §DOM4.6 rules 1 and 3, §EVN13 rule 3, §SEC14.3, §SEC14.5, §SEC14.6, §SEC14.7 posture A′ rules 2, 5 and 7, §UI20.9.1, §UI20.9.2, §UI20.9.3
 Mockups: none. The pages that show associations have their own.
 Design task: #857

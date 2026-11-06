@@ -25,7 +25,7 @@ moment it happens:
 ```markdown
 # Saved searches panel
 Source: Claude Design export, 2026-09-11. Issue: #511.
-Superseded by `Documentation/DesignFeatures/SavedSearches.md` — its business rules
+Superseded by `Documentation/Planning/DesignFeatures/SavedSearches.md` — its business rules
 win wherever the two disagree.
 ```
 

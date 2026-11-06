@@ -1,5 +1,5 @@
 # Berean's review
-Epic: [INTENT.md](../../INTENT.md)
+Epic: [INTENT.md](../../../INTENT.md)
 Inherits: §APR7.8, §APR8.2, §APR8.4, §APR8.5, §APR8.6 HR-4, §APR8.6.1, §APR8.6.2, §APR8.6.2.1, §APR8.7, §APR8.8, §APR9.2 rule 4, §APR9.7.1 rules 2 and 5, §APR9.7.3, §APR9.7.4, §APR9.7.7, §APR13.2, §APR13.4, §ARC12.1, §ARC12.5, §ARC12.5.3, §ARC16.7.1, §ARC16.7.5, §DOM4.9, §EVN2, §EVN3, §EVN18, §EVN19, §SEC14.6, §SEC14.6.1, §SEC14.7 postures A and A′, §UI20.5.1, LiveUpdates.md rule 3, PostModeration.md rule 13
 Mockups: none. The indicator is ruling 1's own description, and the two approval-setting screens keep their layout.
 Design task: #1117. The review process an assignment starts is designed under #1216.

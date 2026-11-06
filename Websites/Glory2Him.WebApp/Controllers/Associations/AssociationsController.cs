@@ -37,14 +37,14 @@ namespace Glory2Him.WebApp.Controllers.Associations
     /// <para><b>The upsert answers <c>201</c> only when a row was created, and <c>200</c>
     /// otherwise</b>, with the result rather than the row as the body. Both depart from
     /// <c>the-standard-exposers</c> ts-exposers-003, and
-    /// <c>Documentation/DesignFeatures/Backend/Controllers/AssociationsController.md</c>,
+    /// <c>Documentation/Planning/DesignFeatures/Backend/Controllers/AssociationsController.md</c>,
     /// <i>Deviations</i>, records why: five of the six outcomes create nothing, and the row
     /// would leak its author (§ARC16.8.1).</para>
     ///
     /// <para><b>The tag suggestion answers <c>201</c> for the status <c>Created</c>, and
     /// <c>200</c> when the pair already existed</b>, with a status rather than the row as the
     /// body. Both depart from <c>the-standard-exposers</c> ts-exposers-003, and
-    /// <c>Documentation/DesignFeatures/Backend/Controllers/AssociationsController.TagSuggestions.md</c>,
+    /// <c>Documentation/Planning/DesignFeatures/Backend/Controllers/AssociationsController.TagSuggestions.md</c>,
     /// <i>Deviations</i> 1 and 2, records why: a suggestion whose pair already exists creates
     /// nothing, and the row would tell of a tag the caller cannot see. The <c>201</c> covers every
     /// <c>Created</c>, those where nothing was created included — a tag the caller cannot see,

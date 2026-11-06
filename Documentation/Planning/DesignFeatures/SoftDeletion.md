@@ -1,5 +1,5 @@
 # Soft deletion
-Epic: [INTENT.md](../../INTENT.md)
+Epic: [INTENT.md](../../../INTENT.md)
 Inherits: §SEC14.5 rules 1–3, 6 and 7, §SEC14.6 rules 1–4, §SEC14.6.1, §SEC14.7 posture A rules 1 and 3, posture A′ rule 4, §EVN4, §APR9.7.1, §APR9.7.2 rule 1, §APR9.7.5 (*A retracted approval is closed to writes*), §APR9.7.6, §APR9.7.7 rules 6 and 7, §APR9.9, §ARC12.3.1 shared rule 9, §DOM3.4.1, §DOM4.10
 Mockups: none. No page changes: an edit of a soft-deleted item is answered not found, as an edit of a missing item already is, and no read answers a soft-deleted item to any caller (§SEC14.5 rule 3), so no page offers one for editing.
 Design tasks: #1325, which designs what this document holds today: no edit reaches a soft-deleted item. #1326 (recovering a soft-deleted item), #1327 (reinstating a soft-deleted approval round) and #1329 (unpublishing a row when it is removed) add their parts to this document as each is designed.

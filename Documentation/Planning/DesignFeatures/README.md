@@ -28,7 +28,7 @@ A presentation component's documents and a page's are not here: they live under
 
 ```markdown
 # Student registration
-Epic: [INTENT.md](../../INTENT.md)
+Epic: [INTENT.md](../../../INTENT.md)
 Inherits: §ARC3, §EVN2–§EVN7, §SEC1
 Mockups: [student-registration](../Mockups/student-registration/)
 

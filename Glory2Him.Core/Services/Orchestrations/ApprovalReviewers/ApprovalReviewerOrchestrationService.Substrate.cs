@@ -34,7 +34,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ApprovalReviewers
     /// there is no transaction here to commit them in because this service writes no row of its
     /// own. What makes REDELIVERY safe instead is the signed status gate below plus the
     /// idempotent gather: a second delivery on a round whose requests are gone finds nothing to
-    /// do (<c>Documentation/Design/Events.md</c> §EVN19 rule 1).</para>
+    /// do (<c>Documentation/Planning/Design/Events.md</c> §EVN19 rule 1).</para>
     ///
     /// <para><b>A failure is NOT swallowed here</b>, which is the one posture that changed with
     /// the move. It propagates into this service's <c>TryCatch</c> and out of the handler, where

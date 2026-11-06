@@ -1,7 +1,7 @@
 # Post moderation
-Epic: [INTENT.md](../../INTENT.md)
+Epic: [INTENT.md](../../../INTENT.md)
 Inherits: §SEC14.7 postures A, A′ and D, §SEC18.6, §APR7.8, §APR7.9, §APR8.5, §APR8.6, §APR9.9, §ARC16.7, §ARC17.4, §ARC17.5, §UI20.5.1, §UI20.6.4, §UI20.6.6, §UI20.9.3
-Mockups: [G2H Mockup](../Mockups/G2H%20Mockup/README.md) — `Admin Post Detail.dc.html` and `Admin Association Detail.dc.html`, at 8868c321
+Mockups: [G2H Mockup](../../Mockups/G2H%20Mockup/README.md) — `Admin Post Detail.dc.html` and `Admin Association Detail.dc.html`, at 8868c321
 Design task: #705, which closes #698; the confidence suggestion, #863
 
 A moderator reviews a post, and each tag and Bible reference suggested for it, on two admin
