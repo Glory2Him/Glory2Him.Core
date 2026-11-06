@@ -147,7 +147,7 @@ user story or the task is lost the moment that session ends. The task body is
 self-contained: every fact a criterion needs is copied into it, so the developer
 reads three bodies — the task, its user story, its feature — plus the sections of the
 Global Rules issue the task cites, and nothing else. A `legacy` task (§4) also reads
-the documents it cites, at their Planning path.
+the documents it cites, through the Planning mapping.
 
 ### The skills brief the agents
 
@@ -256,7 +256,7 @@ the process in §4.
 whose feature carries `approved` — or on a `tier: 3` task opened by `/tweak`.
 Reads the task, its user story, its feature and the sections of the Global Rules
 issue the task cites; nothing else from GitHub. For a `legacy` task it also reads the
-documents the task cites, at their Planning path.
+documents the task cites, through the Planning mapping.
 
 The loop per criterion: write one test, run it and confirm it fails **for the right
 reason**, commit it as `{TestName} -> FAIL`, implement the smallest change that
@@ -323,7 +323,8 @@ INTENT.md                  the epic — what the product is for
 CHANGELOG.md               one entry per release, newest first
 Documentation/
   Design/                  the releaser's: generated at each release, never edited by hand
-    design.md              epic level — the intent, the global rules, every released feature
+    design.md              epic level — the intent, the global rules, every feature
+                           released under this workflow
     Features/<FeatureName>/<FeatureName>.md    one released feature, from its issues
     Features/<FeatureName>/assets/             the images and diagrams attached to its issue
   DependencyGraph/         the releaser's architecture.md: the layer graph at each release;
@@ -369,15 +370,18 @@ its design as files and may hold tasks signed `ready for development` against th
 Moving it onto this workflow puts those files under `Planning/` in one rename-only
 commit, keeping their sub-paths — `Documentation/Design/X` becomes
 `Documentation/Planning/Design/X`, `Documentation/DesignFeatures/X` becomes
-`Documentation/Planning/DesignFeatures/X`. Each task signed before the switch is
-labelled `legacy` and hung under a Feature and a User Story issue created for it, also
-`legacy`. That task, and only that task, is built and verified against the documents
-it cites, read at their new path; its body is never rewritten. The planner never adds
-`legacy`, no new task is written against `Planning/`, and a change to a legacy task's
-design is new work. Rules too large for the Global Rules issue are indexed in its
-**Legacy rules** section instead: an unstruck line binds legacy features only, and a
-new feature that needs one waits until `/grill-with-docs` settles it — ported under its
-own number, retired, or left to the one legacy feature it serves.
+`Documentation/Planning/DesignFeatures/X`, and a loose design document
+`Documentation/<name>` becomes `Documentation/Planning/<name>`; mockups, prompts and
+images outside the moved folders stay where they were. Each task signed before the
+switch is labelled `legacy` and hung under a Feature and a User Story issue created
+for it, also `legacy`. That task, and only that task, is built and verified against
+the documents it cites, read at their new path; its body is never rewritten. The
+planner never adds `legacy`, no new task is written against `Planning/`, and a change
+to a legacy task's design is new work. Rules too large for the Global Rules issue are
+indexed in its **Legacy rules** section instead: an unstruck line binds legacy
+features only, and a new feature that needs one waits until `/grill-with-docs` settles
+it — ported under its own number, retired, or left to the one legacy feature it
+serves.
 `Documentation/Procedures/migrating-an-existing-repository.md` has
 the steps, and the **Legacy** section of `Documentation/Planning/README.md` the
 mapping.

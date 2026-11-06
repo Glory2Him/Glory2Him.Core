@@ -127,7 +127,7 @@ Skills move work between four agents (`.claude/agents/`):
    Starts only on a task carrying `ready for development` whose feature carries
    `approved`, or a `tier: 3` task from `/tweak`. Reads the task, its user story, its
    feature and the global rules it cites — nothing else, except that a `legacy` task
-   also reads the documents it cites, at their Planning path.
+   also reads the documents it cites, through the Planning mapping.
 3. **qa** — always fresh, briefed with issue and PR numbers only. Six modes: global
    rules review, plan review, legacy intake, change verification, feature
    verification, release check (the generated documentation included). Reports

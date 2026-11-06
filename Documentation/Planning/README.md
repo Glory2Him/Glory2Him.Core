@@ -34,7 +34,10 @@ workflow moves those files here, in one rename-only commit, keeping their sub-pa
 | `Documentation/DesignFeatures/<X>` | `Documentation/Planning/DesignFeatures/<X>` |
 | any other loose design document `<name>` | `Documentation/Planning/<name>` |
 
-Mockups stay in `Documentation/Mockups/`.
+Mockups stay in `Documentation/Mockups/`. A design model the old design names as its
+source — a draw.io or similar file — counts as a loose design document and moves too.
+Images outside the moved folders stay where they are, whoever embeds them, and so do
+prompts and scripts; an image inside `Design/` or `DesignFeatures/` moved with its folder.
 
 **In Glory2Him.Core** the move took `Documentation/Design/`, `Documentation/DesignFeatures/`
 and `Documentation/G2H Design.md`, and then the draw.io model `G2H Design.md` names as its
@@ -49,9 +52,10 @@ through `/grill-with-docs`.
 
 **The one exception to "never a source".** A task labelled `legacy` — and only such a
 task — is built and verified against the documents it cites, read at their new path.
-Its body still says `Documentation/Design/…` or `Documentation/DesignFeatures/…`; the
-developer and QA read it at `Documentation/Planning/Design/…` or
-`Documentation/Planning/DesignFeatures/…`. The body is never rewritten to say so.
+Its body still says `Documentation/Design/…`, `Documentation/DesignFeatures/…` or
+`Documentation/<name>` for another loose design document; the developer and QA read it
+at `Documentation/Planning/Design/…`, `Documentation/Planning/DesignFeatures/…` or
+`Documentation/Planning/<name>`. The body is never rewritten to say so.
 
 - Only a task signed `ready for development` before the switch carries `legacy`. It
   sits under a Feature issue and a User Story issue created for it, both labelled
