@@ -61,6 +61,14 @@ the path it had before the move; read it at the new one:
 
 - `Documentation/Design/...` → `Documentation/Planning/Design/...`
 - `Documentation/DesignFeatures/...` → `Documentation/Planning/DesignFeatures/...`
+- `Documentation/<name>`, a loose design document no longer at that path →
+  `Documentation/Planning/<name>`. Any other file still at its cited path — a mockup, an
+  image, a prompt — is read where it is.
+
+A `Documentation/Design/…` or `Documentation/DesignFeatures/…` citation always maps to
+Planning, even where a new file, such as the releaser's `design.md`, now sits at the old
+path. A repository's own decision record cited as `0001` is the one whose heading says
+`(formerly 0001)`.
 
 Read only the documents the legacy task cites, its legacy rules among them. A task
 without the `legacy` label is never
@@ -253,9 +261,9 @@ and a User Story issue created for it, and every level carries the `legacy` labe
 intake takes the place of a plan review. It does not re-derive the design: size, path
 coverage and the Operations tables were judged when those tasks were signed off, and are
 not judged again. Read the feature, each user story, each task, the documents each task
-cites — at their Planning path — and the Global Rules issue. A task's legacy rules — the
-sections on the **Legacy rules** index that it cites — are among those documents, read
-at their Planning path too. Check, in order:
+cites — read through the mapping above — and the Global Rules issue. A task's legacy
+rules — the sections on the **Legacy rules** index that it cites — are among those
+documents, read the same way. Check, in order:
 
 0. **The rules are settled.** As in plan review: the Global Rules issue carries
    `approved` and matches the `Signed:` line of its last `Rules QA round`. Otherwise
@@ -269,8 +277,8 @@ at their Planning path too. Check, in order:
    feature document, or a global section, linked the same way; or none, which its body
    says, every user story under it then linking its own document. A gap is BLOCKING,
    owner `planner`.
-2. **Each task is buildable.** Its own body, plus the documents it cites read at their
-   Planning path, state every fact its criteria rely on. A cited document that does not
+2. **Each task is buildable.** Its own body, plus the documents it cites read through
+   the mapping above, state every fact its criteria rely on. A cited document that does not
    exist at the mapped path, or a criterion neither the body nor a cited document can
    settle, is BLOCKING, owner `planner`.
 3. **Nothing contradicts the Global Rules issue.** A task, or a cited document, that
@@ -531,7 +539,8 @@ Then the documentation, which is held to its sources as strictly as code is to i
 7. **The epic page.** `Documentation/Design/design.md` says what `INTENT.md` says, summarises
    every section of the Global Rules issue as approved — none missing, none invented, none
    changed in meaning; of a **Legacy rules** index, its unstruck lines only, as they stand,
-   never summarised from their documents — and links every feature released so far, the new ones included.
+   never summarised from their documents — and links every feature released so far
+   under this workflow, the new ones included.
 8. **One page per released feature.** Every feature merged since the last tag has
    `Documentation/Design/Features/<FeatureName>/<FeatureName>.md`. Go business rule by
    business rule through the feature issue: a rule missing, added or changed in meaning is

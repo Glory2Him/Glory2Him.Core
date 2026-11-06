@@ -56,7 +56,9 @@ logged the same way whatever it started as.
 **A repository moved from file-based design ports its global documents first.** Its old
 design documents moved, unchanged, under `Documentation/Planning/` —
 `Documentation/Design/X` to `Documentation/Planning/Design/X`,
-`Documentation/DesignFeatures/X` to `Documentation/Planning/DesignFeatures/X`. Before any
+`Documentation/DesignFeatures/X` to `Documentation/Planning/DesignFeatures/X`, and a
+loose design document `Documentation/<name>` to `Documentation/Planning/<name>`;
+mockups, prompts and images outside the moved folders stayed where they were. Before any
 new feature is planned, port the old global documents
 (`Documentation/Planning/Design/Architecture.md`, `Security.md`, `Events.md`,
 `Domain.md` and any like them) into the Global Rules issue, one session each, so there
@@ -66,8 +68,8 @@ issue, or for one sitting, are filed lean instead: the old sections are indexed 
 `Documentation/Procedures/migrating-an-existing-repository.md` walks through the move.
 Tasks signed off before the move become **legacy** features through that procedure, not
 through you: never draft a feature request for work already carried by a legacy task,
-and never edit the old document a legacy task cites — a change to its design is new work,
-through this skill and `/plan-feature`.
+and never edit the old document a legacy task cites — a change to its design is new
+work, through this skill and `/plan-feature`.
 
 1. **Read all of it** — a Word or PDF file through the skill for that format — unless
    the user names a part to port this session. Find what earlier sessions already

@@ -30,7 +30,7 @@ story and task issues, as [workflow.md](workflow.md) describes.
 
 | Step | Who | What happens | It ends with |
 | --- | --- | --- | --- |
-| [1. Prepare](#1-prepare) | The maintainer | In-flight work finished; organisation settings and rulesets in place | A repository ready to move |
+| [1. Prepare](#1-prepare) | The maintainer | In-flight work finished; a `v*` tag on the last merge before the move; organisation settings and rulesets in place | A repository ready to move |
 | [2. Refresh](#2-refresh-the-workflow-files) | You | The Template's workflow files copied; the repository's own files merged by hand; labels synced | The workflow in place; new design and old-process builds stopped |
 | [3. Move the documents](#3-move-the-documents--a-rename-commit-then-a-link-fix-commit) | You | One rename-only commit into `Documentation/Planning/`, then one commit fixing the paths and links it breaks | The old design, unchanged, at its Planning path |
 | [4. Add the new scaffold](#4-add-the-new-documentation-scaffold) | You | The Template's `Documentation/` files, in a commit of their own | The releaser's `design.md`, the Planning README, the procedures |
@@ -55,6 +55,39 @@ unstruck index line and its features are filed.
   closed unmerged keeps `ready for development` and goes through the legacy lane below.
   A design PR left open across the move would land on a path that no longer exists.
   Settle uncommitted work and stale branches, and bring your local `main` up to date.
+- **Tag the last merge before the move.** The releaser gathers everything merged since
+  the last `v*` tag, and a feature merged before the move has no feature issue to
+  document it from, so the first release under this workflow must hold only work built
+  under it.
+  Exactly one of these applies:
+
+  - **It has released, tagged `v*`.** Anything merged since that tag is released the
+    old way and tagged `v<version>` on `main` before the refresh.
+  - **It has released, tagged without the `v`.** Anything merged since the last
+    release is released the old way first; then its last release's commit is tagged
+    `v<that version>`, so the version never goes backwards.
+  - **It has never released.** The head of `main` is tagged `v0.0.0`.
+
+  Push the tag, so the releaser finds it on any machine and in a fresh clone, then
+  check it, in every case. An old-way release that already pushed its `v*` tag skips
+  the first three lines:
+
+  ```bash
+  git fetch origin
+  git tag <tag> <commit on origin/main>
+  git push origin <tag>
+  git ls-remote --exit-code --tags origin "refs/tags/<tag>"
+  git fetch --tags origin
+  last=$(git describe --tags --abbrev=0 --match 'v*' origin/main) || echo "STOP: no v* tag on origin/main"
+  echo "last=$last"
+  [ -n "$last" ] && git log --first-parent --merges --oneline "$last"..origin/main
+  ```
+
+  The `ls-remote` line prints the tag; nothing means the push failed. The `describe`
+  line must not print `STOP`, and the `echo` must print your tag. The last line reads
+  the same range the releaser reads, and prints nothing when no merge is left outside a
+  tag — or, where the old process tagged the head of a release branch, only that
+  release's own `RELEASES:` merge.
 - **Organisation settings.** The issue types **Feature**, **User Story** and **Task**
   exist and sub-issues are enabled; an organisation owner adds **User Story** if it is
   missing. Sub-issues are required: the build driver finds a feature's stories and
@@ -141,7 +174,12 @@ sub-path:
 | `Documentation/DesignFeatures/<X>` | `Documentation/Planning/DesignFeatures/<X>` |
 | any other loose design document `<name>` | `Documentation/Planning/<name>` |
 
-`Documentation/Mockups/` does not move.
+A loose design document includes a design model the old design names as its source — a
+draw.io or similar file — so it moves too, and anything that cites its path follows in
+the link-fix commit. `Documentation/Mockups/` does not move, and nor do files that are
+not design: a prompt, a script, or an image outside the moved folders, whoever embeds
+it. An image inside `Design/` or `DesignFeatures/` moves with its folder. A moved
+document's link to an image that stayed is fixed in the link-fix commit.
 
 The move PR holds two commits, in this order.
 
@@ -158,8 +196,9 @@ git switch -c users/<handle>/documentation-design-move-to-planning
 mkdir -p Documentation/Planning
 git mv Documentation/Design        Documentation/Planning/Design
 git mv Documentation/DesignFeatures Documentation/Planning/DesignFeatures
-# any other loose design document, one line each:
+# any other loose design document, one line each — quote a name with spaces:
 git mv Documentation/<name>.md     Documentation/Planning/<name>.md
+git mv "Documentation/<model>.drawio" "Documentation/Planning/<model>.drawio"
 ```
 
 Check git sees renames, and only renames, before committing:
@@ -183,10 +222,34 @@ git log --follow --oneline -- Documentation/Planning/Design/Architecture.md | he
 
 - **Code comments and files citing the old paths.** Find them with
   `git grep -n -e "Documentation/Design/" -e "Documentation/DesignFeatures/" -- ':!Documentation/Planning'`.
+- **Citations of each loose document you moved,** by its full file name, extension
+  included, whatever the path separator — a design index, a draw.io model. A name with
+  spaces is searched in its `%20` form too, the way a Markdown link writes it. Find them
+  one file at a time with
+  `git grep -n -F -e '<file name>' -e '<file name, spaces as %20>' -- ':!Documentation/Planning'`.
+  A mention of the name in prose still resolves. A path or a relative link to the old
+  location does not, including a bare `](<file name>)` in a file that stayed.
+- **Relative links into the moved folders from files that stay** — a mockup README's
+  `](../../DesignFeatures/X.md)`, a top-level prompt's `](Design/Architecture.md)`. Find
+  them with
+  `git grep -n -E '\]\((\./|(\.\./)+)?(Design|DesignFeatures)/' -- Documentation ':!Documentation/Planning' ':!Documentation/Procedures'`.
+- **Links out of a moved loose document** to a sibling folder, written without `../` —
+  `](Mockups/x)`, `](Images/x.png)` — break too, and the search below does not show
+  them. List each moved loose document's relative links that start with neither `../`
+  nor a moved folder:
+  `git grep -n -o -E '\]\([^)#:][^):]*\)' -- 'Documentation/Planning/<file name>' | grep -v -E '\]\((\.\./|Design/|DesignFeatures/)'`.
+  Check each one it lists. A link to another loose document that moved alongside still
+  resolves and stays as it is; so does one starting with `/` whose target did not move.
+  A `/` link into `/Documentation/Design/`, `/Documentation/DesignFeatures/` or to a
+  moved loose document is fixed. Check its `<img src="…">`
+  tags and reference-style `[label]: path` lines by eye; the search does not cover them.
 - **Relative links** in the moved documents, broken by the extra folder depth —
   `../../INTENT.md` becomes `../../../INTENT.md`, `../Mockups/` becomes
   `../../Mockups/`. Find them with
   `git grep -n -E '\]\((\.\./)+' -- Documentation/Planning`.
+  The search also lists links that stay inside `Documentation/Planning/` — to another
+  moved folder, or to a loose document that moved alongside — and those still resolve.
+  Fix only a link whose target is outside `Documentation/Planning/`.
 - **Solution and project entries** naming a moved file — a solution folder's
   `<File Path="Documentation/Design/…">`, a project's `<None Include>`. Find them with
   `git grep -n "Documentation[/\\\\]Design" -- '*.sln' '*.slnx' '*.csproj' '*.props'`.
@@ -206,10 +269,31 @@ of their own:
 
 - `Documentation/Design/design.md` — the releaser's placeholder, now in an empty folder;
 - `Documentation/Planning/README.md` — its **Legacy** section holds the path mapping;
-- `Documentation/Diagrams/README.md`, `Documentation/DependencyGraph/README.md` — merged
-  by hand with a README the folder already has. `Documentation/DependencyGraph/utility-brokers.txt`
-  is not copied again: step 2 brought it, and from then on it is the repository's own;
-- `Documentation/Procedures/` and `Documentation/Decisions/`.
+  add a line under its table naming each loose document this repository moved;
+- `Documentation/Diagrams/README.md`, `Documentation/DependencyGraph/README.md`,
+  `Documentation/Mockups/README.md` — merged by hand with a README the folder already
+  has. The Mockups README already says what a moved repository's mockups mean; keep the
+  repository's own notes on what its folders hold, and drop any old instruction to mark
+  a mockup superseded by a feature document. A mockup's own README that names an old
+  feature document as superseding it keeps that line, reworded as history, and keeps
+  this caveat in it: the screens are superseded only once a feature issue's business
+  rules cover them, and until then a legacy task's document wins over them;
+- `Documentation/Procedures/*.md`, `Documentation/Decisions/0001-issue-based-workflow.md`
+  and `Documentation/ModelBudget/tally.py`, each byte for byte. The repository's own
+  decision records stay. One already numbered `0001` is renumbered to the next free
+  number, in a commit of its own before this one: its file name and its heading change,
+  and the heading adds `(formerly 0001)`. Fix what cites it in the same commit, outside
+  `Documentation/Planning/` — find them by its old file name, its title and its number:
+  `git grep -n -I -F -e '0001-<slug>' -e '<its title>' -- ':!Documentation/Planning'` and
+  `git grep -n -I -i -E '(decisions?|records?|adrs?)[^0-9a-z]{0,3}0001' -- ':!Documentation/Planning'`.
+  A citation of `0001-issue-based-workflow.md` is the Template's record and stays.
+  Citations in Planning documents and issue bodies are never edited; `(formerly 0001)`
+  resolves them;
+- not `Documentation/DependencyGraph/utility-brokers.txt`: step 2 brought it, and from
+  then on it is the repository's own.
+
+The placeholder says nothing has been released *under this workflow*, so it is copied
+unchanged even where the repository has older releases.
 
 Merge it as a `DOCUMENTATION:` PR. From here on, `Documentation/Planning/` is never a
 source — except for a task labelled `legacy`, as the Planning README says.
@@ -409,9 +493,15 @@ gh api --paginate "repos/{owner}/{repo}/issues?labels=ready%20for%20development&
   --jq '.[] | select(.pull_request | not) | select(.title | startswith("DESIGN:") | not)
         | [.number, .title,
            ([.labels[].name] - ["ready for development"] | join(",")),
-           ((.body // "") | [scan("Documentation/Design(?:Features)?/[^ )`\\]>\"]+")] | unique | join(" "))]
+           ((.body // "") | ([scan("Documentation/Design(?:Features)?/[^ )`\\]>\"\\r\\n]+")]
+              + [scan("(Documentation/[^/)`\\]>\"\\n]+?\\.(?:md|drawio|vsdx|docx|pdf))(?:[^A-Za-z.]|\\.[^A-Za-z]|\\.?$)") | .[0]])
+              | unique | join("; "))]
         | @tsv' > "${TMPDIR:-/tmp}/legacy-tasks.tsv"
 ```
+
+The last column lists the documents each body cites, separated by `; `. It is a
+reading aid, not a parse: a name can run into the words around it or stop at a space,
+so check the column by eye against the body before grouping on it.
 
 A task whose body says it is a design task is skipped too, whatever its title or labels:
 it belongs in step 7. If the list's filter drops any task here, step 7 missed it: stop,
@@ -546,7 +636,8 @@ re-derive the design; it checks:
   pinned URL, and the feature linking its source — a feature document or a global
   section — or saying it has none;
 - each task is buildable from its own body plus the documents it cites — its legacy
-  rules among them — read at their Planning path;
+  rules among them — read through the mapping in the Planning README: at their
+  Planning path, or where they stayed for a mockup, an image or a prompt;
 - nothing in it contradicts the approved Global Rules issue. A deviation copied into a
   user story's `## Deviations` is granted, not a contradiction.
 
@@ -573,7 +664,8 @@ and adds `approved`. Then, as for any feature:
 ```
 
 The developer agent reads each legacy task's body and the documents it cites — its
-legacy rules among them — at their Planning path; QA verifies each PR the same way;
+legacy rules among them — through the mapping: at their Planning path, or where they
+stayed for a mockup, an image or a prompt; QA verifies each PR the same way;
 feature verification, the handover and the merge into `main` follow as
 [new-feature.md](new-feature.md) describes from step 5.
 

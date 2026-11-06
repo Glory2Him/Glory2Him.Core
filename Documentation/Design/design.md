@@ -1,7 +1,7 @@
 # Design
 
-> **Nothing has been released yet.** The releaser replaces this file at the first
-> release.
+> **Nothing has been released under this workflow yet.** The releaser replaces this
+> file at the first release under this workflow.
 
 This folder is the releaser's. At every release it writes the formal documentation
 of the system as released, from three sources only:
@@ -22,8 +22,9 @@ and nothing here is built from `Documentation/Diagrams/`, which is a scratchpad,
 ```
 Documentation/Design/
   design.md                                  epic level: what the system is for, a summary
-                                             of the global rules, and every released
-                                             feature with a link to its document
+                                             of the global rules, and every feature
+                                             released under this workflow, with a link
+                                             to its document
   Features/<FeatureName>/<FeatureName>.md    one feature as released: outcome, business
                                              rules, roles, user stories, events, storage
   Features/<FeatureName>/assets/             the screenshots and diagrams attached to the
@@ -34,7 +35,8 @@ Documentation/Design/
 written by the releaser, or the images attached to the issue.
 
 A repository moved onto this workflow from the older template kept its old design
-documents under `Documentation/Planning/Design/` and `Documentation/Planning/DesignFeatures/`.
+documents under `Documentation/Planning/Design/`, `Documentation/Planning/DesignFeatures/`
+and, for any other loose design document, `Documentation/Planning/<name>`.
 They are not this folder's sources, with one exception: a `legacy` feature's page is
 written from its issues and from the old documents those issues link, read at the
 commit each link is pinned to — never from the working tree.

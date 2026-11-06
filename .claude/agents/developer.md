@@ -57,14 +57,20 @@ rewritten. Its user story and feature are issues labelled `legacy`; when the tas
 **User story:** or **Feature:** line, find them with
 `gh api repos/{owner}/{repo}/issues/<n>/parent`. Build it against the documents its body
 cites, read in the working tree at their new path under `Documentation/Planning/`:
-`Documentation/Design/X` is now `Documentation/Planning/Design/X`, and
-`Documentation/DesignFeatures/X` is now `Documentation/Planning/DesignFeatures/X`. The
-legacy rule sections it cites — those on the Global Rules issue's **Legacy rules**
-index — are part of its design too, read at the same Planning path. This
-is the only time you open `Documentation/Planning/`, and then only the documents the task
-cites. The global rules still bind it: where a cited document contradicts the Global
-Rules issue, stop — that contradiction is the planner's. Never edit a Planning document;
-a change to a legacy task's design is new work for the planner.
+`Documentation/Design/X` is now `Documentation/Planning/Design/X`,
+`Documentation/DesignFeatures/X` is now `Documentation/Planning/DesignFeatures/X`, and a
+loose design document `Documentation/<name>` no longer at that path is now
+`Documentation/Planning/<name>`; any other file still at its cited path — a mockup, an
+image, a prompt — is read where it is. A `Documentation/Design/…` or
+`Documentation/DesignFeatures/…` citation always maps to Planning, even where a new
+file, such as the releaser's `design.md`, now sits at the old path. A repository's own
+decision record cited as `0001` is the one whose heading says `(formerly 0001)`. The
+legacy rule sections it cites — those on the Global Rules issue's **Legacy rules** index
+— are part of its design too, read at the same Planning path. This is the only time you
+open `Documentation/Planning/`, and then only the documents the task cites. The global
+rules still bind it: where a cited document contradicts the Global Rules issue, stop —
+that contradiction is the planner's. Never edit a Planning document; a change to a
+legacy task's design is new work for the planner.
 
 Stop and say so if:
 

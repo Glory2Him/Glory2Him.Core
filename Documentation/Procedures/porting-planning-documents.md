@@ -200,4 +200,5 @@ issue, where the next agent can read it.
 **A feature in the document already has tasks signed `ready for development`.** Do not
 port it as a new request. It goes through the legacy lane in
 [migrating-an-existing-repository.md](migrating-an-existing-repository.md): its tasks
-keep their bodies and are built against the document, read at its Planning path.
+keep their bodies and are built against the document, read through the Planning
+mapping.

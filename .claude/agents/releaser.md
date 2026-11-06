@@ -112,9 +112,9 @@ allows. `Documentation/Mockups/` is the user's too: you leave it alone.
    `INTENT.md`; a summary of every section of the Global Rules issue as approved, by `§`
    number, the terms included, and of any **Legacy rules** index its unstruck lines
    only, as they stand with their pinned links, never summarised from their documents; and
-   every released feature with one line from its outcome
-   and a link to its page. It is overall documentation — the detail lives on the feature
-   pages.
+   every feature released under this workflow — each one a feature issue — with one
+   line from its outcome and a link to its page. It is overall documentation — the
+   detail lives on the feature pages.
 4. **The dependency graph,** `Documentation/DependencyGraph/architecture.md`, under
    **Architecture** below.
 
