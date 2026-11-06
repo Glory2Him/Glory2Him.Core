@@ -62,10 +62,12 @@ for each skipped layer, mixed orchestration, orchestration holding a broker that
 utility broker, orchestration outside two to three service dependencies without a
 recorded deviation, exposer without exactly one dependency, broker depending on a
 service, and storage broker composing a query operator or a lambda predicate. It knows
-the utility brokers from `scripts/utility-brokers.txt` — one `<ClassName> <kind>` per
-line, the kind one of the six below — and stops with an error on a kind it does not
-know. A utility broker the code has but the file lacks shows up as a false violation:
-name the line to add as a fix for the script. It follows names, not a compiler, so open
+the utility brokers from `scripts/utility-brokers.txt`, the Template's seed, and
+`Documentation/DependencyGraph/utility-brokers.txt`, the repository's own — one
+`<ClassName> <kind>` per line, the kind one of the six below — and stops with an error on
+a kind it does not know. A utility broker the code has but neither list names shows up as
+a false violation: name the line to add to the repository's own list as a fix. The seed
+is never edited outside the Template. It follows names, not a compiler, so open
 the code behind every violation before you report it. One that is wrong is dropped, and
 the reason it fooled the script goes in the report as a fix for the script.
 

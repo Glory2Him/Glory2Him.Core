@@ -157,8 +157,9 @@ body:
          6. **Access** — answers "may this person do this?" with a verdict, gathering
             only the facts that question needs; it never hands an entity's data back
 
-         `scripts/utility-brokers.txt` names this repository's utility broker classes,
-         one `<ClassName> <kind>` per line.
+         `scripts/utility-brokers.txt`, the Template's seed, and
+         `Documentation/DependencyGraph/utility-brokers.txt`, the repository's own, name
+         this repository's utility broker classes, one `<ClassName> <kind>` per line.
       2. **Every other broker is off limits to an orchestration** — a storage broker
          first, and any other broker that hands an entity's data back (an API broker over
          a third party's records, say). That data goes through its foundation service.

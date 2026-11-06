@@ -4,7 +4,8 @@
     python3 scripts/architecture-graph.py                 # Mermaid graph to stdout
     python3 scripts/architecture-graph.py --check         # also list rule violations; exit 1 if any
     python3 scripts/architecture-graph.py --deviations Documentation/deviations.txt
-    python3 scripts/architecture-graph.py --utility-brokers scripts/utility-brokers.txt
+    python3 scripts/architecture-graph.py --utility-brokers scripts/utility-brokers.txt \
+        --repository-utility-brokers Documentation/DependencyGraph/utility-brokers.txt
 
 On Windows, run it as `python` where `python3` is the Microsoft Store stub.
 
@@ -19,9 +20,12 @@ other way. What it checks:
   * an orchestration's service dependencies are one kind: all processing or all
     foundation, never a mix;
   * a utility broker is exempt from the same-kind and skip rules: any service may hold
-    one. The utility brokers are the classes named in scripts/utility-brokers.txt, one
-    `<ClassName> <kind>` per line, the kind one of logging, datetime, identifier,
-    identity, events or access; any other kind is an error;
+    one. The utility brokers are the classes named in two lists, one `<ClassName> <kind>`
+    per line, the kind one of logging, datetime, identifier, identity, events or access;
+    any other kind is an error. scripts/utility-brokers.txt is the Template's seed,
+    copied byte for byte by every refresh; Documentation/DependencyGraph/utility-brokers.txt
+    under --root is the repository's own, which no refresh touches, and may be absent. A
+    class the two lists give different kinds is an error;
   * an orchestration — or a coordination, management or aggregation above it — holds no
     other broker: a storage broker first, and any other broker that hands an entity's
     data back;
@@ -54,6 +58,8 @@ ORCHESTRATING = {"Orchestration", "Coordination", "Management", "Aggregation"}
 
 UTILITY_KINDS = ("logging", "datetime", "identifier", "identity", "events", "access")
 DEFAULT_UTILITY_BROKERS = Path(__file__).resolve().parent / "utility-brokers.txt"
+# The repository's own list, relative to --root: never part of a refresh.
+REPOSITORY_UTILITY_BROKERS = Path("Documentation") / "DependencyGraph" / "utility-brokers.txt"
 
 CLASS_RE = re.compile(r"\b(?:public|internal)\s+(?:sealed\s+|partial\s+)*class\s+(\w+)")
 CTOR_RE = r"\b{name}\s*\(([^)]*)\)"
@@ -91,6 +97,19 @@ def read_utility_brokers(path: Path) -> dict[str, str]:
                 f"(expected one of: {', '.join(UTILITY_KINDS)})")
         brokers[name] = kind
     return brokers
+
+
+def merge_utility_brokers(seed: dict[str, str], seed_path: Path,
+                          own: dict[str, str], own_path: Path) -> dict[str, str]:
+    """The seed plus the repository's own list. Naming a seeded class again with the same
+    kind is harmless; naming it with another kind is an error."""
+    merged = dict(seed)
+    for name, kind in own.items():
+        if name in merged and merged[name] != kind:
+            raise UtilityBrokerError(
+                f"{own_path}: {name} is '{kind}' here but '{merged[name]}' in {seed_path}")
+        merged[name] = kind
+    return merged
 
 
 def layer_of(class_name: str, path: Path) -> str | None:
@@ -288,12 +307,22 @@ def main() -> int:
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--deviations")
     ap.add_argument("--utility-brokers", default=str(DEFAULT_UTILITY_BROKERS))
+    ap.add_argument("--repository-utility-brokers",
+                    help="the repository's own list; default "
+                         "Documentation/DependencyGraph/utility-brokers.txt under --root, "
+                         "skipped when absent. A path given here must exist.")
     args = ap.parse_args()
     deviations = set()
     if args.deviations and Path(args.deviations).exists():
         deviations = {l.strip() for l in Path(args.deviations).read_text().splitlines() if l.strip()}
     try:
-        utility = read_utility_brokers(Path(args.utility_brokers))
+        seed_path = Path(args.utility_brokers)
+        utility = read_utility_brokers(seed_path)
+        own_path = (Path(args.repository_utility_brokers) if args.repository_utility_brokers
+                    else Path(args.root) / REPOSITORY_UTILITY_BROKERS)
+        if args.repository_utility_brokers or own_path.exists():
+            utility = merge_utility_brokers(utility, seed_path,
+                                            read_utility_brokers(own_path), own_path)
     except (OSError, UtilityBrokerError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 2

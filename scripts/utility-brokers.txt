@@ -14,10 +14,12 @@
 #               facts that question needs; it never hands an entity's data back
 #
 # Every other broker is off limits to an orchestration: a storage broker first, and any
-# other broker that hands an entity's data back. The first three are seeded here; add this
-# repository's own class names as it gains them, for example:
+# other broker that hands an entity's data back.
 #
-#   AccessBroker access
+# This file is the Template's seed. Every refresh copies scripts/ byte for byte, so it is
+# never edited outside Glory2Him.Template: a change here would be wiped. A repository lists
+# its own utility brokers in Documentation/DependencyGraph/utility-brokers.txt, which the
+# script reads beside this one and no refresh touches.
 
 LoggingBroker logging
 DateTimeBroker datetime

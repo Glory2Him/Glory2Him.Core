@@ -1,0 +1,15 @@
+# This repository's own utility brokers, read by scripts/architecture-graph.py beside the
+# Template's seed in scripts/utility-brokers.txt.
+#
+# The seed — LoggingBroker, DateTimeBroker, IdentifierBroker — is copied byte for byte by
+# every refresh and never edited here. This file is the repository's own: no refresh
+# copies or removes it. Add a class here as the repository gains it, one per line,
+# <ClassName> <kind>, the kind one of logging, datetime, identifier, identity, events or
+# access, spelled exactly so. scripts/utility-brokers.txt says what each kind may do; any
+# other kind is an error, and so is a class this file gives a different kind from the seed.
+#
+# For example:
+#
+#   IdentityBroker identity
+#   EventBroker events
+#   AccessBroker access

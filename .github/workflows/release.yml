@@ -85,6 +85,11 @@ jobs:
         dotnet-version: 10.x
     - name: Generate The SBOM
       # Generated here, from the tagged tree, rather than trusted from the branch.
+      # The npm SBOM covers the repository's own apps: every tracked package-lock.json
+      # outside node_modules whose package.json is not marked linguist-vendored in
+      # .gitattributes. A vendored third-party package — a theme, say — is marked so,
+      # since its npm ci is not this repository's to fix and must not stop the tag.
+      # These are the same apps whose package.json version the releaser bumps.
       run: |
         mkdir -p sbom
         if [[ -n "$(find . -name '*.csproj' -not -path './.git/*' -print -quit)" ]]; then
@@ -94,9 +99,13 @@ jobs:
         fi
         while IFS= read -r lock; do
           app=$(dirname "$lock")
+          if [[ "$(git check-attr linguist-vendored -- "$app/package.json" | sed 's/.*: //')" =~ ^(set|true)$ ]]; then
+            echo "Skipping $app: marked linguist-vendored."
+            continue
+          fi
           name=$(basename "$app")
           (cd "$app" && npm ci --ignore-scripts && npx --yes @cyclonedx/cyclonedx-npm --output-file "$GITHUB_WORKSPACE/sbom/$name.cdx.json")
-        done < <(find . -name package-lock.json -not -path '*/node_modules/*' -not -path './.git/*')
+        done < <(git ls-files -- '*package-lock.json' | grep -E '(^|/)package-lock\.json$' | grep -Ev '(^|/)node_modules/')
         ls sbom
     - name: Tag The Release
       if: steps.check.outputs.tagged != 'true'

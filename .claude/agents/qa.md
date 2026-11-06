@@ -369,8 +369,9 @@ Check, in order:
    6. **Access** — answers "may this person do this?" with a verdict, gathering only the
       facts that question needs; it never hands an entity's data back
 
-   `scripts/utility-brokers.txt` names this repository's utility broker classes. Every
-   other broker is off limits to an orchestration: a **storage** broker first, since
+   `scripts/utility-brokers.txt`, the Template's seed, and
+   `Documentation/DependencyGraph/utility-brokers.txt`, the repository's own, name its
+   utility broker classes. Every other broker is off limits to an orchestration: a **storage** broker first, since
    reaching an entity's data directly skips every layer beneath it at once, and any other
    broker that hands an entity's data back — an API broker over a third party's records,
    say — which goes through its foundation service. Any such broker on an orchestration is

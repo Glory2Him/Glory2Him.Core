@@ -63,9 +63,20 @@ Once the version is confirmed:
 1. Cut `release/vX.Y.Z` from the commit on `main` you gathered from, and name that commit
    in the PR.
 2. Set `<Version>X.Y.Z</Version>` in `Directory.Build.props` — the one version source;
-   no `.csproj` sets its own — and `"version"` in each app's `package.json`. The API
-   route version changes only with a breaking change, and that was made by the code, not
-   by you.
+   no `.csproj` sets its own — and `"version"` in each app's `package.json`. An app is
+   every tracked `package-lock.json`'s folder, outside `node_modules`, whose
+   `package.json` is not marked `linguist-vendored` in `.gitattributes` — the same apps
+   the release workflow builds the npm SBOM from. A vendored package keeps its own
+   version; one you believe is an app, or is vendored but unmarked, is a question in the
+   PR. This lists them, an app's line ending `unspecified`:
+
+   ```bash
+   git ls-files -- '*package-lock.json' | grep -Ev '(^|/)node_modules/' \
+     | sed 's/package-lock\.json$/package.json/' | git check-attr --stdin linguist-vendored
+   ```
+
+   The API route version changes only with a breaking change, and that was made by the
+   code, not by you.
 3. Update the README and the OpenAPI document to match what merged, and generate the
    documentation, below. Where a document is wrong and the fix needs a decision, list it
    in the PR rather than deciding.
@@ -129,7 +140,7 @@ the repository:
 out="${TMPDIR:-/tmp}/release-vX.Y.Z"; mkdir -p "$out"
 dotnet list package --include-transitive --format json > "$out/packages.json"
 dotnet list package --vulnerable --include-transitive
-npm ls --all --json   # per app
+npm ls --all --json   # per app, as above: vendored packages left out
 npm audit --json      # per app
 ```
 
@@ -149,11 +160,12 @@ decision record that records it. The PR's diff of that file against the last rel
 the comparison.
 
 The script recognises the six kinds of utility broker — Logging, DateTime, Identifier,
-Identity, Events, Access — from `scripts/utility-brokers.txt`, one `<ClassName> <kind>`
-per line. Any service, an orchestration included, may hold a utility broker; every other
-broker is off limits to an orchestration, a storage broker first. You do not edit that
-file: an unknown kind is an error, and a broker you believe is missing from it is a
-question in the PR.
+Identity, Events, Access — from `scripts/utility-brokers.txt`, the Template's seed, and
+`Documentation/DependencyGraph/utility-brokers.txt`, the repository's own, one
+`<ClassName> <kind>` per line. Any service, an orchestration included, may hold a
+utility broker; every other broker is off limits to an orchestration, a storage broker
+first. You edit neither file: an unknown kind is an error, and a broker you believe is
+missing from them is a question in the PR.
 
 In the release notes, report what was added, removed or rewired, and every violation: a
 skipped layer; an orchestration whose service dependencies are mixed, or that holds a
