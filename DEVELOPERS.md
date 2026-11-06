@@ -326,7 +326,11 @@ Documentation/
     design.md              epic level — the intent, the global rules, every released feature
     Features/<FeatureName>/<FeatureName>.md    one released feature, from its issues
     Features/<FeatureName>/assets/             the images and diagrams attached to its issue
-  DependencyGraph/         the releaser's architecture.md: the layer graph at each release
+  DependencyGraph/         the releaser's architecture.md: the layer graph at each release;
+                           beside it, this repository's own interactive graph (graph.yml,
+                           index.html, projects/) and utility-brokers.txt
+  Images/                  this repository's: pictures issues embed by pinned URL, from
+                           before this workflow
   Diagrams/                yours: a scratchpad for draft diagrams; no agent opens it
   Planning/                yours: existing documents from before this workflow; they
                            stay once ported into issues, so pinned links resolve
@@ -1091,8 +1095,8 @@ What the move still has to put in place, step by step in
 Glory2Him/Glory2Him.Core#1381. Until each exists, the sections that depend on it are
 description rather than mechanism:
 
-- **A clean label sync.** The first run, when #1403 merged, created the status, type,
-  approval and `legacy` labels that were missing but failed to update `status: done`, whose
+- **A clean label sync.** The first run, when #1403 merged, created the 15 labels that
+  were missing and updated two, but failed to update `status: done`, whose
   description was over GitHub's 100-character limit. #1405 brings the shorter one, and
   its merge reruns the sync (Actions → Labels). Delete this line once that run passes.
 - **The User Story issue type and sub-issues** enabled for the organisation. The build

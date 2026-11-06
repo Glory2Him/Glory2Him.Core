@@ -61,8 +61,12 @@ Delete this section once #1381 closes.
 - **Who owns `Documentation/`** — `Design/`, and `DependencyGraph/architecture.md`,
   are the releaser's, generated at each release from the issues and the code and never
   a source for anyone else; any other file in `DependencyGraph/` is the repository's
-  own — here `graph.yml`, `index.html` and `projects/`, which the
-  `update-dependency-graph` skill maintains. `Diagrams/` is the user's scratchpad: no
+  own — here `graph.yml`, `index.html`, `projects/` and `README.md`, which the
+  `update-dependency-graph` skill maintains, and `utility-brokers.txt`, the
+  repository's own utility brokers. `Images/`, `ModelBudget/` and
+  `Prompt-CreateFoundationService.md` are the repository's own too, from before this
+  workflow; `Images/` holds pictures issues embed by pinned URL, and none of the three is
+  a source for planning. `Diagrams/` is the user's scratchpad: no
   agent opens it, and `.claude/settings.json` denies it. `Mockups/` is the user's.
   `Planning/` holds existing documents from before this workflow: never a source, they
   count only once ported through the issue forms — features through the Feature
