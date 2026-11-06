@@ -21,7 +21,6 @@ namespace Glory2Him.Core.Infrastructure
 
             scriptGenerationService.GenerateBuildScript(
                 branchName: "main",
-                projectName: "Glory2Him.Core",
                 dotNetVersion: "10.x");
 
             scriptGenerationService.GeneratePrLintScript(branchName: "main");

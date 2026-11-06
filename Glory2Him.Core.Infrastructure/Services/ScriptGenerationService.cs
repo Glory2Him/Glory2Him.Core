@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using ADotNet.Clients;
 using ADotNet.Models.Pipelines.GithubPipelines.DotNets;
 using ADotNet.Models.Pipelines.GithubPipelines.DotNets.Tasks;
@@ -28,6 +29,12 @@ namespace Glory2Him.Core.Infrastructure.Services
         // and therefore never runs npm at all.
         private const string ReactAppPath = "Websites/Glory2Him.WebApp.React";
 
+        // The agent workflow's two other pull request targets besides main: a feature
+        // branch, which every task PR merges into, and a release branch, which a hotfix's
+        // tier 3 PR merges into.
+        private const string FeatureBranches = "users/*/feature-*";
+        private const string ReleaseBranches = "release/v*";
+
         private readonly ADotNetClient adotNetClient;
 
         public ScriptGenerationService() =>
@@ -35,7 +42,6 @@ namespace Glory2Him.Core.Infrastructure.Services
 
         public void GenerateBuildScript(
             string branchName,
-            string projectName,
             string dotNetVersion)
         {
             var githubPipeline = new GithubPipeline
@@ -46,12 +52,15 @@ namespace Glory2Him.Core.Infrastructure.Services
                 {
                     Push = new PushEvent { Branches = [branchName] },
 
-                    // The branch filter is NOT a duplicate of Push.Branches above: without it the
-                    // build would also run for pull requests targeting a branch other than main.
+                    // The branch filter is NOT a duplicate of Push.Branches above: it names every
+                    // branch a pull request may target. Task PRs merge into a feature branch and
+                    // the feature PR into main, and a hotfix's tier 3 PR targets the release branch
+                    // cut from the last tag; all three are tested, and nothing else is. No
+                    // "closed": only the old tag job needed it, and release.yml now does that.
                     PullRequest = new PullRequestEvent
                     {
-                        Types = ["opened", "synchronize", "reopened", "closed"],
-                        Branches = [branchName]
+                        Types = ["opened", "synchronize", "reopened"],
+                        Branches = [branchName, FeatureBranches, ReleaseBranches]
                     }
                 },
 
@@ -113,6 +122,22 @@ namespace Glory2Him.Core.Infrastructure.Services
                                         { "cache", "npm" },
                                         { "cache-dependency-path", $"{ReactAppPath}/package-lock.json" }
                                     }
+                                },
+
+                                // The agent workflow's own scripts: bash syntax, Python syntax, and
+                                // their tests. Part of Build so the one required check covers them.
+                                new GithubTask
+                                {
+                                    Name = "Check The Workflow Scripts",
+                                    Shell = "bash",
+                                    Run =
+                                        """
+                                        shopt -s nullglob
+                                        for script in scripts/*.sh .claude/skills/*/*.sh; do bash -n "$script"; done
+                                        for script in scripts/*.py; do python3 -m py_compile "$script"; done
+                                        tests=(scripts/*.test.mjs)
+                                        if (( ${#tests[@]} )); then node --test "${tests[@]}"; fi
+                                        """
                                 },
 
                                 // Started here rather than immediately before the first suite that
@@ -386,18 +411,8 @@ namespace Glory2Him.Core.Infrastructure.Services
                             }
                         }
                     },
-                    {
-                        "add_tag",
-                        new TagJobV2(
-                            runsOn: BuildMachines.UbuntuLatest,
-                            dependsOn: "build",
-                            projectRelativePath: $"{projectName}/{projectName}.csproj",
-                            githubToken: "${{ secrets.PAT_FOR_TAGGING }}",
-                            branchName: branchName)
-                        {
-                            Name = "Tag and Release"
-                        }
-                    },
+                    // No tag job: a release is tagged and published by release.yml when its
+                    // RELEASES: PR merges, from the one version in Directory.Build.props.
 
                     // The Azure deploy is gated on the full build job (all test suites and the
                     // migration-script check) rather than racing it from a separate workflow.
@@ -589,7 +604,7 @@ namespace Glory2Him.Core.Infrastructure.Services
                     PullRequest = new PullRequestEvent
                     {
                         Types = ["opened", "edited", "synchronize", "reopened", "closed"],
-                        Branches = [branchName]
+                        Branches = [branchName, FeatureBranches, ReleaseBranches]
                     }
                 },
 
@@ -597,7 +612,7 @@ namespace Glory2Him.Core.Infrastructure.Services
                 {
                     {
                         "label",
-                        new LabelJobV3(runsOn: BuildMachines.UbuntuLatest)
+                        AddFeaturePrefixes(new LabelJobV3(runsOn: BuildMachines.UbuntuLatest)
                         {
                             Name = "Label",
                             Permissions = new Dictionary<string, string>
@@ -606,14 +621,14 @@ namespace Glory2Him.Core.Infrastructure.Services
                                 { "pull-requests", "write" },
                                 { "issues", "write" }
                             }
-                        }
+                        })
                     },
                     {
                         "requireIssueOrTask",
-                        new RequireIssueOrTaskJobV2(excludedAuthors: "dependabot[bot]")
+                        ExemptReleasePullRequests(new RequireIssueOrTaskJobV2(excludedAuthors: "dependabot[bot]")
                         {
                             Name = "Require Issue Or Task Association",
-                        }
+                        })
                     },
 
                     // The enforcement of record for the identity guard (design §ARC12.11 rule 1),
@@ -719,6 +734,64 @@ namespace Glory2Him.Core.Infrastructure.Services
             };
 
             WriteWorkflow(githubPipeline, workflowFileName: "prLinter.yml");
+        }
+
+        /// <summary>
+        /// ADotNet 5.1.0's label job has no <c>FEATURES:</c> prefix, which a feature PR into
+        /// main carries, so it is added beside <c>RELEASES:</c>. The step is found by its
+        /// script rather than its position, and a script that no longer holds the anchor
+        /// fails the generation instead of writing a linter that rejects every feature PR.
+        /// </summary>
+        private static LabelJobV3 AddFeaturePrefixes(LabelJobV3 labelJob)
+        {
+            const string anchor = "'RELEASES:',";
+
+            GithubTask labelStep = labelJob.Steps.Single(step =>
+                step.With is not null &&
+                step.With.TryGetValue("script", out string script) &&
+                script.Contains(anchor));
+
+            string labelScript = labelStep.With["script"];
+
+            // A later ADotNet that carries the prefix itself needs nothing added.
+            if (labelScript.Contains("'FEATURES:',"))
+            {
+                return labelJob;
+            }
+            int anchorIndex = labelScript.IndexOf(anchor);
+            int lineStart = labelScript.LastIndexOf('\n', anchorIndex) + 1;
+            string indent = labelScript[lineStart..anchorIndex];
+
+            labelStep.With["script"] = labelScript.Insert(
+                anchorIndex + anchor.Length,
+                $"\n{indent}'FEATURES:',\n{indent}'MAJOR FEATURES:',");
+
+            return labelJob;
+        }
+
+        /// <summary>
+        /// A <c>RELEASES:</c> PR needs no linked issue: every PR it carries is already merged
+        /// and its issues closed. A hotfix release does list its tier 3 tasks with Closes,
+        /// because a fix PR into a release branch cannot close them; QA checks that, not this.
+        /// </summary>
+        private static RequireIssueOrTaskJobV2 ExemptReleasePullRequests(RequireIssueOrTaskJobV2 requireIssueOrTaskJob)
+        {
+            GithubTask checkStep = requireIssueOrTaskJob.Steps.Single(step =>
+                step.Id == "check_for_issues_or_tasks");
+
+            string condition = checkStep.If?.Trim() ?? string.Empty;
+
+            if (!condition.StartsWith("${{") || !condition.EndsWith("}}"))
+            {
+                throw new InvalidOperationException(
+                    $"The issue check's condition is no longer an expression: {condition}");
+            }
+
+            checkStep.If =
+                $"{condition[..^2].TrimEnd()} && " +
+                "!startsWith(github.event.pull_request.title, 'RELEASES:') }}";
+
+            return requireIssueOrTaskJob;
         }
 
         /// <summary>

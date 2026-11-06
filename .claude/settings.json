@@ -1,4 +1,10 @@
 {
+  "permissions": {
+    "deny": [
+      "Read(./Documentation/Diagrams/**)",
+      "Edit(./Documentation/Diagrams/**)"
+    ]
+  },
   "attribution": {
     "commit": "",
     "pr": "",

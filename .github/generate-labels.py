@@ -12,6 +12,8 @@ import json
 import re
 import sys
 
+if len(sys.argv) != 3:
+    sys.exit("usage: .github/generate-labels.py .github/workflows/prLinter.yml .github/labels.json")
 PR_LINTER = sys.argv[1]
 OUT = sys.argv[2]
 
@@ -22,6 +24,7 @@ BASE = {
     "INFRA":          ("1E90FF", "Project setup, creating the build project / build scripts"),
     "PROVISIONS":     ("2E8B57", "Provisions scripts"),
     "RELEASES":       ("2AE9F8", "The releases category"),
+    "FEATURES":       ("0E8A16", "A whole feature merging from its feature branch into main"),  # INVENTED (missing)
     "DATA":           ("DAA520", "The data category"),                      # INVENTED (was grey)
     "BROKERS":        ("4682B4", "The brokers category"),                   # INVENTED (was grey)
     "FOUNDATIONS":    ("A11EE7", "The foundations category"),
@@ -89,27 +92,62 @@ MODEL_EFFORTS = {
 }
 EFFORT_COLOUR = "fbca04"
 
-# The issue lifecycle. Approval is not among these: it is QA's ready for development
-# label below, which takes a task out of status: needs-scoping. DEVELOPERS.md
-# section 7 is the written record.
+# The issue lifecycle. A feature moves needs-design -> in-plan-review ->
+# awaiting-approval -> building -> in-feature-qa -> done; a task moves needs-scoping ->
+# in-progress -> done. Approval is not a status: it is the approved label below.
+# DEVELOPERS.md section 7 is the written record.
 STATUS_LABELS = [
+    ("status: needs-design", "d4c5f9", "Feature request raised; the planner has not designed it yet"),
+    ("status: in-plan-review", "c5def5", "Plan written; QA is reviewing the stories and tasks"),
+    ("status: awaiting-approval", "fbca04", "QA signed the plan; waiting on the maintainer to approve it"),
+    ("status: building", "1d76db", "Approved; the feature build is running task by task"),
+    ("status: in-feature-qa", "5319e7", "Every task merged; QA is verifying the whole feature"),
+    ("status: blocked", "b60205", "Stopped on a question or a failure a person must resolve"),
     ("status: needs-scoping", "e4e669", "Criteria written, waiting on QA to sign them off"),
     ("status: in-progress", "1d76db", "A developer is implementing it"),
     ("status: in-qa", "5319e7", "Implemented, under adversarial verification"),
-    ("status: done", "6a737d", "Merged and verified"),
+    ("status: done", "6a737d", "Built and verified: a task merged into its feature branch, or a feature whose PR waits for the maintainer"),
 ]
 
-# QA's verdicts: ready for development on an issue it clears, ready for review on a
-# PR or design PR once no finding of any severity is open. ready for development
-# is also the approval: the developer will not start a task without it.
-# .claude/agents/qa.md makes applying them mandatory, and
-# gh --add-label fails outright on a label the repository does not have. There is no
+# Issue types (Feature, User Story, Task) are set with the issue type field where the
+# organisation has them. These labels are the fallback where it does not, and the
+# planner applies both so a query on either works.
+TYPE_LABELS = [
+    ("type: feature", "a2eeef", "A behaviour the service should have; parent of user stories"),
+    ("type: user-story", "bfdadc", "One user's slice of a feature; parent of tasks"),
+    ("type: task", "ededed", "One unit of work a developer builds in one PR"),
+]
+
+# approved is the human decision: only a person adds it, never an agent — on a
+# feature, on the Global Rules issue, or anywhere else. QA's signed body hashes, not a
+# second approver, are what protect an approved plan.
+# tier: 3 marks a /tweak change that goes straight to main with no design.
+# global rules marks the one issue holding the rules every feature inherits; the agents
+# find it by this label, and it is approved the same way a plan is.
+# legacy marks a task signed ready for development before the repository moved to the
+# issue-based workflow, and the Feature and User Story issues made to hold it. Only a
+# legacy task is built and verified against the documents it cites under
+# Documentation/Planning/, and the planner never adds the label.
+# Documentation/Procedures/migrating-an-existing-repository.md is the written record.
+WORKFLOW_LABELS = [
+    ("approved", "0e8a16", "The maintainer approved the plan; the build may start"),
+    ("tier: 3", "c2e0c6", "A small change through /tweak: no design, PR straight to main"),
+    ("global rules", "5319e7", "The rules every feature inherits; changed only through QA and the maintainer's approval"),
+    ("legacy", "d4c5f9", "Signed off before the issue-based workflow; built against the Planning documents it cites"),
+]
+
+# QA's verdicts: ready for development on a task whose plan it signed, ready for review
+# on a PR it passes, each only once no finding of any severity is open. The developer
+# will not start a task without ready for development, and the build driver will not
+# start a feature without approved as well.
+# .claude/agents/qa.md makes applying them mandatory, and adding a label the repository
+# does not have creates it grey rather than failing, so the sync must run first. There is no
 # separate merge-ready label: ready for review already carries QA's MERGE READY: YES.
-# Colours are copied from the live Glory2Him.Template labels. The ready for review
-# description is this file's own, and the label sync carries it to the live label.
+# Colours are copied from the live Glory2Him.Template labels. The descriptions are this
+# file's own, and the label sync carries them to the live labels.
 QA_LABELS = [
-    ("ready for development", "0e8a16", "QA signed the task off; a developer may start once its design is on main"),
-    ("ready for review", "0e8a16", "QA passed the PR or design PR with no finding of any severity open; ready for a human merge review"),
+    ("ready for development", "0e8a16", "QA signed the task off in the plan review; built once the feature is approved"),
+    ("ready for review", "0e8a16", "QA passed the PR with no finding of any severity open; ready for a human merge review"),
 ]
 
 # One per design area, applied by the planner so an area has a live query that never
@@ -159,7 +197,7 @@ for model, efforts in MODEL_EFFORTS.items():
 for name, colour, description in STATUS_LABELS:
     labels.append({"name": name, "color": colour, "description": description})
 
-for name, colour, description in QA_LABELS:
+for name, colour, description in TYPE_LABELS + WORKFLOW_LABELS + QA_LABELS:
     labels.append({"name": name, "color": colour, "description": description})
 
 for area in DESIGN_AREAS:
@@ -182,4 +220,4 @@ with open(OUT, "w", encoding="utf-8", newline="\n") as file:
     json.dump(labels, file, indent=2, ensure_ascii=False)
     file.write("\n")
 
-print(f"{len(labels)} labels written to {OUT} ({len(prefixes)} prefixes + {sum(len(e) for e in MODEL_EFFORTS.values())} model-effort + {len(STATUS_LABELS)} status + {len(QA_LABELS)} QA + {len(DESIGN_AREAS)} design area)")
+print(f"{len(labels)} labels written to {OUT} ({len(prefixes)} prefixes + {sum(len(e) for e in MODEL_EFFORTS.values())} model-effort + {len(STATUS_LABELS)} status + {len(TYPE_LABELS)} type + {len(WORKFLOW_LABELS)} workflow + {len(QA_LABELS)} QA + {len(DESIGN_AREAS)} design area)")

@@ -1,0 +1,240 @@
+name: Global rules
+description: File once per repository. The rules every feature inherits — architecture, security, events, domain — and the terms they use. Changed only through a reviewed and approved change, never edited in passing.
+labels:
+- "global rules"
+body:
+- type: markdown
+  attributes:
+    value: |
+      There is one open Global Rules issue per repository. The agents find it by its
+      `global rules` label and read it before planning, building or reviewing anything.
+
+      File it once, when the repository is created, then run `/grill-with-docs` to fill
+      it in. QA reviews it, and once QA passes it the maintainer adds `approved` — never
+      an agent. Until then there is no design to plan a feature against.
+
+      The Architecture section is pre-filled with the five rules every repository made
+      from this template needs: three because each one deploys to Azure SQL and tests
+      against containers, and two that hold the broker and orchestration boundaries.
+      Keep them, and add this repository's own rules after them.
+- type: textarea
+  id: conventions
+  attributes:
+    label: Conventions
+    description: How the rules below are numbered, cited and departed from. Change only with care — every agent follows these.
+    value: |
+      **Every feature adheres to these rules.** A feature or user story cites a rule —
+      `per §SEC2` — and never restates it: a copy is a second statement that will drift.
+
+      **A deviation needs a documented reason.** A feature or user story that must depart
+      from a rule records it in its own **Deviations** section: the rule, the reason, the
+      alternatives rejected, and how it is done instead. The planner proposes it; QA's plan
+      review and the maintainer's `approved` grant it. Another feature's deviation is
+      never the reason for one.
+
+      **Global or feature — decide before writing.** A rule more than one feature must
+      follow belongs here, in the section that owns its area. What one feature does belongs
+      in its feature issue; what one component does, in its user story.
+
+      **Numbering.** A new repository numbers its sections flat and prefixed — `§ARC1`,
+      `§SEC1`, `§EVN1`, `§DOM1` — and rules within a section are numbered so a citation
+      can name one. A moved repository keeps its own scheme, nested numbers included: a
+      ported section keeps its sub-section numbers (`§ARC12.3.1`), so a task citing one
+      still resolves. Terms
+      are cited by the term itself, and code, issues and tests use it rather than a word
+      it lists to avoid. A number is never reused. A withdrawn rule is struck through, not deleted. A
+      relocated rule carries `(formerly §X)` so code comments citing the old number still
+      resolve by grep.
+
+      **Changing a rule.** Take `approved` off this issue, edit it, post a `Change <n>:`
+      comment listing every section added, changed or withdrawn and every open feature
+      that cites one, and send it to QA. Once QA passes it, the maintainer adds
+      `approved` again; no agent ever does. A feature that needs the new rule waits for
+      that.
+
+      **Legacy rules.** A repository moved from file-based design may index its old rule
+      documents under **Legacy rules** rather than port them all at once. An unstruck
+      index line binds legacy features only. A new feature that needs one stops until it
+      is settled through `/grill-with-docs` and a change to this issue. A line is never
+      deleted; it is struck through in one of three states:
+      - `(ported)` — in the rules above under its own number, distilled to the rule itself;
+      - `(retired: <reason>)` — history, a map or conventions, which no longer binds anything;
+      - `(feature: #<n>)` — feature-level, not a global rule: only the tasks of that filed
+        legacy feature cite it, it binds them alone, and it is re-planned with them.
+
+      **The pre-filled `§ARC1`–`§ARC5` are always present, in full, and never deleted.**
+      An indexed rule never counts as covering one. Those five numbers are reserved for
+      them in every repository, because the agents cite them by number: a moved
+      repository whose own rule already uses one gives its rule the next free number,
+      marked `(formerly §ARCn)`. Where a repository's own rule says the same thing as one
+      of them, both stand; where they conflict, that is a question for the maintainer
+      through `/grill-with-docs`.
+  validations:
+    required: true
+- type: textarea
+  id: architecture
+  attributes:
+    label: Architecture
+    description: "§ARC — layers, services and the dependencies between them, as the layer model of the-standard-core sets them out; how far each layer may reach; the Azure SQL surface and test parity."
+    value: |
+      #### §ARC1 Schema and queries stay inside Azure SQL Database
+
+      Production and DEV run Azure SQL Database; tests run SQL Server 2025 in a container.
+      Anything Azure SQL Database lacks would pass every test and fail on deploy, so:
+
+      1. No cross-database queries, three- or four-part names, or linked servers.
+      2. No `USE` in a migration or script.
+      3. No SQL Agent jobs, CLR, Service Broker, or server-level objects — logins, server
+         roles, server triggers, server audits.
+      4. No file-system access from T-SQL — `BULK INSERT` from a path, `OPENROWSET` on a
+         file, `xp_cmdshell`.
+      5. A migration works as a single batch on the deploy path.
+
+      Storage user stories cite this rule. QA's check of every migration against this rule
+      is the control; the DEV deployment is where a migration first meets Azure SQL.
+
+      #### §ARC2 The test database matches Azure SQL
+
+      Integration and acceptance tests start their own SQL Server 2025 container through
+      Testcontainers, a fresh database per test run, set up in test start-up as:
+
+      1. `READ_COMMITTED_SNAPSHOT ON` — Azure SQL Database's default, which SQL Server
+         leaves off; it changes locking and blocking.
+      2. Collation `SQL_Latin1_General_CP1_CI_AS`, and times stored in UTC — both set
+         explicitly, never left to defaults.
+      3. The compatibility level of the Azure SQL databases. The image tag is pinned to a
+         cumulative update and moves when Azure does.
+
+      What the solution owns runs for real or on its emulator — Azurite for storage, the
+      Service Bus emulator for messaging — through the same broker as production, with
+      the endpoint from configuration only. No code path exists only for an emulator.
+      Emulator limits are set to production's where they are configurable. Third-party
+      APIs, which the solution does not own, are stubbed with WireMock.
+
+      #### §ARC3 Brokers retry transient failures
+
+      Azure SQL and the other Azure services fail transiently and throttle. Every broker
+      that calls one retries transient failures with backoff — for SQL, the provider's
+      retrying execution strategy — and lets anything else surface as a dependency
+      exception. Retry is configured once per broker, never in a service. CI cannot
+      produce these faults, so DEV is where the connection, token and retry handling
+      first meet Azure.
+
+      #### §ARC4 A storage broker writes no query condition
+
+      The query belongs in the foundation service, where it can be tested:
+
+      1. A storage broker composes no query operator — `Where`, `Select`, `OrderBy` or
+         any other — and calls no terminal operator that takes a predicate.
+      2. No broker member queries through its `DbContext`. A `DbSet<T>` is model
+         registration, not a query source.
+      3. The foundation service authors the condition as a query-shaping function using
+         `System.Linq` only and passes it down; the broker applies it and awaits the
+         result. A service never imports `Microsoft.EntityFrameworkCore` to shape a
+         query.
+      4. The query still runs in SQL. A list materialised and then filtered above the
+         broker is still wrong. The unfiltered collection read stays for exposure; a
+         question is never answered by running a terminal operator over it, synchronous
+         or awaited.
+      5. A keyed read's test executes its query-shaping function against a near-miss set:
+         a matching row and, for each term, a row that misses on that term alone. Where
+         the read orders its rows or picks one of several matches, the set also holds a
+         second matching row that the order ranks differently.
+
+      A condition found in a broker is fixed by moving it into the foundation service as
+      a query-shaping function, never by leaving it where it is.
+
+      #### §ARC5 What an orchestration may depend on
+
+      1. **Utility brokers.** Six kinds of broker carry no entity's data, and any
+         service — an orchestration included — may hold them without breaking the
+         same-kind or skip rules:
+         1. **Logging**
+         2. **DateTime**
+         3. **Identifier**
+         4. **Identity** — puts the caller's identity on a signed envelope
+         5. **Events** — publishes events or verifies the ones received
+         6. **Access** — answers "may this person do this?" with a verdict, gathering
+            only the facts that question needs; it never hands an entity's data back
+
+         `scripts/utility-brokers.txt`, the Template's seed, and
+         `Documentation/DependencyGraph/utility-brokers.txt`, the repository's own, name
+         this repository's utility broker classes, one `<ClassName> <kind>` per line.
+      2. **Every other broker is off limits to an orchestration** — a storage broker
+         first, and any other broker that hands an entity's data back (an API broker over
+         a third party's records, say). That data goes through its foundation service.
+      3. **Same kind.** An orchestration's service dependencies are one kind — all
+         processing or all foundation, never mixed. An orchestration that depends on
+         foundation services only is correct, not a skipped layer.
+      4. **Florance two-to-three.** An orchestration has two or three service
+         dependencies. No broker counts toward them. One service dependency means it is
+         not an orchestration; a fourth means a split under a coordination service, never
+         a wider orchestration. Anything else is a deviation, recorded against that
+         service by name as the Conventions require.
+
+      These deliberately override parts of The Standard:
+      `the-standard-orchestrations` 1.1/Don'ts#1 and `ts-orchestrations-001`, which bar an
+      orchestration from foundation services and brokers; `ts-orchestrations-002`, which
+      has it reach each entity through that entity's own processing service; and
+      `the-standard-core` `ts-core-003`, which has every layer depend only on the layer
+      directly below it. The vendored skills cannot be edited, so the override lives
+      here.
+  validations:
+    required: true
+- type: textarea
+  id: security
+  attributes:
+    label: Security
+    description: "§SEC — authentication, authorisation and 2FA, and identity travelling on the signed event envelope. The screens a rule here needs — sign-in, 2FA — are UI user stories that cite it; this section stays global."
+    value: |
+      _Nothing ruled yet._
+  validations:
+    required: true
+- type: textarea
+  id: events
+  attributes:
+    label: Events
+    description: "§EVN — event contracts, addressing, and how a service implements eventing, so a user story whose service raises or handles an event cites these rules instead of restating them."
+    value: |
+      _Nothing ruled yet._
+  validations:
+    required: true
+- type: textarea
+  id: domain
+  attributes:
+    label: Domain
+    description: "§DOM — the entities, their invariants and their relationships."
+    value: |
+      _Nothing ruled yet._
+  validations:
+    required: true
+- type: textarea
+  id: terms
+  attributes:
+    label: Terms
+    description: "This system's own words, each defined once: what it is, never how it is built. One or two sentences each, with the words to avoid. General programming terms do not belong here."
+    value: |
+      _No terms yet._
+
+      <!-- One block per term, grouped under a #### heading when clusters emerge:
+      **Saved search**: A search a member has named and kept so they can run it again.
+      _Avoid_: bookmark, favourite
+      -->
+  validations:
+    required: true
+- type: textarea
+  id: legacy-rules
+  attributes:
+    label: Legacy rules
+    description: "Moved repositories only. An index of every section of the old rule documents, one line each, struck through once settled: its section number, with the old number where the document records one — `(formerly §9.7)` — its title, and a link to the section, pinned to a 40-character commit SHA at its `Documentation/Planning/` path. An unstruck line binds legacy features only. A line is never deleted: it is struck through as `(ported)`, `(retired: <reason>)` or `(feature: #<n>)`."
+    value: |
+      _None — this repository started on the issue-based workflow._
+
+      <!-- One line per section, each with its own pinned link:
+      - §ARC12.5 (formerly §9.7) — Feature flags — [Architecture.md](https://github.com/<owner>/<repo>/blob/<40-char-sha>/Documentation/Planning/Design/Architecture.md#arc125-feature-flags)
+      - ~~§ARC12.6 — Paging — [Architecture.md](https://github.com/<owner>/<repo>/blob/<40-char-sha>/Documentation/Planning/Design/Architecture.md#arc126-paging)~~ (ported)
+      - ~~§ARC11.2 — History of the layers — [Architecture.md](https://github.com/<owner>/<repo>/blob/<40-char-sha>/Documentation/Planning/Design/Architecture.md#arc112-history-of-the-layers)~~ (retired: history)
+      - ~~§APR8.6 — Amender record — [Approval.md](https://github.com/<owner>/<repo>/blob/<40-char-sha>/Documentation/Planning/Design/Approval.md#apr86-amender-record)~~ (feature: #812)
+      -->
+  validations:
+    required: false

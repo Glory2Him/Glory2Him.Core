@@ -87,3 +87,44 @@ whoever runs it remembering `sqlcmd -I`.
 
 ---
 
+## 🛠️ Getting started
+
+You need the .NET 10 SDK, Node 22 and LocalDB. From the repository root:
+
+```powershell
+dotnet build
+dotnet test Glory2Him.Core.Tests.Unit
+```
+
+`DEVELOPERS.md` covers the rest: every test suite, the React app, the agents that plan,
+build and verify the work, and how a release is made.
+
+---
+
+## 🤝 Contributing
+
+Work starts as a GitHub issue: a **Feature request** raised through its form, planned
+into user stories and tasks, and built task by task. `DEVELOPERS.md` walks through it.
+Pull request titles must start with one of the category prefixes listed in
+`.github/workflows/prLinter.yml` (for example `MINOR FOUNDATIONS:` or `DOCUMENTATION:`),
+and the description must link an issue with `Closes #<n>`. Both are enforced by CI, and
+so is the rule that every commit is made under a person's own identity, with no AI
+attribution.
+
+---
+
+## 📜 License
+
+Licensed under the Glory 2 Him Software License (G2HSL). Two files, deliberately:
+[LICENSE.txt](LICENSE.txt) is this repository's copy — the licence with the
+repository's own name and copyright line on top — and [G2HSL.md](G2HSL.md) is the
+licence on its own, unmodified. The canonical copy lives at
+[Glory2Him/Glory2Him](https://github.com/Glory2Him/Glory2Him/blob/main/G2HSL.md).
+
+**FREE TO USE TO HELP SHARE THE GOSPEL**
+
+> John 14:6 (NIV) "Jesus answered, 'I am the way and the truth and the life.
+> No one comes to the Father except through me.'"
+> [john.bible/john-14-6](https://john.bible/john-14-6)
+
+If Jesus is who He said He is, what does that mean for you, today?

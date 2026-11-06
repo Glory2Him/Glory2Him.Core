@@ -1,0 +1,13 @@
+<Project>
+  <!--
+    The one version source for the application's projects. The releaser sets it on
+    the release branch (see DEVELOPERS.md); nothing else changes it. The release
+    workflow refuses to tag a release branch whose version does not match its name.
+    In this repository three client libraries are packages versioned on their own and
+    keep their own <Version>: G2H.Security.Client, G2H.StorageClient and
+    G2H.EventEnvelope.Client. The releaser leaves those alone.
+  -->
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+</Project>

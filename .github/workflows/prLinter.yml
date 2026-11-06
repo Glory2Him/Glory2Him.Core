@@ -9,6 +9,8 @@ on:
     - closed
     branches:
     - main
+    - users/*/feature-*
+    - release/v*
 jobs:
   label:
     name: Label
@@ -27,6 +29,8 @@ jobs:
             'MAJOR INFRA:',
             'PROVISIONS:',
             'RELEASES:',
+            'FEATURES:',
+            'MAJOR FEATURES:',
             'DATA:',
             'MINOR DATA:',
             'MEDIUM DATA:',
@@ -185,7 +189,7 @@ jobs:
               console.log(`PR Body: ${prBody}`);
     - name: Check For Associated Issues Or Tasks
       id: check_for_issues_or_tasks
-      if: ${{ !contains(',dependabot[bot],', format(',{0},', steps.get_pr_info.outputs.prOwner)) }}
+      if: ${{ !contains(',dependabot[bot],', format(',{0},', steps.get_pr_info.outputs.prOwner)) && !startsWith(github.event.pull_request.title, 'RELEASES:') }}
       env:
         PR_BODY: ${{ steps.get_pr_info.outputs.description }}
       run: >2-

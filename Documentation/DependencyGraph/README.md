@@ -542,3 +542,11 @@ rendered graph. The 14 templated foundation services are now fully expanded
 in the data — a new one is a replicated sibling block plus its events in the
 manifest, and bulk template-wide changes are a throwaway script over the
 YAML.
+
+## The utility broker list
+
+[utility-brokers.txt](./utility-brokers.txt) is this repository's own list of utility
+brokers, one `<ClassName> <kind>` per line. `scripts/architecture-graph.py` reads it
+beside `scripts/utility-brokers.txt`, the Template's seed. The seed is copied byte for
+byte by every refresh and never edited outside the Template; this file is never copied or
+removed by one.
