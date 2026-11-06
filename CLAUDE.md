@@ -204,8 +204,11 @@ each task — never in issue bodies.
   Every other broker is off limits to an orchestration: a **storage** broker first,
   and any other broker that hands an entity's data back (an API broker over a third
   party's records, say) — that goes through its foundation service.
-  `scripts/architecture-graph.py` reads the utility brokers' class names from
-  `scripts/utility-brokers.txt`.
+  `scripts/architecture-graph.py` reads the utility brokers' class names from two
+  lists: `scripts/utility-brokers.txt`, the Template's seed, copied byte for byte by
+  every refresh and never edited outside the Template; and
+  `Documentation/DependencyGraph/utility-brokers.txt`, the repository's own, which no
+  refresh touches. A repository adds its own utility brokers to the second.
 - An orchestration has two or three service dependencies (Florance). **No broker
   counts toward the two-to-three.** One service dependency means it is not an
   orchestration; a fourth means a split under a coordination service, never a wider

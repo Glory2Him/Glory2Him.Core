@@ -8,3 +8,8 @@
 
 # The awk programs the hooks run stay LF, like the scripts that run them.
 *.awk text eol=lf
+
+# The themes under Templates/ are vendored third-party packages, so the release
+# workflow leaves them out of the npm SBOM and the releaser leaves their package.json
+# versions alone. Their npm ci is not this repository's to fix.
+Templates/** linguist-vendored

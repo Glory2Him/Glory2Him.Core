@@ -305,8 +305,9 @@ that touches.
 
 **Owns** preparing a release from everything merged to `main` since the last tag:
 proposing the SemVer bump with its evidence, cutting `release/vX.Y.Z`, setting the
-version in `Directory.Build.props` and each app's `package.json`, updating the
-README, OpenAPI document and `CHANGELOG.md`, generating the documentation in
+version in `Directory.Build.props` and each app's `package.json` — every tracked
+`package-lock.json`'s folder whose `package.json` is not marked `linguist-vendored` in
+`.gitattributes` — updating the README, OpenAPI document and `CHANGELOG.md`, generating the documentation in
 `Documentation/Design/` and the dependency graph in `Documentation/DependencyGraph/architecture.md`
 from the issues (§4), the package report, and the release notes in
 `Documentation/Releases/vX.Y.Z.md`. It opens a `RELEASES:` PR. It never edits
@@ -923,6 +924,17 @@ only one repository uses is that repository's own and changes there by PR — he
 `update-dependency-graph`, which maintains `Documentation/DependencyGraph/graph.yml`
 and the pages beside it.
 
+**Utility brokers.** `scripts/` is refreshed byte for byte too, so
+`scripts/utility-brokers.txt` is the Template's seed — `LoggingBroker`,
+`DateTimeBroker`, `IdentifierBroker` — and is never edited outside the Template.
+`scripts/architecture-graph.py` reads it beside
+`Documentation/DependencyGraph/utility-brokers.txt`, the repository's own list, which no
+refresh copies or removes. Add a utility broker this repository gains — an
+`IdentityBroker identity`, an `AccessBroker access` — to that second file, in the PR that
+adds the broker. A class the two lists give different kinds is an error. Which of this
+repository's existing brokers belong there is settled with the Global Rules issue; until
+then the list carries only its header.
+
 **Interactive skills stay interactive.** `/grill-with-docs`, `/grill-me` and
 `/standard-compliance` interview you in rounds and wait for your answers, so they are
 never started from a `claude -p` session; nothing in the build driver calls them.
@@ -996,7 +1008,11 @@ issues say — every business rule, role and diagram traced to its source.
 **The maintainer merges it** with a merge commit. `.github/workflows/release.yml` then
 checks the branch carries the version and the notes, tags the head of the release
 branch `vX.Y.Z`, generates the CycloneDX SBOM, and publishes the GitHub Release with
-the notes and SBOM. A release deploys nothing.
+the notes and SBOM. A release deploys nothing. The npm SBOM covers the same apps whose
+version the releaser bumps; a vendored third-party package is marked
+`<path>/** linguist-vendored` in `.gitattributes` and left out of both, so its `npm ci`
+never stops the tag. Here that is everything under `Templates/` — the Blogzine and
+CoreUI themes — so the SBOM and the version bump cover `Websites/Glory2Him.WebApp.React`.
 
 **A hotfix** when `main` holds unreleased work: `/release hotfix <tag>` cuts
 `release/vX.Y.(Z+1)` from the last tag, `/tweak --base release/vX.Y.(Z+1) <the fix>`
