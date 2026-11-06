@@ -59,7 +59,7 @@ view you were on, and switching carries your current selection across.
     `…ing` — and publish fact events — `…ed` — and the fact addresses have
     no subscribers)
 - **Duplication over line-spaghetti** (the *per consumer* view only, matching
-  `Glory 2 Him.drawio`): a dependency is drawn once per consumer, showing only
+  `Documentation/Planning/Glory 2 Him.drawio`): a dependency is drawn once per consumer, showing only
   the method rows that consumer uses, instead of many lines converging on one
   shared node. The exception is client-library / external exposers (marked
   "shared" in the side panel): all consumers link to a single copy. In the
@@ -543,10 +543,22 @@ in the data — a new one is a replicated sibling block plus its events in the
 manifest, and bulk template-wide changes are a throwaway script over the
 YAML.
 
-## The utility broker list
+## The files the workflow keeps here
 
-[utility-brokers.txt](./utility-brokers.txt) is this repository's own list of utility
-brokers, one `<ClassName> <kind>` per line. `scripts/architecture-graph.py` reads it
-beside `scripts/utility-brokers.txt`, the Template's seed. The seed is copied byte for
-byte by every refresh and never edited outside the Template; this file is never copied or
-removed by one.
+`architecture.md` is the releaser's. It is regenerated at every release and never edited
+by hand. Every other file here is the repository's own, and the releaser leaves it alone:
+the graph above, maintained by `/update-dependency-graph`, and the broker list.
+
+- `architecture.md` — the layer graph of brokers, foundations, processings,
+  orchestrations, coordinations, aggregations and exposers, drawn as Mermaid by
+  `python3 scripts/architecture-graph.py`, followed by every layer-rule violation the
+  script reports and the recorded deviations that excuse one. The script tells the
+  six kinds of utility broker from every other broker by the class names in
+  `scripts/utility-brokers.txt`, the Template's seed, and `utility-brokers.txt` here.
+- [utility-brokers.txt](./utility-brokers.txt) — the repository's own utility brokers,
+  one `<ClassName> <kind>` per line, beside the seed. The seed is copied byte for byte by
+  every refresh and never edited outside the Template; this file is never copied or
+  removed by one.
+
+The release PR shows the change from the previous release as an ordinary diff of
+`architecture.md`.

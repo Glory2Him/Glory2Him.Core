@@ -1,44 +1,61 @@
 # Mockups
 
-Claude Design exports, and any other visual mockup, on their way into a feature
-document. `DEVELOPERS.md` §5 describes the full flow.
+Yours: UI wireframes and Claude Design HTML exports, on their way into a feature
+issue's business rules. `DEVELOPERS.md` §5.2 describes the full flow. The planner
+opens an export a feature issue links to; no agent changes this folder, and the
+releaser documents a feature from its issue, not from here.
+
+Images alone do not need to live here: drag them into the feature request's
+Mockups field, where GitHub hosts them. Commit an export here when the interaction
+matters — hover states, spacing, the real DOM — that a picture cannot show. Drag a
+flattened image of the same screen into the issue as well: a bundled HTML file does
+not render in an issue body.
 
 ## Layout
 
 ```
 Documentation/Mockups/<feature-slug>/
   <screen-name>.html     the Claude Design export, self-contained
-  <screen-name>.webp     a flattened image of the same screen
-  README.md              what it shows, the issue, and the feature document it produced
+  README.md              what it shows, and the feature issue it feeds
 ```
 
-Keep the HTML when the interaction matters — hover states, spacing, the real DOM.
-Keep the image either way: it is what gets embedded in the GitHub issue, because
-a multi-megabyte bundled HTML file does not render in an issue body.
+Bundled exports run to several megabytes. Do not commit five versions of a screen
+because a design iterated.
+
+A repository moved onto this workflow from the older template keeps its mockups here
+too. Their README lines may still name an old feature document; that document now
+sits under `Documentation/Planning/DesignFeatures/`.
 
 ## A mockup is never the design
 
-Once the planner has written the feature document, it is
-authoritative and the mockup is history. Record it in the folder README the
-moment it happens:
+The planner writes every rule a mockup shows into the feature issue as a numbered
+business rule. From that moment the business rules are authoritative and the mockup
+is history. Record it in the folder README:
 
 ```markdown
 # Saved searches panel
-Source: Claude Design export, 2026-09-11. Issue: #511.
-Superseded by `Documentation/DesignFeatures/SavedSearches.md` — its business rules
-win wherever the two disagree.
+Source: Claude Design export, 2026-09-11. Feature: #500.
+Superseded by #500's business rules — they win wherever the two disagree.
 ```
 
-A mockup left without that line is a second source of truth waiting to
-contradict the design.
+A mockup left without that line is a second source of truth waiting to contradict
+the plan. "Matches the mockup" is never a rule or a criterion.
 
-## Referencing an image from an issue
+## Linking an export from an issue
 
-Pin the raw URL to the full 40-character commit SHA, never a branch, so the
-picture in the issue cannot change under it later:
+Pin the URL to the full 40-character commit SHA, never a branch, so what the issue
+points at cannot change under it later:
 
 ```markdown
-![Panel](https://raw.githubusercontent.com/Glory2Him/Glory2Him.Core/<40-char-sha>/Documentation/Mockups/saved-searches/panel.webp)
+[Panel](https://github.com/<owner>/<repo>/blob/<40-char-sha>/Documentation/Mockups/saved-searches/panel.html)
 ```
 
-Issue #398 is the worked precedent.
+## In this repository
+
+One folder came from the older workflow: `G2H Mockup/`, the Claude Design HTML
+exports. Its README covers two of those screens and names the old documents they fed,
+now under `Documentation/Planning/`. That line is history: those documents count only
+once they are ported through the issue forms. The older workflow's flattened images live
+apart from it, in `Documentation/Images/`; issue #398 embeds some of them by a raw URL
+pinned to a commit SHA. A new mockup follows the sections above: its README names the
+feature issue, and its image is dragged into that issue.

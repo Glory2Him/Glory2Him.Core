@@ -1,5 +1,5 @@
 # Likes
-Epic: [INTENT.md](../../INTENT.md)
+Epic: [INTENT.md](../../../INTENT.md)
 Inherits: §DOM4.2, §DOM4.4–§DOM4.6, §DOM4.10, §DOM5.2, §DOM6.4, §DOM6.10, §SEC14.1, §SEC14.3, §SEC14.5, §SEC14.6, §SEC14.7 posture A′, §SEC18.6, §APR7.5.1, §APR8.4, §APR8.8, §APR9.7.4, §APR9.8, §APR9.9, §ARC12.2.1, §ARC12.3.1, §ARC16.2.1, §ARC16.2.2, §ARC16.8, §ARC16.8.1, §ARC17.4, §EVN2, §EVN13, §UI20.6.6
 Mockups: none. The card's Like control is built and documented (`UI/Components/ContentItemPanel.md rule 3.1.8`, `UI/Components/ContentItemPanel.Default.md rule 3.1.7`). When this feature was designed (#706), it lacked the write behind it and the counts it shows; the *Problem* records that state.
 Design task: #706

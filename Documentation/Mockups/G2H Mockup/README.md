@@ -15,7 +15,10 @@ Source: Claude Design exports. `Admin Post Detail.dc.html` came in with the 2026
 (aa6fa441) and was revised in 8868c321, which added `Admin Association Detail.dc.html`. Issue:
 #698, whose mockup step these two screens fulfil.
 
-Superseded by `Documentation/DesignFeatures/PostModeration.md`,
-`Documentation/Design/UI/Pages/ContentItemModerationDetailPage.md` and
-`Documentation/Design/UI/Pages/AssociationModerationDetailPage.md`, written under #705. Their
-rules win wherever these screens and the design disagree.
+These screens fed `Documentation/Planning/DesignFeatures/PostModeration.md`,
+`Documentation/Planning/Design/UI/Pages/ContentItemModerationDetailPage.md` and
+`Documentation/Planning/Design/UI/Pages/AssociationModerationDetailPage.md`, written
+under #705, which cite them at 8868c321. Those documents were the design under the
+older workflow and are now history in `Documentation/Planning/`. No feature issue
+supersedes these screens yet; when one is ported, its business rules do, and this line
+names it.

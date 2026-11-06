@@ -1,5 +1,5 @@
 # Live updates
-Epic: [INTENT.md](../../INTENT.md)
+Epic: [INTENT.md](../../../INTENT.md)
 Inherits: §ARC12.1, §ARC12.5, §ARC12.5.2 business rules 1, 2 and 12, §ARC12.12, §ARC16.2.2, §ARC16.8, §ARC16.8.1, §APR8.6.1 rule 3, §DOM4.10 rule 8, §EVN2 rule 6, §EVN11, §EVN18 rule 1, §EVN20 rules 5 and 10, §EVN23, §EVN26, §SEC14.1, §SEC14.3, §SEC14.5, §SEC14.6 rule 4, §SEC14.7 posture A′ rule 7, §SEC14.7 posture C rule 2, §SEC14.8, §UI20.8 rule 3, §UI20.10, Likes.md rule 12
 Mockups: none. A page shows what it already shows, only sooner.
 Design task: #702

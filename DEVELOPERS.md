@@ -147,7 +147,7 @@ user story or the task is lost the moment that session ends. The task body is
 self-contained: every fact a criterion needs is copied into it, so the developer
 reads three bodies — the task, its user story, its feature — plus the sections of the
 Global Rules issue the task cites, and nothing else. A `legacy` task (§4) also reads
-the documents it cites, at their Planning path.
+the documents it cites, through the Planning mapping.
 
 ### The skills brief the agents
 
@@ -256,7 +256,7 @@ the process in §4.
 whose feature carries `approved` — or on a `tier: 3` task opened by `/tweak`.
 Reads the task, its user story, its feature and the sections of the Global Rules
 issue the task cites; nothing else from GitHub. For a `legacy` task it also reads the
-documents the task cites, at their Planning path.
+documents the task cites, through the Planning mapping.
 
 The loop per criterion: write one test, run it and confirm it fails **for the right
 reason**, commit it as `{TestName} -> FAIL`, implement the smallest change that
@@ -323,10 +323,15 @@ INTENT.md                  the epic — what the product is for
 CHANGELOG.md               one entry per release, newest first
 Documentation/
   Design/                  the releaser's: generated at each release, never edited by hand
-    design.md              epic level — the intent, the global rules, every released feature
+    design.md              epic level — the intent, the global rules, every feature
+                           released under this workflow
     Features/<FeatureName>/<FeatureName>.md    one released feature, from its issues
     Features/<FeatureName>/assets/             the images and diagrams attached to its issue
-  DependencyGraph/         the releaser's architecture.md: the layer graph at each release
+  DependencyGraph/         the releaser's architecture.md: the layer graph at each release;
+                           beside it, this repository's own interactive graph (graph.yml,
+                           index.html, projects/) and utility-brokers.txt
+  Images/                  this repository's: pictures issues embed by pinned URL, from
+                           before this workflow
   Diagrams/                yours: a scratchpad for draft diagrams; no agent opens it
   Planning/                yours: existing documents from before this workflow; they
                            stay once ported into issues, so pinned links resolve
@@ -334,6 +339,8 @@ Documentation/
   Decisions/               decision records, added by DESIGN: PR
   Procedures/              how the workflow runs, step by step
   Releases/                release notes, one file per version, written by the releaser
+  Prompt-CreateFoundationService.md   this repository's: a prompt from before the agents
+  Glory2Him.Documentation.csproj      puts the folder in the solution; holds no code
   ModelBudget/             tally.py — what each effort cost, and what it bought
 ```
 
@@ -363,15 +370,18 @@ its design as files and may hold tasks signed `ready for development` against th
 Moving it onto this workflow puts those files under `Planning/` in one rename-only
 commit, keeping their sub-paths — `Documentation/Design/X` becomes
 `Documentation/Planning/Design/X`, `Documentation/DesignFeatures/X` becomes
-`Documentation/Planning/DesignFeatures/X`. Each task signed before the switch is
-labelled `legacy` and hung under a Feature and a User Story issue created for it, also
-`legacy`. That task, and only that task, is built and verified against the documents
-it cites, read at their new path; its body is never rewritten. The planner never adds
-`legacy`, no new task is written against `Planning/`, and a change to a legacy task's
-design is new work. Rules too large for the Global Rules issue are indexed in its
-**Legacy rules** section instead: an unstruck line binds legacy features only, and a
-new feature that needs one waits until `/grill-with-docs` settles it — ported under its
-own number, retired, or left to the one legacy feature it serves.
+`Documentation/Planning/DesignFeatures/X`, and a loose design document
+`Documentation/<name>` becomes `Documentation/Planning/<name>`; mockups, prompts and
+images outside the moved folders stay where they were. Each task signed before the
+switch is labelled `legacy` and hung under a Feature and a User Story issue created
+for it, also `legacy`. That task, and only that task, is built and verified against
+the documents it cites, read at their new path; its body is never rewritten. The
+planner never adds `legacy`, no new task is written against `Planning/`, and a change
+to a legacy task's design is new work. Rules too large for the Global Rules issue are
+indexed in its **Legacy rules** section instead: an unstruck line binds legacy
+features only, and a new feature that needs one waits until `/grill-with-docs` settles
+it — ported under its own number, retired, or left to the one legacy feature it
+serves.
 `Documentation/Procedures/migrating-an-existing-repository.md` has
 the steps, and the **Legacy** section of `Documentation/Planning/README.md` the
 mapping.
@@ -1091,8 +1101,10 @@ What the move still has to put in place, step by step in
 Glory2Him/Glory2Him.Core#1381. Until each exists, the sections that depend on it are
 description rather than mechanism:
 
-- **One run of the label sync** — Actions → Labels → Run workflow — so the status,
-  type, approval, `legacy` and effort labels exist.
+- **A clean label sync.** The first run, when #1403 merged, created the 15 labels that
+  were missing and updated two, but failed to update `status: done`, whose
+  description was over GitHub's 100-character limit. #1405 brings the shorter one, and
+  its merge reruns the sync (Actions → Labels). Delete this line once that run passes.
 - **The User Story issue type and sub-issues** enabled for the organisation. The build
   driver finds a feature's stories and tasks only through sub-issues.
 - **Rulesets** on `main` and `users/*/feature-*`: a PR required, the `Build` check
@@ -1101,8 +1113,8 @@ description rather than mechanism:
   needs the maintainer's bypass.
 - **Your machine** set up: `git` and Git Bash, `gh`, `jq`, `node`, `claude` signed in
   to your Pro account, the .NET SDK and LocalDB.
-- **The old issues closed**, each with a comment naming the document its design lives
-  in.
+- **Decision record `0002`** (#1381 step 6), carrying every deviation approved before
+  the move as a `**Deviation:**` line, so `scripts/list-deviations.sh` finds them.
 - **The Global Rules issue**, filed lean with a **Legacy rules** index over the old
   global sections not yet ported, and the presentation component rules in full,
   reviewed by QA and approved by the maintainer. Until then the planner has nothing to

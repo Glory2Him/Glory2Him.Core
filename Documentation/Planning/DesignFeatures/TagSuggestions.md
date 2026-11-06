@@ -1,5 +1,5 @@
 # Tag suggestions
-Epic: [INTENT.md](../../INTENT.md)
+Epic: [INTENT.md](../../../INTENT.md)
 Inherits: §APR9.2, §APR9.7.1 rules 1 and 2, §ARC12.1 rules 1–3, §ARC12.2.1 rules 1, 3, 5 and 6, §ARC12.3.1 rules 2a, 5 and 5a, §ARC12.5 (*an orchestration holds brokers*, and the two-to-three rule), §ARC12.5.2 rule 6 (`Association-Adding`'s write flow), §ARC16.2.1, §ARC16.2.2, §ARC16.8.1, §ARC17.2 (shape versus served literal), §ARC17.4, §DOM4.4 rule 4, §DOM4.5, §DOM4.6, §EVN13 rule 3, §EVN18 rule 1, §SEC14.3, §SEC14.5, §SEC14.6, §SEC14.7 posture A rules 1 and 4 and posture A′ rule 1, RejectedEndpoints.md rules 1, 10 and 12
 Mockups: none. The *Suggest a tag* box is built (`Design/UI/Components/AssociationPanel.TagAssociationPanel.md`); this feature writes what it sends.
 Design task: #1356

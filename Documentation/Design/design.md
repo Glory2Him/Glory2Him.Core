@@ -1,318 +1,42 @@
 # Design
 
-How this system is built: layer placement, entity boundaries, event contracts,
-the security boundary, storage and migration shape. `INTENT.md` says what the
-system is for; the design says how it is put together.
+> **Nothing has been released under this workflow yet.** The releaser replaces this
+> file at the first release under this workflow.
 
-**The design is authoritative.** An issue that disagrees with it is stale intent,
-not an instruction — correct the issue.
+This folder is the releaser's. At every release it writes the formal documentation
+of the system as released, from three sources only:
 
-This file is the index to the design. It holds no design of its own: it says
-where each part of the design lives, and the conventions every design document
-follows. The planner writes the design. Nobody else does.
+- `INTENT.md` — what the system is for;
+- the **Global Rules** issue — the rules every feature inherits, and the terms they
+  use;
+- the **feature issues** released so far — their bodies, their user stories and the
+  images and diagrams attached to them.
 
----
+Never edit anything here by hand: change the source and release. No other agent
+reads this folder as a source — the planner, developer and QA work from the issues —
+and nothing here is built from `Documentation/Diagrams/`, which is a scratchpad, or
+`Documentation/Planning/`, which holds documents from before the issue-based workflow.
 
-## How the work breaks down
+## Layout
 
-| Level | What it is | Example | Where it lives |
-| --- | --- | --- | --- |
-| **Epic** | the whole product | Glory2Him | `INTENT.md`, and the global documents below |
-| **Feature** | something that ships and works on its own | Saved searches | a feature document, `DesignFeatures/<Feature>.md` |
-| **Sub-feature** | a part of a feature too large to plan in one go, coherent on its own | Search alerts, inside Saved searches | a sub-feature document, `DesignFeatures/<SubFeature>.md`, naming its parent feature |
-| **User story** | one component at one level — it can do something, but need not work on its own | the saved-search foundation service; a master page | a user story document, `DesignFeatures/Backend/<Level>/<Story>.md` or `DesignFeatures/UI/<Level>/<Story>.md`, naming its parent feature or sub-feature |
-| **Task** | one operation of a user story | `ISavedSearchService.AddSavedSearchAsync` | a GitHub issue, naming its parent user story |
-
-A presentation component's documents live under `Design/UI/Components/` instead, as §UI20.6.4
-rules: a root component is a feature, `<Root>.md`, and each of its child components a user
-story, `<Root>.<Child>.md`.
-
-A feature is built by several user stories, usually at several levels — a storage
-broker, a foundation service, a controller, a page. A user story never spans
-levels, so it is always either backend or UI. Its operations are its tasks, and
-each task is one GitHub issue carrying its own sign-off checklist.
-
-A feature can span several screens, and each screen is its own user story. A user
-portal is one feature: its master page and its detail page are two UI user
-stories, and the operations they offer between them — add a user, search for a
-user, view, modify and remove one — are their tasks.
-
-**Every level names its parent.** A sub-feature document names its feature and a
-user story document names its feature or sub-feature, on a `Parent:` line — its
-folder shows its level, not its parent. A task names its user story, on its
-`User story:` line. Each parent lists its children in turn.
-
-**Level folders.** Under `Backend/` and `UI/`, each user story sits in the folder its
-level has in code, so a story is found where its code is:
-
-| Side | Folders |
-| --- | --- |
-| `Backend/` | `Brokers`, `Foundations`, `Processings`, `Orchestrations`, `Coordinations`, `Controllers`, `Hubs` for a SignalR hub, the exposer a live connection reaches (§ARC12.12), `Clients`, and `Models` for a story that changes a model alone |
-| `UI/` | `Brokers`, `Foundations`, `Views`, `Hooks`, and `Models` for a story that changes a model alone |
-
-Any other level takes the name The Standard gives its folder, and a folder is created
-with its first user story. This repository documents its presentation components and
-its pages elsewhere — under `Design/UI/Components/` and `Design/UI/Pages/` (§UI20.6.4,
-§UI20.5.1) — so `UI/` has no `Components` or `Pages` folder, and a citation such as
-`UI/Pages/Home.md` can only mean the page document.
-
-**A component that a second feature adds operations to gets a second user story document.** A
-user story is one component's work for one feature, and names one parent. So the second
-feature's work on a component that already has a user story document goes in a document of its
-own, in the same level folder, named `<Component>.<Feature>.md` and naming that feature as its
-parent. `Backend/Foundations/ContentItemService.LiveUpdates.md` stands beside the Likes feature's
-`Backend/Foundations/ContentItemService.md`, and each feature lists its own.
-
-Writing or changing design documents is work too, tracked as a **design task** — a
-`DESIGN:` issue.
-
----
-
-## Map
-
-### Epic — the rules every feature inherits
-
-| Document | Prefix | Governs |
-| --- | --- | --- |
-| [G2H Design.md](<../G2H Design.md>) | `IDX` | the design overview and principles, the numbering and citation rules (§IDX1.5), and the map from every pre-split section number to the file it lives in now |
-| [Architecture.md](Architecture.md) | `ARC` | the layer model, per-service responsibilities, and the API surface |
-| [Security.md](Security.md) | `SEC` | visibility, enforcement posture, authentication and authorisation |
-| [Events.md](Events.md) | `EVN` | event naming, addressing, the envelope, and the substrate |
-| [Domain.md](Domain.md) | `DOM` | the entity model: content, associations, supporting entities, settings, topic and feed, SEO |
-
-### Areas designed before feature documents
-
-| Document | Prefix | Governs |
-| --- | --- | --- |
-| [Approval.md](Approval.md) | `APR` | the approval entity, its settings, its lifecycle, and AI content analysis |
-| [UI.md](UI.md) | `UI` | the React application's pages, components, navigation and authentication |
-
-These two hold feature-level design in the area layout, because they were written
-before features had documents of their own. A new feature gets a feature document.
-
-### Features
-
-Add each feature as its document is written, with its sub-features and user
-stories beside it:
-
-| Feature | Sub-features | User stories |
-| --- | --- | --- |
-| [Likes.md](../DesignFeatures/Likes.md) | none | [Backend/Clients/StorageClient.md](../DesignFeatures/Backend/Clients/StorageClient.md), [Backend/Brokers/StorageBroker.md](../DesignFeatures/Backend/Brokers/StorageBroker.md), [Backend/Brokers/AccessBroker.md](../DesignFeatures/Backend/Brokers/AccessBroker.md), [Backend/Models/EntityTypePersonalisation.md](../DesignFeatures/Backend/Models/EntityTypePersonalisation.md), [Backend/Models/Reaction.md](../DesignFeatures/Backend/Models/Reaction.md), [Backend/Models/Association.md](../DesignFeatures/Backend/Models/Association.md), [Backend/Foundations/ContentItemService.md](../DesignFeatures/Backend/Foundations/ContentItemService.md), [Backend/Foundations/ReactionService.md](../DesignFeatures/Backend/Foundations/ReactionService.md), [Backend/Foundations/AssociationService.md](../DesignFeatures/Backend/Foundations/AssociationService.md), [Backend/Orchestrations/AssociationOrchestrationService.md](../DesignFeatures/Backend/Orchestrations/AssociationOrchestrationService.md), [Backend/Orchestrations/ApprovalOrchestrationService.md](../DesignFeatures/Backend/Orchestrations/ApprovalOrchestrationService.md), [Backend/Controllers/AssociationsController.md](../DesignFeatures/Backend/Controllers/AssociationsController.md), [UI/Brokers/AssociationBroker.md](../DesignFeatures/UI/Brokers/AssociationBroker.md), [UI/Foundations/AssociationService.md](../DesignFeatures/UI/Foundations/AssociationService.md), [UI/Views/ContentItemReactionOption.md](../DesignFeatures/UI/Views/ContentItemReactionOption.md), [UI/Views/ChosenReactionSummary.md](../DesignFeatures/UI/Views/ChosenReactionSummary.md), [UI/Hooks/SignIn.md](../DesignFeatures/UI/Hooks/SignIn.md), [UI/Hooks/ContentItemEngagement.md](../DesignFeatures/UI/Hooks/ContentItemEngagement.md) |
-| [UI.md §UI20.8](UI.md), authentication, designed before feature documents | none | [UI/Hooks/SignInReturn.md](../DesignFeatures/UI/Hooks/SignInReturn.md), [UI/Foundations/PasskeyService.Authentication.md](../DesignFeatures/UI/Foundations/PasskeyService.Authentication.md) |
-| [Approval.md §APR8.6](Approval.md), self-approval rules, designed before feature documents — HR-5 and the amender record (§APR8.6.3) | none | [Backend/Models/IAmendment.md](../DesignFeatures/Backend/Models/IAmendment.md), [Backend/Foundations/ContentItemService.Amenders.md](../DesignFeatures/Backend/Foundations/ContentItemService.Amenders.md), [Backend/Foundations/LinkService.md](../DesignFeatures/Backend/Foundations/LinkService.md), [Backend/Foundations/TagService.md](../DesignFeatures/Backend/Foundations/TagService.md), [Backend/Foundations/ReactionService.Amenders.md](../DesignFeatures/Backend/Foundations/ReactionService.Amenders.md), [Backend/Foundations/CommentService.md](../DesignFeatures/Backend/Foundations/CommentService.md), [Backend/Foundations/BibleReferenceService.md](../DesignFeatures/Backend/Foundations/BibleReferenceService.md), [Backend/Brokers/StorageBroker.Amenders.md](../DesignFeatures/Backend/Brokers/StorageBroker.Amenders.md), [Backend/Clients/AccessClient.md](../DesignFeatures/Backend/Clients/AccessClient.md), [Backend/Brokers/AccessBroker.Amenders.md](../DesignFeatures/Backend/Brokers/AccessBroker.Amenders.md), [Backend/Orchestrations/ApprovalOrchestrationService.Amenders.md](../DesignFeatures/Backend/Orchestrations/ApprovalOrchestrationService.Amenders.md), [Backend/Orchestrations/ApprovalReviewerOrchestrationService.md](../DesignFeatures/Backend/Orchestrations/ApprovalReviewerOrchestrationService.md), [UI/Models/ContentItem.md](../DesignFeatures/UI/Models/ContentItem.md) |
-| [UI.md §UI20.9](UI.md), services and brokers, designed before feature documents | [BrokersHoldNoLogic.md](../DesignFeatures/BrokersHoldNoLogic.md) | [UI/Brokers/ApiBroker.md](../DesignFeatures/UI/Brokers/ApiBroker.md), [UI/Brokers/ReactionBroker.md](../DesignFeatures/UI/Brokers/ReactionBroker.md), [UI/Brokers/ContentItemBroker.md](../DesignFeatures/UI/Brokers/ContentItemBroker.md), [UI/Brokers/ContentItemSettingBroker.md](../DesignFeatures/UI/Brokers/ContentItemSettingBroker.md), [UI/Brokers/ApprovalBroker.md](../DesignFeatures/UI/Brokers/ApprovalBroker.md), [UI/Brokers/ApprovalCommentBroker.md](../DesignFeatures/UI/Brokers/ApprovalCommentBroker.md), [UI/Brokers/ApprovalSettingBroker.md](../DesignFeatures/UI/Brokers/ApprovalSettingBroker.md), [UI/Brokers/AIReviewerBroker.md](../DesignFeatures/UI/Brokers/AIReviewerBroker.md), [UI/Brokers/PasskeyBroker.md](../DesignFeatures/UI/Brokers/PasskeyBroker.md), [UI/Brokers/PostBroker.md](../DesignFeatures/UI/Brokers/PostBroker.md), [UI/Foundations/NetworkStatusService.md](../DesignFeatures/UI/Foundations/NetworkStatusService.md), [UI/Foundations/ReactionService.md](../DesignFeatures/UI/Foundations/ReactionService.md), [UI/Foundations/ContentItemService.md](../DesignFeatures/UI/Foundations/ContentItemService.md), [UI/Foundations/ContentItemSettingService.md](../DesignFeatures/UI/Foundations/ContentItemSettingService.md), [UI/Foundations/ApprovalService.md](../DesignFeatures/UI/Foundations/ApprovalService.md), [UI/Foundations/ApprovalCommentService.md](../DesignFeatures/UI/Foundations/ApprovalCommentService.md), [UI/Foundations/ApprovalSettingService.md](../DesignFeatures/UI/Foundations/ApprovalSettingService.md), [UI/Foundations/PasskeyService.md](../DesignFeatures/UI/Foundations/PasskeyService.md), [UI/Foundations/PostService.md](../DesignFeatures/UI/Foundations/PostService.md), [UI/Hooks/OnlineStatus.md](../DesignFeatures/UI/Hooks/OnlineStatus.md) |
-| [PostModeration.md](../DesignFeatures/PostModeration.md) | none | [UI/Pages/ContentItemModerationDetailPage.md](UI/Pages/ContentItemModerationDetailPage.md) and [UI/Pages/AssociationModerationDetailPage.md](UI/Pages/AssociationModerationDetailPage.md), its two screens, in the page documents below; [UI/Brokers/TagBroker.md](../DesignFeatures/UI/Brokers/TagBroker.md), [UI/Foundations/TagService.md](../DesignFeatures/UI/Foundations/TagService.md), [UI/Brokers/BibleReferenceBroker.md](../DesignFeatures/UI/Brokers/BibleReferenceBroker.md), [UI/Foundations/BibleReferenceService.md](../DesignFeatures/UI/Foundations/BibleReferenceService.md); and for the confidence suggestion, [Backend/Clients/AccessClient.PostModeration.md](../DesignFeatures/Backend/Clients/AccessClient.PostModeration.md), [Backend/Brokers/AccessBroker.PostModeration.md](../DesignFeatures/Backend/Brokers/AccessBroker.PostModeration.md), [Backend/Orchestrations/AIReviewerOrchestrationService.md](../DesignFeatures/Backend/Orchestrations/AIReviewerOrchestrationService.md), [Backend/Controllers/AIReviewersController.md](../DesignFeatures/Backend/Controllers/AIReviewersController.md), [UI/Brokers/AIReviewerBroker.PostModeration.md](../DesignFeatures/UI/Brokers/AIReviewerBroker.PostModeration.md), [UI/Foundations/AIReviewerService.md](../DesignFeatures/UI/Foundations/AIReviewerService.md) |
-| [AssociationReads.md](../DesignFeatures/AssociationReads.md) | none | [Backend/Foundations/AssociationService.AssociationReads.md](../DesignFeatures/Backend/Foundations/AssociationService.AssociationReads.md), [Backend/Controllers/AssociationsController.AssociationReads.md](../DesignFeatures/Backend/Controllers/AssociationsController.AssociationReads.md), [UI/Brokers/AssociationBroker.AssociationReads.md](../DesignFeatures/UI/Brokers/AssociationBroker.AssociationReads.md), [UI/Foundations/AssociationService.AssociationReads.md](../DesignFeatures/UI/Foundations/AssociationService.AssociationReads.md) |
-| [BereanReview.md](../DesignFeatures/BereanReview.md) | [ConfidenceReads.md](../DesignFeatures/ConfidenceReads.md) | [Backend/Clients/AccessClient.BereanReview.md](../DesignFeatures/Backend/Clients/AccessClient.BereanReview.md), [Backend/Models/ApprovalSetting.md](../DesignFeatures/Backend/Models/ApprovalSetting.md), [Backend/Models/IApproval.md](../DesignFeatures/Backend/Models/IApproval.md), [Backend/Models/AIReviewerAssignment.md](../DesignFeatures/Backend/Models/AIReviewerAssignment.md), [Backend/Foundations/ContentItemService.BereanReview.md](../DesignFeatures/Backend/Foundations/ContentItemService.BereanReview.md), [Backend/Foundations/LinkService.BereanReview.md](../DesignFeatures/Backend/Foundations/LinkService.BereanReview.md), [Backend/Foundations/TagService.BereanReview.md](../DesignFeatures/Backend/Foundations/TagService.BereanReview.md), [Backend/Foundations/ReactionService.BereanReview.md](../DesignFeatures/Backend/Foundations/ReactionService.BereanReview.md), [Backend/Foundations/CommentService.BereanReview.md](../DesignFeatures/Backend/Foundations/CommentService.BereanReview.md), [Backend/Foundations/BibleReferenceService.BereanReview.md](../DesignFeatures/Backend/Foundations/BibleReferenceService.BereanReview.md), [Backend/Foundations/AssociationService.BereanReview.md](../DesignFeatures/Backend/Foundations/AssociationService.BereanReview.md), [Backend/Foundations/AIReviewerAssignmentService.md](../DesignFeatures/Backend/Foundations/AIReviewerAssignmentService.md), [Backend/Brokers/AccessBroker.BereanReview.md](../DesignFeatures/Backend/Brokers/AccessBroker.BereanReview.md), [Backend/Orchestrations/AIReviewerOrchestrationService.BereanReview.md](../DesignFeatures/Backend/Orchestrations/AIReviewerOrchestrationService.BereanReview.md), [Backend/Orchestrations/ApprovalOrchestrationService.BereanReview.md](../DesignFeatures/Backend/Orchestrations/ApprovalOrchestrationService.BereanReview.md), [UI/Models/ApprovalSetting.md](../DesignFeatures/UI/Models/ApprovalSetting.md), [UI/Foundations/ApprovalSettingService.BereanReview.md](../DesignFeatures/UI/Foundations/ApprovalSettingService.BereanReview.md), [UI/Foundations/AIReviewerService.BereanReview.md](../DesignFeatures/UI/Foundations/AIReviewerService.BereanReview.md); and the gaps it records in [UI/Components/ReviewPanel.md](UI/Components/ReviewPanel.md) §10 item 16 and [UI/Pages/ContentItemModerationDetailPage.md](UI/Pages/ContentItemModerationDetailPage.md) §6 items 22–24 |
-| [ConfidenceReads.md](../DesignFeatures/ConfidenceReads.md), a sub-feature of BereanReview.md | none | [Backend/Foundations/ContentItemService.ConfidenceReads.md](../DesignFeatures/Backend/Foundations/ContentItemService.ConfidenceReads.md), [Backend/Foundations/LinkService.ConfidenceReads.md](../DesignFeatures/Backend/Foundations/LinkService.ConfidenceReads.md), [Backend/Foundations/TagService.ConfidenceReads.md](../DesignFeatures/Backend/Foundations/TagService.ConfidenceReads.md), [Backend/Foundations/ReactionService.ConfidenceReads.md](../DesignFeatures/Backend/Foundations/ReactionService.ConfidenceReads.md), [Backend/Foundations/CommentService.ConfidenceReads.md](../DesignFeatures/Backend/Foundations/CommentService.ConfidenceReads.md), [Backend/Foundations/BibleReferenceService.ConfidenceReads.md](../DesignFeatures/Backend/Foundations/BibleReferenceService.ConfidenceReads.md), [Backend/Models/Association.ConfidenceReads.md](../DesignFeatures/Backend/Models/Association.ConfidenceReads.md), [Backend/Foundations/AssociationService.ConfidenceReads.md](../DesignFeatures/Backend/Foundations/AssociationService.ConfidenceReads.md), [Backend/Processings/ContentItemProcessingService.ConfidenceReads.md](../DesignFeatures/Backend/Processings/ContentItemProcessingService.ConfidenceReads.md), [Backend/Processings/LinkProcessingService.ConfidenceReads.md](../DesignFeatures/Backend/Processings/LinkProcessingService.ConfidenceReads.md) |
-| [LiveUpdates.md](../DesignFeatures/LiveUpdates.md) | none | [Backend/Models/LiveUpdate.md](../DesignFeatures/Backend/Models/LiveUpdate.md), [Backend/Brokers/LiveUpdateBroker.md](../DesignFeatures/Backend/Brokers/LiveUpdateBroker.md), [Backend/Foundations/LiveUpdateService.md](../DesignFeatures/Backend/Foundations/LiveUpdateService.md), [Backend/Foundations/ContentItemService.LiveUpdates.md](../DesignFeatures/Backend/Foundations/ContentItemService.LiveUpdates.md), [Backend/Orchestrations/LiveUpdateOrchestrationService.md](../DesignFeatures/Backend/Orchestrations/LiveUpdateOrchestrationService.md), [Backend/Hubs/LiveUpdatesHub.md](../DesignFeatures/Backend/Hubs/LiveUpdatesHub.md), [UI/Brokers/LiveUpdateBroker.md](../DesignFeatures/UI/Brokers/LiveUpdateBroker.md), [UI/Foundations/LiveUpdateService.md](../DesignFeatures/UI/Foundations/LiveUpdateService.md) |
-| [SoftDeletion.md](../DesignFeatures/SoftDeletion.md) | none | [Backend/Foundations/ContentItemService.SoftDeletion.md](../DesignFeatures/Backend/Foundations/ContentItemService.SoftDeletion.md), [Backend/Foundations/LinkService.SoftDeletion.md](../DesignFeatures/Backend/Foundations/LinkService.SoftDeletion.md), [Backend/Foundations/TagService.SoftDeletion.md](../DesignFeatures/Backend/Foundations/TagService.SoftDeletion.md), [Backend/Foundations/ReactionService.SoftDeletion.md](../DesignFeatures/Backend/Foundations/ReactionService.SoftDeletion.md), [Backend/Foundations/CommentService.SoftDeletion.md](../DesignFeatures/Backend/Foundations/CommentService.SoftDeletion.md), [Backend/Foundations/BibleReferenceService.SoftDeletion.md](../DesignFeatures/Backend/Foundations/BibleReferenceService.SoftDeletion.md), [Backend/Foundations/AssociationService.SoftDeletion.md](../DesignFeatures/Backend/Foundations/AssociationService.SoftDeletion.md), [Backend/Brokers/StorageBroker.SoftDeletion.md](../DesignFeatures/Backend/Brokers/StorageBroker.SoftDeletion.md), [Backend/Processings/ContentItemProcessingService.SoftDeletion.md](../DesignFeatures/Backend/Processings/ContentItemProcessingService.SoftDeletion.md), [Backend/Processings/LinkProcessingService.SoftDeletion.md](../DesignFeatures/Backend/Processings/LinkProcessingService.SoftDeletion.md) |
-| [RejectedEndpoints.md](../DesignFeatures/RejectedEndpoints.md) | none | [Backend/Orchestrations/AssociationOrchestrationService.RejectedEndpoints.md](../DesignFeatures/Backend/Orchestrations/AssociationOrchestrationService.RejectedEndpoints.md); and the post card's gap, [UI/Components/ContentItemPanel.md](UI/Components/ContentItemPanel.md) §10 item 29 |
-| [TagSuggestions.md](../DesignFeatures/TagSuggestions.md) | none | [Backend/Brokers/StorageBroker.TagSuggestions.md](../DesignFeatures/Backend/Brokers/StorageBroker.TagSuggestions.md), [Backend/Foundations/TagService.TagSuggestions.md](../DesignFeatures/Backend/Foundations/TagService.TagSuggestions.md), [Backend/Orchestrations/AssociationOrchestrationService.TagSuggestions.md](../DesignFeatures/Backend/Orchestrations/AssociationOrchestrationService.TagSuggestions.md), [Backend/Controllers/AssociationsController.TagSuggestions.md](../DesignFeatures/Backend/Controllers/AssociationsController.TagSuggestions.md), [UI/Brokers/AssociationBroker.TagSuggestions.md](../DesignFeatures/UI/Brokers/AssociationBroker.TagSuggestions.md), [UI/Foundations/AssociationService.TagSuggestions.md](../DesignFeatures/UI/Foundations/AssociationService.TagSuggestions.md); and the two pages' gaps, [UI/Pages/PostDetail.md](UI/Pages/PostDetail.md) §6 item 17 and [UI/Pages/MyPostDetail.md](UI/Pages/MyPostDetail.md) §6 item 18 |
-
-### Presentation components
-
-The component documents of §UI20.6.4, in a table of their own because the table above lists
-product features under `DesignFeatures/`. Each root component is a feature, and its child
-components are its user stories.
-
-| Root component (feature) | Child components (user stories) |
-| --- | --- |
-| [UI/Components/AssociationDetailPanel.md](UI/Components/AssociationDetailPanel.md) | none |
-| [UI/Components/AssociationPanel.md](UI/Components/AssociationPanel.md) | [AssociationPanel.TagAssociationPanel.md](UI/Components/AssociationPanel.TagAssociationPanel.md), [AssociationPanel.BibleReferenceAssociationPanel.md](UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md) |
-| [UI/Components/ContentItemListPanel.md](UI/Components/ContentItemListPanel.md) | [ContentItemListPanel.ContentItemSearchBarPanel.md](UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md), [ContentItemListPanel.ContentItemResultsPanel.md](UI/Components/ContentItemListPanel.ContentItemResultsPanel.md) |
-| [UI/Components/ContentItemPanel.md](UI/Components/ContentItemPanel.md) | [ContentItemPanel.Add.md](UI/Components/ContentItemPanel.Add.md), [ContentItemPanel.Restricted.md](UI/Components/ContentItemPanel.Restricted.md), [ContentItemPanel.Edit.md](UI/Components/ContentItemPanel.Edit.md), [ContentItemPanel.Default.md](UI/Components/ContentItemPanel.Default.md), [ContentItemPanel.ContentItemQuotesPanel.md](UI/Components/ContentItemPanel.ContentItemQuotesPanel.md), [ContentItemPanel.ContentItemVerseImagePanel.md](UI/Components/ContentItemPanel.ContentItemVerseImagePanel.md) |
-| [UI/Components/ContentItemSettingsPanel.md](UI/Components/ContentItemSettingsPanel.md) | none |
-| [UI/Components/ReviewCommentPanel.md](UI/Components/ReviewCommentPanel.md) | none |
-| [UI/Components/ReviewPanel.md](UI/Components/ReviewPanel.md) | none |
-| [UI/Components/SharingPanel.md](UI/Components/SharingPanel.md) | none |
-
-### Page documents
-
-The page documents of §UI20.5.1, one per product page that renders the presentation components
-above: its layout, the components it renders, and where each of their hooks leads. The sample
-pages under `/SamplePages` demonstrate the components and have none, and neither has the ported
-template's blog — `/Post-Single`, `/Author`, `/Categories`, `/Tag`, `/Post-Grid`, `/Post-List`,
-`/Post-Grid-Masonry-Filter`, the demo `/Search` and the blog's own `/Search-Result` — which is
-sample material counted among them, each page of it to move under `/SamplePages` (§UI20.5.1).
-
-| Page document | Route | Section |
-| --- | --- | --- |
-| [UI/Pages/Home.md](UI/Pages/Home.md) | `/` | user |
-| [UI/Pages/Posts.md](UI/Pages/Posts.md) | `/posts` | user |
-| [UI/Pages/PostDetail.md](UI/Pages/PostDetail.md) | `/posts/{contentItemId}` | user |
-| [UI/Pages/Contribute.md](UI/Pages/Contribute.md) | `/posts/contribute` | user |
-| [UI/Pages/BibleReference.md](UI/Pages/BibleReference.md) | `/BibleReferences`, `/BibleReferences/{reference}` | user |
-| [UI/Pages/MyPosts.md](UI/Pages/MyPosts.md) | `/myposts` | user |
-| [UI/Pages/MyPostDetail.md](UI/Pages/MyPostDetail.md) | `/myposts/{contentItemId}` | user |
-| [UI/Pages/ContentItemModerationPage.md](UI/Pages/ContentItemModerationPage.md) | `/Admin/Posts` | admin (moderation) |
-| [UI/Pages/ContentItemModerationDetailPage.md](UI/Pages/ContentItemModerationDetailPage.md) | `/Admin/Posts/{contentItemId}` | admin (moderation) |
-| [UI/Pages/AssociationModerationDetailPage.md](UI/Pages/AssociationModerationDetailPage.md) | `/Admin/Posts/{contentItemId}/Associations/{associationId}` | admin (moderation) |
-
----
-
-## Conventions
-
-**Epic, feature or user story — decide before writing.** A rule every feature must
-follow — how a service implements eventing, how identity travels, how a user
-authenticates — belongs to the epic, in the global document that owns its area.
-What one feature does belongs in its feature document, and what one component does
-in its user story document. A global document stays global: the screens a security
-rule needs, such as sign-in or 2FA, are UI user stories that cite `Security.md`,
-not UI written into it.
-
-**Inherit, never duplicate.** Feature and user story documents inherit every global
-rule, and a user story inherits its feature's business rules. They cite the rule —
-`per §EVN2`, `per SavedSearches.md rule 3` — and never restate it: a copy is a
-second statement that will drift from the first.
-
-**Record every deviation where it happens.** A feature or user story that must
-depart from a global rule says so in its document's **Deviations** section: the
-rule it departs from, the reason, and how it is done instead. A service's own
-deviation, such as a count over two-to-three, goes in its user story document's,
-as §ARC12.5 says. The planner proposes
-a deviation and the user's approval grants it. Another document's deviation is
-never the reason for one. A service designed before feature documents has no such
-section, so its approved two-to-three deviation is recorded in §ARC12.5's register
-instead. That register holds two-to-three deviations only.
-
-**Numbering and citation.** A feature document numbers its business rules, and a
-user story document numbers its operation sections. Number rules within a section
-too, so a citation can say which one it means. §IDX1.5 gives the citation form
-for every design document, feature and user story documents included:
-
-```csharp
-// design §EVN2 rule 5: a service publishes a fact only about its own unit of work
-// design SavedSearches.md rule 3
-// design Backend/Foundations/SavedSearchService.md §1
+```
+Documentation/Design/
+  design.md                                  epic level: what the system is for, a summary
+                                             of the global rules, and every feature
+                                             released under this workflow, with a link
+                                             to its document
+  Features/<FeatureName>/<FeatureName>.md    one feature as released: outcome, business
+                                             rules, roles, user stories, events, storage
+  Features/<FeatureName>/assets/             the screenshots and diagrams attached to the
+                                             feature issue, linked or embedded above
 ```
 
-**Every operation section in a user story document carries exactly one tag,
-never bare:**
+`<FeatureName>` is the feature issue's title in PascalCase. Diagrams are Mermaid,
+written by the releaser, or the images attached to the issue.
 
-<!-- Indented so that a line-based reader, such as the `(needs issue)` sweep,
-     does not take these two example lines for headings. Do not dedent. -->
-```markdown
-  ## 1. AddSavedSearchAsync (#512)
-  ## 2. RemoveSavedSearchByIdAsync (needs issue)
-```
-
-`(#N)` names the task — the GitHub issue — that delivers the operation.
-`(needs issue)` is an explicit, greppable flag for an operation nobody has
-scheduled yet, and is what the planner's sweep mode looks for:
-
-```bash
-grep -rnE --include=*.md "^#{2,3} .*\(needs issue\)" Documentation/DesignFeatures
-```
-
-The tag is mandatory rather than inferred, because a bare heading is ambiguous —
-deliberately skipped, or just missed? Requiring the tag forces the decision every
-time an operation is touched.
-
-**A component document tags its gaps, not operations.** A presentation
-component's document (§UI20.6.4) has no operation sections. What it records that
-needs a task — a behaviour gap, a stale sample page or code comment, a test to
-rename — is an item of the numbered list in its section 10, and carries the tag
-straight after the item's number, before anything else on the line:
-
-<!-- Indented so that a line-based reader, such as the sweep below, does not take
-     these two example lines for tagged items. Do not dedent. -->
-```markdown
-  3. (needs issue) **Berean's re-request control is ungated.** …
-  4. (#512) **The doc page needs updating.** …
-```
-
-`(needs issue)` becomes `(#N)` once the task exists, as an operation's tag does. A
-question for the user carries no tag: it becomes work, and takes one, only once it
-is answered. A page document (§UI20.5.1) tags the items of its section 6 the same
-way, and so does `UI.md` its gaps — the list of building-block gaps under §UI20.6.4, the
-ported blog's under §UI20.5.1, the account pages' under §UI20.8.1, and the live
-connection's under §UI20.10. One sweep covers the component documents, the page
-documents and `UI.md`:
-
-```bash
-grep -rnE --include=*.md "^[0-9]+\. \(needs issue\)" Documentation/Design/UI/Components Documentation/Design/UI/Pages Documentation/Design/UI.md
-```
-
-**A gap that a design task holds carries that task's number** (user ruling 2026-09-27). Where a
-`DESIGN:` issue already holds a gap — its design settles the work, and the tasks that build it are
-carved only after it — the item carries the design issue's number instead of `(needs issue)`, so
-the sweep above, which finds only `(needs issue)`, does not carve a task that duplicates it. For
-example: `(#700)`, *Design The Bible Reference Page*, on
-`UI/Pages/BibleReference.md §6 items 1–4, 6 and 7` and on the unreadable-reference gap of five
-other page documents (`UI/Pages/Home.md §6 item 14` and the items it names). When the design
-issue closes, its designed work gets tasks, and anything it leaves unbuilt goes back to `(needs issue)`, so the sweep finds it again.
-`(#702)`, *Push Live Updates To Open Pages*, held the live-update gap of seven page documents until
-its design carved the task that builds it, which those items now carry
-(`UI/Pages/Home.md §6 item 11` and the items it names). `(#863)`, *Design The Confidence Thresholds
-Read*, held `UI/Pages/AssociationModerationDetailPage.md §6 item 19` until its design carved the
-task that builds it, which that item now carries. `(#701)`, *Record Who Amended An Item's
-Content*, held `UI/Components/ReviewPanel.md §10 item 10` until its design carved the tasks that
-build the server half, which carry the operation sections §APR8.6.3 rule 11 lists; that item is now
-a note that points at them.
-
-**A gap that is built stays in its list** (user rulings 2026-10-09, under #838). This holds for
-every gap list the paragraphs above name, and for a numbered business rule of a feature document
-that carries a task's tag the way a gap does, such as `DesignFeatures/Likes.md` rule 12.
-
-1. **All of it built.** An item is built once the task its tag names has delivered it. An item whose
-   tag names a `DESIGN:` issue follows the paragraph above instead, and is not built when that
-   issue closes.
-   A built item stays in its list and keeps its number, so nothing is renumbered and every
-   citation of it still finds it. Its tag gives way to `Built` and the number of the task that
-   built it, in the same place, straight after the item's number:
-
-   <!-- Indented so that a line-based reader, such as the sweep above, does not take this example
-        line for a built item. Do not dedent. -->
-   ```markdown
-     4. Built (#512) **The doc page matches the component.** …
-   ```
-
-   Neither the `(needs issue)` sweep above nor a search for a tag where an item carries it,
-   straight after the item's number, finds a built item. A plain search for `(#N)` still finds
-   the `Built (#N)` of the item that task built. A tagged business rule, once built, loses its tag
-   and stays a rule, with its number.
-2. **Part of it built.** The item keeps its number and its tag, and records what is built and what
-   is not on separate lines, **Built:** and **Not yet built:**, as `UI/Pages/Home.md §6 item 3`
-   does. One exception is accepted (user ruling 2026-10-09). #739 builds part of the seven page
-   reaction gaps, whose tags name #741–#747, and its criterion 21 records that part in a form of
-   its own: the item is retitled to what is left, and its text is rewritten, with no **Built:** or
-   **Not yet built:** line. Where #739 has recorded an item that way, the item keeps that form
-   until its own task marks it built. If #739 reaches `main` before this paragraph does, the
-   design change that adds this paragraph (#838) brings those items to the form above instead,
-   and none keeps criterion 21's form.
-3. **What points at it.** A `≠` marker (§UI20.6.4) and a page document's ❌ No cell in section 4
-   (§UI20.5.1) answer to the rule or the row they sit on. Once a build meets all of that rule or
-   row, the marker comes off and the ❌ No cell turns ✅ Yes, with its file and line. While any part
-   of what the rule or row asks is unbuilt, the marker and the ❌ No stay, and the cell's reason
-   narrows to what is left. The ruling follows #739's criterion 21, which does both on the §4
-   `onReactionSelected` row of the seven page documents: on the four pages no signed-out reader
-   reaches it takes the marker off and turns the cell ✅ Yes, leaving their reaction gaps open for
-   the cards' counts, and on the other three it keeps both and narrows the cell's reason. A line a
-   build records, in such a cell or anywhere else, names a commit of the delivering pull request's
-   branch at which the file reads so, in the form `lines 328-332 at 70dc72e7`: a page document
-   reads every line that names no commit at the commit its header gives (*Line numbers are at
-   70dc72e7.*), and a recorded line is not at that commit. #739's criterion 21 pins its lines so
-   too: point 2's exception covers the form of its gap records, not its lines (user ruling
-   2026-10-09, under #838).
-4. **Text elsewhere.** Text that the build makes untrue is rewritten in the same change, wherever
-   it stands: the item's own, another item that takes its evidence from it, prose that says a rule
-   is not yet built, and a sentence that names the item as where the same gap stands on another
-   page.
-5. **Who records it, and when.** The task that delivers the gap records the build, inside its own
-   pull request, in words the planner fixes in one of that task's criteria, as #739's criterion 15
-   does. The planner writes those words when it writes the task, and before an open task is built.
-   So the planner still writes the design (above, *The planner writes the design. Nobody else
-   does.*): the developer makes the edit in the words the planner fixed. And the delivering pull
-   request leaves no line it makes untrue, which `.claude/agents/qa.md` check 9, *Retired claims*, asks
-   of every pull request. A line the build makes untrue that the task's criterion does not name is a criterion
-   missing from the task, and goes to the planner.
-
-**Relocations.** §IDX1.5 rules how a relocated section is annotated, so that a
-citation of its old number still resolves by grep, and where a retired number
-may still stand. Nothing in CI validates
-citations. `Tools/design-split-audit.sh` checks their form (gate G4) when someone
-runs it by hand; otherwise the annotation convention is the whole guarantee.
-
-**Keep the map current.** A document this index does not list is one nobody
-finds.
+A repository moved onto this workflow from the older template kept its old design
+documents under `Documentation/Planning/Design/`, `Documentation/Planning/DesignFeatures/`
+and, for any other loose design document, `Documentation/Planning/<name>`.
+They are not this folder's sources, with one exception: a `legacy` feature's page is
+written from its issues and from the old documents those issues link, read at the
+commit each link is pinned to — never from the working tree.
