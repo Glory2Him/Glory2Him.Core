@@ -182,7 +182,6 @@ namespace Glory2Him.Core.Tests.Unit.Infrastructure.Services
         private static void GenerateBuildScript(ScriptGenerationService scriptGenerationService) =>
             scriptGenerationService.GenerateBuildScript(
                 branchName: "main",
-                projectName: "Glory2Him.Core",
                 dotNetVersion: "10.x");
 
         private static string GetWorkflowPath(string workflowFileName) =>
