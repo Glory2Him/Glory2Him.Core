@@ -17,5 +17,6 @@ Source: Claude Design exports. `Admin Post Detail.dc.html` came in with the 2026
 
 Superseded by `Documentation/Planning/DesignFeatures/PostModeration.md`,
 `Documentation/Planning/Design/UI/Pages/ContentItemModerationDetailPage.md` and
-`Documentation/Planning/Design/UI/Pages/AssociationModerationDetailPage.md`, written under #705. Their
-rules win wherever these screens and the design disagree.
+`Documentation/Planning/Design/UI/Pages/AssociationModerationDetailPage.md`, written under #705. Under the older workflow their rules won wherever these
+screens and the design disagreed. Those documents are now history in
+`Documentation/Planning/`, and count only once ported through the issue forms.

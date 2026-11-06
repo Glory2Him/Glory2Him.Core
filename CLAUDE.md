@@ -30,7 +30,7 @@ move step by step, following
   or comment naming `Documentation/Design/X` or `Documentation/DesignFeatures/X` means
   `Documentation/Planning/Design/X` or `Documentation/Planning/DesignFeatures/X`. The
   old design is never a source for new work. `Documentation/Design/` is now the
-  releaser's, and holds only its placeholder until the first release.
+  releaser's, and holds only its placeholder until the first release under this workflow.
 
 Delete this section once #1381 closes.
 

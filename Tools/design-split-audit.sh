@@ -58,8 +58,9 @@
 #                         prefix; §7 to §10 stand between §6 and §11, and §12 to
 #                         §18 stand between §11 and §19, in `G2H Design.md`, but
 #                         the seven ranges are contiguous in `Domain.md`.
-#                         `all` is the whole-document mode: every `*.md` under
-#                         `Documentation/Planning/Design/`. Both gates skip
+#                         `all` is the whole-document mode: every `*.md` directly
+#                         in `Documentation/Planning/Design/` — the area files and
+#                         the index, not the pages and components in its subfolders. Both gates skip
 #                         `Documentation/Planning/Design/Events.md` regardless of scope —
 #                         see the note below — and that skip lives inside each
 #                         gate, not in file selection. G1 skips the index,
@@ -167,7 +168,7 @@ area_files() {
 
 expected_area_file() {
     # The one file a narrow scope resolves to, named when it is missing.
-    # Meaningless under --scope all, which resolves to every file under
+    # Meaningless under --scope all, which resolves to every `*.md` directly in
     # `Documentation/Planning/Design/`, the index included.
     case "$SCOPE" in
         20)  echo "$AREA_DIR/UI.md" ;;

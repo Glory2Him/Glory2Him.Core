@@ -1092,7 +1092,7 @@ Glory2Him/Glory2Him.Core#1381. Until each exists, the sections that depend on it
 description rather than mechanism:
 
 - **A clean label sync.** The first run, when #1403 merged, created the status, type,
-  approval, `legacy` and effort labels but failed to update `status: done`, whose
+  approval and `legacy` labels that were missing but failed to update `status: done`, whose
   description was over GitHub's 100-character limit. #1405 brings the shorter one, and
   its merge reruns the sync (Actions → Labels). Delete this line once that run passes.
 - **The User Story issue type and sub-issues** enabled for the organisation. The build
@@ -1103,6 +1103,8 @@ description rather than mechanism:
   needs the maintainer's bypass.
 - **Your machine** set up: `git` and Git Bash, `gh`, `jq`, `node`, `claude` signed in
   to your Pro account, the .NET SDK and LocalDB.
+- **Decision record `0002`** (#1381 step 6), carrying every deviation approved before
+  the move as a `**Deviation:**` line, so `scripts/list-deviations.sh` finds them.
 - **The Global Rules issue**, filed lean with a **Legacy rules** index over the old
   global sections not yet ported, and the presentation component rules in full,
   reviewed by QA and approved by the maintainer. Until then the planner has nothing to

@@ -41,7 +41,7 @@ and `Documentation/G2H Design.md` (Glory2Him/Glory2Him.Core#1404). The images, t
 model, the foundation-service prompt and `ModelBudget/` stayed where they were. This
 repository has **no `legacy` tasks**: its open issues from the old process were closed
 as superseded instead (Glory2Him/Glory2Him.Core#1381, decision C13), each closing comment
-naming its document at commit `e764625a58029eb076c0490c2d1c92b14fcb2d00`, the last
+naming its document, where it has one, at commit `e764625a58029eb076c0490c2d1c92b14fcb2d00`, the last
 before the move. The exception below never applies here; every document is ported
 through `/grill-with-docs`.
 

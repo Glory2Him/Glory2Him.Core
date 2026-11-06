@@ -52,9 +52,10 @@ points at cannot change under it later:
 
 ## In this repository
 
-The mockup folders here came from the older workflow, so each also holds a flattened
-`<screen-name>.webp` beside its export, and its README names the feature document it fed
-— now under `Documentation/Planning/DesignFeatures/`. Issue #398 shows one of those
-images embedded in an issue by a raw URL pinned to a commit SHA. A new mockup follows the
-sections above: its README names the feature issue, and its image is dragged into that
-issue.
+One folder came from the older workflow: `G2H Mockup/`, the Claude Design HTML
+exports. Its README covers two of those screens and names the old documents they fed,
+now under `Documentation/Planning/`. That line is history: those documents count only
+once they are ported through the issue forms. The older workflow's flattened images live
+apart from it, in `Documentation/Images/`; issue #398 embeds some of them by a raw URL
+pinned to a commit SHA. A new mockup follows the sections above: its README names the
+feature issue, and its image is dragged into that issue.
