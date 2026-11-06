@@ -14,9 +14,7 @@ and releases.
 This repository was made from the older template, with its design kept as documents,
 and is moving onto the issue-based workflow. Glory2Him/Glory2Him.Core#1381 tracks the
 move step by step, following
-`Documentation/Procedures/migrating-an-existing-repository.md` in Glory2Him.Template. The move brings `Documentation/Procedures/` and
-`Documentation/Decisions/` here; until it does, the documents this file and
-`DEVELOPERS.md` name there are read in the Template. Until #1381 closes:
+`Documentation/Procedures/migrating-an-existing-repository.md`. Until #1381 closes:
 
 - **No new design.** No feature is grilled or planned, and no design document
   changes, until the Global Rules issue carries `approved`: there are no settled rules
@@ -27,14 +25,12 @@ move step by step, following
   documents through `/grill-with-docs`, planned with `/plan-feature`, approved, then
   built — starting with Presentation Components, then Like. This repository has no
   `legacy` features; the shared agents and skills support them for other repositories.
-- **No release until the documents have moved.** The releaser writes
-  `Documentation/Design/design.md` and `Documentation/Design/Features/`, where the old
-  design index still sits; `/release` waits until the documents are under
-  `Documentation/Planning/`.
-- **Where the old design is.** Until the documents move, they are at
-  `Documentation/Design/`, `Documentation/DesignFeatures/` and
-  `Documentation/G2H Design.md`; after it, under `Documentation/Planning/` at the same
-  sub-paths. They are never a source for new work.
+- **Where the old design is.** Under `Documentation/Planning/`, at the sub-paths it
+  had before the move: `Design/`, `DesignFeatures/` and `G2H Design.md`. An old issue
+  or comment naming `Documentation/Design/X` or `Documentation/DesignFeatures/X` means
+  `Documentation/Planning/Design/X` or `Documentation/Planning/DesignFeatures/X`. The
+  old design is never a source for new work. `Documentation/Design/` is now the
+  releaser's, and holds only its placeholder until the first release.
 
 Delete this section once #1381 closes.
 

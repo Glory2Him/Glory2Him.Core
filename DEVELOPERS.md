@@ -1101,8 +1101,6 @@ description rather than mechanism:
   needs the maintainer's bypass.
 - **Your machine** set up: `git` and Git Bash, `gh`, `jq`, `node`, `claude` signed in
   to your Pro account, the .NET SDK and LocalDB.
-- **The old issues closed**, each with a comment naming the document its design lives
-  in.
 - **The Global Rules issue**, filed lean with a **Legacy rules** index over the old
   global sections not yet ported, and the presentation component rules in full,
   reviewed by QA and approved by the maintainer. Until then the planner has nothing to
